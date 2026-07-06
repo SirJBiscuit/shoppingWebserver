@@ -1,0 +1,301 @@
+const express = require('express');
+const { body, validationResult } = require('express-validator');
+const db = require('../database/db');
+const { authenticateToken } = require('../middleware/auth');
+
+const router = express.Router();
+
+router.use(authenticateToken);
+
+router.get('/lists', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT sl.*, COUNT(sli.id) as item_count, 
+       COALESCE(SUM(sli.price * sli.quantity), 0) as total_cost
+       FROM shopping_lists sl
+       LEFT JOIN shopping_list_items sli ON sl.id = sli.shopping_list_id
+       WHERE sl.user_id = $1
+       GROUP BY sl.id
+       ORDER BY sl.created_at DESC`,
+      [req.user.userId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching lists:', error);
+    res.status(500).json({ error: 'Failed to fetch shopping lists' });
+  }
+});
+
+router.get('/lists/:id', async (req, res) => {
+  try {
+    const listResult = await db.query(
+      'SELECT * FROM shopping_lists WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.user.userId]
+    );
+
+    if (listResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Shopping list not found' });
+    }
+
+    const itemsResult = await db.query(
+      `SELECT sli.*, i.is_recurring, i.recurrence_days
+       FROM shopping_list_items sli
+       LEFT JOIN items i ON sli.item_id = i.id
+       WHERE sli.shopping_list_id = $1
+       ORDER BY sli.category, sli.sort_order, sli.item_name`,
+      [req.params.id]
+    );
+
+    res.json({
+      list: listResult.rows[0],
+      items: itemsResult.rows,
+    });
+  } catch (error) {
+    console.error('Error fetching list:', error);
+    res.status(500).json({ error: 'Failed to fetch shopping list' });
+  }
+});
+
+router.post('/lists', async (req, res) => {
+  const { name, profileId } = req.body;
+
+  try {
+    const result = await db.query(
+      'INSERT INTO shopping_lists (user_id, profile_id, name) VALUES ($1, $2, $3) RETURNING *',
+      [req.user.userId, profileId || null, name || 'Shopping List']
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating list:', error);
+    res.status(500).json({ error: 'Failed to create shopping list' });
+  }
+});
+
+router.post('/lists/:id/items',
+  body('itemName').trim().notEmpty(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { itemName, quantity, unit, price, category } = req.body;
+    const listId = req.params.id;
+
+    try {
+      const listCheck = await db.query(
+        'SELECT id FROM shopping_lists WHERE id = $1 AND user_id = $2',
+        [listId, req.user.userId]
+      );
+
+      if (listCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Shopping list not found' });
+      }
+
+      const itemResult = await db.query(
+        'SELECT id FROM items WHERE user_id = $1 AND LOWER(name) = LOWER($2)',
+        [req.user.userId, itemName]
+      );
+
+      let itemId = null;
+      if (itemResult.rows.length > 0) {
+        itemId = itemResult.rows[0].id;
+      } else {
+        const newItem = await db.query(
+          'INSERT INTO items (user_id, name, category, typical_quantity, typical_unit) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+          [req.user.userId, itemName, category, quantity, unit]
+        );
+        itemId = newItem.rows[0].id;
+      }
+
+      const result = await db.query(
+        `INSERT INTO shopping_list_items 
+         (shopping_list_id, item_id, item_name, quantity, unit, price, category)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        [listId, itemId, itemName, quantity, unit, price, category]
+      );
+
+      res.status(201).json(result.rows[0]);
+    } catch (error) {
+      console.error('Error adding item:', error);
+      res.status(500).json({ error: 'Failed to add item' });
+    }
+  }
+);
+
+router.patch('/lists/:listId/items/:itemId', async (req, res) => {
+  const { listId, itemId } = req.params;
+  const { quantity, price, isChecked } = req.body;
+
+  try {
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (quantity !== undefined) {
+      updates.push(`quantity = $${paramCount++}`);
+      values.push(quantity);
+    }
+    if (price !== undefined) {
+      updates.push(`price = $${paramCount++}`);
+      values.push(price);
+    }
+    if (isChecked !== undefined) {
+      updates.push(`is_checked = $${paramCount++}`);
+      values.push(isChecked);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No updates provided' });
+    }
+
+    values.push(itemId, listId, req.user.userId);
+
+    const result = await db.query(
+      `UPDATE shopping_list_items sli
+       SET ${updates.join(', ')}
+       FROM shopping_lists sl
+       WHERE sli.id = $${paramCount++} 
+       AND sli.shopping_list_id = $${paramCount++}
+       AND sl.id = sli.shopping_list_id
+       AND sl.user_id = $${paramCount++}
+       RETURNING sli.*`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating item:', error);
+    res.status(500).json({ error: 'Failed to update item' });
+  }
+});
+
+router.delete('/lists/:listId/items/:itemId', async (req, res) => {
+  const { listId, itemId } = req.params;
+
+  try {
+    const result = await db.query(
+      `DELETE FROM shopping_list_items sli
+       USING shopping_lists sl
+       WHERE sli.id = $1 
+       AND sli.shopping_list_id = $2
+       AND sl.id = sli.shopping_list_id
+       AND sl.user_id = $3
+       RETURNING sli.id`,
+      [itemId, listId, req.user.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    res.json({ message: 'Item deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting item:', error);
+    res.status(500).json({ error: 'Failed to delete item' });
+  }
+});
+
+router.post('/lists/:id/complete', async (req, res) => {
+  const listId = req.params.id;
+
+  try {
+    const client = await db.pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+
+      const listResult = await client.query(
+        'SELECT * FROM shopping_lists WHERE id = $1 AND user_id = $2',
+        [listId, req.user.userId]
+      );
+
+      if (listResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Shopping list not found' });
+      }
+
+      const itemsResult = await client.query(
+        'SELECT * FROM shopping_list_items WHERE shopping_list_id = $1',
+        [listId]
+      );
+
+      for (const item of itemsResult.rows) {
+        await client.query(
+          `INSERT INTO purchase_history (user_id, item_id, item_name, quantity, unit, price)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [req.user.userId, item.item_id, item.item_name, item.quantity, item.unit, item.price]
+        );
+
+        if (item.item_id) {
+          const statsResult = await client.query(
+            'SELECT * FROM item_statistics WHERE user_id = $1 AND item_id = $2',
+            [req.user.userId, item.item_id]
+          );
+
+          if (statsResult.rows.length > 0) {
+            const stats = statsResult.rows[0];
+            const daysSinceLastPurchase = stats.last_purchase_date
+              ? Math.floor((new Date() - new Date(stats.last_purchase_date)) / (1000 * 60 * 60 * 24))
+              : null;
+
+            const newAvgDays = daysSinceLastPurchase
+              ? (stats.average_days_between_purchases * stats.total_purchases + daysSinceLastPurchase) / (stats.total_purchases + 1)
+              : stats.average_days_between_purchases;
+
+            await client.query(
+              `UPDATE item_statistics 
+               SET total_purchases = total_purchases + 1,
+                   average_days_between_purchases = $1,
+                   preferred_quantity = $2,
+                   preferred_unit = $3,
+                   last_purchase_date = CURRENT_TIMESTAMP
+               WHERE user_id = $4 AND item_id = $5`,
+              [newAvgDays, item.quantity, item.unit, req.user.userId, item.item_id]
+            );
+          } else {
+            await client.query(
+              `INSERT INTO item_statistics 
+               (user_id, item_id, total_purchases, preferred_quantity, preferred_unit, last_purchase_date)
+               VALUES ($1, $2, 1, $3, $4, CURRENT_TIMESTAMP)`,
+              [req.user.userId, item.item_id, item.quantity, item.unit]
+            );
+          }
+
+          await client.query(
+            `INSERT INTO inventory (user_id, item_id, current_quantity, unit, percentage_left, last_purchased)
+             VALUES ($1, $2, $3, $4, 100, CURRENT_TIMESTAMP)
+             ON CONFLICT (user_id, profile_id, item_id) 
+             DO UPDATE SET current_quantity = $3, percentage_left = 100, last_purchased = CURRENT_TIMESTAMP, last_updated = CURRENT_TIMESTAMP`,
+            [req.user.userId, item.item_id, item.quantity, item.unit]
+          );
+        }
+      }
+
+      await client.query(
+        'UPDATE shopping_lists SET status = $1, completed_at = CURRENT_TIMESTAMP WHERE id = $2',
+        ['completed', listId]
+      );
+
+      await client.query('COMMIT');
+
+      res.json({ message: 'Shopping list completed successfully' });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Error completing list:', error);
+    res.status(500).json({ error: 'Failed to complete shopping list' });
+  }
+});
+
+module.exports = router;
