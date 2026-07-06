@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.post('/register',
   body('username').trim().isLength({ min: 3, max: 50 }).isAlphanumeric(),
-  body('email').isEmail().normalizeEmail(),
+  body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail(),
   body('password').isLength({ min: 8 }),
   async (req, res) => {
     const errors = validationResult(req);
@@ -19,10 +19,18 @@ router.post('/register',
     const { username, email, password } = req.body;
 
     try {
-      const existingUser = await db.query(
-        'SELECT id FROM users WHERE username = $1 OR email = $2',
-        [username, email]
-      );
+      let existingUser;
+      if (email) {
+        existingUser = await db.query(
+          'SELECT id FROM users WHERE username = $1 OR email = $2',
+          [username, email]
+        );
+      } else {
+        existingUser = await db.query(
+          'SELECT id FROM users WHERE username = $1',
+          [username]
+        );
+      }
 
       if (existingUser.rows.length > 0) {
         return res.status(409).json({ error: 'Username or email already exists' });
@@ -32,7 +40,7 @@ router.post('/register',
 
       const result = await db.query(
         'INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, created_at',
-        [username, email, passwordHash]
+        [username, email || null, passwordHash]
       );
 
       const user = result.rows[0];
