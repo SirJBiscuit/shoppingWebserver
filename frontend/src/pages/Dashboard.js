@@ -9,6 +9,7 @@ import {
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
 import InventoryPanel from '../components/InventoryPanel';
+import ThemeToggle from '../components/ThemeToggle';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -207,13 +208,13 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b border-gray-200">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <ShoppingCart className="w-8 h-8 text-primary-600 mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900">CloudMC Shop</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CloudMC Shop</h1>
             </div>
             <div className="flex items-center space-x-6">
               <button
@@ -244,10 +245,11 @@ const Dashboard = () => {
                 <Settings className="w-5 h-5 mr-1" />
                 Admin
               </button>
-              <span className="text-gray-600">Welcome, {user?.username}</span>
+              <span className="text-gray-600 dark:text-gray-300">Welcome, {user?.username}</span>
+              <ThemeToggle />
               <button
                 onClick={logout}
-                className="flex items-center text-gray-600 hover:text-gray-900"
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
               >
                 <LogOut className="w-5 h-5 mr-1" />
                 Logout

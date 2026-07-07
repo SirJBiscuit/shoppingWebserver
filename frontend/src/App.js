@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -39,16 +40,18 @@ const PublicRoute = ({ children }) => {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-          <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-          <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/recipes" element={<PrivateRoute><Recipes /></PrivateRoute>} />
-          <Route path="/pantry" element={<PrivateRoute><Pantry /></PrivateRoute>} />
-          <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
-        </Routes>
-      </Router>
+      <ThemeProvider>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+            <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+            <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+            <Route path="/recipes" element={<PrivateRoute><Recipes /></PrivateRoute>} />
+            <Route path="/pantry" element={<PrivateRoute><Pantry /></PrivateRoute>} />
+            <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
+          </Routes>
+        </Router>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

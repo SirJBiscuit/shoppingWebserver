@@ -160,6 +160,60 @@ router.get('/item-preferences', authenticateToken, async (req, res) => {
   }
 });
 
+// Get user preferences (dark mode, etc.)
+router.get('/preferences', authenticateToken, async (req, res) => {
+  try {
+    let result = await db.query(`
+      SELECT * FROM user_preferences WHERE user_id = $1
+    `, [req.user.userId]);
+    
+    // Create default preferences if they don't exist
+    if (result.rows.length === 0) {
+      result = await db.query(`
+        INSERT INTO user_preferences (user_id, dark_mode, auto_sort_by_aisle, packing_mode)
+        VALUES ($1, true, true, 'smart')
+        RETURNING *
+      `, [req.user.userId]);
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Get preferences error:', error);
+    res.status(500).json({ error: 'Failed to fetch preferences' });
+  }
+});
+
+// Update user preferences
+router.post('/preferences', authenticateToken, async (req, res) => {
+  try {
+    const { dark_mode, default_store, auto_sort_by_aisle, show_prices, show_item_images, packing_mode, preferences } = req.body;
+    
+    const result = await db.query(`
+      INSERT INTO user_preferences (
+        user_id, dark_mode, default_store, auto_sort_by_aisle, 
+        show_prices, show_item_images, packing_mode, preferences
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      ON CONFLICT (user_id) 
+      DO UPDATE SET 
+        dark_mode = COALESCE($2, user_preferences.dark_mode),
+        default_store = COALESCE($3, user_preferences.default_store),
+        auto_sort_by_aisle = COALESCE($4, user_preferences.auto_sort_by_aisle),
+        show_prices = COALESCE($5, user_preferences.show_prices),
+        show_item_images = COALESCE($6, user_preferences.show_item_images),
+        packing_mode = COALESCE($7, user_preferences.packing_mode),
+        preferences = COALESCE($8, user_preferences.preferences),
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [req.user.userId, dark_mode, default_store, auto_sort_by_aisle, show_prices, show_item_images, packing_mode, preferences]);
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Update preferences error:', error);
+    res.status(500).json({ error: 'Failed to update preferences' });
+  }
+});
+
 // Get preference for specific item (by name or barcode)
 router.get('/item-preference', authenticateToken, async (req, res) => {
   try {
