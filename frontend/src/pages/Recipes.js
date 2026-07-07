@@ -74,7 +74,7 @@ const Recipes = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading recipes...</div>
+        <div className="text-gray-500 dark:text-gray-400">Loading recipes...</div>
       </div>
     );
   }
@@ -196,10 +196,10 @@ const Recipes = () => {
       <div>
         <h2 className="text-2xl font-semibold text-gray-900 mb-4">All Recipes</h2>
         {recipes.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <ChefHat className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600 text-lg">No recipes yet</p>
-            <p className="text-gray-500 text-sm mt-2">Create your first recipe to get started!</p>
+            <p className="text-gray-600 dark:text-gray-300 text-lg">No recipes yet</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Create your first recipe to get started!</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -249,7 +249,7 @@ const RecipeCard = ({ recipe, onAddToList, onToggleFavorite, onDelete, canMake, 
           <p className="text-sm text-gray-600 mb-3 line-clamp-2">{recipe.description}</p>
         )}
 
-        <div className="flex items-center text-sm text-gray-500 space-x-4 mb-3">
+        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 space-x-4 mb-3">
           {recipe.prep_time && (
             <div className="flex items-center">
               <Clock className="w-4 h-4 mr-1" />

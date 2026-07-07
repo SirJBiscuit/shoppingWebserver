@@ -339,16 +339,16 @@ const Admin = () => {
           {updateInfo && (
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Current Version</p>
-                  <p className="text-lg font-mono font-semibold">{updateInfo.currentCommit}</p>
+                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Current Version</p>
+                  <p className="text-lg font-mono font-semibold text-gray-900 dark:text-gray-100">{updateInfo.currentCommit}</p>
                 </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Previous Version</p>
-                  <p className="text-lg font-mono font-semibold text-gray-500">{updateInfo.previousCommit || 'N/A'}</p>
+                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Previous Version</p>
+                  <p className="text-lg font-mono font-semibold text-gray-500 dark:text-gray-400">{updateInfo.previousCommit || 'N/A'}</p>
                 </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Latest Version</p>
+                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Latest Version</p>
                   <p className="text-lg font-mono font-semibold text-green-600">{updateInfo.latestCommit}</p>
                 </div>
               </div>
@@ -436,16 +436,16 @@ const Admin = () => {
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600 flex items-center">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
                   <GitBranch className="w-4 h-4 mr-1" />
                   Git Branch
                 </p>
-                <p className="text-lg font-semibold">{systemStatus.git.branch}</p>
-                <p className="text-sm text-gray-500 font-mono">{systemStatus.git.commit}</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{systemStatus.git.branch}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{systemStatus.git.commit}</p>
               </div>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600 flex items-center">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
                   <Database className="w-4 h-4 mr-1" />
                   Database
                 </p>
@@ -453,18 +453,18 @@ const Admin = () => {
                   {systemStatus.database.connected ? 'Connected' : 'Disconnected'}
                 </p>
               </div>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600">Uptime</p>
-                <p className="text-lg font-semibold">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Uptime</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   {Math.floor(systemStatus.uptime / 3600)}h {Math.floor((systemStatus.uptime % 3600) / 60)}m
                 </p>
               </div>
             </div>
 
             <div className="space-y-2">
-              <h3 className="font-semibold text-gray-900 mb-3">Docker Containers</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Docker Containers</h3>
               {systemStatus.containers.map((container, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                   <div className="flex items-center">
                     {container.status === 'running' ? (
                       <CheckCircle className="w-5 h-5 text-green-500 mr-3" />

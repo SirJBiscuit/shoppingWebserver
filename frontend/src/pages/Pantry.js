@@ -78,7 +78,7 @@ const Pantry = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading pantry...</div>
+        <div className="text-gray-500 dark:text-gray-400">Loading pantry...</div>
       </div>
     );
   }
@@ -186,18 +186,18 @@ const Pantry = () => {
       {/* Pantry Items by Category */}
       <div className="space-y-8">
         {pantryItems.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <Package className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600 text-lg">Your pantry is empty</p>
-            <p className="text-gray-500 text-sm mt-2">Add items to start tracking your inventory</p>
+            <p className="text-gray-600 dark:text-gray-300 text-lg">Your pantry is empty</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Add items to start tracking your inventory</p>
           </div>
         ) : (
           categories.map((category) => (
             <div key={category}>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
                 <span className="text-2xl mr-2">{groupedItems[category].icon}</span>
                 {category}
-                <span className="ml-2 text-sm text-gray-500 font-normal">
+                <span className="ml-2 text-sm text-gray-500 dark:text-gray-400 font-normal">
                   ({groupedItems[category].items.length} items)
                 </span>
               </h3>
@@ -274,7 +274,7 @@ const PantryItemCard = ({ item, onDelete, onUpdateQuantity }) => {
       )}
 
       {item.expiry_date && (
-        <p className={`text-xs ${isExpiringSoon ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+        <p className={`text-xs ${isExpiringSoon ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
           {isExpiringSoon && '⚠️ '}
           Expires: {new Date(item.expiry_date).toLocaleDateString()}
         </p>

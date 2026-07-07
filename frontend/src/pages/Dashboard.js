@@ -309,7 +309,7 @@ const Dashboard = () => {
                         className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded hover:bg-primary-50 dark:hover:bg-gray-600 cursor-pointer transition-colors"
                       >
                         <span className="font-medium">{result.name}</span>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
                           {result.total_purchases ? `Bought ${result.total_purchases}x` : 'New'}
                         </span>
                       </div>
