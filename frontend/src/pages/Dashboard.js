@@ -22,6 +22,7 @@ import Onboarding from '../components/Onboarding';
 import Sidebar from '../components/Sidebar';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
+import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils/userPreferences';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -216,14 +217,26 @@ const Dashboard = () => {
     if (!activeList || !newItemName.trim()) return;
 
     try {
+      const itemName = newItemName.trim();
+      const itemPrice = parseFloat(newItemPrice) || 0;
+      const itemIcon = newItemIcon;
+      
       await shoppingAPI.addItem(activeList.id, {
-        itemName: newItemName,
+        itemName: itemName,
         quantity: parseInt(newItemQuantity) || 1,
         unit: newItemSize,
-        price: parseFloat(newItemPrice) || 0,
+        price: itemPrice,
         category: newItemCategory,
-        icon: newItemIcon,
+        icon: itemIcon,
       });
+
+      // Learn user preferences if they set custom values
+      if (itemIcon) {
+        learnIcon(itemName, itemIcon);
+      }
+      if (newItemPrice && itemPrice > 0) {
+        learnPrice(itemName, itemPrice);
+      }
 
       setNewItemName('');
       setNewItemQuantity('');
@@ -402,8 +415,22 @@ const Dashboard = () => {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setNewItemName(e.target.value);
+                      const value = e.target.value;
+                      setSearchQuery(value);
+                      setNewItemName(value);
+                      
+                      // Auto-fill learned preferences when user types
+                      if (value.length >= 3) {
+                        const learnedIconValue = getLearnedIcon(value);
+                        const learnedPriceValue = getLearnedPrice(value);
+                        
+                        if (learnedIconValue && !newItemIcon) {
+                          setNewItemIcon(learnedIconValue);
+                        }
+                        if (learnedPriceValue !== null && !newItemPrice) {
+                          setNewItemPrice(learnedPriceValue.toString());
+                        }
+                      }
                     }}
                     placeholder="Search or add item..."
                     className="input-field pl-10"
@@ -419,12 +446,19 @@ const Dashboard = () => {
                       >
                         <div
                           onClick={() => {
-                            setNewItemName(result.name);
+                            const itemName = result.name;
+                            setNewItemName(itemName);
                             setNewItemQuantity(result.preferred_quantity || result.typical_quantity || '1');
                             setNewItemSize(result.preferred_unit || result.typical_unit || '');
                             setNewItemCategory(result.category || '');
-                            setNewItemIcon(result.icon || '');
-                            setNewItemPrice(result.average_price || '');
+                            
+                            // Check learned preferences first, then fallback to result data
+                            const learnedIconValue = getLearnedIcon(itemName);
+                            const learnedPriceValue = getLearnedPrice(itemName);
+                            
+                            setNewItemIcon(learnedIconValue || result.icon || '');
+                            setNewItemPrice(learnedPriceValue !== null ? learnedPriceValue.toString() : (result.average_price || ''));
+                            
                             setSearchQuery('');
                             setSearchResults([]);
                           }}
@@ -526,6 +560,12 @@ const Dashboard = () => {
                     await shoppingAPI.updateItem(updatedItem.id, {
                       item_icon: updatedItem.item_icon,
                     });
+                    
+                    // Learn the user's icon choice
+                    if (updatedItem.item_icon && updatedItem.item_name) {
+                      learnIcon(updatedItem.item_name, updatedItem.item_icon);
+                    }
+                    
                     await loadListItems(activeList.id);
                   } catch (error) {
                     console.error('Error updating item:', error);
