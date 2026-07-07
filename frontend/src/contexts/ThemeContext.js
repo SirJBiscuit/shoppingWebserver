@@ -15,21 +15,17 @@ export const ThemeProvider = ({ children }) => {
   const [isDark, setIsDark] = useState(true); // Default to dark mode
   const [loading, setLoading] = useState(true);
 
-  // Load theme preference from backend
+  // Load theme preference from localStorage (don't call API on login page)
   useEffect(() => {
-    const loadTheme = async () => {
+    const loadTheme = () => {
       try {
-        const response = await api.get('/categories/preferences');
-        if (response.data.dark_mode !== undefined) {
-          setIsDark(response.data.dark_mode);
-        }
-      } catch (error) {
-        console.error('Failed to load theme preference:', error);
-        // Use localStorage as fallback
+        // Use localStorage for theme preference
         const savedTheme = localStorage.getItem('darkMode');
         if (savedTheme !== null) {
           setIsDark(savedTheme === 'true');
         }
+      } catch (error) {
+        console.error('Failed to load theme preference:', error);
       } finally {
         setLoading(false);
       }
@@ -52,18 +48,10 @@ export const ThemeProvider = ({ children }) => {
     localStorage.setItem('darkMode', isDark.toString());
   }, [isDark, loading]);
 
-  const toggleTheme = async () => {
+  const toggleTheme = () => {
     const newTheme = !isDark;
     setIsDark(newTheme);
-    
-    // Save to backend
-    try {
-      await api.post('/categories/preferences', {
-        dark_mode: newTheme
-      });
-    } catch (error) {
-      console.error('Failed to save theme preference:', error);
-    }
+    // Theme is automatically saved to localStorage via the useEffect above
   };
 
   return (
