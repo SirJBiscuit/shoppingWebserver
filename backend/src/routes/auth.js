@@ -53,7 +53,6 @@ router.post('/register',
         user: {
           id: user.id,
           username: user.username,
-          email: user.email,
         },
       });
     } catch (error) {
@@ -76,7 +75,7 @@ router.post('/login',
 
     try {
       const result = await db.query(
-        'SELECT id, username, email, password_hash FROM users WHERE username = $1',
+        'SELECT id, username, password_hash FROM users WHERE username = $1',
         [username]
       );
 
@@ -103,7 +102,6 @@ router.post('/login',
         user: {
           id: user.id,
           username: user.username,
-          email: user.email,
         },
       });
     } catch (error) {
