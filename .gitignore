@@ -14,8 +14,9 @@ coverage/
 
 # Database backups
 backups/
-*.sql
 *.sql.gz
+# Allow schema files
+!backend/src/database/schema*.sql
 
 # Docker volumes
 postgres_data/
