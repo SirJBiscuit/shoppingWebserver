@@ -22,6 +22,13 @@ const Admin = () => {
   useEffect(() => {
     checkForUpdates();
     getSystemStatus();
+    
+    // Auto-refresh system status every 30 seconds to update uptime
+    const statusInterval = setInterval(() => {
+      getSystemStatus();
+    }, 30000);
+    
+    return () => clearInterval(statusInterval);
   }, []);
 
   const checkForUpdates = async () => {

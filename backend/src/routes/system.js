@@ -129,13 +129,22 @@ router.get('/check-updates', authenticateToken, isAdmin, async (req, res) => {
 // Apply updates
 router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
   try {
+    console.log('Apply updates requested by user:', req.user.userId);
     const updateLog = [];
     const gitDir = '/opt/cloudmc-shop';
     
     // Pull latest code
     updateLog.push({ step: 'Pulling latest code', status: 'running' });
-    const { stdout: pullOutput } = await execPromise(`cd ${gitDir} && git pull origin main 2>&1`);
-    updateLog.push({ step: 'Pulling latest code', status: 'success', output: pullOutput });
+    console.log('Executing: git pull');
+    try {
+      const { stdout: pullOutput } = await execPromise(`cd ${gitDir} && git pull origin main 2>&1`);
+      updateLog.push({ step: 'Pulling latest code', status: 'success', output: pullOutput });
+      console.log('Git pull successful');
+    } catch (pullError) {
+      console.error('Git pull failed:', pullError);
+      updateLog.push({ step: 'Pulling latest code', status: 'error', output: pullError.message });
+      throw pullError;
+    }
     
     // Copy production config
     updateLog.push({ step: 'Copying production config', status: 'running' });
@@ -180,6 +189,7 @@ router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
     
     updateLog.push({ step: 'Update complete', status: 'success' });
     
+    console.log('Update completed successfully');
     res.json({
       success: true,
       message: 'Updates applied successfully',
@@ -190,7 +200,8 @@ router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Failed to apply updates', 
-      details: error.message 
+      details: error.message,
+      log: updateLog
     });
   }
 });
@@ -255,16 +266,28 @@ router.post('/restart', authenticateToken, isAdmin, async (req, res) => {
 router.get('/logs/:service', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { service } = req.params;
+    const { lines = 100 } = req.query;
     
-    // For now, return a message that logs are available via command line
-    // In the future, we could implement log streaming or use Docker API
-    const message = `To view ${service} logs, run:\n\ndocker logs shop_${service} --tail=100\n\nOr use:\n\ndocker compose logs ${service}`;
+    // Use docker CLI through exec
+    const containerName = `shop_${service}`;
     
-    res.json({
-      service,
-      logs: message,
-      note: 'Log viewing from web interface is coming soon. Use command line for now.'
-    });
+    try {
+      const { stdout, stderr } = await execPromise(`docker logs ${containerName} --tail=${lines} 2>&1`);
+      const logOutput = stdout || stderr || 'No logs available';
+      
+      res.json({
+        service,
+        logs: logOutput,
+        containerName
+      });
+    } catch (execError) {
+      // If docker command fails, return helpful message
+      res.json({
+        service,
+        logs: `Could not retrieve logs for ${containerName}.\n\nError: ${execError.message}\n\nTo view logs manually, run:\ndocker logs ${containerName} --tail=100`,
+        error: true
+      });
+    }
   } catch (error) {
     console.error('Get logs error:', error);
     res.status(500).json({ error: 'Failed to get logs', details: error.message });
