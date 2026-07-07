@@ -70,8 +70,24 @@ router.get('/check-updates', authenticateToken, isAdmin, async (req, res) => {
     const response = await axios.get(githubAPI);
     const latestCommit = response.data.sha.substring(0, 7);
     
-    // Read current version from package.json or environment
-    const currentCommit = process.env.GIT_COMMIT || 'unknown';
+    // Try to get current commit from git in mounted directory
+    let currentCommit = 'unknown';
+    let previousCommit = 'unknown';
+    try {
+      const gitDir = '/opt/cloudmc-shop';
+      const { stdout: current } = await execPromise(`cd ${gitDir} && git rev-parse HEAD 2>/dev/null || echo "unknown"`);
+      currentCommit = current.trim();
+      
+      // Get previous commit (one before current)
+      if (currentCommit !== 'unknown') {
+        const { stdout: previous } = await execPromise(`cd ${gitDir} && git rev-parse HEAD~1 2>/dev/null || echo "unknown"`);
+        previousCommit = previous.trim();
+      }
+    } catch (err) {
+      console.log('Could not read git commits from mounted directory:', err.message);
+      // Fallback to environment variable
+      currentCommit = process.env.GIT_COMMIT || 'unknown';
+    }
     
     const hasUpdates = currentCommit !== latestCommit && currentCommit !== 'unknown';
     
@@ -88,7 +104,8 @@ router.get('/check-updates', authenticateToken, isAdmin, async (req, res) => {
     
     res.json({
       hasUpdates,
-      currentCommit: currentCommit.substring(0, 7),
+      currentCommit: currentCommit === 'unknown' ? 'unknown' : currentCommit.substring(0, 7),
+      previousCommit: previousCommit === 'unknown' ? 'unknown' : previousCommit.substring(0, 7),
       latestCommit,
       commits: commits.slice(0, 10),
       pendingMigrations: schemaMigrations,

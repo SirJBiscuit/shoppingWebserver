@@ -203,14 +203,18 @@ const Admin = () => {
 
           {updateInfo && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-600">Current Version</p>
                   <p className="text-lg font-mono font-semibold">{updateInfo.currentCommit}</p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Previous Version</p>
+                  <p className="text-lg font-mono font-semibold text-gray-500">{updateInfo.previousCommit || 'N/A'}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-600">Latest Version</p>
-                  <p className="text-lg font-mono font-semibold">{updateInfo.latestCommit}</p>
+                  <p className="text-lg font-mono font-semibold text-green-600">{updateInfo.latestCommit}</p>
                 </div>
               </div>
 
