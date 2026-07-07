@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { shoppingAPI, suggestionsAPI, inventoryAPI } from '../services/api';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
@@ -12,6 +12,7 @@ import InventoryPanel from '../components/InventoryPanel';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import AnimatedCart from '../components/AnimatedCart';
+import BudgetTracker from '../components/BudgetTracker';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 
@@ -292,6 +293,13 @@ const Dashboard = () => {
                 Pantry
               </button>
               <button
+                onClick={() => navigate('/meal-plan')}
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
+              >
+                <Calendar className="w-5 h-5 mr-1" />
+                Meal Plan
+              </button>
+              <button
                 onClick={() => navigate('/admin')}
                 className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
               >
@@ -504,6 +512,12 @@ const Dashboard = () => {
             <AnimatedCart 
               items={smartSort ? sortItemsByStoreLayout(items) : items}
               sortedByZone={smartSort}
+            />
+
+            {/* Budget Tracker */}
+            <BudgetTracker 
+              items={items}
+              totalCost={totalCost}
             />
 
             <div className="card">
