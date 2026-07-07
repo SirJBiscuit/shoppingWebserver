@@ -5,7 +5,6 @@ import { ShoppingCart } from 'lucide-react';
 
 const Register = () => {
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -21,13 +20,13 @@ const Register = () => {
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
       return;
     }
 
     setLoading(true);
-    const result = await register(username, email, password);
+    const result = await register(username, password);
     
     if (!result.success) {
       setError(result.error);
@@ -70,18 +69,6 @@ const Register = () => {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email (optional)
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-field"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
               Password
             </label>
             <input
@@ -90,7 +77,7 @@ const Register = () => {
               onChange={(e) => setPassword(e.target.value)}
               className="input-field"
               required
-              minLength={8}
+              minLength={6}
             />
           </div>
           

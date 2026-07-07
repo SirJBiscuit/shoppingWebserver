@@ -8,39 +8,30 @@ const router = express.Router();
 
 router.post('/register',
   body('username').trim().isLength({ min: 3, max: 50 }).isAlphanumeric(),
-  body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail(),
-  body('password').isLength({ min: 8 }),
+  body('password').isLength({ min: 6 }),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { username, email, password } = req.body;
+    const { username, password } = req.body;
 
     try {
-      let existingUser;
-      if (email) {
-        existingUser = await db.query(
-          'SELECT id FROM users WHERE username = $1 OR email = $2',
-          [username, email]
-        );
-      } else {
-        existingUser = await db.query(
-          'SELECT id FROM users WHERE username = $1',
-          [username]
-        );
-      }
+      const existingUser = await db.query(
+        'SELECT id FROM users WHERE username = $1',
+        [username]
+      );
 
       if (existingUser.rows.length > 0) {
-        return res.status(409).json({ error: 'Username or email already exists' });
+        return res.status(409).json({ error: 'Username already exists' });
       }
 
       const passwordHash = await bcrypt.hash(password, 10);
 
       const result = await db.query(
-        'INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, created_at',
-        [username, email || null, passwordHash]
+        'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username, created_at',
+        [username, passwordHash]
       );
 
       const user = result.rows[0];
