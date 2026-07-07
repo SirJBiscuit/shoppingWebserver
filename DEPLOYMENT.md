@@ -155,6 +155,35 @@ curl http://localhost:3001/api/health
 3. **Test external access:**
 Visit https://shop.cloudmc.online in your browser
 
+## Updating the Application
+
+### Quick Update (Recommended)
+```bash
+cd /opt/cloudmc-shop
+chmod +x update-server.sh
+./update-server.sh
+```
+
+This script automatically:
+- Pulls latest code from GitHub
+- Copies production configuration
+- Rebuilds and restarts containers
+- Shows container status
+
+### Manual Update
+```bash
+cd /opt/cloudmc-shop
+git pull
+cp docker-compose.prod.yml docker-compose.yml
+docker compose down
+docker compose up -d --build
+```
+
+### Run Database Migrations (if needed)
+```bash
+docker exec shop_backend npm run migrate-v2
+```
+
 ## Management Commands
 
 ### Service Management
