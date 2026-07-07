@@ -205,20 +205,19 @@ router.get('/status', authenticateToken, isAdmin, async (req, res) => {
 // Restart services
 router.post('/restart', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const gitDir = '/opt/cloudmc-shop';
     const { service } = req.body; // 'all', 'backend', 'frontend', 'postgres'
     
-    let command = `cd ${gitDir} && docker compose restart`;
-    if (service && service !== 'all') {
-      command += ` ${service}`;
-    }
-    
-    const { stdout } = await execPromise(command);
+    // For now, return instructions
+    // In production, this would need proper Docker API integration
+    const message = service === 'all' 
+      ? 'To restart all services, run: docker compose restart'
+      : `To restart ${service}, run: docker compose restart ${service}`;
     
     res.json({
-      success: true,
-      message: `Service(s) restarted successfully`,
-      output: stdout
+      success: false,
+      message: 'Service restart from web interface is coming soon',
+      instructions: message,
+      note: 'Use command line or the update script for now'
     });
   } catch (error) {
     console.error('Restart service error:', error);
@@ -229,15 +228,16 @@ router.post('/restart', authenticateToken, isAdmin, async (req, res) => {
 // View logs
 router.get('/logs/:service', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const gitDir = '/opt/cloudmc-shop';
     const { service } = req.params;
-    const { lines = 100 } = req.query;
     
-    const { stdout } = await execPromise(`cd ${gitDir} && docker compose logs --tail=${lines} ${service}`);
+    // For now, return a message that logs are available via command line
+    // In the future, we could implement log streaming or use Docker API
+    const message = `To view ${service} logs, run:\n\ndocker logs shop_${service} --tail=100\n\nOr use:\n\ndocker compose logs ${service}`;
     
     res.json({
       service,
-      logs: stdout
+      logs: message,
+      note: 'Log viewing from web interface is coming soon. Use command line for now.'
     });
   } catch (error) {
     console.error('Get logs error:', error);
