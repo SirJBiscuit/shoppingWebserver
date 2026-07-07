@@ -17,10 +17,12 @@ export const ThemeProvider = ({ children }) => {
 
   // Load theme preference from localStorage (don't call API on login page)
   useEffect(() => {
+    console.log('ThemeContext: Loading theme from localStorage');
     const loadTheme = () => {
       try {
         // Use localStorage for theme preference
         const savedTheme = localStorage.getItem('darkMode');
+        console.log('ThemeContext: Saved theme:', savedTheme);
         if (savedTheme !== null) {
           setIsDark(savedTheme === 'true');
         }
@@ -38,14 +40,23 @@ export const ThemeProvider = ({ children }) => {
   useEffect(() => {
     if (loading) return;
     
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    console.log('ThemeContext: Applying theme, isDark:', isDark);
     
-    // Save to localStorage as backup
-    localStorage.setItem('darkMode', isDark.toString());
+    const currentTheme = document.documentElement.classList.contains('dark');
+    const shouldBeDark = isDark;
+    
+    // Only update if theme actually changed
+    if (currentTheme !== shouldBeDark) {
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      
+      // Save to localStorage
+      localStorage.setItem('darkMode', isDark.toString());
+      console.log('ThemeContext: Theme updated to', isDark ? 'dark' : 'light');
+    }
   }, [isDark, loading]);
 
   const toggleTheme = () => {
