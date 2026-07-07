@@ -12,13 +12,15 @@
   .btn-primary {
     @apply bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 
            dark:bg-primary-500 dark:hover:bg-primary-600 
-           transition-colors font-medium shadow-sm;
+           transition-all duration-200 font-medium shadow-sm
+           hover:scale-105 hover:shadow-md active:scale-95;
   }
   
   .btn-secondary {
     @apply bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 
            dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 
-           transition-colors font-medium;
+           transition-all duration-200 font-medium
+           hover:scale-105 hover:shadow-md active:scale-95;
   }
   
   .input-field {

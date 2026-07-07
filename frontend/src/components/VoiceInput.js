@@ -70,21 +70,42 @@ const VoiceInput = ({ onResult, isOpen, onClose }) => {
 
   useEffect(() => {
     if (isOpen && recognitionRef.current) {
-      startListening();
+      // Stop any existing recognition before starting
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        // Ignore if not started
+      }
+      // Small delay to ensure previous recognition is stopped
+      setTimeout(() => {
+        startListening();
+      }, 100);
     }
     return () => {
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          // Ignore if already stopped
+        }
       }
     };
   }, [isOpen]);
 
   const startListening = () => {
     if (recognitionRef.current && !isListening) {
-      setTranscript('');
-      setInterimTranscript('');
-      setError(null);
-      recognitionRef.current.start();
+      try {
+        setTranscript('');
+        setInterimTranscript('');
+        setError(null);
+        recognitionRef.current.start();
+      } catch (error) {
+        console.error('Error starting recognition:', error);
+        if (error.message.includes('already started')) {
+          // Recognition is already running, just update state
+          setIsListening(true);
+        }
+      }
     }
   };
 

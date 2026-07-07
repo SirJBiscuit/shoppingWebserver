@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { shoppingAPI, suggestionsAPI, inventoryAPI } from '../services/api';
+import { shoppingAPI, suggestionsAPI, inventoryAPI, categoriesAPI } from '../services/api';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
   AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic
@@ -38,6 +38,7 @@ const Dashboard = () => {
   const [newItemIcon, setNewItemIcon] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [showInventory, setShowInventory] = useState(false);
   const [smartSort, setSmartSort] = useState(false);
@@ -50,6 +51,7 @@ const Dashboard = () => {
     loadLists();
     loadSuggestions();
     loadInventory();
+    loadCategories();
   }, []);
 
   useEffect(() => {
@@ -135,6 +137,27 @@ const Dashboard = () => {
       setInventory(response.data);
     } catch (error) {
       console.error('Error loading inventory:', error);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const response = await categoriesAPI.getCategories();
+      setCategories(response.data || []);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+      // Set default categories if API fails
+      setCategories([
+        { id: 1, name: 'Produce', icon: '🥬' },
+        { id: 2, name: 'Meat', icon: '🥩' },
+        { id: 3, name: 'Dairy', icon: '🥛' },
+        { id: 4, name: 'Bakery', icon: '🍞' },
+        { id: 5, name: 'Frozen', icon: '🧊' },
+        { id: 6, name: 'Pantry', icon: '🥫' },
+        { id: 7, name: 'Snacks', icon: '🍿' },
+        { id: 8, name: 'Beverages', icon: '🥤' },
+        { id: 9, name: 'Other', icon: '📦' },
+      ]);
     }
   };
 
@@ -294,38 +317,45 @@ const Dashboard = () => {
               </button>
               <button
                 onClick={() => navigate('/recipes')}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
+                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105"
               >
                 <ChefHat className="w-5 h-5 mr-1" />
                 Recipes
               </button>
               <button
                 onClick={() => navigate('/pantry')}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
+                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105"
               >
                 <Package className="w-5 h-5 mr-1" />
                 Pantry
               </button>
               <button
                 onClick={() => navigate('/meal-plan')}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
+                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105"
               >
                 <Calendar className="w-5 h-5 mr-1" />
                 Meal Plan
               </button>
               <button
                 onClick={() => navigate('/stats')}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
+                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105"
               >
                 <BarChart3 className="w-5 h-5 mr-1" />
                 Stats
               </button>
               <button
                 onClick={() => navigate('/settings')}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
+                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105"
               >
                 <Settings className="w-5 h-5 mr-1" />
                 Settings
+              </button>
+              <button
+                onClick={() => navigate('/admin')}
+                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105"
+              >
+                <Settings className="w-5 h-5 mr-1" />
+                Admin
               </button>
               <span className="text-gray-600 dark:text-gray-300">Welcome, {user?.username}</span>
               <NotificationCenter />
@@ -521,13 +551,18 @@ const Dashboard = () => {
                     placeholder="Price"
                     className="input-field"
                   />
-                  <input
-                    type="text"
+                  <select
                     value={newItemCategory}
                     onChange={(e) => setNewItemCategory(e.target.value)}
-                    placeholder="Category"
                     className="input-field"
-                  />
+                  >
+                    <option value="">Category</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.name}>
+                        {cat.icon} {cat.name}
+                      </option>
+                    ))}
+                  </select>
                   <button type="submit" className="btn-primary flex items-center justify-center">
                     <Plus className="w-5 h-5 mr-1" />
                     Add
