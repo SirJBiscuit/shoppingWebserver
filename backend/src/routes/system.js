@@ -9,16 +9,37 @@ const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 const execPromise = util.promisify(exec);
 
-// Middleware to check if user is admin (first user or has admin flag)
+// Middleware to check if user is admin (first user, specific usernames, or has admin flag)
 const isAdmin = async (req, res, next) => {
   try {
-    const result = await db.query('SELECT id FROM users ORDER BY id LIMIT 1');
-    if (result.rows.length > 0 && result.rows[0].id === req.user.userId) {
+    // Check if user is in admin list
+    const adminUsernames = ['guy69']; // Add more admin usernames here
+    
+    const result = await db.query(
+      'SELECT id, username FROM users WHERE id = $1',
+      [req.user.userId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(403).json({ error: 'User not found' });
+    }
+    
+    const user = result.rows[0];
+    
+    // Check if first user
+    const firstUserResult = await db.query('SELECT id FROM users ORDER BY id LIMIT 1');
+    const isFirstUser = firstUserResult.rows.length > 0 && firstUserResult.rows[0].id === user.id;
+    
+    // Check if in admin username list
+    const isAdminUsername = adminUsernames.includes(user.username);
+    
+    if (isFirstUser || isAdminUsername) {
       next();
     } else {
       res.status(403).json({ error: 'Admin access required' });
     }
   } catch (error) {
+    console.error('Admin check error:', error);
     res.status(500).json({ error: 'Failed to verify admin status' });
   }
 };
