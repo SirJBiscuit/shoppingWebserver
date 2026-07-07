@@ -115,7 +115,7 @@ router.get('/search', async (req, res) => {
     const result = await db.query(
       `SELECT DISTINCT ON (LOWER(i.name)) i.*, 
        stats.total_purchases, stats.preferred_quantity, stats.preferred_unit,
-       i.average_price
+       i.average_price, i.icon, i.category
        FROM items i
        LEFT JOIN item_statistics stats ON i.id = stats.item_id AND stats.user_id = $1
        WHERE i.user_id = $1 AND LOWER(i.name) LIKE LOWER($2)
@@ -128,6 +128,26 @@ router.get('/search', async (req, res) => {
   } catch (error) {
     console.error('Error searching items:', error);
     res.status(500).json({ error: 'Failed to search items' });
+  }
+});
+
+// Delete item from user's history
+router.delete('/:itemId', async (req, res) => {
+  try {
+    // Delete from items table (this will cascade to item_statistics)
+    const result = await db.query(
+      `DELETE FROM items WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [req.params.itemId, req.user.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    res.json({ message: 'Item deleted from history' });
+  } catch (error) {
+    console.error('Error deleting item:', error);
+    res.status(500).json({ error: 'Failed to delete item' });
   }
 });
 

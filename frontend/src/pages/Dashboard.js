@@ -11,7 +11,7 @@ import SmartSuggestions from '../components/SmartSuggestions';
 import InventoryPanel from '../components/InventoryPanel';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
-import { detectCategory, estimatePrice } from '../utils/categoryDetector';
+import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -26,6 +26,7 @@ const Dashboard = () => {
   const [newItemSize, setNewItemSize] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
+  const [newItemIcon, setNewItemIcon] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -52,8 +53,10 @@ const Dashboard = () => {
     }
   }, [searchQuery]);
 
-  // Auto-detect category and estimate price when item name changes
+  // Auto-detect category, icon, and estimate price when item name changes
+  // Only auto-detect if user hasn't already set values (from history or manually)
   useEffect(() => {
+    // Only auto-detect if field is empty (not set from search results)
     if (newItemName && !newItemCategory) {
       const detectedCategory = detectCategory(newItemName);
       if (detectedCategory) {
@@ -61,11 +64,20 @@ const Dashboard = () => {
       }
     }
     
+    // Only auto-detect icon if not already set from user history
+    if (newItemName && !newItemIcon) {
+      const detectedIcon = detectIcon(newItemName);
+      if (detectedIcon) {
+        setNewItemIcon(detectedIcon);
+      }
+    }
+    
+    // Only estimate price if not already set from user history
     if (newItemName && !newItemPrice && newItemCategory) {
       const estimatedPrice = estimatePrice(newItemName, newItemCategory);
       setNewItemPrice(estimatedPrice.toFixed(2));
     }
-  }, [newItemName, newItemCategory]);
+  }, [newItemName, newItemCategory, newItemIcon, newItemPrice]);
 
   const loadLists = async () => {
     try {
@@ -162,6 +174,7 @@ const Dashboard = () => {
         unit: newItemSize,
         price: parseFloat(newItemPrice) || 0,
         category: newItemCategory,
+        icon: newItemIcon,
       });
 
       setNewItemName('');
@@ -169,6 +182,7 @@ const Dashboard = () => {
       setNewItemSize('');
       setNewItemPrice('');
       setNewItemCategory('');
+      setNewItemIcon('');
       setSearchQuery('');
       setSearchResults([]);
       
@@ -367,12 +381,17 @@ const Dashboard = () => {
                             setNewItemQuantity(result.preferred_quantity || result.typical_quantity || '1');
                             setNewItemSize(result.preferred_unit || result.typical_unit || '');
                             setNewItemCategory(result.category || '');
+                            setNewItemIcon(result.icon || '');
+                            setNewItemPrice(result.average_price || '');
                             setSearchQuery('');
                             setSearchResults([]);
                           }}
                           className="flex-1 cursor-pointer"
                         >
-                          <span className="font-medium">{result.name}</span>
+                          <span className="font-medium">
+                            {result.icon && <span className="mr-2">{result.icon}</span>}
+                            {result.name}
+                          </span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <span className="text-sm text-gray-500 dark:text-gray-400">

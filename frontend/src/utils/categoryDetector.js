@@ -1,3 +1,130 @@
+// Icon mapping for common items
+const itemIcons = {
+  // Bread & Bakery
+  'bread': '🍞',
+  'bagel': '🥯',
+  'bun': '🍔',
+  'roll': '🥖',
+  'croissant': '🥐',
+  'donut': '🍩',
+  'muffin': '🧁',
+  'cake': '🎂',
+  'cookie': '🍪',
+  'pie': '🥧',
+  
+  // Fruits
+  'apple': '🍎',
+  'banana': '🍌',
+  'orange': '🍊',
+  'lemon': '🍋',
+  'lime': '🍋',
+  'grape': '🍇',
+  'strawberry': '🍓',
+  'watermelon': '🍉',
+  'melon': '🍈',
+  'peach': '🍑',
+  'pear': '🍐',
+  'cherry': '🍒',
+  'pineapple': '🍍',
+  'kiwi': '🥝',
+  'mango': '🥭',
+  'avocado': '🥑',
+  
+  // Vegetables
+  'tomato': '🍅',
+  'potato': '🥔',
+  'carrot': '🥕',
+  'corn': '🌽',
+  'pepper': '🌶️',
+  'bell pepper': '🫑',
+  'broccoli': '🥦',
+  'lettuce': '🥬',
+  'cucumber': '🥒',
+  'onion': '🧅',
+  'garlic': '🧄',
+  'mushroom': '🍄',
+  'eggplant': '🍆',
+  
+  // Meat & Protein
+  'chicken': '🍗',
+  'turkey': '🦃',
+  'bacon': '🥓',
+  'steak': '🥩',
+  'beef': '🥩',
+  'pork': '🥓',
+  'ham': '🍖',
+  'sausage': '🌭',
+  'hot dog': '🌭',
+  'burger': '🍔',
+  
+  // Seafood
+  'fish': '🐟',
+  'shrimp': '🦐',
+  'crab': '🦀',
+  'lobster': '🦞',
+  
+  // Dairy & Eggs
+  'milk': '🥛',
+  'cheese': '🧀',
+  'butter': '🧈',
+  'egg': '🥚',
+  'yogurt': '🥛',
+  'ice cream': '🍦',
+  
+  // Grains & Pasta
+  'rice': '🍚',
+  'pasta': '🍝',
+  'spaghetti': '🍝',
+  'noodle': '🍜',
+  'ramen': '🍜',
+  'pizza': '🍕',
+  'taco': '🌮',
+  'burrito': '🌯',
+  
+  // Snacks
+  'chips': '🥔',
+  'popcorn': '🍿',
+  'pretzel': '🥨',
+  'peanut': '🥜',
+  'nut': '🥜',
+  'candy': '🍬',
+  'chocolate': '🍫',
+  
+  // Beverages
+  'coffee': '☕',
+  'tea': '🍵',
+  'beer': '🍺',
+  'wine': '🍷',
+  'juice': '🧃',
+  'soda': '🥤',
+  'water': '💧',
+  
+  // Condiments & Sauces
+  'ketchup': '🍅',
+  'mustard': '🌭',
+  'mayo': '🥚',
+  'sauce': '🥫',
+  'honey': '🍯',
+  'jam': '🍓',
+  'peanut butter': '🥜',
+  
+  // Canned/Packaged
+  'soup': '🥫',
+  'can': '🥫',
+  'jar': '🫙',
+  
+  // Household
+  'soap': '🧼',
+  'paper': '🧻',
+  'tissue': '🧻',
+  'trash': '🗑️',
+  
+  // Personal Care
+  'toothpaste': '🦷',
+  'shampoo': '🧴',
+  'lotion': '🧴',
+};
+
 // Auto-detect category based on item name
 const categoryKeywords = {
   'Produce': ['apple', 'banana', 'orange', 'lettuce', 'tomato', 'potato', 'onion', 'carrot', 'celery', 'broccoli', 'spinach', 'cucumber', 'pepper', 'avocado', 'strawberry', 'grape', 'melon', 'peach', 'pear', 'plum', 'berry', 'fruit', 'vegetable', 'salad', 'greens'],
@@ -10,6 +137,21 @@ const categoryKeywords = {
   'Beverages': ['water', 'juice', 'soda', 'coffee', 'tea', 'beer', 'wine', 'drink', 'beverage'],
   'Household': ['paper towel', 'toilet paper', 'tissue', 'soap', 'detergent', 'cleaner', 'trash bag', 'foil', 'plastic wrap', 'dish soap'],
   'Personal Care': ['shampoo', 'conditioner', 'toothpaste', 'toothbrush', 'deodorant', 'lotion', 'razor', 'shaving cream']
+};
+
+export const detectIcon = (itemName) => {
+  if (!itemName) return '';
+  
+  const lowerName = itemName.toLowerCase();
+  
+  // Check for exact matches first (e.g., "wheat bread" should match "bread")
+  for (const [keyword, icon] of Object.entries(itemIcons)) {
+    if (lowerName.includes(keyword)) {
+      return icon;
+    }
+  }
+  
+  return ''; // No icon detected
 };
 
 export const detectCategory = (itemName) => {
