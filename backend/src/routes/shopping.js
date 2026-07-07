@@ -39,11 +39,20 @@ router.get('/lists/:id', async (req, res) => {
     }
 
     const itemsResult = await db.query(
-      `SELECT sli.*, i.is_recurring, i.recurrence_days
+      `SELECT sli.*, 
+              i.is_recurring, 
+              i.recurrence_days,
+              im.icon as item_icon,
+              im.image_url as item_image,
+              c.name as category_name,
+              c.icon as category_icon,
+              c.shopping_order as category_order
        FROM shopping_list_items sli
        LEFT JOIN items i ON sli.item_id = i.id
+       LEFT JOIN item_metadata im ON LOWER(sli.item_name) = LOWER(im.name)
+       LEFT JOIN categories c ON im.category_id = c.id OR sli.category = c.name
        WHERE sli.shopping_list_id = $1
-       ORDER BY sli.category, sli.sort_order, sli.item_name`,
+       ORDER BY COALESCE(c.shopping_order, 999), sli.category, sli.sort_order, sli.item_name`,
       [req.params.id]
     );
 
