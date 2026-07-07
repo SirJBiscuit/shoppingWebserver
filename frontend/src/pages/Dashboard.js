@@ -307,65 +307,73 @@ const Dashboard = () => {
               <ShoppingCart className="w-8 h-8 text-primary-600 mr-3" />
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CloudMC Shop</h1>
             </div>
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-2 md:space-x-6">
               <button
                 onClick={() => navigate('/')}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium p-2"
+                title="Shopping"
               >
-                <ShoppingCart className="w-5 h-5 mr-1" />
-                Shopping
+                <ShoppingCart className="w-5 h-5 md:mr-1" />
+                <span className="hidden md:inline">Shopping</span>
               </button>
               <button
                 onClick={() => navigate('/recipes')}
-                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105"
+                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105 p-2"
+                title="Recipes"
               >
-                <ChefHat className="w-5 h-5 mr-1" />
-                Recipes
+                <ChefHat className="w-5 h-5 md:mr-1" />
+                <span className="hidden md:inline">Recipes</span>
               </button>
               <button
                 onClick={() => navigate('/pantry')}
-                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105"
+                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105 p-2"
+                title="Pantry"
               >
-                <Package className="w-5 h-5 mr-1" />
-                Pantry
+                <Package className="w-5 h-5 md:mr-1" />
+                <span className="hidden md:inline">Pantry</span>
               </button>
               <button
                 onClick={() => navigate('/meal-plan')}
-                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105"
+                className="hidden sm:flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105 p-2"
+                title="Meal Plan"
               >
-                <Calendar className="w-5 h-5 mr-1" />
-                Meal Plan
+                <Calendar className="w-5 h-5 md:mr-1" />
+                <span className="hidden md:inline">Meal Plan</span>
               </button>
               <button
                 onClick={() => navigate('/stats')}
-                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105"
+                className="hidden sm:flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105 p-2"
+                title="Stats"
               >
-                <BarChart3 className="w-5 h-5 mr-1" />
-                Stats
+                <BarChart3 className="w-5 h-5 md:mr-1" />
+                <span className="hidden md:inline">Stats</span>
               </button>
               <button
                 onClick={() => navigate('/settings')}
-                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105"
+                className="hidden lg:flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105 p-2"
+                title="Settings"
               >
-                <Settings className="w-5 h-5 mr-1" />
-                Settings
+                <Settings className="w-5 h-5 md:mr-1" />
+                <span className="hidden md:inline">Settings</span>
               </button>
               <button
                 onClick={() => navigate('/admin')}
-                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105"
+                className="hidden lg:flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105 p-2"
+                title="Admin"
               >
-                <Settings className="w-5 h-5 mr-1" />
-                Admin
+                <Settings className="w-5 h-5 md:mr-1" />
+                <span className="hidden md:inline">Admin</span>
               </button>
-              <span className="text-gray-600 dark:text-gray-300">Welcome, {user?.username}</span>
+              <span className="hidden lg:inline text-gray-600 dark:text-gray-300">Welcome, {user?.username}</span>
               <NotificationCenter />
               <ThemeToggle />
               <button
                 onClick={logout}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white p-2"
+                title="Logout"
               >
-                <LogOut className="w-5 h-5 mr-1" />
-                Logout
+                <LogOut className="w-5 h-5 md:mr-1" />
+                <span className="hidden md:inline">Logout</span>
               </button>
             </div>
           </div>

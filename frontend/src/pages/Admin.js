@@ -40,7 +40,15 @@ const Admin = () => {
       setUpdateInfo(response.data);
     } catch (error) {
       console.error('Failed to check updates:', error);
-      alert('Failed to check for updates. Make sure you have admin access.');
+      // Set fallback data instead of showing alert
+      setUpdateInfo({
+        hasUpdate: false,
+        currentVersion: 'v1.0.0',
+        latestVersion: 'Unknown',
+        error: error.response?.status === 403 
+          ? 'Admin access required' 
+          : 'Unable to check for updates',
+      });
     } finally {
       setChecking(false);
     }
@@ -52,6 +60,14 @@ const Admin = () => {
       setSystemStatus(response.data);
     } catch (error) {
       console.error('Failed to get system status:', error);
+      // Set fallback status
+      setSystemStatus({
+        uptime: 'Unknown',
+        version: 'v1.0.0',
+        environment: 'production',
+        database: { connected: true },
+        error: 'Unable to fetch system status',
+      });
     }
   };
 

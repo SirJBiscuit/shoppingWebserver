@@ -86,4 +86,50 @@
   .dark .custom-scrollbar::-webkit-scrollbar-thumb {
     background-color: rgb(75 85 99);
   }
+
+  /* Mobile Optimizations */
+  @media (max-width: 768px) {
+    .card {
+      @apply p-4;
+    }
+
+    .btn-primary, .btn-secondary {
+      @apply px-3 py-2 text-sm;
+    }
+
+    .input-field {
+      @apply px-3 py-2 text-sm;
+    }
+
+    /* Touch-friendly tap targets */
+    button, a {
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    /* Prevent text selection on double-tap */
+    * {
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+    }
+
+    /* Better spacing on mobile */
+    .space-y-6 > * + * {
+      margin-top: 1rem !important;
+    }
+  }
+
+  /* Tablet optimizations */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .card {
+      @apply p-5;
+    }
+  }
+
+  /* Prevent zoom on input focus (iOS) */
+  @supports (-webkit-touch-callout: none) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+  }
 }
