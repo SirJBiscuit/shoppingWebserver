@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, ChefHat, Clock, Users, Trash2, ShoppingCart, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, ChefHat, Clock, Users, Trash2, ShoppingCart, Star, Package, LogOut } from 'lucide-react';
 import { recipesAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const Recipes = () => {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [recipes, setRecipes] = useState([]);
   const [canMake, setCanMake] = useState({ can_make: [], can_make_with_few_items: [] });
   const [loading, setLoading] = useState(true);
@@ -74,8 +78,51 @@ const Recipes = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm border-b border-gray-200 mb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <ChefHat className="w-8 h-8 text-primary-600 mr-3" />
+              <h1 className="text-2xl font-bold text-gray-900">CloudMC Shop</h1>
+            </div>
+            <div className="flex items-center space-x-6">
+              <button
+                onClick={() => navigate('/')}
+                className="flex items-center text-gray-600 hover:text-primary-600 font-medium"
+              >
+                <ShoppingCart className="w-5 h-5 mr-1" />
+                Shopping
+              </button>
+              <button
+                onClick={() => navigate('/recipes')}
+                className="flex items-center text-primary-600 font-medium"
+              >
+                <ChefHat className="w-5 h-5 mr-1" />
+                Recipes
+              </button>
+              <button
+                onClick={() => navigate('/pantry')}
+                className="flex items-center text-gray-600 hover:text-primary-600 font-medium"
+              >
+                <Package className="w-5 h-5 mr-1" />
+                Pantry
+              </button>
+              <span className="text-gray-600">Welcome, {user?.username}</span>
+              <button
+                onClick={logout}
+                className="flex items-center text-gray-600 hover:text-gray-900"
+              >
+                <LogOut className="w-5 h-5 mr-1" />
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+      
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center">
             <ChefHat className="w-8 h-8 mr-3 text-primary-600" />
@@ -156,6 +203,7 @@ const Recipes = () => {
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );
