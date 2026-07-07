@@ -50,6 +50,22 @@ docker compose up -d --build
 echo -e "${YELLOW}Waiting for containers to start...${NC}"
 sleep 10
 
+# Auto-run new migrations if they exist
+echo ""
+echo -e "${YELLOW}Checking for new database migrations...${NC}"
+for migration in backend/src/database/schema-v*.sql; do
+    if [ -f "$migration" ]; then
+        version=$(basename "$migration" .sql | sed 's/schema-v//')
+        echo -e "${CYAN}Found migration: v${version}${NC}"
+        
+        # Check if migration script exists
+        if [ -f "backend/src/database/migrate-v${version}.js" ]; then
+            echo -e "${YELLOW}Running migration v${version}...${NC}"
+            docker exec shop_backend npm run migrate-v${version} || echo -e "${RED}Migration v${version} failed or already applied${NC}"
+        fi
+    fi
+done
+
 # Check status
 echo ""
 echo -e "${GREEN}Checking container status...${NC}"
