@@ -47,16 +47,18 @@ const isAdmin = async (req, res, next) => {
 // Check for updates
 router.get('/check-updates', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const { stdout: currentCommit } = await execPromise('git rev-parse HEAD');
-    const { stdout: remoteFetch } = await execPromise('git fetch origin main 2>&1');
-    const { stdout: remoteCommit } = await execPromise('git rev-parse origin/main');
+    // Run git commands on host (outside container)
+    const gitDir = '/opt/cloudmc-shop';
+    const { stdout: currentCommit } = await execPromise(`cd ${gitDir} && git rev-parse HEAD`);
+    const { stdout: remoteFetch } = await execPromise(`cd ${gitDir} && git fetch origin main 2>&1`);
+    const { stdout: remoteCommit } = await execPromise(`cd ${gitDir} && git rev-parse origin/main`);
     
     const hasUpdates = currentCommit.trim() !== remoteCommit.trim();
     
     // Get commit log if updates available
     let commits = [];
     if (hasUpdates) {
-      const { stdout: log } = await execPromise('git log HEAD..origin/main --oneline --max-count=10');
+      const { stdout: log } = await execPromise(`cd ${gitDir} && git log HEAD..origin/main --oneline --max-count=10`);
       commits = log.trim().split('\n').filter(line => line);
     }
     
@@ -85,20 +87,21 @@ router.get('/check-updates', authenticateToken, isAdmin, async (req, res) => {
 router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
   try {
     const updateLog = [];
+    const gitDir = '/opt/cloudmc-shop';
     
     // Pull latest code
     updateLog.push({ step: 'Pulling latest code', status: 'running' });
-    const { stdout: pullOutput } = await execPromise('git pull origin main 2>&1');
+    const { stdout: pullOutput } = await execPromise(`cd ${gitDir} && git pull origin main 2>&1`);
     updateLog.push({ step: 'Pulling latest code', status: 'success', output: pullOutput });
     
     // Copy production config
     updateLog.push({ step: 'Copying production config', status: 'running' });
-    await execPromise('cp docker-compose.prod.yml docker-compose.yml');
+    await execPromise(`cd ${gitDir} && cp docker-compose.prod.yml docker-compose.yml`);
     updateLog.push({ step: 'Copying production config', status: 'success' });
     
     // Rebuild containers
     updateLog.push({ step: 'Rebuilding containers', status: 'running' });
-    const { stdout: buildOutput } = await execPromise('docker compose up -d --build 2>&1');
+    const { stdout: buildOutput } = await execPromise(`cd ${gitDir} && docker compose up -d --build 2>&1`);
     updateLog.push({ step: 'Rebuilding containers', status: 'success', output: buildOutput });
     
     // Wait for containers to be ready
@@ -152,9 +155,10 @@ router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
 // Get system status
 router.get('/status', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const { stdout: containerStatus } = await execPromise('docker compose ps --format json 2>&1');
-    const { stdout: gitBranch } = await execPromise('git branch --show-current');
-    const { stdout: gitCommit } = await execPromise('git rev-parse --short HEAD');
+    const gitDir = '/opt/cloudmc-shop';
+    const { stdout: containerStatus } = await execPromise(`cd ${gitDir} && docker compose ps --format json 2>&1`);
+    const { stdout: gitBranch } = await execPromise(`cd ${gitDir} && git branch --show-current`);
+    const { stdout: gitCommit } = await execPromise(`cd ${gitDir} && git rev-parse --short HEAD`);
     
     // Parse container status
     let containers = [];
@@ -201,9 +205,10 @@ router.get('/status', authenticateToken, isAdmin, async (req, res) => {
 // Restart services
 router.post('/restart', authenticateToken, isAdmin, async (req, res) => {
   try {
+    const gitDir = '/opt/cloudmc-shop';
     const { service } = req.body; // 'all', 'backend', 'frontend', 'postgres'
     
-    let command = 'docker compose restart';
+    let command = `cd ${gitDir} && docker compose restart`;
     if (service && service !== 'all') {
       command += ` ${service}`;
     }
@@ -224,10 +229,11 @@ router.post('/restart', authenticateToken, isAdmin, async (req, res) => {
 // View logs
 router.get('/logs/:service', authenticateToken, isAdmin, async (req, res) => {
   try {
+    const gitDir = '/opt/cloudmc-shop';
     const { service } = req.params;
     const { lines = 100 } = req.query;
     
-    const { stdout } = await execPromise(`docker compose logs --tail=${lines} ${service}`);
+    const { stdout } = await execPromise(`cd ${gitDir} && docker compose logs --tail=${lines} ${service}`);
     
     res.json({
       service,
