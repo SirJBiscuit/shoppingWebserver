@@ -15,32 +15,48 @@ const isAdmin = async (req, res, next) => {
     // Check if user is in admin list
     const adminUsernames = ['guy69']; // Add more admin usernames here
     
+    console.log('Admin check - User ID:', req.user.userId);
+    
     const result = await db.query(
       'SELECT id, username FROM users WHERE id = $1',
       [req.user.userId]
     );
     
     if (result.rows.length === 0) {
+      console.log('Admin check - User not found');
       return res.status(403).json({ error: 'User not found' });
     }
     
     const user = result.rows[0];
+    console.log('Admin check - User:', user.username, 'ID:', user.id);
     
     // Check if first user
     const firstUserResult = await db.query('SELECT id FROM users ORDER BY id LIMIT 1');
     const isFirstUser = firstUserResult.rows.length > 0 && firstUserResult.rows[0].id === user.id;
+    console.log('Admin check - Is first user:', isFirstUser, 'First user ID:', firstUserResult.rows[0]?.id);
     
     // Check if in admin username list
     const isAdminUsername = adminUsernames.includes(user.username);
+    console.log('Admin check - Is admin username:', isAdminUsername, 'Username:', user.username);
     
     if (isFirstUser || isAdminUsername) {
+      console.log('Admin check - GRANTED');
       next();
     } else {
-      res.status(403).json({ error: 'Admin access required' });
+      console.log('Admin check - DENIED');
+      res.status(403).json({ 
+        error: 'Admin access required',
+        debug: {
+          username: user.username,
+          isFirstUser,
+          isAdminUsername,
+          adminList: adminUsernames
+        }
+      });
     }
   } catch (error) {
     console.error('Admin check error:', error);
-    res.status(500).json({ error: 'Failed to verify admin status' });
+    res.status(500).json({ error: 'Failed to verify admin status', details: error.message });
   }
 };
 
