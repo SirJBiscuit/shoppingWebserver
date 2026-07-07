@@ -34,6 +34,18 @@ if [ $? -ne 0 ]; then
     git reset --hard origin/main
 fi
 
+# Save current commit hash to version file
+echo -e "${YELLOW}Saving version information...${NC}"
+CURRENT_COMMIT=$(git rev-parse HEAD)
+PREVIOUS_COMMIT=$(git rev-parse HEAD~1 2>/dev/null || echo "none")
+cat > version.json << EOF
+{
+  "current": "${CURRENT_COMMIT}",
+  "previous": "${PREVIOUS_COMMIT}",
+  "updated": "$(date -Iseconds)"
+}
+EOF
+
 # Copy production config
 echo -e "${YELLOW}Setting up production configuration...${NC}"
 cp docker-compose.prod.yml docker-compose.yml

@@ -218,6 +218,12 @@ const Admin = () => {
                 </div>
               </div>
 
+              {updateInfo.lastUpdated && (
+                <div className="text-sm text-gray-600 text-center">
+                  Last updated: {new Date(updateInfo.lastUpdated).toLocaleString()}
+                </div>
+              )}
+
               {updateInfo.hasUpdates ? (
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="font-semibold text-blue-900 mb-2">Updates Available!</p>

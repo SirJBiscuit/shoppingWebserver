@@ -70,23 +70,31 @@ router.get('/check-updates', authenticateToken, isAdmin, async (req, res) => {
     const response = await axios.get(githubAPI);
     const latestCommit = response.data.sha.substring(0, 7);
     
-    // Try to get current commit from git in mounted directory
+    // Read version from version.json file
     let currentCommit = 'unknown';
     let previousCommit = 'unknown';
+    let lastUpdated = null;
+    
     try {
-      const gitDir = '/opt/cloudmc-shop';
-      const { stdout: current } = await execPromise(`cd ${gitDir} && git rev-parse HEAD 2>/dev/null || echo "unknown"`);
-      currentCommit = current.trim();
-      
-      // Get previous commit (one before current)
-      if (currentCommit !== 'unknown') {
-        const { stdout: previous } = await execPromise(`cd ${gitDir} && git rev-parse HEAD~1 2>/dev/null || echo "unknown"`);
-        previousCommit = previous.trim();
-      }
+      const versionPath = path.join(__dirname, '../../version.json');
+      const versionData = await fs.readFile(versionPath, 'utf8');
+      const version = JSON.parse(versionData);
+      currentCommit = version.current || 'unknown';
+      previousCommit = version.previous || 'unknown';
+      lastUpdated = version.updated || null;
     } catch (err) {
-      console.log('Could not read git commits from mounted directory:', err.message);
-      // Fallback to environment variable
-      currentCommit = process.env.GIT_COMMIT || 'unknown';
+      console.log('Could not read version.json:', err.message);
+      // Try reading from mounted directory as fallback
+      try {
+        const mountedVersionPath = '/opt/cloudmc-shop/version.json';
+        const versionData = await fs.readFile(mountedVersionPath, 'utf8');
+        const version = JSON.parse(versionData);
+        currentCommit = version.current || 'unknown';
+        previousCommit = version.previous || 'unknown';
+        lastUpdated = version.updated || null;
+      } catch (err2) {
+        console.log('Could not read mounted version.json either:', err2.message);
+      }
     }
     
     const hasUpdates = currentCommit !== latestCommit && currentCommit !== 'unknown';
@@ -105,10 +113,11 @@ router.get('/check-updates', authenticateToken, isAdmin, async (req, res) => {
     res.json({
       hasUpdates,
       currentCommit: currentCommit === 'unknown' ? 'unknown' : currentCommit.substring(0, 7),
-      previousCommit: previousCommit === 'unknown' ? 'unknown' : previousCommit.substring(0, 7),
+      previousCommit: previousCommit === 'unknown' || previousCommit === 'none' ? 'N/A' : previousCommit.substring(0, 7),
       latestCommit,
       commits: commits.slice(0, 10),
       pendingMigrations: schemaMigrations,
+      lastUpdated,
       lastChecked: new Date().toISOString()
     });
   } catch (error) {
