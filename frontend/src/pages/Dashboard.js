@@ -22,7 +22,7 @@ const Dashboard = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [newItemName, setNewItemName] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState('');
-  const [newItemUnit, setNewItemUnit] = useState('');
+  const [newItemSize, setNewItemSize] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
   const [suggestions, setSuggestions] = useState([]);
@@ -107,12 +107,17 @@ const Dashboard = () => {
   };
 
   const createNewList = async () => {
+    const listName = prompt('Enter a name for the new shopping list:', `Shopping List ${lists.length + 1}`);
+    if (!listName) return;
+
     try {
-      const response = await shoppingAPI.createList({ name: 'Shopping List' });
+      const response = await shoppingAPI.createList({ name: listName });
       setActiveList(response.data);
       await loadLists();
+      await loadListItems(response.data.id);
     } catch (error) {
       console.error('Error creating list:', error);
+      alert('Failed to create shopping list');
     }
   };
 
@@ -124,15 +129,15 @@ const Dashboard = () => {
     try {
       await shoppingAPI.addItem(activeList.id, {
         itemName: newItemName,
-        quantity: parseFloat(newItemQuantity) || 1,
-        unit: newItemUnit,
+        quantity: parseInt(newItemQuantity) || 1,
+        unit: newItemSize,
         price: parseFloat(newItemPrice) || 0,
         category: newItemCategory,
       });
 
       setNewItemName('');
       setNewItemQuantity('');
-      setNewItemUnit('');
+      setNewItemSize('');
       setNewItemPrice('');
       setNewItemCategory('');
       setSearchQuery('');
@@ -266,12 +271,39 @@ const Dashboard = () => {
           <div className="lg:col-span-2 space-y-6">
             <div className="card">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold">Current Shopping List</h2>
+                <div className="flex items-center space-x-3">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Shopping List</h2>
+                  {lists.length > 0 && (
+                    <select
+                      value={activeList?.id || ''}
+                      onChange={(e) => {
+                        const list = lists.find(l => l.id === parseInt(e.target.value));
+                        setActiveList(list);
+                        if (list) loadListItems(list.id);
+                      }}
+                      className="input-field text-sm"
+                    >
+                      {lists.map(list => (
+                        <option key={list.id} value={list.id}>
+                          {list.name} ({list.item_count || 0} items)
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    type="button"
+                    onClick={createNewList}
+                    className="btn-secondary text-sm flex items-center"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    New List
+                  </button>
+                </div>
                 <div className="flex items-center space-x-4">
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
                     {checkedCount} / {items.length} items
                   </div>
-                  <div className="flex items-center text-primary-600 font-semibold">
+                  <div className="flex items-center text-primary-600 dark:text-primary-400 font-semibold">
                     <DollarSign className="w-5 h-5" />
                     {totalCost.toFixed(2)}
                   </div>
@@ -300,8 +332,8 @@ const Dashboard = () => {
                         key={result.id}
                         onClick={() => {
                           setNewItemName(result.name);
-                          setNewItemQuantity(result.preferred_quantity || result.typical_quantity || '');
-                          setNewItemUnit(result.preferred_unit || result.typical_unit || '');
+                          setNewItemQuantity(result.preferred_quantity || result.typical_quantity || '1');
+                          setNewItemSize(result.preferred_unit || result.typical_unit || '');
                           setNewItemCategory(result.category || '');
                           setSearchQuery('');
                           setSearchResults([]);
@@ -320,19 +352,34 @@ const Dashboard = () => {
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <input
                     type="number"
-                    step="0.01"
+                    step="1"
+                    min="1"
                     value={newItemQuantity}
                     onChange={(e) => setNewItemQuantity(e.target.value)}
                     placeholder="Qty"
                     className="input-field"
                   />
-                  <input
-                    type="text"
-                    value={newItemUnit}
-                    onChange={(e) => setNewItemUnit(e.target.value)}
-                    placeholder="Unit"
+                  <select
+                    value={newItemSize}
+                    onChange={(e) => setNewItemSize(e.target.value)}
                     className="input-field"
-                  />
+                  >
+                    <option value="">Size</option>
+                    <option value="oz">oz (ounces)</option>
+                    <option value="lb">lb (pounds)</option>
+                    <option value="g">g (grams)</option>
+                    <option value="kg">kg (kilograms)</option>
+                    <option value="ml">ml (milliliters)</option>
+                    <option value="L">L (liters)</option>
+                    <option value="pt">pt (pints)</option>
+                    <option value="qt">qt (quarts)</option>
+                    <option value="gal">gal (gallons)</option>
+                    <option value="ct">ct (count)</option>
+                    <option value="pkg">pkg (package)</option>
+                    <option value="box">box</option>
+                    <option value="can">can</option>
+                    <option value="bag">bag</option>
+                  </select>
                   <input
                     type="number"
                     step="0.01"
