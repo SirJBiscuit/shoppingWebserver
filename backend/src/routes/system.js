@@ -289,28 +289,15 @@ router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
     // Execute async
     (async () => {
       try {
-        updateStatus.progress = 10;
-        updateStatus.message = 'Pulling latest code...';
-        updateStatus.logs.push('Executing git pull');
-        await saveUpdateStatus();
-        
-        const { stdout: pullOutput } = await execPromise(`cd ${gitDir} && git pull origin main 2>&1`);
-        updateStatus.logs.push('Git pull completed');
-        await saveUpdateStatus();
-        
-        updateStatus.progress = 30;
-        updateStatus.message = 'Copying production config...';
-        await saveUpdateStatus();
-        await execPromise(`cd ${gitDir} && cp docker-compose.prod.yml docker-compose.yml`);
-        updateStatus.logs.push('Config copied');
-        await saveUpdateStatus();
-        
-        updateStatus.progress = 50;
+        updateStatus.progress = 20;
         updateStatus.message = 'Rebuilding containers...';
+        updateStatus.logs.push('Note: Code should be updated via update-server.sh script first');
         updateStatus.logs.push('Starting docker compose rebuild');
         await saveUpdateStatus();
+        
         const { stdout: buildOutput } = await execPromise(`cd ${gitDir} && docker compose up -d --build 2>&1`);
         updateStatus.logs.push('Containers rebuilt');
+        await saveUpdateStatus();
         
         updateStatus.progress = 70;
         updateStatus.message = 'Waiting for containers to start...';

@@ -142,7 +142,7 @@ const Admin = () => {
   };
 
   const applyUpdates = async () => {
-    if (!window.confirm('Apply updates? This will restart the application and reload the page.')) {
+    if (!window.confirm('Rebuild and restart containers? This will apply any code changes and reload the page.\n\nNote: Run ./update-server.sh on the host first to pull latest code.')) {
       return;
     }
 
@@ -377,7 +377,7 @@ const Admin = () => {
                       ) : (
                         <>
                           <Download className="w-4 h-4 mr-2" />
-                          Apply Updates
+                          Rebuild Containers
                         </>
                       )}
                     </button>
