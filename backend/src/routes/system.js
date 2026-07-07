@@ -68,7 +68,8 @@ router.get('/check-updates', authenticateToken, isAdmin, async (req, res) => {
     // Get latest commit from GitHub API
     const githubAPI = 'https://api.github.com/repos/SirJBiscuit/shoppingWebserver/commits/main';
     const response = await axios.get(githubAPI);
-    const latestCommit = response.data.sha.substring(0, 7);
+    const latestCommitFull = response.data.sha;
+    const latestCommit = latestCommitFull.substring(0, 7);
     
     // Read version from version.json file
     let currentCommit = 'unknown';
@@ -97,7 +98,8 @@ router.get('/check-updates', authenticateToken, isAdmin, async (req, res) => {
       }
     }
     
-    const hasUpdates = currentCommit !== latestCommit && currentCommit !== 'unknown';
+    // Compare full hashes (currentCommit is full hash from version.json)
+    const hasUpdates = currentCommit !== 'unknown' && currentCommit !== latestCommitFull;
     
     // Get recent commits
     const commitsResponse = await axios.get('https://api.github.com/repos/SirJBiscuit/shoppingWebserver/commits?per_page=10');
@@ -126,7 +128,9 @@ router.get('/check-updates', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-// Store update status in memory (in production, use Redis or database)
+// Store update status in file so it persists across container restarts
+const UPDATE_STATUS_FILE = '/opt/cloudmc-shop/update-status.json';
+
 let updateStatus = {
   running: false,
   progress: 0,
@@ -134,6 +138,27 @@ let updateStatus = {
   startTime: null,
   logs: []
 };
+
+// Load status from file on startup
+(async () => {
+  try {
+    const statusData = await fs.readFile(UPDATE_STATUS_FILE, 'utf8');
+    updateStatus = JSON.parse(statusData);
+    console.log('Loaded update status from file:', updateStatus);
+  } catch (err) {
+    // File doesn't exist or is invalid, use default
+    console.log('No existing update status file, using defaults');
+  }
+})();
+
+// Save status to file
+async function saveUpdateStatus() {
+  try {
+    await fs.writeFile(UPDATE_STATUS_FILE, JSON.stringify(updateStatus, null, 2));
+  } catch (err) {
+    console.error('Failed to save update status:', err);
+  }
+}
 
 // Run update script via webhook (async, returns immediately)
 router.post('/run-update-script', authenticateToken, isAdmin, async (req, res) => {
@@ -156,6 +181,7 @@ router.post('/run-update-script', authenticateToken, isAdmin, async (req, res) =
       startTime: new Date(),
       logs: ['Update initiated by user ' + req.user.userId]
     };
+    await saveUpdateStatus();
     
     // Return immediately
     res.json({
@@ -175,6 +201,7 @@ router.post('/run-update-script', authenticateToken, isAdmin, async (req, res) =
         updateStatus.progress = 10;
         updateStatus.message = 'Calling webhook server...';
         updateStatus.logs.push('Triggering update webhook');
+        await saveUpdateStatus();
         
         const response = await axios.post(webhookUrl, {
           trigger: 'update',
@@ -190,11 +217,13 @@ router.post('/run-update-script', authenticateToken, isAdmin, async (req, res) =
         updateStatus.message = 'Update completed';
         updateStatus.logs.push('Webhook response received');
         updateStatus.logs.push(response.data.output || 'Success');
+        await saveUpdateStatus();
         
-        setTimeout(() => {
+        setTimeout(async () => {
           updateStatus.running = false;
           updateStatus.progress = 100;
           updateStatus.message = 'Update finished successfully';
+          await saveUpdateStatus();
         }, 2000);
         
       } catch (error) {
@@ -203,12 +232,14 @@ router.post('/run-update-script', authenticateToken, isAdmin, async (req, res) =
         updateStatus.progress = 0;
         updateStatus.message = 'Update failed: ' + error.message;
         updateStatus.logs.push('Error: ' + error.message);
+        await saveUpdateStatus();
       }
     })();
     
   } catch (error) {
     console.error('Update script error:', error);
     updateStatus.running = false;
+    await saveUpdateStatus();
     res.status(500).json({ 
       success: false,
       error: 'Failed to start update', 
@@ -243,6 +274,7 @@ router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
       startTime: new Date(),
       logs: ['Update initiated by user ' + req.user.userId]
     };
+    await saveUpdateStatus();
     
     // Return immediately to avoid 502 when container restarts
     res.json({
@@ -260,28 +292,36 @@ router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
         updateStatus.progress = 10;
         updateStatus.message = 'Pulling latest code...';
         updateStatus.logs.push('Executing git pull');
+        await saveUpdateStatus();
         
         const { stdout: pullOutput } = await execPromise(`cd ${gitDir} && git pull origin main 2>&1`);
         updateStatus.logs.push('Git pull completed');
+        await saveUpdateStatus();
         
         updateStatus.progress = 30;
         updateStatus.message = 'Copying production config...';
+        await saveUpdateStatus();
         await execPromise(`cd ${gitDir} && cp docker-compose.prod.yml docker-compose.yml`);
         updateStatus.logs.push('Config copied');
+        await saveUpdateStatus();
         
         updateStatus.progress = 50;
         updateStatus.message = 'Rebuilding containers...';
         updateStatus.logs.push('Starting docker compose rebuild');
+        await saveUpdateStatus();
         const { stdout: buildOutput } = await execPromise(`cd ${gitDir} && docker compose up -d --build 2>&1`);
         updateStatus.logs.push('Containers rebuilt');
         
         updateStatus.progress = 70;
         updateStatus.message = 'Waiting for containers to start...';
+        await saveUpdateStatus();
         await new Promise(resolve => setTimeout(resolve, 10000));
         updateStatus.logs.push('Containers started');
+        await saveUpdateStatus();
         
         updateStatus.progress = 80;
         updateStatus.message = 'Running migrations...';
+        await saveUpdateStatus();
         
         // Auto-run migrations
         const migrationFiles = await fs.readdir(path.join(__dirname, '../database'));
@@ -312,9 +352,11 @@ router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
         updateStatus.progress = 100;
         updateStatus.message = 'Update completed successfully';
         updateStatus.logs.push('All updates applied');
+        await saveUpdateStatus();
         
-        setTimeout(() => {
+        setTimeout(async () => {
           updateStatus.running = false;
+          await saveUpdateStatus();
         }, 2000);
         
         console.log('Update completed successfully');
@@ -325,12 +367,14 @@ router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
         updateStatus.progress = 0;
         updateStatus.message = 'Update failed: ' + error.message;
         updateStatus.logs.push('Error: ' + error.message);
+        await saveUpdateStatus();
       }
     })();
     
   } catch (error) {
     console.error('Apply updates error:', error);
     updateStatus.running = false;
+    await saveUpdateStatus();
     res.status(500).json({ 
       success: false,
       error: 'Failed to start update', 
