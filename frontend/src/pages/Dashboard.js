@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { shoppingAPI, suggestionsAPI, inventoryAPI } from '../services/api';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
@@ -12,6 +12,7 @@ import InventoryPanel from '../components/InventoryPanel';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
+import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -31,6 +32,7 @@ const Dashboard = () => {
   const [inventory, setInventory] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [showInventory, setShowInventory] = useState(false);
+  const [smartSort, setSmartSort] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -343,6 +345,14 @@ const Dashboard = () => {
                   </button>
                 </div>
                 <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setSmartSort(!smartSort)}
+                    className={`btn-secondary text-sm flex items-center ${smartSort ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300' : ''}`}
+                    title={smartSort ? 'Sorted by store layout' : 'Sort by store layout'}
+                  >
+                    <ArrowUpDown className="w-4 h-4 mr-1" />
+                    {smartSort ? `${calculateEfficiency(items)}%` : 'Smart Sort'}
+                  </button>
                   <div className="text-sm text-gray-600 dark:text-gray-400">
                     {checkedCount} / {items.length} items
                   </div>
@@ -471,7 +481,7 @@ const Dashboard = () => {
               </form>
 
               <ItemList
-                items={items}
+                items={smartSort ? sortItemsByStoreLayout(items) : items}
                 onToggleCheck={toggleItemCheck}
                 onDelete={deleteItem}
               />
