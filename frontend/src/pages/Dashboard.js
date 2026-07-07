@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { shoppingAPI, suggestionsAPI, inventoryAPI } from '../services/api';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
@@ -236,6 +236,13 @@ const Dashboard = () => {
               >
                 <Package className="w-5 h-5 mr-1" />
                 Pantry
+              </button>
+              <button
+                onClick={() => navigate('/admin')}
+                className="flex items-center text-gray-600 hover:text-primary-600 font-medium"
+              >
+                <Settings className="w-5 h-5 mr-1" />
+                Admin
               </button>
               <span className="text-gray-600">Welcome, {user?.username}</span>
               <button

@@ -6,6 +6,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Recipes from './pages/Recipes';
 import Pantry from './pages/Pantry';
+import Admin from './pages/Admin';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -45,6 +46,7 @@ function App() {
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/recipes" element={<PrivateRoute><Recipes /></PrivateRoute>} />
           <Route path="/pantry" element={<PrivateRoute><Pantry /></PrivateRoute>} />
+          <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
         </Routes>
       </Router>
     </AuthProvider>
