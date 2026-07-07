@@ -12,6 +12,7 @@ import MealPlan from './pages/MealPlan';
 import Stats from './pages/Stats';
 import RecipeDiscover from './pages/RecipeDiscover';
 import Settings from './pages/Settings';
+import History from './pages/History';
 import Admin from './pages/Admin';
 
 const PrivateRoute = ({ children }) => {
@@ -57,6 +58,7 @@ const AnimatedRoutes = () => {
         <Route path="/stats" element={<PrivateRoute><Stats /></PrivateRoute>} />
         <Route path="/discover" element={<PrivateRoute><RecipeDiscover /></PrivateRoute>} />
         <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+        <Route path="/history" element={<PrivateRoute><History /></PrivateRoute>} />
         <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
       </Routes>
     </AnimatePresence>

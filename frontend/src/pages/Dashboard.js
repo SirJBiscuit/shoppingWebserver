@@ -17,6 +17,8 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import ShareList from '../components/ShareList';
 import LevelingSystem, { XP_REWARDS } from '../components/LevelingSystem';
 import VoiceInput, { parseVoiceInput } from '../components/VoiceInput';
+import NotificationCenter from '../components/NotificationCenter';
+import Onboarding from '../components/Onboarding';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 
@@ -326,6 +328,7 @@ const Dashboard = () => {
                 Settings
               </button>
               <span className="text-gray-600 dark:text-gray-300">Welcome, {user?.username}</span>
+              <NotificationCenter />
               <ThemeToggle />
               <button
                 onClick={logout}
@@ -657,6 +660,9 @@ const Dashboard = () => {
           }
         }}
       />
+
+      {/* Onboarding Tutorial */}
+      <Onboarding userId={user?.id || user?.username} />
     </div>
     </PageTransition>
   );
