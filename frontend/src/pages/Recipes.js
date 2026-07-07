@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, ChefHat, Clock, Users, Trash2, ShoppingCart, Star, Package, LogOut, Settings } from 'lucide-react';
+import { Plus, ChefHat, Clock, Users, Trash2, ShoppingCart, Star, Package, LogOut, Settings, Edit2 } from 'lucide-react';
 import { recipesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
+import RecipeModal from '../components/RecipeModal';
 
 const Recipes = () => {
   const navigate = useNavigate();
@@ -68,6 +69,30 @@ const Recipes = () => {
       } catch (error) {
         console.error('Failed to delete recipe:', error);
       }
+    }
+  };
+
+  const handleCreateRecipe = async (recipeData) => {
+    try {
+      await recipesAPI.createRecipe(recipeData);
+      fetchRecipes();
+      checkCanMake();
+      setShowCreateModal(false);
+    } catch (error) {
+      console.error('Failed to create recipe:', error);
+      alert('Failed to create recipe');
+    }
+  };
+
+  const handleEditRecipe = async (recipeData) => {
+    try {
+      await recipesAPI.updateRecipe(selectedRecipe.id, recipeData);
+      fetchRecipes();
+      checkCanMake();
+      setSelectedRecipe(null);
+    } catch (error) {
+      console.error('Failed to update recipe:', error);
+      alert('Failed to update recipe');
     }
   };
 
@@ -210,17 +235,33 @@ const Recipes = () => {
                 onAddToList={handleAddToShoppingList}
                 onToggleFavorite={handleToggleFavorite}
                 onDelete={handleDeleteRecipe}
+                onEdit={setSelectedRecipe}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      <RecipeModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSave={handleCreateRecipe}
+      />
+      
+      <RecipeModal
+        isOpen={!!selectedRecipe}
+        onClose={() => setSelectedRecipe(null)}
+        onSave={handleEditRecipe}
+        recipe={selectedRecipe}
+      />
       </div>
     </div>
+    </PageTransition>
   );
 };
 
-const RecipeCard = ({ recipe, onAddToList, onToggleFavorite, onDelete, canMake, missingItems }) => {
+const RecipeCard = ({ recipe, onAddToList, onToggleFavorite, onDelete, onEdit, canMake, missingItems }) => {
   return (
     <div className="card hover:shadow-lg transition-shadow">
       {recipe.image_url && (
@@ -292,15 +333,21 @@ const RecipeCard = ({ recipe, onAddToList, onToggleFavorite, onDelete, canMake, 
             Add to List
           </button>
           <button
+            onClick={() => onEdit(recipe)}
+            className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
+            title="Edit recipe"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+          <button
             onClick={() => onDelete(recipe.id)}
-            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
           >
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
     </div>
-    </PageTransition>
   );
 };
 
