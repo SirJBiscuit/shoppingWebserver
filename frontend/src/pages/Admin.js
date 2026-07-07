@@ -47,23 +47,51 @@ const Admin = () => {
   };
 
   const applyUpdates = async () => {
-    if (!window.confirm('Apply updates? This will restart the application.')) {
+    if (!window.confirm('Apply updates? This will restart the application and reload the page.')) {
       return;
     }
 
     setUpdating(true);
-    setUpdateLog([]);
+    setUpdateLog([{ step: 'Starting update process...', status: 'running' }]);
 
     try {
       const response = await api.post('/system/apply-updates');
       setUpdateLog(response.data.log || []);
       
       if (response.data.success) {
-        alert('Updates applied successfully! The page will reload in 5 seconds.');
-        setTimeout(() => window.location.reload(), 5000);
+        setUpdateLog(prev => [...prev, { step: 'Update completed successfully!', status: 'success' }]);
+        
+        // Show countdown
+        let countdown = 10;
+        const countdownInterval = setInterval(() => {
+          countdown--;
+          setUpdateLog(prev => {
+            const newLog = [...prev];
+            newLog[newLog.length - 1] = { 
+              step: `Page will reload in ${countdown} seconds...`, 
+              status: 'running' 
+            };
+            return newLog;
+          });
+          
+          if (countdown <= 0) {
+            clearInterval(countdownInterval);
+            window.location.reload();
+          }
+        }, 1000);
+      } else {
+        setUpdateLog(prev => [...prev, { 
+          step: 'Update failed - check logs for details', 
+          status: 'error' 
+        }]);
+        alert('Update failed. Please check the update log for details.');
       }
     } catch (error) {
       console.error('Failed to apply updates:', error);
+      setUpdateLog(prev => [...prev, { 
+        step: `Error: ${error.response?.data?.details || error.message}`, 
+        status: 'error' 
+      }]);
       alert('Failed to apply updates: ' + (error.response?.data?.details || error.message));
     } finally {
       setUpdating(false);
@@ -230,7 +258,8 @@ const Admin = () => {
                         {log.status === 'success' && <CheckCircle className="w-4 h-4 mr-2 text-green-400" />}
                         {log.status === 'running' && <RefreshCw className="w-4 h-4 mr-2 text-blue-400 animate-spin" />}
                         {log.status === 'skipped' && <AlertCircle className="w-4 h-4 mr-2 text-yellow-400" />}
-                        <span>{log.step}</span>
+                        {log.status === 'error' && <XCircle className="w-4 h-4 mr-2 text-red-400" />}
+                        <span className={log.status === 'error' ? 'text-red-400' : ''}>{log.step}</span>
                       </div>
                     ))}
                   </div>
