@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { shoppingAPI, suggestionsAPI, inventoryAPI } from '../services/api';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
@@ -15,6 +15,8 @@ import AnimatedCart from '../components/AnimatedCart';
 import BudgetTracker from '../components/BudgetTracker';
 import BarcodeScanner from '../components/BarcodeScanner';
 import ShareList from '../components/ShareList';
+import LevelingSystem, { XP_REWARDS } from '../components/LevelingSystem';
+import VoiceInput, { parseVoiceInput } from '../components/VoiceInput';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 
@@ -39,6 +41,7 @@ const Dashboard = () => {
   const [smartSort, setSmartSort] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showVoice, setShowVoice] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -196,6 +199,11 @@ const Dashboard = () => {
       
       await loadListItems(activeList.id);
       await loadSuggestions();
+      
+      // Award XP
+      if (window.addXP) {
+        window.addXP(XP_REWARDS.ADD_ITEM, 'Added item to list');
+      }
     } catch (error) {
       console.error('Error adding item:', error);
     }
@@ -365,6 +373,14 @@ const Dashboard = () => {
                   </button>
                 </div>
                 <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setShowVoice(true)}
+                    className="btn-secondary text-sm flex items-center"
+                    title="Voice input"
+                  >
+                    <Mic className="w-4 h-4 mr-1" />
+                    Voice
+                  </button>
                   <button
                     onClick={() => setShowShare(true)}
                     className="btn-secondary text-sm flex items-center"
@@ -547,6 +563,9 @@ const Dashboard = () => {
               totalCost={totalCost}
             />
 
+            {/* Leveling System */}
+            <LevelingSystem userId={user?.id || user?.username} />
+
             <div className="card">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold flex items-center">
@@ -611,6 +630,32 @@ const Dashboard = () => {
         items={items}
         isOpen={showShare}
         onClose={() => setShowShare(false)}
+      />
+
+      {/* Voice Input Modal */}
+      <VoiceInput
+        isOpen={showVoice}
+        onClose={() => setShowVoice(false)}
+        onResult={(text) => {
+          const parsedItems = parseVoiceInput(text);
+          parsedItems.forEach(async (item) => {
+            if (activeList) {
+              try {
+                await shoppingAPI.addItem(activeList.id, {
+                  itemName: item.name,
+                  quantity: item.quantity,
+                  unit: item.unit,
+                });
+              } catch (error) {
+                console.error('Error adding voice item:', error);
+              }
+            }
+          });
+          loadListItems(activeList?.id);
+          if (window.addXP) {
+            window.addXP(XP_REWARDS.ADD_ITEM * parsedItems.length, `Added ${parsedItems.length} items by voice`);
+          }
+        }}
       />
     </div>
     </PageTransition>
