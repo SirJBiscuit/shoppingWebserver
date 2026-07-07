@@ -1,23 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Package, AlertTriangle, Trash2, Edit2, ShoppingCart, ChefHat, LogOut, Settings } from 'lucide-react';
-import { pantryAPI } from '../services/api';
+import { pantryAPI, categoriesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
+import PantryModal from '../components/PantryModal';
 
 const Pantry = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [pantryItems, setPantryItems] = useState([]);
   const [expiringItems, setExpiringItems] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
 
   useEffect(() => {
     fetchPantry();
     fetchExpiring();
+    fetchCategories();
   }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await categoriesAPI.getCategories();
+      setCategories(response.data);
+    } catch (error) {
+      console.error('Failed to fetch categories:', error);
+    }
+  };
 
   const fetchPantry = async () => {
     try {
@@ -60,6 +73,30 @@ const Pantry = () => {
     }
   };
 
+  const handleAddItem = async (itemData) => {
+    try {
+      await pantryAPI.addItem(itemData);
+      fetchPantry();
+      fetchExpiring();
+      setShowAddModal(false);
+    } catch (error) {
+      console.error('Failed to add item:', error);
+      alert('Failed to add item to pantry');
+    }
+  };
+
+  const handleEditItem = async (itemData) => {
+    try {
+      await pantryAPI.updateItem(selectedItem.id, itemData);
+      fetchPantry();
+      fetchExpiring();
+      setSelectedItem(null);
+    } catch (error) {
+      console.error('Failed to update item:', error);
+      alert('Failed to update item');
+    }
+  };
+
   // Group items by category
   const groupedItems = pantryItems.reduce((acc, item) => {
     const category = item.category_name || 'Other';
@@ -73,7 +110,7 @@ const Pantry = () => {
     return acc;
   }, {});
 
-  const categories = Object.keys(groupedItems).sort();
+  const categoryKeys = Object.keys(groupedItems).sort();
 
   if (loading) {
     return (
@@ -192,7 +229,7 @@ const Pantry = () => {
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Add items to start tracking your inventory</p>
           </div>
         ) : (
-          categories.map((category) => (
+          categoryKeys.map((category) => (
             <div key={category}>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
                 <span className="text-2xl mr-2">{groupedItems[category].icon}</span>
@@ -208,6 +245,7 @@ const Pantry = () => {
                     item={item}
                     onDelete={handleDeleteItem}
                     onUpdateQuantity={handleUpdateQuantity}
+                    onEdit={setSelectedItem}
                   />
                 ))}
               </div>
@@ -215,13 +253,29 @@ const Pantry = () => {
           ))
         )}
       </div>
+
+      {/* Modals */}
+      <PantryModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSave={handleAddItem}
+        categories={categories}
+      />
+      
+      <PantryModal
+        isOpen={!!selectedItem}
+        onClose={() => setSelectedItem(null)}
+        onSave={handleEditItem}
+        item={selectedItem}
+        categories={categories}
+      />
       </div>
     </div>
     </PageTransition>
   );
 };
 
-const PantryItemCard = ({ item, onDelete, onUpdateQuantity }) => {
+const PantryItemCard = ({ item, onDelete, onUpdateQuantity, onEdit }) => {
   const [editing, setEditing] = useState(false);
   const [quantity, setQuantity] = useState(item.quantity);
 
@@ -236,13 +290,22 @@ const PantryItemCard = ({ item, onDelete, onUpdateQuantity }) => {
   return (
     <div className={`card ${isExpiringSoon ? 'border-red-300 bg-red-50' : ''}`}>
       <div className="flex justify-between items-start mb-2">
-        <h4 className="font-medium text-gray-900 flex-1">{item.item_name}</h4>
-        <button
-          onClick={() => onDelete(item.id)}
-          className="text-red-500 hover:text-red-700 transition-colors"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <h4 className="font-medium text-gray-900 dark:text-gray-100 flex-1">{item.item_name}</h4>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => onEdit(item)}
+            className="text-primary-600 hover:text-primary-700 dark:hover:text-primary-400 transition-colors"
+            title="Edit item"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onDelete(item.id)}
+            className="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {editing ? (
