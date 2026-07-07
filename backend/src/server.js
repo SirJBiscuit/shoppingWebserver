@@ -11,6 +11,7 @@ const inventoryRoutes = require('./routes/inventory');
 const categoriesRoutes = require('./routes/categories');
 const recipesRoutes = require('./routes/recipes');
 const pantryRoutes = require('./routes/pantry');
+const imagesRoutes = require('./routes/images');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -34,6 +35,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/recipes', recipesRoutes);
 app.use('/api/pantry', pantryRoutes);
+app.use('/api/images', imagesRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
