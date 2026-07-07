@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
-import InventoryPanel from '../components/InventoryPanel';
+import PantryQuickView from '../components/PantryQuickView';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import AnimatedCart from '../components/AnimatedCart';
@@ -41,7 +41,6 @@ const Dashboard = () => {
   const [inventory, setInventory] = useState([]);
   const [categories, setCategories] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
-  const [showInventory, setShowInventory] = useState(false);
   const [smartSort, setSmartSort] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -145,10 +144,11 @@ const Dashboard = () => {
 
   const loadInventory = async () => {
     try {
+      // Load pantry items instead of inventory
       const response = await inventoryAPI.getInventory();
       setInventory(response.data);
     } catch (error) {
-      console.error('Error loading inventory:', error);
+      console.error('Error loading pantry:', error);
     }
   };
 
@@ -577,24 +577,25 @@ const Dashboard = () => {
             </div>
 
             <div className="card">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold flex items-center">
-                  <Package className="w-5 h-5 mr-2 text-primary-600" />
-                  Inventory
-                </h3>
-                <button
-                  onClick={() => setShowInventory(!showInventory)}
-                  className="text-sm text-primary-600 hover:text-primary-700"
-                >
-                  {showInventory ? 'Hide' : 'Show'}
-                </button>
-              </div>
-              {showInventory && (
-                <InventoryPanel
-                  inventory={inventory}
-                  onUpdate={loadInventory}
-                />
-              )}
+              <PantryQuickView
+                pantryItems={inventory}
+                onAddToList={async (itemData) => {
+                  if (!activeList) {
+                    alert('Please create or select a shopping list first');
+                    return;
+                  }
+                  try {
+                    await shoppingAPI.addItem(activeList.id, itemData);
+                    await loadListItems(activeList.id);
+                    if (window.addXP) {
+                      window.addXP(XP_REWARDS.ADD_ITEM, 'Added item from pantry');
+                    }
+                  } catch (error) {
+                    console.error('Error adding item from pantry:', error);
+                  }
+                }}
+                onViewPantry={() => navigate('/pantry')}
+              />
             </div>
           </div>
               </div>
