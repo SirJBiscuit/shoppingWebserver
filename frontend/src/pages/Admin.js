@@ -53,6 +53,59 @@ const Admin = () => {
     }
   };
 
+  const runUpdateScript = async () => {
+    if (!window.confirm('Run update script? This will pull latest code, rebuild containers, and run migrations. The page will reload after completion.')) {
+      return;
+    }
+
+    setUpdating(true);
+    setUpdateLog([{ step: 'Running update-server.sh script...', status: 'running' }]);
+
+    try {
+      const response = await api.post('/system/run-update-script');
+      
+      if (response.data.success) {
+        setUpdateLog([
+          { step: 'Update script completed successfully!', status: 'success' },
+          { step: 'Output: ' + response.data.output.substring(0, 500), status: 'success' }
+        ]);
+        
+        // Show countdown
+        let countdown = 10;
+        const countdownInterval = setInterval(() => {
+          countdown--;
+          setUpdateLog(prev => {
+            const newLog = [...prev];
+            newLog[newLog.length - 1] = { 
+              step: `Page will reload in ${countdown} seconds...`, 
+              status: 'running' 
+            };
+            return newLog;
+          });
+          
+          if (countdown <= 0) {
+            clearInterval(countdownInterval);
+            window.location.reload();
+          }
+        }, 1000);
+      } else {
+        setUpdateLog([
+          { step: 'Update script failed', status: 'error' },
+          { step: response.data.details || 'Unknown error', status: 'error' }
+        ]);
+        alert('Update script failed. Check the log for details.');
+      }
+    } catch (error) {
+      console.error('Failed to run update script:', error);
+      setUpdateLog([
+        { step: `Error: ${error.response?.data?.details || error.message}`, status: 'error' }
+      ]);
+      alert('Failed to run update script: ' + (error.response?.data?.details || error.message));
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const applyUpdates = async () => {
     if (!window.confirm('Apply updates? This will restart the application and reload the page.')) {
       return;
@@ -239,30 +292,48 @@ const Admin = () => {
                       <p key={idx} className="text-sm text-blue-800 font-mono">• {commit}</p>
                     ))}
                   </div>
-                  <button
-                    onClick={applyUpdates}
-                    disabled={updating}
-                    className="btn-primary flex items-center"
-                  >
-                    {updating ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Updating...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4 mr-2" />
-                        Apply Updates
-                      </>
-                    )}
-                  </button>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={runUpdateScript}
+                      disabled={updating}
+                      className="btn-primary flex items-center"
+                    >
+                      {updating ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        <>
+                          <Server className="w-4 h-4 mr-2" />
+                          Update Webserver
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={applyUpdates}
+                      disabled={updating}
+                      className="btn-secondary flex items-center"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Manual Update
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="font-semibold text-green-900 flex items-center">
+                  <p className="font-semibold text-green-900 flex items-center mb-3">
                     <CheckCircle className="w-5 h-5 mr-2" />
                     System is up to date
                   </p>
+                  <button
+                    onClick={runUpdateScript}
+                    disabled={updating}
+                    className="btn-secondary flex items-center text-sm"
+                  >
+                    <Server className="w-4 h-4 mr-2" />
+                    Run Update Script Anyway
+                  </button>
                 </div>
               )}
 

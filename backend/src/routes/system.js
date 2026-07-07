@@ -126,6 +126,33 @@ router.get('/check-updates', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
+// Run update script
+router.post('/run-update-script', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    console.log('Running update-server.sh script requested by user:', req.user.userId);
+    const gitDir = '/opt/cloudmc-shop';
+    
+    // Execute the update script
+    const { stdout, stderr } = await execPromise(`cd ${gitDir} && ./update-server.sh 2>&1`);
+    const output = stdout || stderr || 'Update script executed';
+    
+    console.log('Update script completed');
+    res.json({
+      success: true,
+      message: 'Update script executed successfully',
+      output: output
+    });
+  } catch (error) {
+    console.error('Update script error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to run update script', 
+      details: error.message,
+      output: error.stdout || error.stderr || ''
+    });
+  }
+});
+
 // Apply updates
 router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
   try {
