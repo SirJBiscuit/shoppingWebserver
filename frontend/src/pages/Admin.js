@@ -147,48 +147,84 @@ const Admin = () => {
     }
 
     setUpdating(true);
-    setUpdateLog([{ step: 'Starting update process...', status: 'running' }]);
+    setUpdateLog([{ step: 'Starting update...', status: 'running' }]);
 
     try {
+      // Start the update
       const response = await api.post('/system/apply-updates');
-      setUpdateLog(response.data.log || []);
       
-      if (response.data.success) {
-        setUpdateLog(prev => [...prev, { step: 'Update completed successfully!', status: 'success' }]);
-        
-        // Show countdown
-        let countdown = 10;
-        const countdownInterval = setInterval(() => {
-          countdown--;
-          setUpdateLog(prev => {
-            const newLog = [...prev];
-            newLog[newLog.length - 1] = { 
-              step: `Page will reload in ${countdown} seconds...`, 
-              status: 'running' 
-            };
-            return newLog;
-          });
-          
-          if (countdown <= 0) {
-            clearInterval(countdownInterval);
-            window.location.reload();
-          }
-        }, 1000);
-      } else {
-        setUpdateLog(prev => [...prev, { 
-          step: 'Update failed - check logs for details', 
-          status: 'error' 
-        }]);
-        alert('Update failed. Please check the update log for details.');
+      if (!response.data.success) {
+        setUpdateLog([
+          { step: response.data.message || 'Update failed to start', status: 'error' },
+          { step: response.data.error || 'Unknown error', status: 'error' }
+        ]);
+        setUpdating(false);
+        return;
       }
+
+      // Poll for status (same as runUpdateScript)
+      const statusInterval = setInterval(async () => {
+        try {
+          const statusRes = await api.get('/system/update-status');
+          const status = statusRes.data;
+          
+          // Update log with current status
+          setUpdateLog([
+            { step: `Progress: ${status.progress}%`, status: 'running' },
+            { step: status.message, status: status.running ? 'running' : 'success' },
+            ...status.logs.map(log => ({ step: log, status: 'success' }))
+          ]);
+          
+          // If update is complete
+          if (!status.running && status.progress === 100) {
+            clearInterval(statusInterval);
+            setUpdateLog(prev => [...prev, { step: 'Update completed successfully!', status: 'success' }]);
+            
+            // Countdown to reload
+            let countdown = 10;
+            const countdownInterval = setInterval(() => {
+              countdown--;
+              setUpdateLog(prev => {
+                const newLog = [...prev];
+                newLog[newLog.length - 1] = { 
+                  step: `Page will reload in ${countdown} seconds...`, 
+                  status: 'running' 
+                };
+                return newLog;
+              });
+              
+              if (countdown <= 0) {
+                clearInterval(countdownInterval);
+                window.location.reload();
+              }
+            }, 1000);
+            
+            setUpdating(false);
+          }
+          
+          // If update failed
+          if (!status.running && status.progress === 0 && status.message.includes('failed')) {
+            clearInterval(statusInterval);
+            setUpdateLog(prev => [...prev, { step: 'Update failed!', status: 'error' }]);
+            setUpdating(false);
+          }
+          
+        } catch (statusError) {
+          console.error('Failed to get status:', statusError);
+        }
+      }, 2000); // Poll every 2 seconds
+      
+      // Stop polling after 10 minutes
+      setTimeout(() => {
+        clearInterval(statusInterval);
+        setUpdating(false);
+      }, 600000);
+      
     } catch (error) {
       console.error('Failed to apply updates:', error);
-      setUpdateLog(prev => [...prev, { 
-        step: `Error: ${error.response?.data?.details || error.message}`, 
-        status: 'error' 
-      }]);
-      alert('Failed to apply updates: ' + (error.response?.data?.details || error.message));
-    } finally {
+      setUpdateLog([
+        { step: `Error: ${error.response?.data?.details || error.message}`, status: 'error' }
+      ]);
       setUpdating(false);
     }
   };

@@ -222,82 +222,119 @@ router.get('/update-status', authenticateToken, isAdmin, async (req, res) => {
   res.json(updateStatus);
 });
 
-// Apply updates
+// Apply updates (async, returns immediately to avoid 502 on container restart)
 router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
   try {
     console.log('Apply updates requested by user:', req.user.userId);
-    const updateLog = [];
-    const gitDir = '/opt/cloudmc-shop';
     
-    // Pull latest code
-    updateLog.push({ step: 'Pulling latest code', status: 'running' });
-    console.log('Executing: git pull');
-    try {
-      const { stdout: pullOutput } = await execPromise(`cd ${gitDir} && git pull origin main 2>&1`);
-      updateLog.push({ step: 'Pulling latest code', status: 'success', output: pullOutput });
-      console.log('Git pull successful');
-    } catch (pullError) {
-      console.error('Git pull failed:', pullError);
-      updateLog.push({ step: 'Pulling latest code', status: 'error', output: pullError.message });
-      throw pullError;
+    if (updateStatus.running) {
+      return res.json({
+        success: false,
+        message: 'Update already in progress',
+        status: updateStatus
+      });
     }
     
-    // Copy production config
-    updateLog.push({ step: 'Copying production config', status: 'running' });
-    await execPromise(`cd ${gitDir} && cp docker-compose.prod.yml docker-compose.yml`);
-    updateLog.push({ step: 'Copying production config', status: 'success' });
+    // Mark as running
+    updateStatus = {
+      running: true,
+      progress: 0,
+      message: 'Starting update...',
+      startTime: new Date(),
+      logs: ['Update initiated by user ' + req.user.userId]
+    };
     
-    // Rebuild containers
-    updateLog.push({ step: 'Rebuilding containers', status: 'running' });
-    const { stdout: buildOutput } = await execPromise(`cd ${gitDir} && docker compose up -d --build 2>&1`);
-    updateLog.push({ step: 'Rebuilding containers', status: 'success', output: buildOutput });
-    
-    // Wait for containers to be ready
-    await new Promise(resolve => setTimeout(resolve, 10000));
-    
-    // Auto-run migrations
-    const migrationFiles = await fs.readdir(path.join(__dirname, '../database'));
-    const schemaMigrations = migrationFiles
-      .filter(f => f.startsWith('schema-v') && f.endsWith('.sql'))
-      .map(f => f.replace('schema-v', '').replace('.sql', ''))
-      .sort((a, b) => parseInt(a) - parseInt(b));
-    
-    for (const version of schemaMigrations) {
-      const migrationScript = `migrate-v${version}.js`;
-      const scriptPath = path.join(__dirname, '../database', migrationScript);
-      
-      try {
-        await fs.access(scriptPath);
-        updateLog.push({ step: `Running migration v${version}`, status: 'running' });
-        
-        try {
-          const { stdout: migOutput } = await execPromise(`docker exec shop_backend npm run migrate-v${version} 2>&1`);
-          updateLog.push({ step: `Running migration v${version}`, status: 'success', output: migOutput });
-        } catch (migError) {
-          // Migration might already be applied
-          updateLog.push({ step: `Running migration v${version}`, status: 'skipped', output: 'Already applied or failed' });
-        }
-      } catch {
-        // Migration script doesn't exist
-        continue;
-      }
-    }
-    
-    updateLog.push({ step: 'Update complete', status: 'success' });
-    
-    console.log('Update completed successfully');
+    // Return immediately to avoid 502 when container restarts
     res.json({
       success: true,
-      message: 'Updates applied successfully',
-      log: updateLog
+      message: 'Update started',
+      status: updateStatus
     });
+    
+    // Run update in background
+    const gitDir = '/opt/cloudmc-shop';
+    
+    // Execute async
+    (async () => {
+      try {
+        updateStatus.progress = 10;
+        updateStatus.message = 'Pulling latest code...';
+        updateStatus.logs.push('Executing git pull');
+        
+        const { stdout: pullOutput } = await execPromise(`cd ${gitDir} && git pull origin main 2>&1`);
+        updateStatus.logs.push('Git pull completed');
+        
+        updateStatus.progress = 30;
+        updateStatus.message = 'Copying production config...';
+        await execPromise(`cd ${gitDir} && cp docker-compose.prod.yml docker-compose.yml`);
+        updateStatus.logs.push('Config copied');
+        
+        updateStatus.progress = 50;
+        updateStatus.message = 'Rebuilding containers...';
+        updateStatus.logs.push('Starting docker compose rebuild');
+        const { stdout: buildOutput } = await execPromise(`cd ${gitDir} && docker compose up -d --build 2>&1`);
+        updateStatus.logs.push('Containers rebuilt');
+        
+        updateStatus.progress = 70;
+        updateStatus.message = 'Waiting for containers to start...';
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        updateStatus.logs.push('Containers started');
+        
+        updateStatus.progress = 80;
+        updateStatus.message = 'Running migrations...';
+        
+        // Auto-run migrations
+        const migrationFiles = await fs.readdir(path.join(__dirname, '../database'));
+        const schemaMigrations = migrationFiles
+          .filter(f => f.startsWith('schema-v') && f.endsWith('.sql'))
+          .map(f => f.replace('schema-v', '').replace('.sql', ''))
+          .sort((a, b) => parseInt(a) - parseInt(b));
+        
+        for (const version of schemaMigrations) {
+          const migrationScript = `migrate-v${version}.js`;
+          const scriptPath = path.join(__dirname, '../database', migrationScript);
+          
+          try {
+            await fs.access(scriptPath);
+            updateStatus.logs.push(`Running migration v${version}`);
+            
+            try {
+              await execPromise(`docker exec shop_backend npm run migrate-v${version} 2>&1`);
+              updateStatus.logs.push(`Migration v${version} completed`);
+            } catch (migError) {
+              updateStatus.logs.push(`Migration v${version} skipped (already applied)`);
+            }
+          } catch {
+            continue;
+          }
+        }
+        
+        updateStatus.progress = 100;
+        updateStatus.message = 'Update completed successfully';
+        updateStatus.logs.push('All updates applied');
+        
+        setTimeout(() => {
+          updateStatus.running = false;
+        }, 2000);
+        
+        console.log('Update completed successfully');
+        
+      } catch (error) {
+        console.error('Background update error:', error);
+        updateStatus.running = false;
+        updateStatus.progress = 0;
+        updateStatus.message = 'Update failed: ' + error.message;
+        updateStatus.logs.push('Error: ' + error.message);
+      }
+    })();
+    
   } catch (error) {
     console.error('Apply updates error:', error);
+    updateStatus.running = false;
     res.status(500).json({ 
       success: false,
-      error: 'Failed to apply updates', 
-      details: error.message,
-      log: updateLog
+      error: 'Failed to start update', 
+      details: error.message
     });
   }
 });
