@@ -363,36 +363,25 @@ const Admin = () => {
                       <p key={idx} className="text-sm text-blue-800 font-mono">• {commit}</p>
                     ))}
                   </div>
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={applyUpdates}
-                      disabled={updating}
-                      className="btn-primary flex items-center"
-                    >
-                      {updating ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Updating...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="w-4 h-4 mr-2" />
-                          Rebuild Containers
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={runUpdateScript}
-                      disabled={updating}
-                      className="btn-secondary flex items-center"
-                      title="Requires webhook server setup - see WEBHOOK-SETUP.md"
-                    >
-                      <Server className="w-4 h-4 mr-2" />
-                      Full Update Script
-                    </button>
-                  </div>
+                  <button
+                    onClick={applyUpdates}
+                    disabled={updating}
+                    className="btn-primary flex items-center"
+                  >
+                    {updating ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Updating...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4 mr-2" />
+                        Rebuild Containers
+                      </>
+                    )}
+                  </button>
                   <p className="text-xs text-gray-600 mt-2">
-                    💡 Tip: "Apply Updates" works immediately. "Full Update Script" requires webhook setup.
+                    💡 Tip: Run <code className="bg-gray-200 px-1 rounded">./update-server.sh</code> on the host to pull latest code, then click "Rebuild Containers"
                   </p>
                 </div>
               ) : (
