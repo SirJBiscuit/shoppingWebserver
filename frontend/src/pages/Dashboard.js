@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { shoppingAPI, suggestionsAPI, inventoryAPI } from '../services/api';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
@@ -14,6 +14,7 @@ import PageTransition from '../components/PageTransition';
 import AnimatedCart from '../components/AnimatedCart';
 import BudgetTracker from '../components/BudgetTracker';
 import BarcodeScanner from '../components/BarcodeScanner';
+import ShareList from '../components/ShareList';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 
@@ -37,6 +38,7 @@ const Dashboard = () => {
   const [showInventory, setShowInventory] = useState(false);
   const [smartSort, setSmartSort] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -309,11 +311,11 @@ const Dashboard = () => {
                 Stats
               </button>
               <button
-                onClick={() => navigate('/admin')}
+                onClick={() => navigate('/settings')}
                 className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
               >
                 <Settings className="w-5 h-5 mr-1" />
-                Admin
+                Settings
               </button>
               <span className="text-gray-600 dark:text-gray-300">Welcome, {user?.username}</span>
               <ThemeToggle />
@@ -363,6 +365,14 @@ const Dashboard = () => {
                   </button>
                 </div>
                 <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setShowShare(true)}
+                    className="btn-secondary text-sm flex items-center"
+                    title="Share list"
+                  >
+                    <Share2 className="w-4 h-4 mr-1" />
+                    Share
+                  </button>
                   <button
                     onClick={() => setShowScanner(true)}
                     className="btn-secondary text-sm flex items-center"
@@ -593,6 +603,14 @@ const Dashboard = () => {
           }
           setShowScanner(false);
         }}
+      />
+
+      {/* Share List Modal */}
+      <ShareList
+        list={activeList}
+        items={items}
+        isOpen={showShare}
+        onClose={() => setShowShare(false)}
       />
     </div>
     </PageTransition>
