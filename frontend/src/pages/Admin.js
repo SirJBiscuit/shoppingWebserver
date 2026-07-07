@@ -256,8 +256,8 @@ const Admin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b border-gray-200 mb-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 mb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
@@ -381,7 +381,7 @@ const Admin = () => {
                     )}
                   </button>
                   <p className="text-xs text-gray-600 mt-2">
-                    💡 Tip: Run <code className="bg-gray-200 px-1 rounded">./update-server.sh</code> on the host to pull latest code, then click "Rebuild Containers"
+                    💡 Tip: Run <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">./update-server.sh</code> on the host to pull latest code, then click "Rebuild Containers"
                   </p>
                 </div>
               ) : (
@@ -501,7 +501,7 @@ const Admin = () => {
               <Terminal className="w-6 h-6 mr-2 text-primary-600" />
               Logs: {selectedService}
             </h2>
-            <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto">
+            <div className="bg-gray-900 dark:bg-gray-950 rounded-lg p-4 overflow-x-auto border border-gray-700">
               <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap">{logs}</pre>
             </div>
           </div>

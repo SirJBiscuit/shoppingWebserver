@@ -24,24 +24,24 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800">
       <div className="card max-w-md w-full mx-4">
         <div className="flex items-center justify-center mb-8">
           <ShoppingCart className="w-12 h-12 text-primary-600 mr-3" />
-          <h1 className="text-3xl font-bold text-gray-900">CloudMC Shop</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">CloudMC Shop</h1>
         </div>
         
-        <h2 className="text-2xl font-semibold text-center mb-6">Welcome Back</h2>
+        <h2 className="text-2xl font-semibold text-center mb-6 text-gray-900 dark:text-gray-100">Welcome Back</h2>
         
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-4">
             {error}
           </div>
         )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Username
             </label>
             <input
@@ -55,7 +55,7 @@ const Login = () => {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Password
             </label>
             <input

@@ -219,28 +219,28 @@ const Dashboard = () => {
             <div className="flex items-center space-x-6">
               <button
                 onClick={() => navigate('/')}
-                className="flex items-center text-gray-600 hover:text-primary-600 font-medium"
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
               >
                 <ShoppingCart className="w-5 h-5 mr-1" />
                 Shopping
               </button>
               <button
                 onClick={() => navigate('/recipes')}
-                className="flex items-center text-gray-600 hover:text-primary-600 font-medium"
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
               >
                 <ChefHat className="w-5 h-5 mr-1" />
                 Recipes
               </button>
               <button
                 onClick={() => navigate('/pantry')}
-                className="flex items-center text-gray-600 hover:text-primary-600 font-medium"
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
               >
                 <Package className="w-5 h-5 mr-1" />
                 Pantry
               </button>
               <button
                 onClick={() => navigate('/admin')}
-                className="flex items-center text-gray-600 hover:text-primary-600 font-medium"
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
               >
                 <Settings className="w-5 h-5 mr-1" />
                 Admin
@@ -292,7 +292,7 @@ const Dashboard = () => {
                 </div>
 
                 {searchResults.length > 0 && (
-                  <div className="mb-4 bg-gray-50 rounded-lg p-3 space-y-2">
+                  <div className="mb-4 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 space-y-2 border border-gray-200 dark:border-gray-700">
                     {searchResults.slice(0, 5).map((result) => (
                       <div
                         key={result.id}
@@ -304,7 +304,7 @@ const Dashboard = () => {
                           setSearchQuery('');
                           setSearchResults([]);
                         }}
-                        className="flex items-center justify-between p-2 bg-white rounded hover:bg-primary-50 cursor-pointer"
+                        className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded hover:bg-primary-50 dark:hover:bg-gray-600 cursor-pointer transition-colors"
                       >
                         <span className="font-medium">{result.name}</span>
                         <span className="text-sm text-gray-500">
