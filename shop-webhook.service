@@ -1,0 +1,15 @@
+[Unit]
+Description=CloudMC Shop Webhook Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/cloudmc-shop
+Environment="WEBHOOK_SECRET=your-secret-key-here"
+ExecStart=/usr/bin/node /opt/cloudmc-shop/webhook-server.js
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

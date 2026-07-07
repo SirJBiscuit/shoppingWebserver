@@ -35,11 +35,14 @@ services:
     environment:
       DATABASE_URL: postgresql://shopuser:${DB_PASSWORD}@postgres:5432/shopdb
       JWT_SECRET: ${JWT_SECRET}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
       NODE_ENV: production
       PORT: 3007
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/cloudmc-shop:/opt/cloudmc-shop:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:3007:3007"
     depends_on:

@@ -126,38 +126,61 @@ router.get('/check-updates', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-// Run update script
+// Run update script via webhook
 router.post('/run-update-script', authenticateToken, isAdmin, async (req, res) => {
   try {
-    console.log('Running update-server.sh script requested by user:', req.user.userId);
+    console.log('Update script requested by user:', req.user.userId);
+    const axios = require('axios');
     
-    // Create a trigger file that the host can monitor
-    // Or execute via docker exec on host
-    const gitDir = '/opt/cloudmc-shop';
+    // Call webhook server running on host
+    const webhookUrl = 'http://host.docker.internal:9000/update';
+    const webhookSecret = process.env.WEBHOOK_SECRET || 'change-me-in-production';
     
-    // Try to execute using sh instead of bash
-    const { stdout, stderr } = await execPromise(`sh ${gitDir}/update-server.sh 2>&1`, {
-      cwd: gitDir,
-      shell: '/bin/sh',
-      timeout: 300000 // 5 minute timeout
-    });
-    
-    const output = stdout || stderr || 'Update script executed';
-    
-    console.log('Update script completed');
-    res.json({
-      success: true,
-      message: 'Update script executed successfully',
-      output: output
-    });
+    try {
+      const response = await axios.post(webhookUrl, {
+        trigger: 'update',
+        user: req.user.userId
+      }, {
+        headers: {
+          'X-Webhook-Secret': webhookSecret
+        },
+        timeout: 300000 // 5 minute timeout
+      });
+      
+      console.log('Webhook response:', response.data);
+      res.json({
+        success: true,
+        message: 'Update script triggered successfully',
+        output: response.data.output || 'Update in progress...'
+      });
+      
+    } catch (webhookError) {
+      console.error('Webhook call failed:', webhookError.message);
+      
+      // If webhook is not available, return instructions
+      const instructions = `
+Webhook server not running. To set it up:
+
+1. SSH into your server
+2. Run: sudo systemctl start shop-webhook
+3. Or manually run: cd /opt/cloudmc-shop && ./update-server.sh
+
+Alternatively, use the "Manual Update" button.
+      `.trim();
+      
+      res.json({
+        success: false,
+        message: 'Webhook server not available',
+        instructions: instructions,
+        error: webhookError.message
+      });
+    }
   } catch (error) {
     console.error('Update script error:', error);
-    const errorOutput = error.stdout || error.stderr || error.message;
     res.status(500).json({ 
       success: false,
       error: 'Failed to run update script', 
-      details: error.message,
-      output: errorOutput
+      details: error.message
     });
   }
 });
