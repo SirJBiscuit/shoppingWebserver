@@ -3,15 +3,22 @@ import { Check, Trash2 } from 'lucide-react';
 
 const ItemList = ({ items, onToggleCheck, onDelete }) => {
   const groupedItems = items.reduce((acc, item) => {
-    const category = item.category || 'Uncategorized';
+    const category = item.category_name || item.category || 'Other';
     if (!acc[category]) {
-      acc[category] = [];
+      acc[category] = {
+        items: [],
+        icon: item.category_icon || '📦',
+        order: item.category_order || 999
+      };
     }
-    acc[category].push(item);
+    acc[category].items.push(item);
     return acc;
   }, {});
 
-  const categories = Object.keys(groupedItems).sort();
+  // Sort categories by shopping order (pantry first, frozen last)
+  const categories = Object.keys(groupedItems).sort((a, b) => {
+    return groupedItems[a].order - groupedItems[b].order;
+  });
 
   if (items.length === 0) {
     return (
@@ -26,11 +33,15 @@ const ItemList = ({ items, onToggleCheck, onDelete }) => {
     <div className="space-y-6">
       {categories.map((category) => (
         <div key={category}>
-          <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+          <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3 flex items-center">
+            <span className="text-2xl mr-2">{groupedItems[category].icon}</span>
             {category}
+            <span className="ml-2 text-xs text-gray-500 normal-case">
+              ({groupedItems[category].items.length} items)
+            </span>
           </h4>
           <div className="space-y-2">
-            {groupedItems[category].map((item) => (
+            {groupedItems[category].items.map((item) => (
               <div
                 key={item.id}
                 className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
@@ -52,10 +63,11 @@ const ItemList = ({ items, onToggleCheck, onDelete }) => {
                   </button>
                   <div className="flex-1">
                     <p
-                      className={`font-medium ${
+                      className={`font-medium flex items-center ${
                         item.is_checked ? 'line-through text-gray-500' : 'text-gray-900'
                       }`}
                     >
+                      {item.item_icon && <span className="text-xl mr-2">{item.item_icon}</span>}
                       {item.item_name}
                     </p>
                     <p className="text-sm text-gray-500">

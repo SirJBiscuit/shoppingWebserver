@@ -59,4 +59,42 @@ export const inventoryAPI = {
   getStatistics: () => api.get('/inventory/statistics'),
 };
 
+export const categoriesAPI = {
+  getCategories: () => api.get('/categories'),
+  getCommonItems: () => api.get('/categories/common-items'),
+  searchItems: (query) => api.get('/categories/search-items', { params: { q: query } }),
+  lookupItem: (params) => api.get('/categories/item-lookup', { params }),
+  addCustomItem: (data) => api.post('/categories/custom-item', data),
+};
+
+export const recipesAPI = {
+  getRecipes: () => api.get('/recipes'),
+  getRecipe: (id) => api.get(`/recipes/${id}`),
+  createRecipe: (data) => api.post('/recipes', data),
+  updateRecipe: (id, data) => api.patch(`/recipes/${id}`, data),
+  deleteRecipe: (id) => api.delete(`/recipes/${id}`),
+  checkCanMake: () => api.get('/recipes/can-make/check'),
+  recipeToShoppingList: (id, data) => api.post(`/recipes/${id}/to-shopping-list`, data),
+};
+
+export const pantryAPI = {
+  getPantry: () => api.get('/pantry'),
+  addItem: (data) => api.post('/pantry', data),
+  addBulk: (data) => api.post('/pantry/bulk', data),
+  updateItem: (id, data) => api.patch(`/pantry/${id}`, data),
+  deleteItem: (id) => api.delete(`/pantry/${id}`),
+  getExpiring: (days) => api.get('/pantry/expiring', { params: { days } }),
+};
+
+export const imagesAPI = {
+  upload: (formData) => api.post('/images/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  uploadMultiple: (formData) => api.post('/images/upload-multiple', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  getImages: (params) => api.get('/images', { params }),
+  deleteImage: (id) => api.delete(`/images/${id}`),
+};
+
 export default api;
