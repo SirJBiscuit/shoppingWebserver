@@ -10,6 +10,7 @@ import Recipes from './pages/Recipes';
 import Pantry from './pages/Pantry';
 import MealPlan from './pages/MealPlan';
 import Stats from './pages/Stats';
+import RecipeDiscover from './pages/RecipeDiscover';
 import Admin from './pages/Admin';
 
 const PrivateRoute = ({ children }) => {
@@ -53,6 +54,7 @@ const AnimatedRoutes = () => {
         <Route path="/pantry" element={<PrivateRoute><Pantry /></PrivateRoute>} />
         <Route path="/meal-plan" element={<PrivateRoute><MealPlan /></PrivateRoute>} />
         <Route path="/stats" element={<PrivateRoute><Stats /></PrivateRoute>} />
+        <Route path="/discover" element={<PrivateRoute><RecipeDiscover /></PrivateRoute>} />
         <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
       </Routes>
     </AnimatePresence>

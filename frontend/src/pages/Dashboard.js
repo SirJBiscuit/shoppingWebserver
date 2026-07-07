@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { shoppingAPI, suggestionsAPI, inventoryAPI } from '../services/api';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
@@ -13,6 +13,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import AnimatedCart from '../components/AnimatedCart';
 import BudgetTracker from '../components/BudgetTracker';
+import BarcodeScanner from '../components/BarcodeScanner';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 
@@ -35,6 +36,7 @@ const Dashboard = () => {
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [showInventory, setShowInventory] = useState(false);
   const [smartSort, setSmartSort] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -362,6 +364,14 @@ const Dashboard = () => {
                 </div>
                 <div className="flex items-center space-x-4">
                   <button
+                    onClick={() => setShowScanner(true)}
+                    className="btn-secondary text-sm flex items-center"
+                    title="Scan barcode"
+                  >
+                    <Scan className="w-4 h-4 mr-1" />
+                    Scan
+                  </button>
+                  <button
                     onClick={() => setSmartSort(!smartSort)}
                     className={`btn-secondary text-sm flex items-center ${smartSort ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300' : ''}`}
                     title={smartSort ? 'Sorted by store layout' : 'Sort by store layout'}
@@ -571,6 +581,19 @@ const Dashboard = () => {
           </div>
         </div>
       </main>
+
+      {/* Barcode Scanner Modal */}
+      <BarcodeScanner
+        isOpen={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScan={(product) => {
+          setNewItemName(product.name);
+          if (product.brand) {
+            setNewItemName(`${product.brand} ${product.name}`);
+          }
+          setShowScanner(false);
+        }}
+      />
     </div>
     </PageTransition>
   );
