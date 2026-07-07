@@ -11,6 +11,7 @@ import SmartSuggestions from '../components/SmartSuggestions';
 import InventoryPanel from '../components/InventoryPanel';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
+import AnimatedCart from '../components/AnimatedCart';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 
@@ -499,6 +500,12 @@ const Dashboard = () => {
           </div>
 
           <div className="space-y-6">
+            {/* Animated Shopping Cart */}
+            <AnimatedCart 
+              items={smartSort ? sortItemsByStoreLayout(items) : items}
+              sortedByZone={smartSort}
+            />
+
             <div className="card">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold flex items-center">
