@@ -329,7 +329,7 @@ const Admin = () => {
                   </div>
                   <div className="flex space-x-3">
                     <button
-                      onClick={runUpdateScript}
+                      onClick={applyUpdates}
                       disabled={updating}
                       className="btn-primary flex items-center"
                     >
@@ -340,20 +340,24 @@ const Admin = () => {
                         </>
                       ) : (
                         <>
-                          <Server className="w-4 h-4 mr-2" />
-                          Update Webserver
+                          <Download className="w-4 h-4 mr-2" />
+                          Apply Updates
                         </>
                       )}
                     </button>
                     <button
-                      onClick={applyUpdates}
+                      onClick={runUpdateScript}
                       disabled={updating}
                       className="btn-secondary flex items-center"
+                      title="Requires webhook server setup - see WEBHOOK-SETUP.md"
                     >
-                      <Download className="w-4 h-4 mr-2" />
-                      Manual Update
+                      <Server className="w-4 h-4 mr-2" />
+                      Full Update Script
                     </button>
                   </div>
+                  <p className="text-xs text-gray-600 mt-2">
+                    💡 Tip: "Apply Updates" works immediately. "Full Update Script" requires webhook setup.
+                  </p>
                 </div>
               ) : (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -361,14 +365,16 @@ const Admin = () => {
                     <CheckCircle className="w-5 h-5 mr-2" />
                     System is up to date
                   </p>
-                  <button
-                    onClick={runUpdateScript}
-                    disabled={updating}
-                    className="btn-secondary flex items-center text-sm"
-                  >
-                    <Server className="w-4 h-4 mr-2" />
-                    Run Update Script Anyway
-                  </button>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={applyUpdates}
+                      disabled={updating}
+                      className="btn-secondary flex items-center text-sm"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Force Update Anyway
+                    </button>
+                  </div>
                 </div>
               )}
 
