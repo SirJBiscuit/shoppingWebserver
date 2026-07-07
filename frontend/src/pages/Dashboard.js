@@ -19,6 +19,7 @@ import LevelingSystem, { XP_REWARDS } from '../components/LevelingSystem';
 import VoiceInput, { parseVoiceInput } from '../components/VoiceInput';
 import NotificationCenter from '../components/NotificationCenter';
 import Onboarding from '../components/Onboarding';
+import Sidebar from '../components/Sidebar';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 
@@ -52,6 +53,17 @@ const Dashboard = () => {
     loadSuggestions();
     loadInventory();
     loadCategories();
+
+    // Listen for sidebar tool clicks
+    const handleSidebarTool = (event) => {
+      const { action } = event.detail;
+      if (action === 'voice') setShowVoice(true);
+      if (action === 'scan') setShowScanner(true);
+      if (action === 'share') setShowShare(true);
+    };
+
+    window.addEventListener('sidebar-tool-click', handleSidebarTool);
+    return () => window.removeEventListener('sidebar-tool-click', handleSidebarTool);
   }, []);
 
   useEffect(() => {
@@ -299,89 +311,20 @@ const Dashboard = () => {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <ShoppingCart className="w-8 h-8 text-primary-600 mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CloudMC Shop</h1>
-            </div>
-            <div className="flex items-center space-x-2 md:space-x-6">
-              <button
-                onClick={() => navigate('/')}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium p-2"
-                title="Shopping"
-              >
-                <ShoppingCart className="w-5 h-5 md:mr-1" />
-                <span className="hidden md:inline">Shopping</span>
-              </button>
-              <button
-                onClick={() => navigate('/recipes')}
-                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105 p-2"
-                title="Recipes"
-              >
-                <ChefHat className="w-5 h-5 md:mr-1" />
-                <span className="hidden md:inline">Recipes</span>
-              </button>
-              <button
-                onClick={() => navigate('/pantry')}
-                className="flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105 p-2"
-                title="Pantry"
-              >
-                <Package className="w-5 h-5 md:mr-1" />
-                <span className="hidden md:inline">Pantry</span>
-              </button>
-              <button
-                onClick={() => navigate('/meal-plan')}
-                className="hidden sm:flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105 p-2"
-                title="Meal Plan"
-              >
-                <Calendar className="w-5 h-5 md:mr-1" />
-                <span className="hidden md:inline">Meal Plan</span>
-              </button>
-              <button
-                onClick={() => navigate('/stats')}
-                className="hidden sm:flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105 p-2"
-                title="Stats"
-              >
-                <BarChart3 className="w-5 h-5 md:mr-1" />
-                <span className="hidden md:inline">Stats</span>
-              </button>
-              <button
-                onClick={() => navigate('/settings')}
-                className="hidden lg:flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105 p-2"
-                title="Settings"
-              >
-                <Settings className="w-5 h-5 md:mr-1" />
-                <span className="hidden md:inline">Settings</span>
-              </button>
-              <button
-                onClick={() => navigate('/admin')}
-                className="hidden lg:flex items-center text-gray-700 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-all hover:scale-105 p-2"
-                title="Admin"
-              >
-                <Settings className="w-5 h-5 md:mr-1" />
-                <span className="hidden md:inline">Admin</span>
-              </button>
-              <span className="hidden lg:inline text-gray-600 dark:text-gray-300">Welcome, {user?.username}</span>
-              <NotificationCenter />
-              <ThemeToggle />
-              <button
-                onClick={logout}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white p-2"
-                title="Logout"
-              >
-                <LogOut className="w-5 h-5 md:mr-1" />
-                <span className="hidden md:inline">Logout</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+        {/* Sidebar Navigation */}
+        <Sidebar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Content */}
+        <div className="flex-1 min-w-0">
+          {/* Simple Top Bar for Notifications */}
+          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-end space-x-4">
+            <NotificationCenter />
+          </div>
+
+          <main className="p-4 lg:p-8">
+            <div className="max-w-7xl mx-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <div className="card">
               <div className="flex items-center justify-between mb-6">
@@ -654,8 +597,9 @@ const Dashboard = () => {
               )}
             </div>
           </div>
-        </div>
-      </main>
+              </div>
+            </div>
+          </main>
 
       {/* Barcode Scanner Modal */}
       <BarcodeScanner
@@ -704,9 +648,10 @@ const Dashboard = () => {
         }}
       />
 
-      {/* Onboarding Tutorial */}
-      <Onboarding userId={user?.id || user?.username} />
-    </div>
+        {/* Onboarding Tutorial */}
+        <Onboarding userId={user?.id || user?.username} />
+        </div>
+      </div>
     </PageTransition>
   );
 };
