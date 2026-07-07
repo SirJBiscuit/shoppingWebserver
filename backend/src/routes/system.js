@@ -130,10 +130,18 @@ router.get('/check-updates', authenticateToken, isAdmin, async (req, res) => {
 router.post('/run-update-script', authenticateToken, isAdmin, async (req, res) => {
   try {
     console.log('Running update-server.sh script requested by user:', req.user.userId);
+    
+    // Create a trigger file that the host can monitor
+    // Or execute via docker exec on host
     const gitDir = '/opt/cloudmc-shop';
     
-    // Execute the update script
-    const { stdout, stderr } = await execPromise(`cd ${gitDir} && ./update-server.sh 2>&1`);
+    // Try to execute using sh instead of bash
+    const { stdout, stderr } = await execPromise(`sh ${gitDir}/update-server.sh 2>&1`, {
+      cwd: gitDir,
+      shell: '/bin/sh',
+      timeout: 300000 // 5 minute timeout
+    });
+    
     const output = stdout || stderr || 'Update script executed';
     
     console.log('Update script completed');
@@ -144,11 +152,12 @@ router.post('/run-update-script', authenticateToken, isAdmin, async (req, res) =
     });
   } catch (error) {
     console.error('Update script error:', error);
+    const errorOutput = error.stdout || error.stderr || error.message;
     res.status(500).json({ 
       success: false,
       error: 'Failed to run update script', 
       details: error.message,
-      output: error.stdout || error.stderr || ''
+      output: errorOutput
     });
   }
 });
