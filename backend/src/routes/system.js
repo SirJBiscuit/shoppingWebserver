@@ -126,63 +126,100 @@ router.get('/check-updates', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-// Run update script via webhook
+// Store update status in memory (in production, use Redis or database)
+let updateStatus = {
+  running: false,
+  progress: 0,
+  message: '',
+  startTime: null,
+  logs: []
+};
+
+// Run update script via webhook (async, returns immediately)
 router.post('/run-update-script', authenticateToken, isAdmin, async (req, res) => {
   try {
     console.log('Update script requested by user:', req.user.userId);
-    const axios = require('axios');
     
-    // Call webhook server running on host
+    if (updateStatus.running) {
+      return res.json({
+        success: false,
+        message: 'Update already in progress',
+        status: updateStatus
+      });
+    }
+    
+    // Mark as running
+    updateStatus = {
+      running: true,
+      progress: 0,
+      message: 'Starting update...',
+      startTime: new Date(),
+      logs: ['Update initiated by user ' + req.user.userId]
+    };
+    
+    // Return immediately
+    res.json({
+      success: true,
+      message: 'Update started',
+      status: updateStatus
+    });
+    
+    // Run update in background
+    const axios = require('axios');
     const webhookUrl = 'http://host.docker.internal:9000/update';
     const webhookSecret = process.env.WEBHOOK_SECRET || 'change-me-in-production';
     
-    try {
-      const response = await axios.post(webhookUrl, {
-        trigger: 'update',
-        user: req.user.userId
-      }, {
-        headers: {
-          'X-Webhook-Secret': webhookSecret
-        },
-        timeout: 300000 // 5 minute timeout
-      });
-      
-      console.log('Webhook response:', response.data);
-      res.json({
-        success: true,
-        message: 'Update script triggered successfully',
-        output: response.data.output || 'Update in progress...'
-      });
-      
-    } catch (webhookError) {
-      console.error('Webhook call failed:', webhookError.message);
-      
-      // If webhook is not available, return instructions
-      const instructions = `
-Webhook server not running. To set it up:
-
-1. SSH into your server
-2. Run: sudo systemctl start shop-webhook
-3. Or manually run: cd /opt/cloudmc-shop && ./update-server.sh
-
-Alternatively, use the "Manual Update" button.
-      `.trim();
-      
-      res.json({
-        success: false,
-        message: 'Webhook server not available',
-        instructions: instructions,
-        error: webhookError.message
-      });
-    }
+    // Execute async
+    (async () => {
+      try {
+        updateStatus.progress = 10;
+        updateStatus.message = 'Calling webhook server...';
+        updateStatus.logs.push('Triggering update webhook');
+        
+        const response = await axios.post(webhookUrl, {
+          trigger: 'update',
+          user: req.user.userId
+        }, {
+          headers: {
+            'X-Webhook-Secret': webhookSecret
+          },
+          timeout: 600000 // 10 minute timeout
+        });
+        
+        updateStatus.progress = 90;
+        updateStatus.message = 'Update completed';
+        updateStatus.logs.push('Webhook response received');
+        updateStatus.logs.push(response.data.output || 'Success');
+        
+        setTimeout(() => {
+          updateStatus.running = false;
+          updateStatus.progress = 100;
+          updateStatus.message = 'Update finished successfully';
+        }, 2000);
+        
+      } catch (error) {
+        console.error('Background update error:', error);
+        updateStatus.running = false;
+        updateStatus.progress = 0;
+        updateStatus.message = 'Update failed: ' + error.message;
+        updateStatus.logs.push('Error: ' + error.message);
+      }
+    })();
+    
   } catch (error) {
     console.error('Update script error:', error);
+    updateStatus.running = false;
     res.status(500).json({ 
       success: false,
-      error: 'Failed to run update script', 
+      error: 'Failed to start update', 
       details: error.message
     });
   }
+});
+
+// Get update status
+router.get('/update-status', authenticateToken, isAdmin, async (req, res) => {
+  res.json(updateStatus);
 });
 
 // Apply updates

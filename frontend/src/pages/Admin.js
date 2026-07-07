@@ -59,49 +59,84 @@ const Admin = () => {
     }
 
     setUpdating(true);
-    setUpdateLog([{ step: 'Running update-server.sh script...', status: 'running' }]);
+    setUpdateLog([{ step: 'Starting update...', status: 'running' }]);
 
     try {
+      // Start the update
       const response = await api.post('/system/run-update-script');
       
-      if (response.data.success) {
+      if (!response.data.success) {
         setUpdateLog([
-          { step: 'Update script completed successfully!', status: 'success' },
-          { step: 'Output: ' + response.data.output.substring(0, 500), status: 'success' }
+          { step: response.data.message || 'Update failed to start', status: 'error' },
+          { step: response.data.instructions || response.data.error, status: 'error' }
         ]);
-        
-        // Show countdown
-        let countdown = 10;
-        const countdownInterval = setInterval(() => {
-          countdown--;
-          setUpdateLog(prev => {
-            const newLog = [...prev];
-            newLog[newLog.length - 1] = { 
-              step: `Page will reload in ${countdown} seconds...`, 
-              status: 'running' 
-            };
-            return newLog;
-          });
-          
-          if (countdown <= 0) {
-            clearInterval(countdownInterval);
-            window.location.reload();
-          }
-        }, 1000);
-      } else {
-        setUpdateLog([
-          { step: 'Update script failed', status: 'error' },
-          { step: response.data.details || 'Unknown error', status: 'error' }
-        ]);
-        alert('Update script failed. Check the log for details.');
+        setUpdating(false);
+        return;
       }
+
+      // Poll for status
+      const statusInterval = setInterval(async () => {
+        try {
+          const statusRes = await api.get('/system/update-status');
+          const status = statusRes.data;
+          
+          // Update log with current status
+          setUpdateLog([
+            { step: `Progress: ${status.progress}%`, status: 'running' },
+            { step: status.message, status: status.running ? 'running' : 'success' },
+            ...status.logs.map(log => ({ step: log, status: 'success' }))
+          ]);
+          
+          // If update is complete
+          if (!status.running && status.progress === 100) {
+            clearInterval(statusInterval);
+            setUpdateLog(prev => [...prev, { step: 'Update completed successfully!', status: 'success' }]);
+            
+            // Countdown to reload
+            let countdown = 10;
+            const countdownInterval = setInterval(() => {
+              countdown--;
+              setUpdateLog(prev => {
+                const newLog = [...prev];
+                newLog[newLog.length - 1] = { 
+                  step: `Page will reload in ${countdown} seconds...`, 
+                  status: 'running' 
+                };
+                return newLog;
+              });
+              
+              if (countdown <= 0) {
+                clearInterval(countdownInterval);
+                window.location.reload();
+              }
+            }, 1000);
+            
+            setUpdating(false);
+          }
+          
+          // If update failed
+          if (!status.running && status.progress === 0 && status.message.includes('failed')) {
+            clearInterval(statusInterval);
+            setUpdateLog(prev => [...prev, { step: 'Update failed!', status: 'error' }]);
+            setUpdating(false);
+          }
+          
+        } catch (statusError) {
+          console.error('Failed to get status:', statusError);
+        }
+      }, 2000); // Poll every 2 seconds
+      
+      // Stop polling after 10 minutes
+      setTimeout(() => {
+        clearInterval(statusInterval);
+        setUpdating(false);
+      }, 600000);
+      
     } catch (error) {
       console.error('Failed to run update script:', error);
       setUpdateLog([
         { step: `Error: ${error.response?.data?.details || error.message}`, status: 'error' }
       ]);
-      alert('Failed to run update script: ' + (error.response?.data?.details || error.message));
-    } finally {
       setUpdating(false);
     }
   };
