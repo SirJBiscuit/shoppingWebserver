@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const AnimatedCart = ({ items, sortedByZone = false }) => {
   const [flyingItems, setFlyingItems] = useState([]);
   const [cartItems, setCartItems] = useState([]);
   const [lastItemCount, setLastItemCount] = useState(0);
+  
+  // Calculate total cost
+  const totalCost = items.reduce((sum, item) => sum + ((item.price || 0) * item.quantity), 0);
 
   // Detect when a new item is added
   useEffect(() => {
@@ -123,9 +126,17 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
                 </motion.div>
               )}
             </motion.div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Your Cart
-            </h3>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Your Cart
+              </h3>
+              {totalCost > 0 && (
+                <div className="flex items-center text-green-600 dark:text-green-400 font-bold text-xl mt-1">
+                  <DollarSign className="w-5 h-5" />
+                  {totalCost.toFixed(2)}
+                </div>
+              )}
+            </div>
           </div>
           
           {sortedByZone && (

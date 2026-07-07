@@ -338,7 +338,7 @@ const Dashboard = () => {
                         setActiveList(list);
                         if (list) loadListItems(list.id);
                       }}
-                      className="input-field text-sm"
+                      className="input-field text-sm min-w-[250px]"
                     >
                       {lists.map(list => (
                         <option key={list.id} value={list.id}>
@@ -356,10 +356,10 @@ const Dashboard = () => {
                     New List
                   </button>
                 </div>
-                <div className="flex items-center space-x-4">
+                <div className="flex flex-wrap items-center gap-3">
                   <button
                     onClick={() => setShowVoice(true)}
-                    className="btn-secondary text-sm flex items-center"
+                    className="btn-secondary text-sm flex items-center min-w-[100px] justify-center"
                     title="Voice input"
                   >
                     <Mic className="w-4 h-4 mr-1" />
@@ -367,7 +367,7 @@ const Dashboard = () => {
                   </button>
                   <button
                     onClick={() => setShowShare(true)}
-                    className="btn-secondary text-sm flex items-center"
+                    className="btn-secondary text-sm flex items-center min-w-[100px] justify-center"
                     title="Share list"
                   >
                     <Share2 className="w-4 h-4 mr-1" />
@@ -375,7 +375,7 @@ const Dashboard = () => {
                   </button>
                   <button
                     onClick={() => setShowScanner(true)}
-                    className="btn-secondary text-sm flex items-center"
+                    className="btn-secondary text-sm flex items-center min-w-[100px] justify-center"
                     title="Scan barcode"
                   >
                     <Scan className="w-4 h-4 mr-1" />
@@ -383,18 +383,14 @@ const Dashboard = () => {
                   </button>
                   <button
                     onClick={() => setSmartSort(!smartSort)}
-                    className={`btn-secondary text-sm flex items-center ${smartSort ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300' : ''}`}
+                    className={`btn-secondary text-sm flex items-center min-w-[120px] justify-center ${smartSort ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300' : ''}`}
                     title={smartSort ? 'Sorted by store layout' : 'Sort by store layout'}
                   >
                     <ArrowUpDown className="w-4 h-4 mr-1" />
                     {smartSort ? `${calculateEfficiency(items)}%` : 'Smart Sort'}
                   </button>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                  <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">
                     {checkedCount} / {items.length} items
-                  </div>
-                  <div className="flex items-center text-primary-600 dark:text-primary-400 font-semibold">
-                    <DollarSign className="w-5 h-5" />
-                    {totalCost.toFixed(2)}
                   </div>
                 </div>
               </div>
@@ -525,6 +521,16 @@ const Dashboard = () => {
                 items={smartSort ? sortItemsByStoreLayout(items) : items}
                 onToggleCheck={toggleItemCheck}
                 onDelete={deleteItem}
+                onEdit={async (updatedItem) => {
+                  try {
+                    await shoppingAPI.updateItem(updatedItem.id, {
+                      item_icon: updatedItem.item_icon,
+                    });
+                    await loadListItems(activeList.id);
+                  } catch (error) {
+                    console.error('Error updating item:', error);
+                  }
+                }}
               />
 
               {items.length > 0 && (

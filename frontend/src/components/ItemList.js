@@ -1,8 +1,32 @@
-import React from 'react';
-import { Check, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Check, Trash2, Edit2, Smile } from 'lucide-react';
+import IconPicker from './IconPicker';
 
-const ItemList = ({ items, onToggleCheck, onDelete }) => {
-  const groupedItems = items.reduce((acc, item) => {
+const ItemList = ({ items, onToggleCheck, onDelete, onEdit }) => {
+  const [editingItem, setEditingItem] = useState(null);
+  const [showIconPicker, setShowIconPicker] = useState(false);
+  // Group items by name to combine duplicates
+  const combinedItems = items.reduce((acc, item) => {
+    const key = item.item_name.toLowerCase();
+    if (!acc[key]) {
+      acc[key] = {
+        ...item,
+        count: 1,
+        totalQuantity: item.quantity,
+        totalPrice: (item.price || 0) * item.quantity,
+        ids: [item.id]
+      };
+    } else {
+      acc[key].count += 1;
+      acc[key].totalQuantity += item.quantity;
+      acc[key].totalPrice += (item.price || 0) * item.quantity;
+      acc[key].ids.push(item.id);
+    }
+    return acc;
+  }, {});
+
+  // Group by category
+  const groupedItems = Object.values(combinedItems).reduce((acc, item) => {
     const category = item.category_name || item.category || 'Other';
     if (!acc[category]) {
       acc[category] = {
@@ -30,6 +54,7 @@ const ItemList = ({ items, onToggleCheck, onDelete }) => {
   }
 
   return (
+    <>
     <div className="space-y-6">
       {categories.map((category) => (
         <div key={category}>
@@ -61,33 +86,90 @@ const ItemList = ({ items, onToggleCheck, onDelete }) => {
                   >
                     {item.is_checked && <Check className="w-4 h-4 text-white" />}
                   </button>
+                  
+                  {/* Icon with edit button */}
+                  <div className="relative mr-2">
+                    <button
+                      onClick={() => {
+                        setEditingItem(item);
+                        setShowIconPicker(true);
+                      }}
+                      className="text-2xl hover:scale-110 transition-transform"
+                      title="Change icon"
+                    >
+                      {item.item_icon || '📦'}
+                    </button>
+                  </div>
+
                   <div className="flex-1">
                     <p
                       className={`font-medium flex items-center ${
                         item.is_checked ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'
                       }`}
                     >
-                      {item.item_icon && <span className="text-xl mr-2">{item.item_icon}</span>}
                       {item.item_name}
+                      {item.count > 1 && (
+                        <span className="ml-2 px-2 py-0.5 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 text-xs font-bold rounded-full">
+                          x{item.count}
+                        </span>
+                      )}
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {item.quantity} {item.unit}
-                      {item.price > 0 && ` • $${(item.price * item.quantity).toFixed(2)}`}
+                      {item.totalQuantity} {item.unit}
+                      {item.totalPrice > 0 && (
+                        <span className="font-semibold text-green-600 dark:text-green-400">
+                          {' '}• ${item.totalPrice.toFixed(2)}
+                        </span>
+                      )}
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => onDelete(item.id)}
-                  className="ml-3 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => onEdit && onEdit(item)}
+                    className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 transition-colors"
+                    title="Edit item"
+                  >
+                    <Edit2 className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Delete all instances of this item
+                      item.ids.forEach(id => onDelete(id));
+                    }}
+                    className="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
+                    title="Delete item"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         </div>
       ))}
     </div>
+
+    {/* Icon Picker Modal */}
+    {showIconPicker && editingItem && (
+      <IconPicker
+        isOpen={showIconPicker}
+        onClose={() => {
+          setShowIconPicker(false);
+          setEditingItem(null);
+        }}
+        onSelect={(icon) => {
+          if (onEdit && editingItem) {
+            onEdit({ ...editingItem, item_icon: icon });
+          }
+          setShowIconPicker(false);
+          setEditingItem(null);
+        }}
+        currentIcon={editingItem.item_icon}
+      />
+    )}
+    </>
   );
 };
 
