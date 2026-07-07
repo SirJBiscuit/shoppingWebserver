@@ -37,6 +37,9 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       NODE_ENV: production
       PORT: 3007
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/cloudmc-shop:/opt/cloudmc-shop:ro
     ports:
       - "127.0.0.1:3007:3007"
     depends_on:
