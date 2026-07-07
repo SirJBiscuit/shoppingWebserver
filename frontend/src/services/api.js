@@ -65,6 +65,9 @@ export const categoriesAPI = {
   searchItems: (query) => api.get('/categories/search-items', { params: { q: query } }),
   lookupItem: (params) => api.get('/categories/item-lookup', { params }),
   addCustomItem: (data) => api.post('/categories/custom-item', data),
+  saveItemPreference: (data) => api.post('/categories/item-preference', data),
+  getItemPreferences: () => api.get('/categories/item-preferences'),
+  getItemPreference: (params) => api.get('/categories/item-preference', { params }),
 };
 
 export const recipesAPI = {

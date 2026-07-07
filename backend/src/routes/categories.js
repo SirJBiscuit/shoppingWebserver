@@ -121,4 +121,90 @@ router.post('/custom-item', authenticateToken, async (req, res) => {
   }
 });
 
+// Save user's icon/tag preference for an item
+router.post('/item-preference', authenticateToken, async (req, res) => {
+  try {
+    const { item_name, barcode, custom_icon, custom_tags, category_id } = req.body;
+    
+    const result = await db.query(`
+      INSERT INTO user_item_preferences (user_id, item_name, barcode, custom_icon, custom_tags, category_id)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT (user_id, item_name) 
+      DO UPDATE SET 
+        custom_icon = EXCLUDED.custom_icon,
+        custom_tags = EXCLUDED.custom_tags,
+        category_id = EXCLUDED.category_id,
+        barcode = COALESCE(EXCLUDED.barcode, user_item_preferences.barcode),
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [req.user.userId, item_name, barcode, custom_icon, custom_tags, category_id]);
+    
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Save item preference error:', error);
+    res.status(500).json({ error: 'Failed to save item preference' });
+  }
+});
+
+// Get user's item preferences
+router.get('/item-preferences', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT * FROM user_item_preferences WHERE user_id = $1
+    `, [req.user.userId]);
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get item preferences error:', error);
+    res.status(500).json({ error: 'Failed to fetch item preferences' });
+  }
+});
+
+// Get preference for specific item (by name or barcode)
+router.get('/item-preference', authenticateToken, async (req, res) => {
+  try {
+    const { item_name, barcode } = req.query;
+    
+    let result;
+    if (barcode) {
+      result = await db.query(`
+        SELECT * FROM user_item_preferences 
+        WHERE user_id = $1 AND barcode = $2
+      `, [req.user.userId, barcode]);
+    } else if (item_name) {
+      result = await db.query(`
+        SELECT * FROM user_item_preferences 
+        WHERE user_id = $1 AND LOWER(item_name) = LOWER($2)
+      `, [req.user.userId, item_name]);
+    } else {
+      return res.status(400).json({ error: 'item_name or barcode required' });
+    }
+    
+    if (result.rows.length === 0) {
+      // Try to find from common items
+      const commonResult = await db.query(`
+        SELECT icon, tags, category_id FROM item_metadata 
+        WHERE LOWER(name) = LOWER($1) OR barcode = $2
+        LIMIT 1
+      `, [item_name, barcode]);
+      
+      if (commonResult.rows.length > 0) {
+        return res.json({
+          custom_icon: commonResult.rows[0].icon,
+          custom_tags: commonResult.rows[0].tags,
+          category_id: commonResult.rows[0].category_id,
+          is_preset: true
+        });
+      }
+      
+      return res.status(404).json({ error: 'No preference found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Get item preference error:', error);
+    res.status(500).json({ error: 'Failed to fetch item preference' });
+  }
+});
+
 module.exports = router;
