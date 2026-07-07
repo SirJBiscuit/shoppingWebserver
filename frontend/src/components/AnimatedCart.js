@@ -1,98 +1,68 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, DollarSign } from 'lucide-react';
+import { ShoppingCart, DollarSign, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const AnimatedCart = ({ items, sortedByZone = false }) => {
   const [flyingItems, setFlyingItems] = useState([]);
-  const [cartItems, setCartItems] = useState([]);
-  const [lastItemCount, setLastItemCount] = useState(0);
+  const [initialized, setInitialized] = useState(false);
   
   // Calculate total cost
   const totalCost = items.reduce((sum, item) => sum + ((item.price || 0) * item.quantity), 0);
 
-  // Detect when a new item is added
+  // Initialize on first load - prevent reload animations
   useEffect(() => {
-    if (items.length > lastItemCount) {
-      const newItem = items[items.length - 1];
-      
-      // Create flying animation for the new item
-      const flyingItem = {
-        id: `flying-${Date.now()}`,
-        icon: newItem.item_icon || '📦',
-        startX: Math.random() * 100, // Random start position
-        startY: 100,
-      };
-      
-      setFlyingItems(prev => [...prev, flyingItem]);
-      
-      // Add to cart after animation
-      setTimeout(() => {
-        setCartItems(prev => [...prev, {
-          id: newItem.id,
-          icon: newItem.item_icon || '📦',
-          name: newItem.item_name,
-          category: newItem.category_name || newItem.category,
-        }]);
-        
-        // Remove flying item
-        setFlyingItems(prev => prev.filter(item => item.id !== flyingItem.id));
-      }, 800);
+    if (!initialized && items.length > 0) {
+      setInitialized(true);
+      // Store initial items to prevent animation on reload
+      sessionStorage.setItem('cart_item_ids', items.map(i => i.id).join(','));
     }
-    
-    setLastItemCount(items.length);
-  }, [items.length, lastItemCount]);
+  }, [items.length, initialized]);
 
-  // Update cart items when items change (for sorting)
+  // Only animate NEW items (not on reload)
   useEffect(() => {
-    setCartItems(items.map(item => ({
-      id: item.id,
-      icon: item.item_icon || '📦',
-      name: item.item_name,
-      category: item.category_name || item.category,
-      checked: item.is_checked,
-    })));
-  }, [items]);
-
-  // Group items by category if sorted
-  const groupedItems = sortedByZone ? cartItems.reduce((acc, item) => {
-    const category = item.category || 'Other';
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(item);
-    return acc;
-  }, {}) : { 'All Items': cartItems };
+    if (!initialized) return; // Skip initial load
+    
+    const itemIds = items.map(i => i.id).join(',');
+    const storedIds = sessionStorage.getItem('cart_item_ids') || '';
+    
+    if (itemIds !== storedIds) {
+      // Find new items
+      const storedIdArray = storedIds.split(',').filter(Boolean);
+      const newItems = items.filter(item => !storedIdArray.includes(item.id.toString()));
+      
+      // Animate only new items
+      newItems.forEach((newItem, index) => {
+        setTimeout(() => {
+          const flyingItem = {
+            id: `flying-${newItem.id}-${Date.now()}`,
+            icon: newItem.item_icon || '📦',
+            name: newItem.item_name,
+          };
+          
+          setFlyingItems(prev => [...prev, flyingItem]);
+          
+          setTimeout(() => {
+            setFlyingItems(prev => prev.filter(item => item.id !== flyingItem.id));
+          }, 1000);
+        }, index * 100);
+      });
+      
+      sessionStorage.setItem('cart_item_ids', itemIds);
+    }
+  }, [items, initialized]);
 
   return (
     <div className="relative">
       {/* Flying Items Animation */}
       <AnimatePresence>
-        {flyingItems.map(item => (
+        {flyingItems.map((item) => (
           <motion.div
             key={item.id}
-            initial={{ 
-              x: `${item.startX}vw`, 
-              y: `${item.startY}vh`,
-              scale: 1,
-              opacity: 1,
-            }}
-            animate={{ 
-              x: '50vw',
-              y: '10vh',
-              scale: 0.5,
-              opacity: 0.8,
-            }}
-            exit={{ 
-              scale: 0,
-              opacity: 0,
-            }}
-            transition={{ 
-              duration: 0.8,
-              ease: 'easeInOut',
-            }}
-            className="fixed z-50 pointer-events-none text-4xl"
-            style={{ 
-              left: 0,
-              top: 0,
-            }}
+            initial={{ x: -100, y: 0, scale: 0, opacity: 0 }}
+            animate={{ x: 200, y: -100, scale: [0, 1.5, 0], opacity: [0, 1, 0] }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            className="absolute top-0 left-0 text-4xl pointer-events-none z-50"
           >
             {item.icon}
           </motion.div>
@@ -116,13 +86,13 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
               className="relative"
             >
               <ShoppingCart className="w-8 h-8 text-primary-600 dark:text-primary-400" />
-              {cartItems.length > 0 && (
+              {items.length > 0 && (
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   className="absolute -top-2 -right-2 bg-primary-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center"
                 >
-                  {cartItems.length}
+                  {items.length}
                 </motion.div>
               )}
             </motion.div>
@@ -146,93 +116,93 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
           )}
         </div>
 
-        {/* Cart Items */}
-        <div className="space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
-          {cartItems.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Your cart is empty</p>
-              <p className="text-xs mt-1">Add items to see them here!</p>
-            </div>
-          ) : (
-            Object.entries(groupedItems).map(([category, categoryItems]) => (
-              <div key={category} className="space-y-2">
-                {sortedByZone && Object.keys(groupedItems).length > 1 && (
-                  <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                    {category}
-                  </div>
-                )}
-                
-                <div className="space-y-1">
-                  <AnimatePresence>
-                    {categoryItems.map((item, index) => (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 20 }}
-                        transition={{ delay: index * 0.05 }}
-                        className={`flex items-center space-x-2 p-2 rounded-lg transition-all ${
-                          item.checked 
-                            ? 'bg-gray-100 dark:bg-gray-700 opacity-50' 
-                            : 'bg-white dark:bg-gray-800'
-                        }`}
-                      >
-                        <span className="text-2xl">{item.icon}</span>
-                        <span className={`text-sm flex-1 ${
-                          item.checked 
-                            ? 'line-through text-gray-500 dark:text-gray-400' 
-                            : 'text-gray-900 dark:text-gray-100'
-                        }`}>
-                          {item.name}
-                        </span>
-                        {item.checked && (
-                          <motion.span
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className="text-green-500"
+        {/* 3D Cart Visualization */}
+        <div className="relative min-h-[450px] bg-gradient-to-b from-gray-100 to-gray-200 dark:from-gray-900 dark:to-gray-800 rounded-lg p-4 overflow-hidden">
+          {/* Cart Base - 3D perspective */}
+          <div className="absolute inset-0 flex items-end justify-center pb-8">
+            <div className="relative w-full max-w-md">
+              {/* Cart basket */}
+              <div className="relative" style={{ perspective: '1000px' }}>
+                <div 
+                  className="bg-gradient-to-b from-gray-300 to-gray-400 dark:from-gray-700 dark:to-gray-600 rounded-lg border-4 border-gray-400 dark:border-gray-500 shadow-2xl"
+                  style={{
+                    transform: 'rotateX(5deg)',
+                    transformStyle: 'preserve-3d',
+                    minHeight: '320px',
+                  }}
+                >
+                  {/* Cart rim */}
+                  <div className="absolute -top-2 left-0 right-0 h-4 bg-gray-400 dark:bg-gray-500 rounded-t-lg border-2 border-gray-500 dark:border-gray-600" />
+                  
+                  {/* Items in cart */}
+                  <div className="p-6 pt-8 max-h-[300px] overflow-y-auto custom-scrollbar">
+                    {items.length === 0 ? (
+                      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                        <ShoppingCart className="w-20 h-20 mx-auto mb-3 opacity-20" />
+                        <p className="text-sm font-medium">Cart is empty</p>
+                        <p className="text-xs mt-1">Add items to see them here!</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-3">
+                        {items.map((item, index) => (
+                          <motion.div
+                            key={item.id}
+                            initial={{ scale: 0, rotate: -180 }}
+                            animate={{ 
+                              scale: 1, 
+                              rotate: 0,
+                              y: [0, -5, 0],
+                            }}
+                            transition={{
+                              delay: initialized ? 0 : index * 0.05,
+                              y: {
+                                repeat: Infinity,
+                                duration: 2 + (index % 3) * 0.5,
+                                ease: "easeInOut"
+                              }
+                            }}
+                            className={`relative group ${
+                              item.is_checked ? 'opacity-40' : ''
+                            }`}
+                            style={{
+                              transform: `translateZ(${20 + (index % 3) * 10}px)`,
+                            }}
                           >
-                            ✓
-                          </motion.span>
-                        )}
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
+                            {/* Item card */}
+                            <div className="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-lg border-2 border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform cursor-pointer">
+                              <div className="text-4xl text-center mb-1">
+                                {item.item_icon || '📦'}
+                              </div>
+                              <div className="text-xs text-center font-medium text-gray-700 dark:text-gray-300 truncate">
+                                {item.item_name}
+                              </div>
+                              {item.quantity > 1 && (
+                                <div className="absolute -top-2 -right-2 bg-primary-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
+                                  {item.quantity}
+                                </div>
+                              )}
+                              {item.is_checked && (
+                                <div className="absolute inset-0 bg-green-500 bg-opacity-20 rounded-lg flex items-center justify-center">
+                                  <Check className="w-8 h-8 text-green-600" />
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            ))
-          )}
-        </div>
-
-        {/* Cart Footer */}
-        {cartItems.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mt-4 pt-4 border-t border-primary-200 dark:border-gray-700"
-          >
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">
-                {cartItems.filter(i => i.checked).length} / {cartItems.length} collected
-              </span>
-              <div className="flex items-center space-x-1">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: i * 0.1 }}
-                    className={`w-2 h-2 rounded-full ${
-                      i < Math.ceil((cartItems.filter(i => i.checked).length / cartItems.length) * 5)
-                        ? 'bg-primary-600'
-                        : 'bg-gray-300 dark:bg-gray-600'
-                    }`}
-                  />
-                ))}
+              
+              {/* Cart wheels */}
+              <div className="flex justify-between px-8 mt-2">
+                <div className="w-12 h-12 bg-gray-800 dark:bg-gray-900 rounded-full border-4 border-gray-600 shadow-lg" />
+                <div className="w-12 h-12 bg-gray-800 dark:bg-gray-900 rounded-full border-4 border-gray-600 shadow-lg" />
               </div>
             </div>
-          </motion.div>
-        )}
+          </div>
+        </div>
       </motion.div>
     </div>
   );
