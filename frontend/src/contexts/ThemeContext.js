@@ -12,61 +12,44 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  const [isDark, setIsDark] = useState(true); // Default to dark mode
-  const [loading, setLoading] = useState(true);
-
-  // Load theme preference from localStorage (don't call API on login page)
-  useEffect(() => {
-    console.log('ThemeContext: Loading theme from localStorage');
-    const loadTheme = () => {
-      try {
-        // Use localStorage for theme preference
-        const savedTheme = localStorage.getItem('darkMode');
-        console.log('ThemeContext: Saved theme:', savedTheme);
-        if (savedTheme !== null) {
-          setIsDark(savedTheme === 'true');
-        }
-      } catch (error) {
-        console.error('Failed to load theme preference:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTheme();
-  }, []);
-
-  // Apply theme to document
-  useEffect(() => {
-    if (loading) return;
-    
-    console.log('ThemeContext: Applying theme, isDark:', isDark);
-    
-    const currentTheme = document.documentElement.classList.contains('dark');
-    const shouldBeDark = isDark;
-    
-    // Only update if theme actually changed
-    if (currentTheme !== shouldBeDark) {
-      if (isDark) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-      
-      // Save to localStorage
-      localStorage.setItem('darkMode', isDark.toString());
-      console.log('ThemeContext: Theme updated to', isDark ? 'dark' : 'light');
+  // Initialize from localStorage synchronously
+  const [isDark, setIsDark] = useState(() => {
+    try {
+      const saved = localStorage.getItem('darkMode');
+      return saved === 'false' ? false : true; // Default to dark
+    } catch {
+      return true;
     }
-  }, [isDark, loading]);
+  });
 
   const toggleTheme = () => {
-    const newTheme = !isDark;
-    setIsDark(newTheme);
-    // Theme is automatically saved to localStorage via the useEffect above
+    setIsDark(prev => {
+      const newValue = !prev;
+      try {
+        localStorage.setItem('darkMode', String(newValue));
+        if (newValue) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } catch (error) {
+        console.error('Failed to save theme:', error);
+      }
+      return newValue;
+    });
   };
 
+  // Apply initial theme immediately
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []); // Only run once on mount
+
   return (
-    <ThemeContext.Provider value={{ isDark, toggleTheme, loading }}>
+    <ThemeContext.Provider value={{ isDark, toggleTheme, loading: false }}>
       {children}
     </ThemeContext.Provider>
   );
