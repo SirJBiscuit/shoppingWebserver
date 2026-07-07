@@ -11,6 +11,7 @@ import SmartSuggestions from '../components/SmartSuggestions';
 import InventoryPanel from '../components/InventoryPanel';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
+import { detectCategory, estimatePrice } from '../utils/categoryDetector';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -50,6 +51,21 @@ const Dashboard = () => {
       setSearchResults([]);
     }
   }, [searchQuery]);
+
+  // Auto-detect category and estimate price when item name changes
+  useEffect(() => {
+    if (newItemName && !newItemCategory) {
+      const detectedCategory = detectCategory(newItemName);
+      if (detectedCategory) {
+        setNewItemCategory(detectedCategory);
+      }
+    }
+    
+    if (newItemName && !newItemPrice && newItemCategory) {
+      const estimatedPrice = estimatePrice(newItemName, newItemCategory);
+      setNewItemPrice(estimatedPrice.toFixed(2));
+    }
+  }, [newItemName, newItemCategory]);
 
   const loadLists = async () => {
     try {
@@ -103,6 +119,19 @@ const Dashboard = () => {
       setSearchResults(response.data);
     } catch (error) {
       console.error('Error searching items:', error);
+    }
+  };
+
+  const deleteItemHistory = async (itemId) => {
+    try {
+      await suggestionsAPI.deleteItem(itemId);
+      // Refresh search results
+      if (searchQuery.length >= 2) {
+        await searchItems();
+      }
+    } catch (error) {
+      console.error('Error deleting item history:', error);
+      alert('Failed to delete item from history');
     }
   };
 
@@ -330,20 +359,40 @@ const Dashboard = () => {
                     {searchResults.slice(0, 5).map((result) => (
                       <div
                         key={result.id}
-                        onClick={() => {
-                          setNewItemName(result.name);
-                          setNewItemQuantity(result.preferred_quantity || result.typical_quantity || '1');
-                          setNewItemSize(result.preferred_unit || result.typical_unit || '');
-                          setNewItemCategory(result.category || '');
-                          setSearchQuery('');
-                          setSearchResults([]);
-                        }}
-                        className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded hover:bg-primary-50 dark:hover:bg-gray-600 cursor-pointer transition-colors"
+                        className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded hover:bg-primary-50 dark:hover:bg-gray-600 transition-colors"
                       >
-                        <span className="font-medium">{result.name}</span>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {result.total_purchases ? `Bought ${result.total_purchases}x` : 'New'}
-                        </span>
+                        <div
+                          onClick={() => {
+                            setNewItemName(result.name);
+                            setNewItemQuantity(result.preferred_quantity || result.typical_quantity || '1');
+                            setNewItemSize(result.preferred_unit || result.typical_unit || '');
+                            setNewItemCategory(result.category || '');
+                            setSearchQuery('');
+                            setSearchResults([]);
+                          }}
+                          className="flex-1 cursor-pointer"
+                        >
+                          <span className="font-medium">{result.name}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {result.total_purchases ? `Bought ${result.total_purchases}x` : 'New'}
+                          </span>
+                          {result.total_purchases > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`Delete "${result.name}" from history?`)) {
+                                  deleteItemHistory(result.id);
+                                }
+                              }}
+                              className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
+                              title="Delete from history"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
