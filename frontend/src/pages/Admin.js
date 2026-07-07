@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import ThemeToggle from '../components/ThemeToggle';
+import PageTransition from '../components/PageTransition';
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -256,7 +258,8 @@ const Admin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <PageTransition>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 mb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -288,15 +291,16 @@ const Admin = () => {
               </button>
               <button
                 onClick={() => navigate('/admin')}
-                className="flex items-center text-primary-600 font-medium"
+                className="flex items-center text-primary-600 dark:text-primary-400 font-medium"
               >
                 <Settings className="w-5 h-5 mr-1" />
                 Admin
               </button>
-              <span className="text-gray-600">Welcome, {user?.username}</span>
+              <span className="text-gray-600 dark:text-gray-300">Welcome, {user?.username}</span>
+              <ThemeToggle />
               <button
                 onClick={logout}
-                className="flex items-center text-gray-600 hover:text-gray-900"
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
               >
                 <LogOut className="w-5 h-5 mr-1" />
                 Logout
@@ -508,6 +512,7 @@ const Admin = () => {
         )}
       </div>
     </div>
+    </PageTransition>
   );
 };
 

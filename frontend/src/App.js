@@ -1,5 +1,6 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Login from './pages/Login';
@@ -37,19 +38,29 @@ const PublicRoute = ({ children }) => {
   return !user ? children : <Navigate to="/" />;
 };
 
+const AnimatedRoutes = () => {
+  const location = useLocation();
+  
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+        <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+        <Route path="/recipes" element={<PrivateRoute><Recipes /></PrivateRoute>} />
+        <Route path="/pantry" element={<PrivateRoute><Pantry /></PrivateRoute>} />
+        <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
+      </Routes>
+    </AnimatePresence>
+  );
+};
+
 function App() {
   return (
     <AuthProvider>
       <ThemeProvider>
         <Router>
-          <Routes>
-            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-            <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-            <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-            <Route path="/recipes" element={<PrivateRoute><Recipes /></PrivateRoute>} />
-            <Route path="/pantry" element={<PrivateRoute><Pantry /></PrivateRoute>} />
-            <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
-          </Routes>
+          <AnimatedRoutes />
         </Router>
       </ThemeProvider>
     </AuthProvider>

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, ChefHat, Clock, Users, Trash2, ShoppingCart, Star, Package, LogOut } from 'lucide-react';
+import { Plus, ChefHat, Clock, Users, Trash2, ShoppingCart, Star, Package, LogOut, Settings } from 'lucide-react';
 import { recipesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import ThemeToggle from '../components/ThemeToggle';
+import PageTransition from '../components/PageTransition';
 
 const Recipes = () => {
   const navigate = useNavigate();
@@ -78,40 +80,49 @@ const Recipes = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b border-gray-200 mb-8">
+    <PageTransition>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 mb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <ChefHat className="w-8 h-8 text-primary-600 mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900">CloudMC Shop</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CloudMC Shop</h1>
             </div>
             <div className="flex items-center space-x-6">
               <button
                 onClick={() => navigate('/')}
-                className="flex items-center text-gray-600 hover:text-primary-600 font-medium"
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
               >
                 <ShoppingCart className="w-5 h-5 mr-1" />
                 Shopping
               </button>
               <button
                 onClick={() => navigate('/recipes')}
-                className="flex items-center text-primary-600 font-medium"
+                className="flex items-center text-primary-600 dark:text-primary-400 font-medium"
               >
                 <ChefHat className="w-5 h-5 mr-1" />
                 Recipes
               </button>
               <button
                 onClick={() => navigate('/pantry')}
-                className="flex items-center text-gray-600 hover:text-primary-600 font-medium"
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
               >
                 <Package className="w-5 h-5 mr-1" />
                 Pantry
               </button>
-              <span className="text-gray-600">Welcome, {user?.username}</span>
+              <button
+                onClick={() => navigate('/admin')}
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
+              >
+                <Settings className="w-5 h-5 mr-1" />
+                Admin
+              </button>
+              <span className="text-gray-600 dark:text-gray-300">Welcome, {user?.username}</span>
+              <ThemeToggle />
               <button
                 onClick={logout}
-                className="flex items-center text-gray-600 hover:text-gray-900"
+                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
               >
                 <LogOut className="w-5 h-5 mr-1" />
                 Logout
@@ -124,11 +135,11 @@ const Recipes = () => {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center">
             <ChefHat className="w-8 h-8 mr-3 text-primary-600" />
             My Recipes
           </h1>
-          <p className="text-gray-600 mt-2">Manage your recipes and meal planning</p>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">Manage your recipes and meal planning</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
@@ -289,6 +300,7 @@ const RecipeCard = ({ recipe, onAddToList, onToggleFavorite, onDelete, canMake, 
         </div>
       </div>
     </div>
+    </PageTransition>
   );
 };
 
