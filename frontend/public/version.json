@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "buildDate": "2026-07-07T20:52:00Z",
+  "commit": "latest",
+  "features": [
+    "3D Shopping Cart",
+    "Smart Learning (Icons & Prices)",
+    "Pantry Quick View",
+    "Clear Cache Button",
+    "Network-First Caching"
+  ]
+}
