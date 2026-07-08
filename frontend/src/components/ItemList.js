@@ -88,21 +88,12 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit }) => {
                     {item.is_checked && <Check className="w-4 h-4 text-white" />}
                   </button>
                   
-                  {/* Icon with edit button */}
-                  <div className="relative mr-2">
-                    <button
-                      onClick={() => {
-                        setEditingItem(item);
-                        setShowIconPicker(true);
-                      }}
-                      className="text-2xl hover:scale-110 transition-transform relative"
-                      title={item.item_icon ? "Change icon" : "Add icon (suggested)"}
-                    >
-                      {item.item_icon || detectIcon(item.item_name)}
-                      {!item.item_icon && (
-                        <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-yellow-500 animate-pulse" />
-                      )}
-                    </button>
+                  {/* Icon */}
+                  <div className="text-2xl mr-2 relative">
+                    {item.item_icon || detectIcon(item.item_name)}
+                    {!item.item_icon && (
+                      <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-yellow-500 animate-pulse" />
+                    )}
                   </div>
 
                   <div className="flex-1">
