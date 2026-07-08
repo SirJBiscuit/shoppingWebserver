@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Package, AlertTriangle, Trash2, Edit2, ShoppingCart, ChefHat, LogOut, Settings } from 'lucide-react';
 import { pantryAPI, categoriesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import Sidebar from '../components/Sidebar';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import PantryModal from '../components/PantryModal';
@@ -123,73 +124,24 @@ const Pantry = () => {
   return (
     <PageTransition>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 mb-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Package className="w-8 h-8 text-primary-600 mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CloudMC Shop</h1>
-            </div>
-            <div className="flex items-center space-x-6">
+        <Sidebar />
+        
+        <div className="lg:ml-72">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center">
+                <Package className="w-8 h-8 text-primary-600 mr-3" />
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Pantry</h1>
+              </div>
               <button
-                onClick={() => navigate('/')}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
+                onClick={() => setShowAddModal(true)}
+                className="btn-primary flex items-center"
               >
-                <ShoppingCart className="w-5 h-5 mr-1" />
-                Shopping
-              </button>
-              <button
-                onClick={() => navigate('/recipes')}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
-              >
-                <ChefHat className="w-5 h-5 mr-1" />
-                Recipes
-              </button>
-              <button
-                onClick={() => navigate('/pantry')}
-                className="flex items-center text-primary-600 dark:text-primary-400 font-medium"
-              >
-                <Package className="w-5 h-5 mr-1" />
-                Pantry
-              </button>
-              <button
-                onClick={() => navigate('/admin')}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
-              >
-                <Settings className="w-5 h-5 mr-1" />
-                Admin
-              </button>
-              <span className="text-gray-600 dark:text-gray-300">Welcome, {user?.username}</span>
-              <ThemeToggle />
-              <button
-                onClick={logout}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-              >
-                <LogOut className="w-5 h-5 mr-1" />
-                Logout
+                <Plus className="w-5 h-5 mr-2" />
+                Add Item
               </button>
             </div>
-          </div>
-        </div>
-      </header>
-      
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-            <Package className="w-8 h-8 mr-3 text-primary-600" />
-            My Pantry
-          </h1>
-          <p className="text-gray-600 mt-2">Track what you have at home</p>
-        </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="btn-primary flex items-center"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Add Item
-        </button>
-      </div>
 
       {/* Expiring Soon Alert */}
       {expiringItems.length > 0 && (
@@ -269,8 +221,9 @@ const Pantry = () => {
         item={selectedItem}
         categories={categories}
       />
+          </div>
+        </div>
       </div>
-    </div>
     </PageTransition>
   );
 };
