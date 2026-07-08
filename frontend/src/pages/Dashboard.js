@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useCartAnimation } from '../contexts/CartAnimationContext';
 import { shoppingAPI, suggestionsAPI, inventoryAPI, categoriesAPI } from '../services/api';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
@@ -28,6 +29,8 @@ import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { triggerFlyingAnimation } = useCartAnimation();
+  const addButtonRef = useRef(null);
   const [activeList, setActiveList] = useState(null);
   const [lists, setLists] = useState([]);
   const [items, setItems] = useState([]);
@@ -237,6 +240,14 @@ const Dashboard = () => {
       }
       if (newItemPrice && itemPrice > 0) {
         learnPrice(itemName, itemPrice);
+      }
+
+      // Trigger flying animation
+      if (addButtonRef.current) {
+        triggerFlyingAnimation({
+          item_name: itemName,
+          item_icon: itemIcon || detectIcon(itemName),
+        }, addButtonRef.current);
       }
 
       setNewItemName('');
@@ -545,7 +556,11 @@ const Dashboard = () => {
                       </option>
                     ))}
                   </select>
-                  <button type="submit" className="btn-primary flex items-center justify-center">
+                  <button 
+                    ref={addButtonRef}
+                    type="submit" 
+                    className="btn-primary flex items-center justify-center"
+                  >
                     <Plus className="w-5 h-5 mr-1" />
                     Add
                   </button>

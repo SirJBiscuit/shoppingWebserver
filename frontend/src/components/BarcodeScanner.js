@@ -23,12 +23,31 @@ const BarcodeScanner = ({ isOpen, onClose, onScan }) => {
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' } // Use back camera on mobile
+        video: { 
+          facingMode: 'environment', // Use back camera on mobile
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          focusMode: 'continuous',
+          advanced: [
+            { focusMode: 'continuous' },
+            { focusDistance: { ideal: 0.3 } }
+          ]
+        }
       });
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
+        
+        // Enable autofocus if supported
+        const videoTrack = stream.getVideoTracks()[0];
+        const capabilities = videoTrack.getCapabilities();
+        
+        if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+          await videoTrack.applyConstraints({
+            advanced: [{ focusMode: 'continuous' }]
+          });
+        }
       }
       
       setError(null);

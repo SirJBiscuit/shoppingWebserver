@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { CartAnimationProvider } from './contexts/CartAnimationContext';
+import FlyingItemAnimation from './components/FlyingItemAnimation';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -69,9 +71,12 @@ function App() {
   return (
     <AuthProvider>
       <ThemeProvider>
-        <Router>
-          <AnimatedRoutes />
-        </Router>
+        <CartAnimationProvider>
+          <Router>
+            <AnimatedRoutes />
+            <FlyingItemAnimation />
+          </Router>
+        </CartAnimationProvider>
       </ThemeProvider>
     </AuthProvider>
   );

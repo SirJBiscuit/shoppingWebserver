@@ -101,9 +101,11 @@ const VoiceInput = ({ onResult, isOpen, onClose }) => {
         recognitionRef.current.start();
       } catch (error) {
         console.error('Error starting recognition:', error);
-        if (error.message.includes('already started')) {
+        if (error.message && error.message.includes('already started')) {
           // Recognition is already running, just update state
           setIsListening(true);
+        } else {
+          setError('Failed to start voice recognition. Please try again.');
         }
       }
     }

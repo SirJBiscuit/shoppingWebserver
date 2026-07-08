@@ -55,7 +55,8 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose }) => {
   };
 
   const handleIconSelect = (icon) => {
-    onSelect({ icon, tags: selectedTags });
+    onSelect(icon);
+    onClose();
   };
 
   const toggleTag = (tagName) => {
@@ -68,12 +69,12 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">Choose Icon & Tags</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose Icon</h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -86,43 +87,23 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose }) => {
               placeholder="Search icons..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
           </div>
         </div>
 
-        {/* Tags Selection */}
-        <div className="p-6 border-b border-gray-200 bg-gray-50">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Item Tags (select all that apply)</h3>
-          <div className="flex flex-wrap gap-2">
-            {ITEM_TAGS.map((tag) => (
-              <button
-                key={tag.name}
-                onClick={() => toggleTag(tag.name)}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
-                  selectedTags.includes(tag.name)
-                    ? tag.color + ' ring-2 ring-offset-2 ring-primary-500'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                <span className="mr-1">{tag.icon}</span>
-                {tag.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Category Tabs */}
-        <div className="px-6 pt-4 border-b border-gray-200 overflow-x-auto">
-          <div className="flex space-x-2 min-w-max">
+        <div className="px-6 pt-4 border-b border-gray-200 dark:border-gray-700 overflow-x-auto bg-gray-50 dark:bg-gray-900">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Categories</h3>
+          <div className="flex space-x-2 min-w-max pb-2">
             {categories.map((category) => (
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
-                className={`px-4 py-2 rounded-t-lg font-medium transition-colors ${
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                   selectedCategory === category
                     ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
                 {category}
@@ -138,8 +119,8 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose }) => {
               <button
                 key={index}
                 onClick={() => handleIconSelect(icon)}
-                className={`w-12 h-12 flex items-center justify-center text-3xl rounded-lg transition-all hover:bg-primary-50 hover:scale-110 ${
-                  currentIcon === icon ? 'bg-primary-100 ring-2 ring-primary-500' : 'bg-gray-50'
+                className={`w-12 h-12 flex items-center justify-center text-3xl rounded-lg transition-all hover:bg-primary-100 dark:hover:bg-primary-900 hover:scale-110 ${
+                  currentIcon === icon ? 'bg-primary-200 dark:bg-primary-800 ring-2 ring-primary-500' : 'bg-gray-100 dark:bg-gray-700'
                 }`}
                 title={icon}
               >
@@ -150,24 +131,11 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-200 bg-gray-50">
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-gray-600">
-              {selectedTags.length > 0 && (
-                <span>Selected tags: {selectedTags.join(', ')}</span>
-              )}
-            </div>
-            <div className="flex space-x-3">
-              <button onClick={onClose} className="btn-secondary">
-                Cancel
-              </button>
-              <button 
-                onClick={() => handleIconSelect(currentIcon || '📦')} 
-                className="btn-primary"
-              >
-                Save
-              </button>
-            </div>
+        <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+          <div className="flex justify-end items-center">
+            <button onClick={onClose} className="btn-secondary">
+              Cancel
+            </button>
           </div>
         </div>
       </div>
