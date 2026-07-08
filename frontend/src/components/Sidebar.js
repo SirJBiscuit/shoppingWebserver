@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import ClearCacheButton from './ClearCacheButton';
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -170,6 +171,7 @@ const Sidebar = () => {
 
         {/* Footer Actions */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+          <ClearCacheButton />
           <button
             onClick={toggleTheme}
             className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"

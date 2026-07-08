@@ -10,16 +10,47 @@ root.render(
   </React.StrictMode>
 );
 
-// Register service worker for PWA
+// Register service worker for PWA with aggressive updates
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    // Force update check on every load
     navigator.serviceWorker
-      .register('/service-worker.js')
+      .register('/service-worker.js', { updateViaCache: 'none' })
       .then((registration) => {
         console.log('SW registered: ', registration);
+        
+        // Force immediate update check
+        registration.update();
+        
+        // Listen for updates
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          console.log('New service worker found, installing...');
+          
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'activated') {
+              console.log('New service worker activated!');
+              // Reload page to use new service worker
+              if (confirm('New version available! Reload to update?')) {
+                window.location.reload();
+              }
+            }
+          });
+        });
+        
+        // Check for updates every 60 seconds
+        setInterval(() => {
+          registration.update();
+        }, 60000);
       })
       .catch((registrationError) => {
         console.log('SW registration failed: ', registrationError);
       });
+  });
+  
+  // Handle controller change (new SW took over)
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    console.log('Service worker controller changed, reloading...');
+    window.location.reload();
   });
 }
