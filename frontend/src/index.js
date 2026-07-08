@@ -31,7 +31,7 @@ if ('serviceWorker' in navigator) {
             if (newWorker.state === 'activated') {
               console.log('New service worker activated!');
               // Reload page to use new service worker
-              if (confirm('New version available! Reload to update?')) {
+              if (window.confirm('New version available! Reload to update?')) {
                 window.location.reload();
               }
             }

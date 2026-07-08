@@ -146,7 +146,7 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
                       <div className="grid grid-cols-3 gap-3">
                         {items.map((item, index) => (
                           <motion.div
-                            key={item.id}
+                            key={`cart-item-${item.id}-${index}`}
                             initial={{ scale: 0, rotate: -180 }}
                             animate={{ 
                               scale: 1, 

@@ -5,7 +5,7 @@ const ClearCacheButton = () => {
   const [clearing, setClearing] = useState(false);
 
   const clearAllCaches = async () => {
-    if (!confirm('Clear all caches and reload? This will ensure you have the latest version.')) {
+    if (!window.confirm('Clear all caches and reload? This will ensure you have the latest version.')) {
       return;
     }
 
