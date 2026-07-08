@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, ChefHat, Clock, Users, Trash2, ShoppingCart, Star, Package, LogOut, Settings, Edit2 } from 'lucide-react';
+import { Plus, ChefHat, Clock, Users, Trash2, ShoppingCart, Star, Package, LogOut, Settings, Edit2, Sparkles } from 'lucide-react';
 import { recipesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import Sidebar from '../components/Sidebar';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import RecipeModal from '../components/RecipeModal';
@@ -107,156 +108,116 @@ const Recipes = () => {
   return (
     <PageTransition>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 mb-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <ChefHat className="w-8 h-8 text-primary-600 mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CloudMC Shop</h1>
-            </div>
-            <div className="flex items-center space-x-6">
+        <Sidebar />
+        
+        <div className="lg:ml-72">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center">
+                <ChefHat className="w-8 h-8 text-primary-600 mr-3" />
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Recipes</h1>
+              </div>
               <button
-                onClick={() => navigate('/')}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
+                onClick={() => navigate('/discover')}
+                className="btn-secondary flex items-center"
               >
-                <ShoppingCart className="w-5 h-5 mr-1" />
-                Shopping
+                <Sparkles className="w-5 h-5 mr-2" />
+                AI Recipe Generator
               </button>
               <button
-                onClick={() => navigate('/recipes')}
-                className="flex items-center text-primary-600 dark:text-primary-400 font-medium"
+                onClick={() => setShowCreateModal(true)}
+                className="btn-primary flex items-center"
               >
-                <ChefHat className="w-5 h-5 mr-1" />
-                Recipes
-              </button>
-              <button
-                onClick={() => navigate('/pantry')}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
-              >
-                <Package className="w-5 h-5 mr-1" />
-                Pantry
-              </button>
-              <button
-                onClick={() => navigate('/admin')}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
-              >
-                <Settings className="w-5 h-5 mr-1" />
-                Admin
-              </button>
-              <span className="text-gray-600 dark:text-gray-300">Welcome, {user?.username}</span>
-              <ThemeToggle />
-              <button
-                onClick={logout}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-              >
-                <LogOut className="w-5 h-5 mr-1" />
-                Logout
+                <Plus className="w-5 h-5 mr-2" />
+                Create Recipe
               </button>
             </div>
           </div>
+
+            {/* What Can I Make Section */}
+            {canMake.can_make.length > 0 && (
+              <div className="mb-8 p-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <h2 className="text-xl font-semibold text-green-900 dark:text-green-100 mb-4">
+                  ✨ You can make these recipes now!
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {canMake.can_make.map((recipe) => (
+                    <RecipeCard
+                      key={recipe.id}
+                      recipe={recipe}
+                      onAddToList={handleAddToShoppingList}
+                      onToggleFavorite={handleToggleFavorite}
+                      onDelete={handleDeleteRecipe}
+                      canMake={true}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Almost There Section */}
+            {canMake.can_make_with_few_items.length > 0 && (
+              <div className="mb-8 p-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <h2 className="text-xl font-semibold text-yellow-900 dark:text-yellow-100 mb-4">
+                  🛒 Just a few items away
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {canMake.can_make_with_few_items.map((recipe) => (
+                    <RecipeCard
+                      key={recipe.id}
+                      recipe={recipe}
+                      onAddToList={handleAddToShoppingList}
+                      onToggleFavorite={handleToggleFavorite}
+                      onDelete={handleDeleteRecipe}
+                      missingItems={recipe.missing_ingredients}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* All Recipes */}
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">All Recipes</h2>
+              {recipes.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <ChefHat className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600 dark:text-gray-300 text-lg">No recipes yet</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Create your first recipe to get started!</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {recipes.map((recipe) => (
+                    <RecipeCard
+                      key={recipe.id}
+                      recipe={recipe}
+                      onAddToList={handleAddToShoppingList}
+                      onToggleFavorite={handleToggleFavorite}
+                      onDelete={handleDeleteRecipe}
+                      onEdit={setSelectedRecipe}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modals */}
+            <RecipeModal
+              isOpen={showCreateModal}
+              onClose={() => setShowCreateModal(false)}
+              onSave={handleCreateRecipe}
+            />
+            
+            <RecipeModal
+              isOpen={!!selectedRecipe}
+              onClose={() => setSelectedRecipe(null)}
+              onSave={handleEditRecipe}
+              recipe={selectedRecipe}
+            />
+          </div>
         </div>
-      </header>
-      
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center">
-            <ChefHat className="w-8 h-8 mr-3 text-primary-600" />
-            My Recipes
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">Manage your recipes and meal planning</p>
-        </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="btn-primary flex items-center"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          New Recipe
-        </button>
       </div>
-
-      {/* What Can I Make Section */}
-      {canMake.can_make.length > 0 && (
-        <div className="mb-8 p-6 bg-green-50 border border-green-200 rounded-lg">
-          <h2 className="text-xl font-semibold text-green-900 mb-4">
-            ✨ You can make these recipes now!
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {canMake.can_make.map((recipe) => (
-              <RecipeCard
-                key={recipe.id}
-                recipe={recipe}
-                onAddToList={handleAddToShoppingList}
-                onToggleFavorite={handleToggleFavorite}
-                onDelete={handleDeleteRecipe}
-                canMake={true}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Almost There Section */}
-      {canMake.can_make_with_few_items.length > 0 && (
-        <div className="mb-8 p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <h2 className="text-xl font-semibold text-yellow-900 mb-4">
-            🛒 Just a few items away
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {canMake.can_make_with_few_items.map((recipe) => (
-              <RecipeCard
-                key={recipe.id}
-                recipe={recipe}
-                onAddToList={handleAddToShoppingList}
-                onToggleFavorite={handleToggleFavorite}
-                onDelete={handleDeleteRecipe}
-                missingItems={recipe.missing_ingredients}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* All Recipes */}
-      <div>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-4">All Recipes</h2>
-        {recipes.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-            <ChefHat className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600 dark:text-gray-300 text-lg">No recipes yet</p>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Create your first recipe to get started!</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {recipes.map((recipe) => (
-              <RecipeCard
-                key={recipe.id}
-                recipe={recipe}
-                onAddToList={handleAddToShoppingList}
-                onToggleFavorite={handleToggleFavorite}
-                onDelete={handleDeleteRecipe}
-                onEdit={setSelectedRecipe}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Modals */}
-      <RecipeModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSave={handleCreateRecipe}
-      />
-      
-      <RecipeModal
-        isOpen={!!selectedRecipe}
-        onClose={() => setSelectedRecipe(null)}
-        onSave={handleEditRecipe}
-        recipe={selectedRecipe}
-      />
-      </div>
-    </div>
     </PageTransition>
   );
 };
