@@ -204,16 +204,36 @@ router.post('/:id/to-shopping-list', authenticateToken, async (req, res) => {
       shoppingListId = listResult.rows[0].id;
     }
     
-    // Add missing ingredients to shopping list
+    // Track this recipe in the shopping list
+    await db.query(`
+      INSERT INTO shopping_list_recipes (shopping_list_id, recipe_id)
+      VALUES ($1, $2)
+      ON CONFLICT (shopping_list_id, recipe_id) DO NOTHING
+    `, [shoppingListId, req.params.id]);
+    
+    // Add missing ingredients to shopping list with recipe tracking
     const addedItems = [];
     for (const ing of ingredientsResult.rows) {
       const inPantry = pantryMap.has(ing.item_name.toLowerCase());
       
       if (!inPantry && !ing.is_optional) {
+        // Store original recipe amounts for reference
         await db.query(`
-          INSERT INTO shopping_list_items (shopping_list_id, item_name, quantity, unit)
-          VALUES ($1, $2, $3, $4)
-        `, [shoppingListId, ing.item_name, ing.quantity, ing.unit]);
+          INSERT INTO shopping_list_items (
+            shopping_list_id, item_name, quantity, unit,
+            recipe_id, original_recipe_quantity, original_recipe_unit, is_converted
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
+          shoppingListId, 
+          ing.item_name, 
+          ing.quantity,  // Will add smart conversion in frontend
+          ing.unit,
+          req.params.id,  // Track which recipe this came from
+          ing.quantity,   // Original recipe amount
+          ing.unit,       // Original recipe unit
+          false           // Not converted yet (frontend will handle)
+        ]);
         
         addedItems.push(ing.item_name);
       }
@@ -221,12 +241,38 @@ router.post('/:id/to-shopping-list', authenticateToken, async (req, res) => {
     
     res.json({
       shopping_list_id: shoppingListId,
+      recipe_id: req.params.id,
       added_items: addedItems,
       message: `Added ${addedItems.length} items to shopping list`
     });
   } catch (error) {
     console.error('Recipe to shopping list error:', error);
     res.status(500).json({ error: 'Failed to create shopping list from recipe' });
+  }
+});
+
+// Get recipes associated with a shopping list
+router.get('/shopping-list/:listId/recipes', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT 
+        r.*,
+        slr.added_at,
+        slr.is_completed,
+        COUNT(DISTINCT sli.id) as ingredient_count,
+        COUNT(DISTINCT CASE WHEN sli.is_checked THEN sli.id END) as checked_count
+      FROM shopping_list_recipes slr
+      JOIN recipes r ON r.id = slr.recipe_id
+      LEFT JOIN shopping_list_items sli ON sli.recipe_id = r.id AND sli.shopping_list_id = slr.shopping_list_id
+      WHERE slr.shopping_list_id = $1
+      GROUP BY r.id, slr.added_at, slr.is_completed
+      ORDER BY slr.added_at DESC
+    `, [req.params.listId]);
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get shopping list recipes error:', error);
+    res.status(500).json({ error: 'Failed to get recipes' });
   }
 });
 

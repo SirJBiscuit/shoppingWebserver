@@ -78,6 +78,7 @@ export const recipesAPI = {
   deleteRecipe: (id) => api.delete(`/recipes/${id}`),
   checkCanMake: () => api.get('/recipes/can-make/check'),
   recipeToShoppingList: (id, data) => api.post(`/recipes/${id}/to-shopping-list`, data),
+  getShoppingListRecipes: (listId) => api.get(`/recipes/shopping-list/${listId}/recipes`),
 };
 
 export const pantryAPI = {

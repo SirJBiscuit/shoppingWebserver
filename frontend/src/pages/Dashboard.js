@@ -9,6 +9,7 @@ import {
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
 import PantryQuickView from '../components/PantryQuickView';
+import ShoppingListRecipes from '../components/ShoppingListRecipes';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import AnimatedCart from '../components/AnimatedCart';
@@ -550,6 +551,13 @@ const Dashboard = () => {
                   </button>
                 </div>
               </form>
+
+              {/* Show recipes associated with this shopping list */}
+              {activeList && (
+                <div className="mb-6">
+                  <ShoppingListRecipes listId={activeList.id} />
+                </div>
+              )}
 
               <ItemList
                 items={smartSort ? sortItemsByStoreLayout(items) : items}
