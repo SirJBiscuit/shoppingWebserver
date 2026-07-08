@@ -133,7 +133,6 @@ const Recipes = () => {
                 Create Recipe
               </button>
             </div>
-          </div>
 
             {/* What Can I Make Section */}
             {canMake.can_make.length > 0 && (
