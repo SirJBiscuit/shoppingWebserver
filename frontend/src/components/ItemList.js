@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Check, Trash2, Edit2, Smile, Sparkles } from 'lucide-react';
-import IconPicker from './IconPicker';
+import EditItemModal from './EditItemModal';
 import { detectIcon, detectCategory } from '../utils/categoryDetector';
 
 const ItemList = ({ items, onToggleCheck, onDelete, onEdit }) => {
   const [editingItem, setEditingItem] = useState(null);
-  const [showIconPicker, setShowIconPicker] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   // Group items by name to combine duplicates
   const combinedItems = items.reduce((acc, item) => {
     const key = item.item_name.toLowerCase();
@@ -131,7 +131,10 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit }) => {
                 
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => onEdit && onEdit(item)}
+                    onClick={() => {
+                      setEditingItem(item);
+                      setShowEditModal(true);
+                    }}
                     className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 transition-colors"
                     title="Edit item"
                   >
@@ -155,21 +158,25 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit }) => {
       ))}
     </div>
 
-    {/* Icon Picker Modal */}
-    {showIconPicker && editingItem && (
-      <IconPicker
-        onClose={() => {
-          setShowIconPicker(false);
-          setEditingItem(null);
-        }}
-        onSelect={(icon) => {
-          if (onEdit && editingItem) {
-            onEdit({ ...editingItem, item_icon: icon });
-          }
-        }}
-        currentIcon={editingItem.item_icon}
-      />
-    )}
+    {/* Edit Item Modal */}
+    <EditItemModal
+      item={editingItem}
+      isOpen={showEditModal}
+      onClose={() => {
+        setShowEditModal(false);
+        setEditingItem(null);
+      }}
+      onSave={(updatedItem) => {
+        if (onEdit) {
+          // Update all instances of this item
+          updatedItem.ids.forEach(id => {
+            onEdit({ ...updatedItem, id });
+          });
+        }
+        setShowEditModal(false);
+        setEditingItem(null);
+      }}
+    />
     </>
   );
 };

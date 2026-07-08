@@ -90,7 +90,7 @@ router.post('/lists/:id/items',
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { itemName, quantity, unit, price, category } = req.body;
+    const { itemName, quantity, unit, price, category, icon, notes } = req.body;
     const listId = req.params.id;
 
     try {
@@ -121,9 +121,9 @@ router.post('/lists/:id/items',
 
       const result = await db.query(
         `INSERT INTO shopping_list_items 
-         (shopping_list_id, item_id, item_name, quantity, unit, price, category)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [listId, itemId, itemName, quantity, unit, price, category]
+         (shopping_list_id, item_id, item_name, quantity, unit, price, category, item_icon, notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        [listId, itemId, itemName, quantity, unit, price, category, icon, notes]
       );
 
       res.status(201).json(result.rows[0]);
@@ -136,20 +136,40 @@ router.post('/lists/:id/items',
 
 router.patch('/lists/:listId/items/:itemId', async (req, res) => {
   const { listId, itemId } = req.params;
-  const { quantity, price, isChecked } = req.body;
+  const { quantity, price, isChecked, item_name, item_icon, notes, category, unit } = req.body;
 
   try {
     const updates = [];
     const values = [];
     let paramCount = 1;
 
+    if (item_name !== undefined) {
+      updates.push(`item_name = $${paramCount++}`);
+      values.push(item_name);
+    }
     if (quantity !== undefined) {
       updates.push(`quantity = $${paramCount++}`);
       values.push(quantity);
     }
+    if (unit !== undefined) {
+      updates.push(`unit = $${paramCount++}`);
+      values.push(unit);
+    }
     if (price !== undefined) {
       updates.push(`price = $${paramCount++}`);
       values.push(price);
+    }
+    if (category !== undefined) {
+      updates.push(`category = $${paramCount++}`);
+      values.push(category);
+    }
+    if (item_icon !== undefined) {
+      updates.push(`item_icon = $${paramCount++}`);
+      values.push(item_icon);
+    }
+    if (notes !== undefined) {
+      updates.push(`notes = $${paramCount++}`);
+      values.push(notes);
     }
     if (isChecked !== undefined) {
       updates.push(`is_checked = $${paramCount++}`);
