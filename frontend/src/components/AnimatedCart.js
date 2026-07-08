@@ -169,18 +169,29 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
                             }}
                           >
                             {/* Item card */}
-                            <div className="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-lg border-2 border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform cursor-pointer">
+                            <div className="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-lg border-2 border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform cursor-pointer relative">
                               <div className="text-4xl text-center mb-1">
                                 {item.item_icon || '📦'}
                               </div>
                               <div className="text-xs text-center font-medium text-gray-700 dark:text-gray-300 truncate">
                                 {item.item_name}
                               </div>
-                              {item.quantity > 1 && (
+                              
+                              {/* Quantity Badge - Always show as integer */}
+                              {item.quantity && (
                                 <div className="absolute -top-2 -right-2 bg-primary-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
-                                  {item.quantity}
+                                  {Math.floor(item.quantity)}
                                 </div>
                               )}
+                              
+                              {/* Price - Bottom left */}
+                              {item.price && item.price > 0 && (
+                                <div className="absolute -bottom-1 -left-1 bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg">
+                                  ${(item.price * (item.quantity || 1)).toFixed(2)}
+                                </div>
+                              )}
+                              
+                              {/* Checked overlay */}
                               {item.is_checked && (
                                 <div className="absolute inset-0 bg-green-500 bg-opacity-20 rounded-lg flex items-center justify-center">
                                   <Check className="w-8 h-8 text-green-600" />

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Check, Trash2, Edit2, Smile } from 'lucide-react';
+import { Check, Trash2, Edit2, Smile, Sparkles } from 'lucide-react';
 import IconPicker from './IconPicker';
+import { detectIcon, detectCategory } from '../utils/categoryDetector';
 
 const ItemList = ({ items, onToggleCheck, onDelete, onEdit }) => {
   const [editingItem, setEditingItem] = useState(null);
@@ -94,10 +95,13 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit }) => {
                         setEditingItem(item);
                         setShowIconPicker(true);
                       }}
-                      className="text-2xl hover:scale-110 transition-transform"
-                      title="Change icon"
+                      className="text-2xl hover:scale-110 transition-transform relative"
+                      title={item.item_icon ? "Change icon" : "Add icon (suggested)"}
                     >
-                      {item.item_icon || '📦'}
+                      {item.item_icon || detectIcon(item.item_name)}
+                      {!item.item_icon && (
+                        <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-yellow-500 animate-pulse" />
+                      )}
                     </button>
                   </div>
 

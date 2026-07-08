@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChefHat, Check, Clock, Users } from 'lucide-react';
+import { ChefHat, Check, Clock, Users, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const RecipeCardMini = ({ recipe, onView, showProgress = false }) => {
@@ -84,6 +84,24 @@ const RecipeCardMini = ({ recipe, onView, showProgress = false }) => {
           <div className="mt-2 flex items-center space-x-1 text-green-600 dark:text-green-400 text-xs font-semibold">
             <Check className="w-4 h-4" />
             <span>All ingredients collected!</span>
+          </div>
+        )}
+
+        {/* Source URL */}
+        {recipe.source_url && (
+          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+            <a
+              href={recipe.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center space-x-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              <ExternalLink className="w-3 h-3" />
+              <span className="truncate">
+                {new URL(recipe.source_url).hostname.replace('www.', '')}
+              </span>
+            </a>
           </div>
         )}
       </div>

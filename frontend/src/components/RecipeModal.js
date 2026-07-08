@@ -173,6 +173,22 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
                 placeholder="https://..."
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Source URL (e.g., Food Network, AllRecipes)
+              </label>
+              <input
+                type="url"
+                value={formData.source_url || ''}
+                onChange={(e) => setFormData({ ...formData, source_url: e.target.value })}
+                className="input-field"
+                placeholder="https://www.foodnetwork.com/..."
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Link to the original recipe source
+              </p>
+            </div>
           </div>
 
           {/* Ingredients */}
