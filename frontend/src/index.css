@@ -64,19 +64,31 @@
   .custom-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: rgb(209 213 219) transparent;
+    scroll-behavior: smooth;
   }
   
   .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
   }
   
   .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
+    border-radius: 10px;
   }
   
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: rgb(209 213 219);
-    border-radius: 3px;
+    background: linear-gradient(180deg, rgb(209 213 219), rgb(156 163 175));
+    border-radius: 10px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgb(156 163 175), rgb(107 114 128));
+    width: 10px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(180deg, rgb(107 114 128), rgb(75 85 99));
   }
   
   .dark .custom-scrollbar {
@@ -84,7 +96,24 @@
   }
   
   .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: rgb(75 85 99);
+    background: linear-gradient(180deg, rgb(75 85 99), rgb(55 65 81));
+  }
+  
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgb(107 114 128), rgb(75 85 99));
+  }
+  
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(180deg, rgb(156 163 175), rgb(107 114 128));
+  }
+  
+  /* Animated scrollbar for shopping list */
+  .shopping-list-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+    will-change: scroll-position;
+    transform: translateZ(0);
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Mobile Optimizations */

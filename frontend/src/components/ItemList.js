@@ -56,7 +56,7 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit }) => {
 
   return (
     <>
-    <div className="space-y-6">
+    <div className="space-y-6 shopping-list-scroll custom-scrollbar max-h-[calc(100vh-400px)] pr-2">
       {categories.map((category) => (
         <div key={category}>
           <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-3 flex items-center">
@@ -119,7 +119,7 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit }) => {
                       )}
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {item.totalQuantity} {item.unit}
+                      {Math.floor(item.totalQuantity)} {item.unit}
                       {item.totalPrice > 0 && (
                         <span className="font-semibold text-green-600 dark:text-green-400">
                           {' '}• ${item.totalPrice.toFixed(2)}
@@ -158,7 +158,6 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit }) => {
     {/* Icon Picker Modal */}
     {showIconPicker && editingItem && (
       <IconPicker
-        isOpen={showIconPicker}
         onClose={() => {
           setShowIconPicker(false);
           setEditingItem(null);
@@ -167,8 +166,6 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit }) => {
           if (onEdit && editingItem) {
             onEdit({ ...editingItem, item_icon: icon });
           }
-          setShowIconPicker(false);
-          setEditingItem(null);
         }}
         currentIcon={editingItem.item_icon}
       />

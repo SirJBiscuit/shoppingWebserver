@@ -22,9 +22,11 @@ import VoiceInput, { parseVoiceInput } from '../components/VoiceInput';
 import NotificationCenter from '../components/NotificationCenter';
 import Onboarding from '../components/Onboarding';
 import Sidebar from '../components/Sidebar';
+import AutocompleteInput from '../components/AutocompleteInput';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils/userPreferences';
+import { getAutocompleteSuggestions } from '../utils/autocomplete';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -421,35 +423,59 @@ const Dashboard = () => {
               </div>
 
               <form onSubmit={addItem} className="mb-6">
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
+                <div className="mb-4">
+                  <AutocompleteInput
+                    value={newItemName}
                     onChange={(e) => {
                       const value = e.target.value;
-                      setSearchQuery(value);
                       setNewItemName(value);
+                      setSearchQuery(value);
                       
                       // Auto-fill learned preferences when user types
                       if (value.length >= 3) {
                         const learnedIconValue = getLearnedIcon(value);
                         const learnedPriceValue = getLearnedPrice(value);
+                        const detectedCat = detectCategory(value);
+                        const detectedIconValue = detectIcon(value);
                         
                         if (learnedIconValue && !newItemIcon) {
                           setNewItemIcon(learnedIconValue);
+                        } else if (!newItemIcon && detectedIconValue) {
+                          setNewItemIcon(detectedIconValue);
                         }
+                        
                         if (learnedPriceValue !== null && !newItemPrice) {
                           setNewItemPrice(learnedPriceValue.toString());
                         }
+                        
+                        if (!newItemCategory && detectedCat) {
+                          setNewItemCategory(detectedCat);
+                        }
                       }
                     }}
-                    placeholder="Search or add item..."
+                    onSelect={(value) => {
+                      setNewItemName(value);
+                      setSearchQuery(value);
+                      
+                      // Auto-fill everything for selected item
+                      const learnedIconValue = getLearnedIcon(value);
+                      const learnedPriceValue = getLearnedPrice(value);
+                      const detectedCat = detectCategory(value);
+                      const detectedIconValue = detectIcon(value);
+                      
+                      setNewItemIcon(learnedIconValue || detectedIconValue || '');
+                      if (learnedPriceValue !== null) {
+                        setNewItemPrice(learnedPriceValue.toString());
+                      }
+                      setNewItemCategory(detectedCat || '');
+                    }}
+                    previousItems={searchResults.map(r => r.name)}
+                    placeholder="Type item name..."
                     className="input-field pl-10"
                   />
                 </div>
 
-                {searchResults.length > 0 && (
+                {searchResults.length > 0 && false && (
                   <div className="mb-4 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 space-y-2 border border-gray-200 dark:border-gray-700">
                     {searchResults.slice(0, 5).map((result) => (
                       <div
