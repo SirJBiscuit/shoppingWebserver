@@ -153,6 +153,9 @@ router.patch('/lists/:listId/items/:itemId', async (req, res) => {
   const { listId, itemId } = req.params;
   const { quantity, price, isChecked, item_name, item_icon, notes, category, unit } = req.body;
 
+  console.log('PATCH /lists/:listId/items/:itemId - Request body:', req.body);
+  console.log('Icon received:', item_icon);
+
   try {
     const updates = [];
     const values = [];
@@ -215,6 +218,8 @@ router.patch('/lists/:listId/items/:itemId', async (req, res) => {
 
     // Update item preferences in the database
     const updatedItem = result.rows[0];
+    console.log('Updated item from DB:', updatedItem);
+    console.log('Icon in DB after update:', updatedItem.item_icon);
     try {
       await updateItemPreferences(req.user.userId, {
         item_name: updatedItem.item_name,

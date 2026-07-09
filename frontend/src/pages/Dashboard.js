@@ -606,7 +606,10 @@ const Dashboard = () => {
                 onDelete={deleteItem}
                 onEdit={async (updatedItem) => {
                   try {
-                    await shoppingAPI.updateItem(activeList.id, updatedItem.id, {
+                    console.log('Updating item:', updatedItem);
+                    console.log('Icon being sent:', updatedItem.item_icon);
+                    
+                    const updateData = {
                       item_name: updatedItem.item_name,
                       quantity: updatedItem.quantity,
                       unit: updatedItem.unit,
@@ -614,7 +617,11 @@ const Dashboard = () => {
                       category: updatedItem.category,
                       item_icon: updatedItem.item_icon,
                       notes: updatedItem.notes,
-                    });
+                    };
+                    
+                    console.log('Update payload:', updateData);
+                    
+                    await shoppingAPI.updateItem(activeList.id, updatedItem.id, updateData);
                     
                     // Learn the user's icon choice
                     if (updatedItem.item_icon && updatedItem.item_name) {
