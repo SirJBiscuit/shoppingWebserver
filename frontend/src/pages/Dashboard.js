@@ -606,13 +606,24 @@ const Dashboard = () => {
                 onDelete={deleteItem}
                 onEdit={async (updatedItem) => {
                   try {
-                    await shoppingAPI.updateItem(updatedItem.id, {
+                    await shoppingAPI.updateItem(activeList.id, updatedItem.id, {
+                      item_name: updatedItem.item_name,
+                      quantity: updatedItem.quantity,
+                      unit: updatedItem.unit,
+                      price: updatedItem.price,
+                      category: updatedItem.category,
                       item_icon: updatedItem.item_icon,
+                      notes: updatedItem.notes,
                     });
                     
                     // Learn the user's icon choice
                     if (updatedItem.item_icon && updatedItem.item_name) {
                       learnIcon(updatedItem.item_name, updatedItem.item_icon);
+                    }
+                    
+                    // Learn the price
+                    if (updatedItem.price && updatedItem.item_name) {
+                      learnPrice(updatedItem.item_name, parseFloat(updatedItem.price));
                     }
                     
                     await loadListItems(activeList.id);
