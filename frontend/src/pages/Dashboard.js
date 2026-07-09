@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCartAnimation } from '../contexts/CartAnimationContext';
-import { shoppingAPI, suggestionsAPI, inventoryAPI, categoriesAPI } from '../services/api';
+import { shoppingAPI, itemsAPI, suggestionsAPI, inventoryAPI, categoriesAPI } from '../services/api';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
   AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic
@@ -53,10 +53,22 @@ const Dashboard = () => {
   const [showShare, setShowShare] = useState(false);
   const [showVoice, setShowVoice] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [itemPreferences, setItemPreferences] = useState([]);
+
+  // Load item preferences for autocomplete
+  const loadItemPreferences = async () => {
+    try {
+      const response = await itemsAPI.getPreferences();
+      setItemPreferences(response.data || []);
+    } catch (error) {
+      console.error('Error loading item preferences:', error);
+    }
+  };
 
   useEffect(() => {
     loadLists();
     loadSuggestions();
+    loadItemPreferences();
     loadInventory();
     loadCategories();
 
@@ -457,19 +469,37 @@ const Dashboard = () => {
                       setNewItemName(value);
                       setSearchQuery(value);
                       
-                      // Auto-fill everything for selected item
-                      const learnedIconValue = getLearnedIcon(value);
-                      const learnedPriceValue = getLearnedPrice(value);
-                      const detectedCat = detectCategory(value);
-                      const detectedIconValue = detectIcon(value);
+                      // Find item in preferences
+                      const preference = itemPreferences.find(
+                        p => p.name.toLowerCase() === value.toLowerCase()
+                      );
                       
-                      setNewItemIcon(learnedIconValue || detectedIconValue || '');
-                      if (learnedPriceValue !== null) {
-                        setNewItemPrice(learnedPriceValue.toString());
+                      if (preference) {
+                        // Use saved preferences
+                        console.log('Found preference:', preference);
+                        if (preference.preferred_icon) setNewItemIcon(preference.preferred_icon);
+                        if (preference.average_price) setNewItemPrice(preference.average_price.toString());
+                        if (preference.category) setNewItemCategory(preference.category);
+                        if (preference.preferred_quantity) setNewItemQuantity(preference.preferred_quantity.toString());
+                        if (preference.preferred_unit) setNewItemSize(preference.preferred_unit);
+                      } else {
+                        // Fallback to local learning and detection
+                        const learnedIconValue = getLearnedIcon(value);
+                        const learnedPriceValue = getLearnedPrice(value);
+                        const detectedCat = detectCategory(value);
+                        const detectedIconValue = detectIcon(value);
+                      
+                        setNewItemIcon(learnedIconValue || detectedIconValue || '');
+                        if (learnedPriceValue !== null) {
+                          setNewItemPrice(learnedPriceValue.toString());
+                        }
+                        setNewItemCategory(detectedCat || '');
                       }
-                      setNewItemCategory(detectedCat || '');
                     }}
-                    previousItems={searchResults.map(r => r.name)}
+                    previousItems={[
+                      ...itemPreferences.map(p => p.name),
+                      ...searchResults.map(r => r.name)
+                    ]}
                     placeholder="Type item name..."
                     className="input-field pl-10"
                   />
@@ -633,7 +663,9 @@ const Dashboard = () => {
                       learnPrice(updatedItem.item_name, parseFloat(updatedItem.price));
                     }
                     
+                    // Reload list items and preferences
                     await loadListItems(activeList.id);
+                    await loadItemPreferences();
                   } catch (error) {
                     console.error('Error updating item:', error);
                   }

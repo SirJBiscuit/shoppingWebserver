@@ -47,6 +47,11 @@ export const shoppingAPI = {
   completeList: (listId) => api.post(`/shopping/lists/${listId}/complete`),
 };
 
+export const itemsAPI = {
+  getPreferences: (search = '') => api.get('/items/preferences', { params: { search } }),
+  getPreference: (name) => api.get(`/items/preferences/${encodeURIComponent(name)}`),
+};
+
 export const suggestionsAPI = {
   getSmartSuggestions: () => api.get('/suggestions/smart-suggestions'),
   searchItems: (query) => api.get('/suggestions/search', { params: { q: query } }),
