@@ -60,13 +60,7 @@ const Subscription = () => {
         { text: 'Everything in Free', included: true, highlight: true },
         { text: '🎟️ Coupon & Deals Finder - Save $20+/month', included: true, premium: true },
         { text: '🤖 AI Recipe Assistant - Smart suggestions', included: true, premium: true },
-        { text: '🚚 Grocery Delivery Integration', included: true, premium: true },
-        { text: '📦 Order from Instacart/Amazon/Walmart+', included: true, premium: true },
-        { text: '📍 Real-time delivery tracking', included: true, premium: true },
-        { text: '⭐ Save favorite stores & preferences', included: true, premium: true },
-        { text: '⏰ Schedule delivery time slots', included: true, premium: true },
-        { text: '💵 Built-in tip calculator', included: true, premium: true },
-        { text: '👥 Real-time list collaboration', included: true },
+        { text: ' Real-time list collaboration', included: true },
         { text: '🥗 Advanced nutrition tracking & goals', included: true },
         { text: '🎤 Voice assistant - Hands-free control', included: true },
         { text: '📅 Visual meal calendar & planning', included: true },
@@ -74,8 +68,6 @@ const Subscription = () => {
         { text: '🔔 Smart notifications & alerts', included: true },
         { text: '🎨 200+ premium icons', included: true },
         { text: '📤 Advanced export (Excel, Sheets)', included: true },
-        { text: '☁️ Auto-backup to cloud', included: true },
-        { text: '🏆 Priority support', included: true },
         { text: '✨ Premium badge & early access', included: true }
       ]
     }
