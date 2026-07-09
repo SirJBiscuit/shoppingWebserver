@@ -19,7 +19,7 @@ const SubscriptionModal = ({ isOpen, onClose, onSubscribe, currentPlan = 'free' 
     },
     monthly: {
       name: 'Premium Monthly',
-      price: 4.99,
+      price: 6.99,
       period: 'month',
       features: [
         'Everything in Free',
@@ -35,12 +35,12 @@ const SubscriptionModal = ({ isOpen, onClose, onSubscribe, currentPlan = 'free' 
     },
     yearly: {
       name: 'Premium Yearly',
-      price: 49.99,
+      price: 69.99,
       period: 'year',
       savings: '17% off',
       features: [
         'Everything in Monthly',
-        'Save $10/year',
+        'Save $14/year',
         'Early access to new features',
         'Premium badge',
         'Exclusive recipes'

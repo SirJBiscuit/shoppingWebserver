@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   ShoppingCart, ChefHat, Package, Calendar, BarChart3, 
   Settings, Shield, History, Search, Mic, Scan, Share2,
-  Menu, X, LogOut, Bell, Moon, Sun
+  Menu, X, LogOut, Bell, Moon, Sun, Crown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -171,6 +171,14 @@ const Sidebar = () => {
 
         {/* Footer Actions */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+          {/* Premium Button */}
+          <button
+            onClick={() => handleNavClick('/subscription')}
+            className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 shadow-lg hover:shadow-xl"
+          >
+            <Crown className="w-5 h-5" />
+            <span className="font-medium text-sm">Upgrade to Premium</span>
+          </button>
           <ClearCacheButton />
           <button
             onClick={toggleTheme}
