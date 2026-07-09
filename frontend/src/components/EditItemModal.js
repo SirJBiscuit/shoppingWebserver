@@ -210,6 +210,7 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
       {showIconPicker && (
         <IconPicker
           currentIcon={formData.item_icon}
+          itemName={formData.item_name}
           onSelect={(icon) => {
             setFormData({ ...formData, item_icon: icon });
             setShowIconPicker(false);

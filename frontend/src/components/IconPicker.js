@@ -226,12 +226,36 @@ const ITEM_TAGS = [
   { name: 'Bakery', icon: '🍞', color: 'bg-amber-100 text-amber-800' }
 ];
 
-const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose }) => {
+const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName = '' }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedTags, setSelectedTags] = useState(currentTags);
 
   const categories = ['All', ...Object.keys(ICON_LIBRARY)];
+
+  // Get smart suggestions based on item name
+  const getSuggestedIcons = () => {
+    if (!itemName) return [];
+    
+    const nameLower = itemName.toLowerCase();
+    const nameWords = nameLower.split(/\s+/);
+    
+    const suggestions = ICON_DATA
+      .filter(item => {
+        // Check if any keyword matches any word in the item name
+        return item.keywords.some(keyword => 
+          nameWords.some(word => 
+            keyword.includes(word) || word.includes(keyword)
+          )
+        );
+      })
+      .map(item => item.icon)
+      .slice(0, 6); // Top 6 suggestions
+    
+    return suggestions;
+  };
+
+  const suggestedIcons = getSuggestedIcons();
 
   const getFilteredIcons = () => {
     let icons = [];
@@ -277,39 +301,60 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-[95vw] sm:max-w-3xl lg:max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose Icon</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-              <X className="w-6 h-6" />
+        <div className="p-3 sm:p-4 lg:p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <div className="flex justify-between items-center mb-3 sm:mb-4">
+            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">Choose Icon</h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
+              <X className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
           </div>
 
           {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
             <input
               type="text"
               placeholder="Search icons..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full pl-9 sm:pl-10 pr-4 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
           </div>
+
+          {/* Suggested Icons */}
+          {suggestedIcons.length > 0 && !searchTerm && (
+            <div className="mt-3">
+              <h3 className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                💡 Suggested for "{itemName}"
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {suggestedIcons.map((icon, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleIconSelect(icon)}
+                    className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-2xl sm:text-3xl rounded-lg bg-primary-100 dark:bg-primary-900 hover:bg-primary-200 dark:hover:bg-primary-800 transition-all hover:scale-110 ring-2 ring-primary-400"
+                    title="Suggested"
+                  >
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Category Tabs */}
-        <div className="px-6 pt-4 border-b border-gray-200 dark:border-gray-700 overflow-x-auto bg-gray-50 dark:bg-gray-900">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Categories</h3>
-          <div className="flex space-x-2 min-w-max pb-2">
+        <div className="px-3 sm:px-4 lg:px-6 pt-3 sm:pt-4 border-b border-gray-200 dark:border-gray-700 overflow-x-auto bg-gray-50 dark:bg-gray-900 flex-shrink-0">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 sm:mb-3">Categories</h3>
+          <div className="flex space-x-1 sm:space-x-2 min-w-max pb-2">
             {categories.map((category) => (
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                   selectedCategory === category
                     ? 'bg-primary-600 text-white'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
@@ -322,13 +367,13 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose }) => {
         </div>
 
         {/* Icon Grid */}
-        <div className="p-6 overflow-y-auto" style={{ maxHeight: '400px' }}>
-          <div className="grid grid-cols-8 sm:grid-cols-10 md:grid-cols-12 gap-2">
+        <div className="p-3 sm:p-4 lg:p-6 overflow-y-auto flex-1 custom-scrollbar">
+          <div className="grid grid-cols-6 xs:grid-cols-7 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5 sm:gap-2">
             {getFilteredIcons().map((icon, index) => (
               <button
                 key={index}
                 onClick={() => handleIconSelect(icon)}
-                className={`w-12 h-12 flex items-center justify-center text-3xl rounded-lg transition-all hover:bg-primary-100 dark:hover:bg-primary-900 hover:scale-110 ${
+                className={`w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12 flex items-center justify-center text-2xl sm:text-2xl lg:text-3xl rounded-lg transition-all hover:bg-primary-100 dark:hover:bg-primary-900 hover:scale-110 active:scale-95 ${
                   currentIcon === icon ? 'bg-primary-200 dark:bg-primary-800 ring-2 ring-primary-500' : 'bg-gray-100 dark:bg-gray-700'
                 }`}
                 title={icon}
@@ -337,12 +382,21 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose }) => {
               </button>
             ))}
           </div>
+          {getFilteredIcons().length === 0 && (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <p className="text-sm sm:text-base">No icons found</p>
+              <p className="text-xs sm:text-sm mt-1">Try a different search term</p>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-          <div className="flex justify-end items-center">
-            <button onClick={onClose} className="btn-secondary">
+        <div className="p-3 sm:p-4 lg:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
+          <div className="flex justify-between items-center text-xs sm:text-sm">
+            <span className="text-gray-600 dark:text-gray-400">
+              {getFilteredIcons().length} icons
+            </span>
+            <button onClick={onClose} className="btn-secondary text-sm sm:text-base px-3 sm:px-4 py-1.5 sm:py-2">
               Cancel
             </button>
           </div>
