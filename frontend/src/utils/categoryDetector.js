@@ -127,16 +127,45 @@ const itemIcons = {
 
 // Auto-detect category based on item name
 const categoryKeywords = {
-  'Produce': ['apple', 'banana', 'orange', 'lettuce', 'tomato', 'potato', 'onion', 'carrot', 'celery', 'broccoli', 'spinach', 'cucumber', 'pepper', 'avocado', 'strawberry', 'grape', 'melon', 'peach', 'pear', 'plum', 'berry', 'fruit', 'vegetable', 'salad', 'greens'],
-  'Dairy': ['milk', 'cheese', 'yogurt', 'butter', 'cream', 'sour cream', 'cottage cheese', 'eggs', 'egg'],
-  'Meat': ['chicken', 'beef', 'pork', 'turkey', 'ham', 'bacon', 'sausage', 'steak', 'ground beef', 'ribs', 'lamb', 'fish', 'salmon', 'tuna', 'shrimp', 'meat'],
-  'Bakery': ['bread', 'bagel', 'muffin', 'croissant', 'roll', 'bun', 'tortilla', 'pita', 'donut', 'cake', 'cookie', 'pastry'],
-  'Frozen': ['frozen', 'ice cream', 'popsicle', 'frozen pizza', 'frozen meal', 'frozen vegetable', 'frozen fruit'],
-  'Pantry': ['pasta', 'rice', 'beans', 'flour', 'sugar', 'salt', 'pepper', 'oil', 'vinegar', 'sauce', 'cereal', 'oatmeal', 'soup', 'can', 'jar'],
-  'Snacks': ['chips', 'crackers', 'popcorn', 'pretzels', 'nuts', 'candy', 'chocolate', 'granola bar', 'snack'],
-  'Beverages': ['water', 'juice', 'soda', 'coffee', 'tea', 'beer', 'wine', 'drink', 'beverage'],
-  'Household': ['paper towel', 'toilet paper', 'tissue', 'soap', 'detergent', 'cleaner', 'trash bag', 'foil', 'plastic wrap', 'dish soap'],
-  'Personal Care': ['shampoo', 'conditioner', 'toothpaste', 'toothbrush', 'deodorant', 'lotion', 'razor', 'shaving cream']
+  // Meal Categories
+  'Breakfast': ['cereal', 'oatmeal', 'pancake', 'waffle', 'syrup', 'breakfast', 'bagel', 'muffin', 'croissant', 'granola', 'breakfast bar'],
+  'Lunch': ['sandwich', 'lunch meat', 'deli', 'wrap', 'salad', 'soup', 'crackers', 'lunch'],
+  'Dinner': ['dinner', 'entree', 'main course', 'roast', 'casserole'],
+  
+  // Food Categories
+  'Produce': ['apple', 'banana', 'orange', 'lettuce', 'tomato', 'potato', 'onion', 'carrot', 'celery', 'broccoli', 'spinach', 'cucumber', 'pepper', 'avocado', 'strawberry', 'grape', 'melon', 'peach', 'pear', 'plum', 'berry', 'fruit', 'vegetable', 'salad', 'greens', 'kale', 'cabbage', 'zucchini', 'squash'],
+  'Fruits': ['apple', 'banana', 'orange', 'strawberry', 'grape', 'melon', 'peach', 'pear', 'plum', 'berry', 'fruit', 'kiwi', 'mango', 'pineapple', 'watermelon'],
+  'Dairy': ['milk', 'cheese', 'yogurt', 'butter', 'cream', 'sour cream', 'cottage cheese', 'eggs', 'egg', 'half and half', 'whipped cream'],
+  'Meat': ['chicken', 'beef', 'pork', 'turkey', 'ham', 'bacon', 'sausage', 'steak', 'ground beef', 'ribs', 'lamb', 'fish', 'salmon', 'tuna', 'shrimp', 'meat', 'seafood', 'crab', 'lobster'],
+  'Bakery': ['bread', 'bagel', 'muffin', 'croissant', 'roll', 'bun', 'tortilla', 'pita', 'donut', 'cake', 'cookie', 'pastry', 'baguette'],
+  'Deli': ['deli', 'lunch meat', 'sliced', 'prepared', 'rotisserie'],
+  'Frozen': ['frozen', 'ice cream', 'popsicle', 'frozen pizza', 'frozen meal', 'frozen vegetable', 'frozen fruit', 'frozen dinner'],
+  'Pantry': ['pasta', 'rice', 'beans', 'flour', 'sugar', 'salt', 'pepper', 'oil', 'vinegar', 'sauce', 'cereal', 'oatmeal', 'soup', 'can', 'jar', 'noodles', 'macaroni'],
+  'Canned': ['canned', 'can', 'jar', 'jarred', 'soup', 'beans', 'tomatoes'],
+  'Condiments': ['ketchup', 'mustard', 'mayo', 'mayonnaise', 'relish', 'sauce', 'dressing', 'condiment', 'salsa', 'hot sauce'],
+  'Spices': ['spice', 'seasoning', 'herb', 'oregano', 'basil', 'thyme', 'cumin', 'paprika', 'cinnamon', 'garlic powder', 'onion powder'],
+  'Snacks': ['chips', 'crackers', 'popcorn', 'pretzels', 'nuts', 'candy', 'chocolate', 'granola bar', 'snack', 'cookies', 'trail mix'],
+  'Beverages': ['water', 'juice', 'soda', 'coffee', 'tea', 'beer', 'wine', 'drink', 'beverage', 'energy drink', 'sports drink', 'sparkling'],
+  
+  // Household
+  'Cleaning': ['cleaner', 'bleach', 'disinfectant', 'wipes', 'spray', 'scrub', 'mop', 'broom', 'duster', 'cleaning'],
+  'Paper': ['paper towel', 'toilet paper', 'tissue', 'napkin', 'paper plate', 'paper'],
+  'Kitchen': ['foil', 'plastic wrap', 'ziplock', 'bag', 'container', 'dish soap', 'sponge', 'kitchen'],
+  'Laundry': ['detergent', 'fabric softener', 'dryer sheet', 'stain remover', 'laundry', 'bleach'],
+  'Storage': ['container', 'bag', 'ziplock', 'storage', 'organizer', 'bin'],
+  
+  // Personal Care
+  'Bathroom': ['toilet paper', 'tissue', 'bath', 'shower', 'bathroom', 'hand soap', 'body wash', 'shampoo', 'conditioner'],
+  'Personal Care': ['shampoo', 'conditioner', 'toothpaste', 'toothbrush', 'deodorant', 'lotion', 'razor', 'shaving cream', 'soap', 'body wash', 'face wash'],
+  'Health': ['medicine', 'vitamin', 'supplement', 'pain reliever', 'bandage', 'first aid', 'aspirin', 'ibuprofen', 'allergy'],
+  'Beauty': ['makeup', 'cosmetic', 'lipstick', 'mascara', 'foundation', 'beauty', 'nail polish', 'perfume'],
+  
+  // Other
+  'Pet': ['pet', 'dog', 'cat', 'bird', 'fish food', 'pet food', 'litter', 'treats'],
+  'Baby': ['baby', 'diaper', 'wipes', 'formula', 'baby food', 'pacifier'],
+  'Automotive': ['motor oil', 'car', 'auto', 'windshield', 'antifreeze', 'automotive'],
+  'Garden': ['plant', 'seed', 'soil', 'fertilizer', 'garden', 'outdoor', 'lawn', 'mulch'],
+  'Household': ['light bulb', 'battery', 'tape', 'glue', 'tool', 'household']
 };
 
 export const detectIcon = (itemName) => {

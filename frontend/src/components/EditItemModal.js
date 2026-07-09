@@ -157,17 +157,46 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
                 className="input-field"
               >
                 <option value="">Select Category</option>
-                <option value="Produce">🥬 Produce</option>
-                <option value="Dairy">🥛 Dairy & Eggs</option>
-                <option value="Meat">🥩 Meat & Seafood</option>
-                <option value="Bakery">🍞 Bakery</option>
-                <option value="Pantry">🥫 Pantry Staples</option>
-                <option value="Frozen">❄️ Frozen</option>
-                <option value="Beverages">🥤 Beverages</option>
-                <option value="Snacks">🍿 Snacks</option>
-                <option value="Household">🧹 Household</option>
-                <option value="Personal Care">🧴 Personal Care</option>
-                <option value="Other">📦 Other</option>
+                <optgroup label="🍽️ Meal Categories">
+                  <option value="Breakfast">🍳 Breakfast</option>
+                  <option value="Lunch">🥪 Lunch / Work</option>
+                  <option value="Dinner">🍽️ Dinner</option>
+                  <option value="Snacks">🍿 Snacks & Treats</option>
+                </optgroup>
+                <optgroup label="🛒 Food Categories">
+                  <option value="Produce">🥬 Produce & Vegetables</option>
+                  <option value="Fruits">🍎 Fruits</option>
+                  <option value="Dairy">🥛 Dairy & Eggs</option>
+                  <option value="Meat">🥩 Meat & Seafood</option>
+                  <option value="Bakery">🍞 Bakery & Bread</option>
+                  <option value="Deli">🥪 Deli & Prepared</option>
+                  <option value="Pantry">🥫 Pantry Staples</option>
+                  <option value="Canned">🥫 Canned Goods</option>
+                  <option value="Frozen">❄️ Frozen Foods</option>
+                  <option value="Beverages">🥤 Beverages & Drinks</option>
+                  <option value="Condiments">🧂 Condiments & Sauces</option>
+                  <option value="Spices">�️ Spices & Seasonings</option>
+                </optgroup>
+                <optgroup label="🏠 Household">
+                  <option value="Cleaning">🧹 Cleaning Supplies</option>
+                  <option value="Paper">🧻 Paper Products</option>
+                  <option value="Kitchen">🍴 Kitchen Supplies</option>
+                  <option value="Laundry">� Laundry</option>
+                  <option value="Storage">📦 Storage & Organization</option>
+                </optgroup>
+                <optgroup label="🧴 Personal Care">
+                  <option value="Bathroom">🚿 Bathroom Supplies</option>
+                  <option value="Personal Care">🧴 Personal Care</option>
+                  <option value="Health">💊 Health & Medicine</option>
+                  <option value="Beauty">💄 Beauty & Cosmetics</option>
+                </optgroup>
+                <optgroup label="🐾 Other">
+                  <option value="Pet">🐾 Pet Supplies</option>
+                  <option value="Baby">👶 Baby & Kids</option>
+                  <option value="Automotive">🚗 Automotive</option>
+                  <option value="Garden">🌱 Garden & Outdoor</option>
+                  <option value="Other">📦 Other</option>
+                </optgroup>
               </select>
             </div>
 
