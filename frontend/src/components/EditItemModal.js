@@ -151,13 +151,24 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Category
               </label>
-              <input
-                type="text"
+              <select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="input-field"
-                placeholder="e.g., Produce, Dairy, Meat"
-              />
+              >
+                <option value="">Select Category</option>
+                <option value="Produce">🥬 Produce</option>
+                <option value="Dairy">🥛 Dairy & Eggs</option>
+                <option value="Meat">🥩 Meat & Seafood</option>
+                <option value="Bakery">🍞 Bakery</option>
+                <option value="Pantry">🥫 Pantry Staples</option>
+                <option value="Frozen">❄️ Frozen</option>
+                <option value="Beverages">🥤 Beverages</option>
+                <option value="Snacks">🍿 Snacks</option>
+                <option value="Household">🧹 Household</option>
+                <option value="Personal Care">🧴 Personal Care</option>
+                <option value="Other">📦 Other</option>
+              </select>
             </div>
 
             {/* Notes */}

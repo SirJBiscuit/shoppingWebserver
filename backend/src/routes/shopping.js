@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const db = require('../database/db');
 const { authenticateToken } = require('../middleware/auth');
+const { updateItemPreferences } = require('../services/itemPreferences');
 
 const router = express.Router();
 
@@ -126,6 +127,20 @@ router.post('/lists/:id/items',
         [listId, itemId, itemName, quantity, unit, price, category, icon, notes]
       );
 
+      // Update item preferences
+      try {
+        await updateItemPreferences(req.user.userId, {
+          item_name: itemName,
+          item_icon: icon,
+          category: category,
+          price: price,
+          quantity: quantity,
+          unit: unit
+        });
+      } catch (prefError) {
+        console.error('Error updating preferences:', prefError);
+      }
+
       res.status(201).json(result.rows[0]);
     } catch (error) {
       console.error('Error adding item:', error);
@@ -198,7 +213,23 @@ router.patch('/lists/:listId/items/:itemId', async (req, res) => {
       return res.status(404).json({ error: 'Item not found' });
     }
 
-    res.json(result.rows[0]);
+    // Update item preferences in the database
+    const updatedItem = result.rows[0];
+    try {
+      await updateItemPreferences(req.user.userId, {
+        item_name: updatedItem.item_name,
+        item_icon: updatedItem.item_icon,
+        category: updatedItem.category,
+        price: updatedItem.price,
+        quantity: updatedItem.quantity,
+        unit: updatedItem.unit
+      });
+    } catch (prefError) {
+      console.error('Error updating preferences:', prefError);
+      // Don't fail the request if preference update fails
+    }
+
+    res.json(updatedItem);
   } catch (error) {
     console.error('Error updating item:', error);
     res.status(500).json({ error: 'Failed to update item' });

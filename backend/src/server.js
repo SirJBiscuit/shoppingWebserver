@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 
 const authRoutes = require('./routes/auth');
 const shoppingRoutes = require('./routes/shopping');
+const itemsRoutes = require('./routes/items');
 const suggestionsRoutes = require('./routes/suggestions');
 const inventoryRoutes = require('./routes/inventory');
 const categoriesRoutes = require('./routes/categories');
@@ -31,6 +32,7 @@ app.use('/api/', limiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/shopping', shoppingRoutes);
+app.use('/api/items', itemsRoutes);
 app.use('/api/suggestions', suggestionsRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/categories', categoriesRoutes);
