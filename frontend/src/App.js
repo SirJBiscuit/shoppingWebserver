@@ -10,8 +10,10 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Recipes from './pages/Recipes';
 import Pantry from './pages/Pantry';
+import PantryEnhanced from './pages/PantryEnhanced';
 import MealPlan from './pages/MealPlan';
 import Stats from './pages/Stats';
+import Statistics from './pages/Statistics';
 import RecipeDiscover from './pages/RecipeDiscover';
 import Settings from './pages/Settings';
 import History from './pages/History';
@@ -55,9 +57,9 @@ const AnimatedRoutes = () => {
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/recipes" element={<PrivateRoute><Recipes /></PrivateRoute>} />
-        <Route path="/pantry" element={<PrivateRoute><Pantry /></PrivateRoute>} />
+        <Route path="/pantry" element={<PrivateRoute><PantryEnhanced /></PrivateRoute>} />
         <Route path="/meal-plan" element={<PrivateRoute><MealPlan /></PrivateRoute>} />
-        <Route path="/stats" element={<PrivateRoute><Stats /></PrivateRoute>} />
+        <Route path="/stats" element={<PrivateRoute><Statistics /></PrivateRoute>} />
         <Route path="/discover" element={<PrivateRoute><RecipeDiscover /></PrivateRoute>} />
         <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
         <Route path="/history" element={<PrivateRoute><History /></PrivateRoute>} />
