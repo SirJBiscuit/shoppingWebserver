@@ -281,7 +281,7 @@ const Admin = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <Settings className="w-8 h-8 text-primary-600 mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900">CloudMC Shop</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">CloudMC Shop</h1>
             </div>
             <div className="flex items-center space-x-6">
               <button
@@ -328,17 +328,17 @@ const Admin = () => {
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
             <Settings className="w-8 h-8 mr-3 text-primary-600" />
             System Administration
           </h1>
-          <p className="text-gray-600 mt-2">Manage updates, view system status, and monitor services</p>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">Manage updates, view system status, and monitor services</p>
         </div>
 
         {/* Update Section */}
         <div className="card mb-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
               <Download className="w-6 h-6 mr-2 text-primary-600" />
               System Updates
             </h2>
@@ -376,11 +376,11 @@ const Admin = () => {
               )}
 
               {updateInfo.hasUpdates ? (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="font-semibold text-blue-900 mb-2">Updates Available!</p>
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                  <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Updates Available!</p>
                   <div className="space-y-1 mb-4">
                     {updateInfo.commits.map((commit, idx) => (
-                      <p key={idx} className="text-sm text-blue-800 font-mono">• {commit}</p>
+                      <p key={idx} className="text-sm text-blue-800 dark:text-blue-200 font-mono">• {commit}</p>
                     ))}
                   </div>
                   <button
@@ -400,13 +400,13 @@ const Admin = () => {
                       </>
                     )}
                   </button>
-                  <p className="text-xs text-gray-600 mt-2">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
                     💡 Tip: Run <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">./update-server.sh</code> on the host to pull latest code, then click "Rebuild Containers"
                   </p>
                 </div>
               ) : (
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="font-semibold text-green-900 flex items-center mb-3">
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                  <p className="font-semibold text-green-900 dark:text-green-100 flex items-center mb-3">
                     <CheckCircle className="w-5 h-5 mr-2" />
                     System is up to date
                   </p>
