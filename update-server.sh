@@ -25,6 +25,7 @@ git stash
 
 # Pull latest code
 echo -e "${YELLOW}Pulling latest code from GitHub...${NC}"
+BEFORE_COMMIT=$(git rev-parse HEAD)
 git pull origin main
 
 # If pull fails, force reset
@@ -32,6 +33,17 @@ if [ $? -ne 0 ]; then
     echo -e "${RED}Pull failed, forcing reset to origin/main...${NC}"
     git fetch origin
     git reset --hard origin/main
+fi
+
+# Show what was updated
+AFTER_COMMIT=$(git rev-parse HEAD)
+if [ "$BEFORE_COMMIT" != "$AFTER_COMMIT" ]; then
+    echo -e "${GREEN}✓ Code updated successfully!${NC}"
+    echo -e "${CYAN}Recent changes:${NC}"
+    git log --oneline --no-decorate $BEFORE_COMMIT..$AFTER_COMMIT | head -5
+    echo ""
+else
+    echo -e "${GREEN}✓ Already up to date${NC}"
 fi
 
 # Save current commit hash to version file
@@ -68,6 +80,10 @@ echo -e "${YELLOW}Running database migrations...${NC}"
 
 # Check if migrations directory exists
 if [ -d "backend/src/database/migrations" ]; then
+    # Count migrations
+    migration_count=$(ls -1 backend/src/database/migrations/*.sql 2>/dev/null | wc -l)
+    echo -e "${CYAN}Found ${migration_count} migration file(s)${NC}"
+    
     # Run each migration file in order
     for migration in backend/src/database/migrations/*.sql; do
         if [ -f "$migration" ]; then
