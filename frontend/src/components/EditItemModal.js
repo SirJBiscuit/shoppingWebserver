@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import IconPicker from './IconPicker';
+import ItemHistoryWidget from './ItemHistoryWidget';
 
 const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
   const [formData, setFormData] = useState({
@@ -55,6 +56,11 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Item History Widget */}
+            {formData.item_name && (
+              <ItemHistoryWidget itemName={formData.item_name} />
+            )}
+
             {/* Icon Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
