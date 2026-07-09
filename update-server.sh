@@ -62,21 +62,36 @@ docker compose up -d --build
 echo -e "${YELLOW}Waiting for containers to start...${NC}"
 sleep 10
 
-# Auto-run new migrations if they exist
+# Auto-run all database migrations
 echo ""
-echo -e "${YELLOW}Checking for new database migrations...${NC}"
-for migration in backend/src/database/schema-v*.sql; do
-    if [ -f "$migration" ]; then
-        version=$(basename "$migration" .sql | sed 's/schema-v//')
-        echo -e "${CYAN}Found migration: v${version}${NC}"
-        
-        # Check if migration script exists
-        if [ -f "backend/src/database/migrate-v${version}.js" ]; then
-            echo -e "${YELLOW}Running migration v${version}...${NC}"
-            docker exec shop_backend npm run migrate-v${version} || echo -e "${RED}Migration v${version} failed or already applied${NC}"
+echo -e "${YELLOW}Running database migrations...${NC}"
+
+# Check if migrations directory exists
+if [ -d "backend/src/database/migrations" ]; then
+    # Run each migration file in order
+    for migration in backend/src/database/migrations/*.sql; do
+        if [ -f "$migration" ]; then
+            migration_name=$(basename "$migration")
+            echo -e "${CYAN}Running migration: ${migration_name}${NC}"
+            
+            # Execute migration
+            docker exec -i shop_postgres psql -U shopuser -d shopdb < "$migration" 2>&1 | while IFS= read -r line; do
+                if [[ "$line" == *"ERROR"* ]]; then
+                    echo -e "${RED}  ⚠ $line${NC}"
+                elif [[ "$line" == *"NOTICE"* ]]; then
+                    echo -e "${GREEN}  ✓ $line${NC}"
+                else
+                    echo -e "${CYAN}  $line${NC}"
+                fi
+            done
+            
+            echo -e "${GREEN}  ✓ Migration ${migration_name} completed${NC}"
         fi
-    fi
-done
+    done
+    echo -e "${GREEN}All migrations completed successfully!${NC}"
+else
+    echo -e "${YELLOW}No migrations directory found, skipping...${NC}"
+fi
 
 # Check status
 echo ""
