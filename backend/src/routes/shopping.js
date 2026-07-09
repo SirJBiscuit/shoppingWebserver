@@ -157,7 +157,7 @@ router.post('/lists/:id/items',
 
 router.patch('/lists/:listId/items/:itemId', async (req, res) => {
   const { listId, itemId } = req.params;
-  const { quantity, price, isChecked, item_name, item_icon, notes, category, unit } = req.body;
+  const { quantity, price, isChecked, item_name, item_icon, notes, category, unit, package_count, count_per_package } = req.body;
 
   console.log('PATCH /lists/:listId/items/:itemId - Request body:', req.body);
   console.log('Icon received:', item_icon);
@@ -194,6 +194,14 @@ router.patch('/lists/:listId/items/:itemId', async (req, res) => {
     if (notes !== undefined) {
       updates.push(`notes = $${paramCount++}`);
       values.push(notes);
+    }
+    if (package_count !== undefined) {
+      updates.push(`package_count = $${paramCount++}`);
+      values.push(package_count);
+    }
+    if (count_per_package !== undefined) {
+      updates.push(`count_per_package = $${paramCount++}`);
+      values.push(count_per_package);
     }
     if (isChecked !== undefined) {
       updates.push(`is_checked = $${paramCount++}`);

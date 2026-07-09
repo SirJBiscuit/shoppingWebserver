@@ -647,6 +647,8 @@ const Dashboard = () => {
                       category: updatedItem.category,
                       item_icon: updatedItem.item_icon,
                       notes: updatedItem.notes,
+                      package_count: updatedItem.package_count,
+                      count_per_package: updatedItem.count_per_package,
                     };
                     
                     console.log('Update payload:', updateData);

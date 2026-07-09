@@ -10,7 +10,9 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
     price: '',
     category: '',
     item_icon: '',
-    notes: ''
+    notes: '',
+    package_count: '',
+    count_per_package: ''
   });
   const [showIconPicker, setShowIconPicker] = useState(false);
 
@@ -23,7 +25,9 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
         price: item.price || '',
         category: item.category || '',
         item_icon: item.item_icon || '',
-        notes: item.notes || ''
+        notes: item.notes || '',
+        package_count: item.package_count || '',
+        count_per_package: item.count_per_package || ''
       });
     }
   }, [item]);
@@ -127,23 +131,50 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
               </div>
             </div>
 
-            {/* Price */}
+            {/* Price with Auto-Format */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Price
               </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  className="input-field pl-8"
-                  placeholder="0.00"
-                />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                  <input
+                    type="text"
+                    value={formData.price}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, '');
+                      setFormData({ ...formData, price: value });
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value;
+                      if (value && !value.includes('.')) {
+                        const formatted = (parseFloat(value) / 100).toFixed(2);
+                        setFormData({ ...formData, price: formatted });
+                      }
+                    }}
+                    className="input-field pl-8"
+                    placeholder="5.99 or 599"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const value = formData.price;
+                    if (value && !value.includes('.')) {
+                      const formatted = (parseFloat(value) / 100).toFixed(2);
+                      setFormData({ ...formData, price: formatted });
+                    }
+                  }}
+                  className="px-3 py-2 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-800 transition-colors text-sm font-medium"
+                  title="Format as $X.XX"
+                >
+                  💲
+                </button>
               </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Type 599 → auto-formats to $5.99 on blur, or click 💲
+              </p>
             </div>
 
             {/* Category */}
@@ -199,6 +230,61 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
                 </optgroup>
               </select>
             </div>
+
+            {/* Package Count - NEW */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Packages/Boxes
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.package_count}
+                  onChange={(e) => setFormData({ ...formData, package_count: e.target.value })}
+                  className="input-field"
+                  placeholder="2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Count per Package
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.count_per_package}
+                  onChange={(e) => setFormData({ ...formData, count_per_package: e.target.value })}
+                  className="input-field"
+                  placeholder="12"
+                />
+              </div>
+            </div>
+
+            {/* Total Count Display */}
+            {formData.package_count && formData.count_per_package && (
+              <div className="bg-gradient-to-r from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 border border-primary-200 dark:border-primary-700 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Total Count</p>
+                    <p className="text-2xl font-bold text-primary-700 dark:text-primary-300">
+                      {parseInt(formData.package_count) * parseInt(formData.count_per_package)}
+                      <span className="text-sm font-normal ml-2">
+                        {formData.unit === 'ct' ? 'items' : formData.unit || 'units'}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {formData.package_count} × {formData.count_per_package}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      📦 {formData.unit === 'box' ? 'boxes' : formData.unit === 'bag' ? 'bags' : 'packages'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Notes */}
             <div>
