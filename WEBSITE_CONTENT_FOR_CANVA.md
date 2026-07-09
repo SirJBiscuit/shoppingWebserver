@@ -1,8 +1,8 @@
-# Listly Website Content - For Canva Design
+# Listzy Website Content - For Canva Design
 
-**App Name:** Listly  
+**App Name:** Listzy  
 **Tagline:** Lists made simple  
-**Domain:** listly.app  
+**Domain:** listzy.app ✅ PURCHASED!  
 **Target Audience:** Busy families, budget-conscious shoppers, meal planners
 
 ---
@@ -10,7 +10,7 @@
 ## Hero Section
 
 ### Main Headline
-**"Shop Smarter with Listly"**
+**"Shop Smarter with Listzy"**
 
 ### Subheadline
 The intelligent shopping list app that saves you time, money, and reduces food waste.
@@ -320,7 +320,7 @@ A: Yes! Export your lists, recipes, and data anytime in multiple formats.
 **"Start Shopping Smarter Today"**
 
 ### CTA Content
-**"Join 50,000+ users who save time and money with Listly"**
+**"Join 50,000+ users who save time and money with Listzy"**
 
 **Buttons:**
 - "Download Free" (large, primary button)

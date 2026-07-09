@@ -1,4 +1,4 @@
-# Listly Brand Template
+# Listzy Brand Template
 
 **Official Brand Guidelines & Quick Reference**
 
@@ -6,8 +6,8 @@
 
 ## Brand Identity
 
-**App Name:** Listly  
-**Domain:** listly.app  
+**App Name:** Listzy  
+**Domain:** listzy.app ✅ PURCHASED!  
 **Tagline:** Lists made simple  
 **Industry:** Shopping & Productivity  
 **Launch:** 2026
@@ -416,4 +416,4 @@ Refer to full brand guidelines in `BRANDING.md` and `CANVA_BRAND_KIT.md`
 
 ---
 
-**Listly - Lists made simple** ✨
+**Listzy - Lists made simple** ✨
