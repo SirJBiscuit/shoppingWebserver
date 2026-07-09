@@ -43,7 +43,7 @@ router.get('/lists/:id', async (req, res) => {
       `SELECT sli.*, 
               i.is_recurring, 
               i.recurrence_days,
-              im.icon as item_icon,
+              COALESCE(sli.item_icon, im.icon) as item_icon,
               im.image_url as item_image,
               c.name as category_name,
               c.icon as category_icon,
@@ -56,6 +56,12 @@ router.get('/lists/:id', async (req, res) => {
        ORDER BY COALESCE(c.shopping_order, 999), sli.category, sli.sort_order, sli.item_name`,
       [req.params.id]
     );
+
+    // Log icons for debugging
+    console.log('GET /lists/:id - Returning items with icons:');
+    itemsResult.rows.forEach(item => {
+      console.log(`  ${item.item_name}: icon="${item.item_icon}"`);
+    });
 
     res.json({
       list: listResult.rows[0],
