@@ -28,6 +28,7 @@ import TemplatesModal from '../components/TemplatesModal';
 import NewListModal from '../components/NewListModal';
 import Toast from '../components/Toast';
 import { useToast } from '../hooks/useToast';
+import { XPNotificationContainer, showXPNotification } from '../components/XPNotification';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils/userPreferences';
@@ -368,6 +369,7 @@ const Dashboard = () => {
       // Award XP
       if (window.addXP) {
         window.addXP(XP_REWARDS.ADD_ITEM, 'Added item to list');
+        showXPNotification(XP_REWARDS.ADD_ITEM, 'Item added!');
       }
     } catch (error) {
       console.error('Error adding item:', error);
@@ -398,7 +400,9 @@ const Dashboard = () => {
       
       // Award XP for bulk add
       if (window.addXP) {
-        window.addXP(XP_REWARDS.ADD_ITEM * templateItems.length, `Added ${templateItems.length} items from template`);
+        const xpAmount = XP_REWARDS.ADD_ITEM * templateItems.length;
+        window.addXP(xpAmount, `Added ${templateItems.length} items from template`);
+        showXPNotification(xpAmount, `${templateItems.length} items added!`);
       }
     } catch (error) {
       console.error('Error adding template items:', error);
@@ -1023,6 +1027,7 @@ const Dashboard = () => {
                     await loadListItems(activeList.id);
                     if (window.addXP) {
                       window.addXP(XP_REWARDS.ADD_ITEM, 'Added item from pantry');
+                      showXPNotification(XP_REWARDS.ADD_ITEM, 'Added from pantry!');
                     }
                   } catch (error) {
                     console.error('Error adding item from pantry:', error);
@@ -1078,7 +1083,9 @@ const Dashboard = () => {
           });
           loadListItems(activeList?.id);
           if (window.addXP) {
-            window.addXP(XP_REWARDS.ADD_ITEM * parsedItems.length, `Added ${parsedItems.length} items by voice`);
+            const xpAmount = XP_REWARDS.ADD_ITEM * parsedItems.length;
+            window.addXP(xpAmount, `Added ${parsedItems.length} items by voice`);
+            showXPNotification(xpAmount, `Voice: ${parsedItems.length} items!`);
           }
         }}
       />
@@ -1197,6 +1204,9 @@ const Dashboard = () => {
           duration={toast.duration}
         />
       ))}
+
+      {/* XP Notifications */}
+      <XPNotificationContainer />
     </PageTransition>
   );
 };
