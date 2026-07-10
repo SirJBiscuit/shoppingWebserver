@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { X, ShoppingCart, Store, Tag } from 'lucide-react';
+import { getAvailableStores } from '../data/storeLayouts';
 
 const NewListModal = ({ isOpen, onClose, onCreateList, existingLists = [] }) => {
   const [listName, setListName] = useState('');
   const [storeName, setStoreName] = useState('');
   const [listType, setListType] = useState('general'); // general, weekly, store-specific
   const [notes, setNotes] = useState('');
+  
+  const availableStores = getAvailableStores();
 
   if (!isOpen) return null;
 
@@ -143,15 +146,30 @@ const NewListModal = ({ isOpen, onClose, onCreateList, existingLists = [] }) => 
           {listType === 'store' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Store Name
+                Select Store
               </label>
-              <input
-                type="text"
+              <select
                 value={storeName}
                 onChange={(e) => setStoreName(e.target.value)}
                 className="input-field"
-                placeholder="e.g., Walmart, Target, Costco"
-              />
+              >
+                <option value="">Choose a store...</option>
+                {availableStores.map((store) => (
+                  <option key={store.id} value={store.name}>
+                    {store.name} {store.priceMultiplier !== 1.0 && `(${store.priceMultiplier < 1 ? 'Lower' : 'Higher'} prices)`}
+                  </option>
+                ))}
+                <option value="custom">Custom Store</option>
+              </select>
+              
+              {storeName === 'custom' && (
+                <input
+                  type="text"
+                  placeholder="Enter custom store name"
+                  className="input-field mt-2"
+                  onChange={(e) => setStoreName(e.target.value)}
+                />
+              )}
             </div>
           )}
 
