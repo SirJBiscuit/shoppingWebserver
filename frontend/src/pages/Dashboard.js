@@ -293,7 +293,7 @@ const Dashboard = () => {
       }
     } catch (err) {
       console.error('Error deleting list:', err);
-      showError('Failed to delete shopping list');
+      error('Failed to delete shopping list');
     } finally {
       setListToDelete(null);
     }
@@ -332,7 +332,7 @@ const Dashboard = () => {
       setShowPriceLearning(false);
     } catch (err) {
       console.error('Error saving price data:', err);
-      showError('Failed to save price data');
+      error('Failed to save price data');
     }
   };
 
