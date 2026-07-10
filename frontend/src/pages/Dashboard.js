@@ -26,6 +26,8 @@ import Sidebar from '../components/Sidebar';
 import AutocompleteInput from '../components/AutocompleteInput';
 import TemplatesModal from '../components/TemplatesModal';
 import NewListModal from '../components/NewListModal';
+import Toast from '../components/Toast';
+import { useToast } from '../hooks/useToast';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils/userPreferences';
@@ -36,6 +38,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { triggerFlyingAnimation } = useCartAnimation();
   const addButtonRef = useRef(null);
+  const { toasts, hideToast, success, error, warning, info } = useToast();
   const [activeList, setActiveList] = useState(null);
   const [lists, setLists] = useState([]);
   const [items, setItems] = useState([]);
@@ -233,7 +236,7 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error('Error deleting item history:', error);
-      alert('Failed to delete item from history');
+      error('Failed to delete item from history');
     }
   };
 
@@ -256,7 +259,7 @@ const Dashboard = () => {
 
   const deleteList = async (listId) => {
     if (lists.length <= 1) {
-      alert('You must have at least one shopping list');
+      warning('You must have at least one shopping list');
       return;
     }
     
@@ -279,7 +282,7 @@ const Dashboard = () => {
         }
       } catch (error) {
         console.error('Error deleting list:', error);
-        alert('Failed to delete shopping list');
+        error('Failed to delete shopping list');
       }
     }
   };
@@ -291,7 +294,7 @@ const Dashboard = () => {
       setShowRecovery(true);
     } catch (error) {
       console.error('Error loading completed lists:', error);
-      alert('Failed to load completed lists');
+      error('Failed to load completed lists');
     }
   };
 
@@ -302,10 +305,10 @@ const Dashboard = () => {
       await loadLists();
       await loadListItems(response.data.id);
       setShowRecovery(false);
-      alert('Shopping list restored successfully!');
+      success('Shopping list restored successfully!');
     } catch (error) {
       console.error('Error restoring list:', error);
-      alert('Failed to restore shopping list');
+      error('Failed to restore shopping list');
     }
   };
 
@@ -373,7 +376,7 @@ const Dashboard = () => {
 
   const addTemplateItems = async (templateItems) => {
     if (!activeList) {
-      alert('No shopping list selected. Creating a new list...');
+      info('Creating a new shopping list...');
       await createNewList();
       return;
     }
@@ -399,7 +402,7 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error('Error adding template items:', error);
-      alert('Failed to add some items');
+      error('Failed to add some items');
     }
   };
 
@@ -934,7 +937,7 @@ const Dashboard = () => {
                     setItems(prevItems => [...prevItems]);
                   } catch (error) {
                     console.error('Error updating item:', error);
-                    alert('Failed to update item. Please try again.');
+                    error('Failed to update item. Please try again.');
                   }
                 }}
               />
@@ -993,7 +996,7 @@ const Dashboard = () => {
                 pantryItems={inventory}
                 onAddToList={async (itemData) => {
                   if (!activeList) {
-                    alert('Please create or select a shopping list first');
+                    warning('Please create or select a shopping list first');
                     return;
                   }
                   try {
@@ -1164,6 +1167,17 @@ const Dashboard = () => {
         )}
         </div>
       </div>
+
+      {/* Toast Notifications */}
+      {toasts.map((toast) => (
+        <Toast
+          key={toast.id}
+          message={toast.message}
+          type={toast.type}
+          onClose={() => hideToast(toast.id)}
+          duration={toast.duration}
+        />
+      ))}
     </PageTransition>
   );
 };
