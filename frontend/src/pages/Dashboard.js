@@ -91,8 +91,20 @@ const Dashboard = () => {
       if (action === 'share') setShowShare(true);
     };
 
+    // Reload inventory when page becomes visible (e.g., returning from Pantry page)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadInventory();
+      }
+    };
+
     window.addEventListener('sidebar-tool-click', handleSidebarTool);
-    return () => window.removeEventListener('sidebar-tool-click', handleSidebarTool);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('sidebar-tool-click', handleSidebarTool);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
