@@ -136,10 +136,10 @@ router.get('/lists/:id', async (req, res) => {
       [req.params.id]
     );
 
-    // Log icons for debugging
-    console.log('GET /lists/:id - Returning items with icons:');
+    // Log icons and notes for debugging
+    console.log('GET /lists/:id - Returning items with icons and notes:');
     itemsResult.rows.forEach(item => {
-      console.log(`  ${item.item_name}: icon="${item.item_icon}"`);
+      console.log(`  ${item.item_name}: icon="${item.item_icon}", notes="${item.notes || 'none'}"`);
     });
 
     res.json({
