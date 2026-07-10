@@ -73,6 +73,8 @@ const Dashboard = () => {
   const [showNewListModal, setShowNewListModal] = useState(false);
   const [showPriceLearning, setShowPriceLearning] = useState(false);
   const [listToDelete, setListToDelete] = useState(null);
+  const [editingListName, setEditingListName] = useState(false);
+  const [newListName, setNewListName] = useState('');
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -333,6 +335,22 @@ const Dashboard = () => {
     } catch (err) {
       console.error('Error saving price data:', err);
       error('Failed to save price data');
+    }
+  };
+
+  const updateListName = async () => {
+    if (!newListName.trim() || !activeList) return;
+    
+    try {
+      await shoppingAPI.updateList(activeList.id, { name: newListName.trim() });
+      setActiveList({ ...activeList, name: newListName.trim() });
+      await loadLists();
+      success('List name updated!');
+      setEditingListName(false);
+      setNewListName('');
+    } catch (err) {
+      console.error('Error updating list name:', err);
+      error('Failed to update list name');
     }
   };
 
@@ -643,8 +661,18 @@ const Dashboard = () => {
                 {/* Active List Name */}
                 {activeList && (
                   <div className="mb-4">
-                    <div className="text-2xl font-bold text-primary-600 dark:text-primary-400 flex items-center">
+                    <div className="text-2xl font-bold text-primary-600 dark:text-primary-400 flex items-center gap-2">
                       📋 {activeList.name}
+                      <button
+                        onClick={() => {
+                          setNewListName(activeList.name);
+                          setEditingListName(true);
+                        }}
+                        className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        title="Edit list name"
+                      >
+                        <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      </button>
                     </div>
                     {activeList.store_name && (
                       <div className="mt-2 flex items-center text-sm text-gray-600 dark:text-gray-400">
@@ -1269,6 +1297,50 @@ const Dashboard = () => {
         cancelText="Cancel"
         type="danger"
       />
+
+      {/* Edit List Name Modal */}
+      {editingListName && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              Rename Shopping List
+            </h3>
+            <input
+              type="text"
+              value={newListName}
+              onChange={(e) => setNewListName(e.target.value)}
+              className="input-field mb-4"
+              placeholder="Enter new list name"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') updateListName();
+                if (e.key === 'Escape') {
+                  setEditingListName(false);
+                  setNewListName('');
+                }
+              }}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={updateListName}
+                disabled={!newListName.trim()}
+                className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  setEditingListName(false);
+                  setNewListName('');
+                }}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageTransition>
   );
 };
