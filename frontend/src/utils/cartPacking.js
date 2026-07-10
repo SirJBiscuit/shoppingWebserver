@@ -1,27 +1,44 @@
 // Smart Cart Packing Algorithm
 // Organizes shopping list items by store layout for efficient shopping
 
-// Default store layout order (typical grocery store flow)
+// Default store layout order (optimized for cart packing)
+// Cold/frozen items LAST to keep them cold
+// Fragile items handled separately
 export const defaultStoreLayout = [
-  { zone: 'Produce', order: 1, icon: '🥬', color: 'green' },
-  { zone: 'Bakery', order: 2, icon: '🍞', color: 'amber' },
-  { zone: 'Dairy', order: 3, icon: '🥛', color: 'blue' },
-  { zone: 'Meat', order: 4, icon: '🥩', color: 'red' },
-  { zone: 'Pantry', order: 5, icon: '🥫', color: 'yellow' },
-  { zone: 'Snacks', order: 6, icon: '🍿', color: 'orange' },
-  { zone: 'Beverages', order: 7, icon: '🥤', color: 'cyan' },
-  { zone: 'Frozen', order: 8, icon: '🧊', color: 'indigo' },
-  { zone: 'Household', order: 9, icon: '🧼', color: 'purple' },
-  { zone: 'Personal Care', order: 10, icon: '🧴', color: 'pink' },
+  { zone: 'Household', order: 1, icon: '�', color: 'purple' },
+  { zone: 'Personal Care', order: 2, icon: '🧴', color: 'pink' },
+  { zone: 'Pantry', order: 3, icon: '�', color: 'yellow' },
+  { zone: 'Snacks', order: 4, icon: '🍿', color: 'orange' },
+  { zone: 'Beverages', order: 5, icon: '�', color: 'cyan' },
+  { zone: 'Bakery', order: 6, icon: '�', color: 'amber' },
+  { zone: 'Produce', order: 7, icon: '�', color: 'green' },
+  { zone: 'Meat', order: 8, icon: '�', color: 'red' },
+  { zone: 'Dairy', order: 9, icon: '�', color: 'blue' },
+  { zone: 'Frozen', order: 10, icon: '�', color: 'indigo' },
   { zone: 'Other', order: 99, icon: '📦', color: 'gray' },
 ];
+
+// Item properties for smart packing
+const fragileKeywords = ['egg', 'bread', 'chip', 'cracker', 'cookie', 'cake', 'pastry', 'berry', 'tomato', 'banana', 'avocado'];
+const coldKeywords = ['frozen', 'ice cream', 'popsicle', 'milk', 'yogurt', 'cheese', 'butter', 'meat', 'chicken', 'beef', 'pork', 'fish', 'seafood'];
+const heavyKeywords = ['water', 'soda', 'juice', 'milk', 'detergent', 'cat litter', 'dog food', 'flour', 'sugar', 'rice'];
+
+// Detect item properties
+export const getItemProperties = (itemName) => {
+  const lowerName = (itemName || '').toLowerCase();
+  return {
+    isFragile: fragileKeywords.some(keyword => lowerName.includes(keyword)),
+    isCold: coldKeywords.some(keyword => lowerName.includes(keyword)),
+    isHeavy: heavyKeywords.some(keyword => lowerName.includes(keyword))
+  };
+};
 
 // Get zone configuration by name
 export const getZoneConfig = (zoneName) => {
   return defaultStoreLayout.find(z => z.zone === zoneName) || defaultStoreLayout[defaultStoreLayout.length - 1];
 };
 
-// Sort items by store layout for optimal shopping path
+// Sort items by store layout for optimal shopping path and cart packing
 export const sortItemsByStoreLayout = (items, customLayout = null) => {
   const layout = customLayout || defaultStoreLayout;
   
@@ -31,7 +48,7 @@ export const sortItemsByStoreLayout = (items, customLayout = null) => {
     zoneOrderMap[zone.zone] = zone.order;
   });
   
-  // Sort items by zone order
+  // Sort items with smart packing logic
   return [...items].sort((a, b) => {
     const categoryA = a.category_name || a.category || 'Other';
     const categoryB = b.category_name || b.category || 'Other';
@@ -39,12 +56,26 @@ export const sortItemsByStoreLayout = (items, customLayout = null) => {
     const orderA = zoneOrderMap[categoryA] || 99;
     const orderB = zoneOrderMap[categoryB] || 99;
     
-    // Primary sort: by zone order
+    const propsA = getItemProperties(a.item_name);
+    const propsB = getItemProperties(b.item_name);
+    
+    // Primary sort: by zone order (cold items last)
     if (orderA !== orderB) {
       return orderA - orderB;
     }
     
-    // Secondary sort: by item name within same zone
+    // Within same zone, apply packing logic:
+    // 1. Heavy items first (bottom of cart)
+    if (propsA.isHeavy !== propsB.isHeavy) {
+      return propsB.isHeavy ? 1 : -1;
+    }
+    
+    // 2. Fragile items last (top of cart)
+    if (propsA.isFragile !== propsB.isFragile) {
+      return propsA.isFragile ? 1 : -1;
+    }
+    
+    // 3. By item name within same properties
     return (a.item_name || '').localeCompare(b.item_name || '');
   });
 };
