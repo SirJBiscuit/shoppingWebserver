@@ -85,6 +85,15 @@ export const recipesAPI = {
   checkCanMake: () => api.get('/recipes/can-make/check'),
   recipeToShoppingList: (id, data) => api.post(`/recipes/${id}/to-shopping-list`, data),
   getShoppingListRecipes: (listId) => api.get(`/recipes/shopping-list/${listId}/recipes`),
+  // Universal search and import (works with all supported sites)
+  search: (query) => api.get('/recipes/search', { params: { q: query } }),
+  importRecipe: (url) => api.post('/recipes/import', { url }),
+  getSupportedSites: () => api.get('/recipes/supported-sites'),
+  // Site-specific search
+  searchFoodNetwork: (query) => api.get('/recipes/search/foodnetwork', { params: { q: query } }),
+  searchAllRecipes: (query) => api.get('/recipes/search/allrecipes', { params: { q: query } }),
+  // Legacy Food Network import
+  importFromFoodNetwork: (url) => api.post('/recipes/import/foodnetwork', { url }),
 };
 
 export const pantryAPI = {

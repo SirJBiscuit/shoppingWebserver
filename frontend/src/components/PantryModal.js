@@ -128,14 +128,28 @@ const PantryModal = ({ isOpen, onClose, onSave, item = null, categories = [] }) 
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Expiry Date
+              Expiry Date (Optional)
             </label>
-            <input
-              type="date"
-              value={formData.expiry_date}
-              onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
-              className="input-field"
-            />
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={formData.expiry_date}
+                onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
+                className="input-field flex-1"
+              />
+              {formData.expiry_date && (
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, expiry_date: '' })}
+                  className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors font-medium"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Leave empty if item doesn't expire
+            </p>
           </div>
 
           <div>

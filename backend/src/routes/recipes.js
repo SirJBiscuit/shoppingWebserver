@@ -1,6 +1,14 @@
 const express = require('express');
 const db = require('../database/db');
 const { authenticateToken } = require('../middleware/auth');
+const { 
+  scrapeRecipe,
+  scrapeFoodNetworkRecipe, 
+  searchFoodNetworkRecipes,
+  searchRecipes,
+  searchAllRecipes,
+  getSupportedSites
+} = require('../utils/recipeScraper');
 
 const router = express.Router();
 
@@ -273,6 +281,210 @@ router.get('/shopping-list/:listId/recipes', authenticateToken, async (req, res)
   } catch (error) {
     console.error('Get shopping list recipes error:', error);
     res.status(500).json({ error: 'Failed to get recipes' });
+  }
+});
+
+// Get supported recipe sites
+router.get('/supported-sites', authenticateToken, async (req, res) => {
+  try {
+    const sites = getSupportedSites();
+    res.json(sites);
+  } catch (error) {
+    console.error('Get supported sites error:', error);
+    res.status(500).json({ error: 'Failed to get supported sites' });
+  }
+});
+
+// Universal recipe search (searches multiple sites)
+router.get('/search', authenticateToken, async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q) {
+      return res.status(400).json({ error: 'Search query required' });
+    }
+    
+    const results = await searchRecipes(q);
+    res.json(results);
+  } catch (error) {
+    console.error('Recipe search error:', error);
+    res.status(500).json({ error: 'Failed to search recipes' });
+  }
+});
+
+// Search for recipes on Food Network
+router.get('/search/foodnetwork', authenticateToken, async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q) {
+      return res.status(400).json({ error: 'Search query required' });
+    }
+    
+    const results = await searchFoodNetworkRecipes(q);
+    res.json(results);
+  } catch (error) {
+    console.error('Recipe search error:', error);
+    res.status(500).json({ error: 'Failed to search recipes' });
+  }
+});
+
+// Search AllRecipes
+router.get('/search/allrecipes', authenticateToken, async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q) {
+      return res.status(400).json({ error: 'Search query required' });
+    }
+    
+    const results = await searchAllRecipes(q);
+    res.json(results);
+  } catch (error) {
+    console.error('Recipe search error:', error);
+    res.status(500).json({ error: 'Failed to search recipes' });
+  }
+});
+
+// Universal recipe import (works with any supported site)
+router.post('/import', authenticateToken, async (req, res) => {
+  try {
+    const { url } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({ error: 'Recipe URL required' });
+    }
+    
+    // Use universal scraper
+    const recipeData = await scrapeRecipe(url);
+    
+    // Save recipe to database
+    const recipeResult = await db.query(`
+      INSERT INTO recipes (
+        user_id, name, description, servings, prep_time, cook_time, 
+        instructions, image_url, source_url, category, cuisine, author
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING *
+    `, [
+      req.user.userId,
+      recipeData.name,
+      recipeData.description,
+      recipeData.servings,
+      recipeData.prep_time,
+      recipeData.cook_time,
+      recipeData.instructions,
+      recipeData.image_url,
+      recipeData.source_url,
+      recipeData.category || null,
+      recipeData.cuisine || null,
+      recipeData.author || 'Unknown'
+    ]);
+    
+    const recipe = recipeResult.rows[0];
+    
+    // Add ingredients
+    if (recipeData.ingredients && recipeData.ingredients.length > 0) {
+      for (const ing of recipeData.ingredients) {
+        await db.query(`
+          INSERT INTO recipe_ingredients (
+            recipe_id, item_name, quantity, unit, is_optional, notes, sort_order
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [
+          recipe.id,
+          ing.item_name,
+          ing.quantity,
+          ing.unit,
+          ing.is_optional || false,
+          ing.notes || '',
+          ing.sort_order
+        ]);
+      }
+    }
+    
+    // Fetch complete recipe with ingredients
+    const ingredientsResult = await db.query(`
+      SELECT * FROM recipe_ingredients WHERE recipe_id = $1 ORDER BY sort_order ASC
+    `, [recipe.id]);
+    
+    recipe.ingredients = ingredientsResult.rows;
+    
+    res.status(201).json(recipe);
+  } catch (error) {
+    console.error('Recipe import error:', error);
+    res.status(500).json({ error: 'Failed to import recipe: ' + error.message });
+  }
+});
+
+// Import recipe from Food Network URL (legacy endpoint)
+router.post('/import/foodnetwork', authenticateToken, async (req, res) => {
+  try {
+    const { url } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({ error: 'Recipe URL required' });
+    }
+    
+    // Scrape recipe data
+    const recipeData = await scrapeFoodNetworkRecipe(url);
+    
+    // Save recipe to database
+    const recipeResult = await db.query(`
+      INSERT INTO recipes (
+        user_id, name, description, servings, prep_time, cook_time, 
+        instructions, image_url, source_url, category, cuisine, author
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING *
+    `, [
+      req.user.userId,
+      recipeData.name,
+      recipeData.description,
+      recipeData.servings,
+      recipeData.prep_time,
+      recipeData.cook_time,
+      recipeData.instructions,
+      recipeData.image_url,
+      recipeData.source_url,
+      recipeData.category || null,
+      recipeData.cuisine || null,
+      recipeData.author || 'Food Network'
+    ]);
+    
+    const recipe = recipeResult.rows[0];
+    
+    // Add ingredients
+    if (recipeData.ingredients && recipeData.ingredients.length > 0) {
+      for (const ing of recipeData.ingredients) {
+        await db.query(`
+          INSERT INTO recipe_ingredients (
+            recipe_id, item_name, quantity, unit, is_optional, notes, sort_order
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [
+          recipe.id,
+          ing.item_name,
+          ing.quantity,
+          ing.unit,
+          ing.is_optional || false,
+          ing.notes || '',
+          ing.sort_order
+        ]);
+      }
+    }
+    
+    // Fetch complete recipe with ingredients
+    const ingredientsResult = await db.query(`
+      SELECT * FROM recipe_ingredients WHERE recipe_id = $1 ORDER BY sort_order ASC
+    `, [recipe.id]);
+    
+    recipe.ingredients = ingredientsResult.rows;
+    
+    res.status(201).json(recipe);
+  } catch (error) {
+    console.error('Recipe import error:', error);
+    res.status(500).json({ error: 'Failed to import recipe: ' + error.message });
   }
 });
 

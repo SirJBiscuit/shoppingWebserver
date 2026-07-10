@@ -18,6 +18,7 @@ import BudgetTracker from '../components/BudgetTracker';
 import BarcodeScanner from '../components/BarcodeScanner';
 import ShareList from '../components/ShareList';
 import LevelingSystem, { XP_REWARDS } from '../components/LevelingSystem';
+import LevelUpModal from '../components/LevelUpModal';
 import VoiceInput, { parseVoiceInput } from '../components/VoiceInput';
 import NotificationCenter from '../components/NotificationCenter';
 import Onboarding from '../components/Onboarding';
@@ -54,6 +55,9 @@ const Dashboard = () => {
   const [showVoice, setShowVoice] = useState(false);
   const [loading, setLoading] = useState(true);
   const [itemPreferences, setItemPreferences] = useState([]);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [levelUpData, setLevelUpData] = useState(null);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -237,8 +241,21 @@ const Dashboard = () => {
     
     if (window.confirm('Are you sure you want to delete this shopping list? All items will be removed.')) {
       try {
+        const wasActiveList = activeList?.id === listId;
+        
         await shoppingAPI.deleteList(listId);
-        await loadLists();
+        const response = await shoppingAPI.getLists();
+        setLists(response.data);
+        
+        // If we deleted the active list, switch to the first available list
+        if (wasActiveList && response.data.length > 0) {
+          const newActiveList = response.data[0];
+          setActiveList(newActiveList);
+          await loadListItems(newActiveList.id);
+        } else if (response.data.length === 0) {
+          // If no lists left, create a new one
+          await createNewList();
+        }
       } catch (error) {
         console.error('Error deleting list:', error);
         alert('Failed to delete shopping list');
@@ -249,7 +266,13 @@ const Dashboard = () => {
   const addItem = async (e) => {
     e.preventDefault();
     
-    if (!activeList || !newItemName.trim()) return;
+    if (!newItemName.trim()) return;
+    
+    if (!activeList) {
+      alert('No shopping list selected. Creating a new list...');
+      await createNewList();
+      return;
+    }
 
     try {
       const itemName = newItemName.trim();
@@ -345,13 +368,113 @@ const Dashboard = () => {
     if (!activeList) return;
 
     try {
+      // Show celebration animation
+      setShowCelebration(true);
+      
+      // Complete the shopping trip
       await shoppingAPI.completeList(activeList.id);
+      
+      // Award XP for completing trip
+      const tripData = {
+        items: items,
+        actualCost: totalCost,
+        allItemsChecked: checkedCount === items.length,
+        duration: null
+      };
+      
+      // Call XP API to award points
+      try {
+        const xpResponse = await fetch('/api/xp/complete-trip', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ tripData })
+        });
+        
+        const xpResult = await xpResponse.json();
+        
+        // Show level up modal if user leveled up
+        if (xpResult.levelUp) {
+          setTimeout(() => {
+            setLevelUpData(xpResult);
+            setShowLevelUp(true);
+          }, 1500);
+        }
+      } catch (xpError) {
+        console.error('Error awarding XP:', xpError);
+      }
+      
+      // Auto-categorize items to pantry/fridge/freezer
+      for (const item of items) {
+        const storageLocation = getStorageLocation(item.category || item.category_name);
+        
+        try {
+          await fetch('/api/pantry', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              item_name: item.item_name,
+              quantity: item.quantity,
+              unit: item.unit,
+              storage_location: storageLocation,
+              category: item.category || item.category_name,
+              expiry_date: getDefaultExpiryDate(storageLocation)
+            })
+          });
+        } catch (pantryError) {
+          console.error('Error adding to pantry:', pantryError);
+        }
+      }
+      
       await createNewList();
       await loadInventory();
       await loadSuggestions();
+      
+      // Hide celebration after 3 seconds
+      setTimeout(() => setShowCelebration(false), 3000);
     } catch (error) {
       console.error('Error completing list:', error);
+      setShowCelebration(false);
     }
+  };
+  
+  // Helper function to determine storage location based on category
+  const getStorageLocation = (category) => {
+    const fridgeCategories = ['Dairy', 'Meat', 'Deli', 'Produce', 'Fruits'];
+    const freezerCategories = ['Frozen'];
+    
+    if (!category) return 'pantry';
+    
+    if (freezerCategories.some(cat => category.toLowerCase().includes(cat.toLowerCase()))) {
+      return 'freezer';
+    }
+    if (fridgeCategories.some(cat => category.toLowerCase().includes(cat.toLowerCase()))) {
+      return 'fridge';
+    }
+    return 'pantry';
+  };
+  
+  // Helper function to get default expiry date based on storage
+  const getDefaultExpiryDate = (storageLocation) => {
+    const now = new Date();
+    switch(storageLocation) {
+      case 'fridge':
+        now.setDate(now.getDate() + 7); // 1 week
+        break;
+      case 'freezer':
+        now.setMonth(now.getMonth() + 3); // 3 months
+        break;
+      case 'pantry':
+      default:
+        now.setMonth(now.getMonth() + 6); // 6 months
+        break;
+    }
+    return now.toISOString().split('T')[0];
   };
 
   const totalCost = items.reduce((sum, item) => sum + (item.price * item.quantity || 0), 0);
@@ -462,7 +585,19 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <form onSubmit={addItem} className="mb-6">
+              {/* Add Item Section - Highlighted */}
+              <div className="mb-6 p-6 rounded-xl bg-gradient-to-br from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 border-2 border-primary-300 dark:border-primary-600 shadow-lg">
+                <div className="flex items-center mb-4">
+                  <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center mr-3">
+                    <Plus className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Add Items to Your List</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Start typing to add items with smart suggestions</p>
+                  </div>
+                </div>
+              
+              <form onSubmit={addItem}>
                 <div className="mb-4">
                   <AutocompleteInput
                     value={newItemName}
@@ -650,6 +785,8 @@ const Dashboard = () => {
                   </button>
                 </div>
               </form>
+              </div>
+              {/* End Add Item Section */}
 
               {/* Show recipes associated with this shopping list */}
               {activeList && (
@@ -826,6 +963,26 @@ const Dashboard = () => {
 
         {/* Onboarding Tutorial */}
         <Onboarding userId={user?.id || user?.username} />
+        
+        {/* Celebration Overlay */}
+        {showCelebration && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 pointer-events-none">
+            <div className="text-center animate-bounce">
+              <div className="text-8xl mb-4">🎉</div>
+              <h2 className="text-4xl font-bold text-white mb-2">Shopping Complete!</h2>
+              <p className="text-xl text-white">+{Math.floor(totalCost * 10)} XP Earned!</p>
+            </div>
+          </div>
+        )}
+        
+        {/* Level Up Modal */}
+        {showLevelUp && levelUpData && (
+          <LevelUpModal
+            isOpen={showLevelUp}
+            onClose={() => setShowLevelUp(false)}
+            levelData={levelUpData}
+          />
+        )}
         </div>
       </div>
     </PageTransition>
