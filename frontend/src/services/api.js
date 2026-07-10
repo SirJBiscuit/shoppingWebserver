@@ -41,6 +41,7 @@ export const shoppingAPI = {
   getLists: () => api.get('/shopping/lists'),
   getList: (id) => api.get(`/shopping/lists/${id}`),
   createList: (data) => api.post('/shopping/lists', data),
+  deleteList: (id) => api.delete(`/shopping/lists/${id}`),
   addItem: (listId, data) => api.post(`/shopping/lists/${listId}/items`, data),
   updateItem: (listId, itemId, data) => api.patch(`/shopping/lists/${listId}/items/${itemId}`, data),
   deleteItem: (listId, itemId) => api.delete(`/shopping/lists/${listId}/items/${itemId}`),

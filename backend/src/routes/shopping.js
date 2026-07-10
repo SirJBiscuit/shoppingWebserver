@@ -281,6 +281,29 @@ router.delete('/lists/:listId/items/:itemId', async (req, res) => {
   }
 });
 
+// Delete shopping list
+router.delete('/lists/:id', async (req, res) => {
+  const listId = req.params.id;
+
+  try {
+    const result = await db.query(
+      `DELETE FROM shopping_lists 
+       WHERE id = $1 AND user_id = $2
+       RETURNING id`,
+      [listId, req.user.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Shopping list not found' });
+    }
+
+    res.json({ message: 'Shopping list deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting list:', error);
+    res.status(500).json({ error: 'Failed to delete shopping list' });
+  }
+});
+
 router.post('/lists/:id/complete', async (req, res) => {
   const listId = req.params.id;
 

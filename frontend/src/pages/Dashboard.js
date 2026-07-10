@@ -229,6 +229,23 @@ const Dashboard = () => {
     }
   };
 
+  const deleteList = async (listId) => {
+    if (lists.length <= 1) {
+      alert('You must have at least one shopping list');
+      return;
+    }
+    
+    if (window.confirm('Are you sure you want to delete this shopping list? All items will be removed.')) {
+      try {
+        await shoppingAPI.deleteList(listId);
+        await loadLists();
+      } catch (error) {
+        console.error('Error deleting list:', error);
+        alert('Failed to delete shopping list');
+      }
+    }
+  };
+
   const addItem = async (e) => {
     e.preventDefault();
     
@@ -394,6 +411,17 @@ const Dashboard = () => {
                     <Plus className="w-4 h-4 mr-1" />
                     New List
                   </button>
+                  {lists.length > 1 && activeList && (
+                    <button
+                      type="button"
+                      onClick={() => deleteList(activeList.id)}
+                      className="btn-secondary text-sm flex items-center text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                      title="Delete this list"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Delete
+                    </button>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <button
