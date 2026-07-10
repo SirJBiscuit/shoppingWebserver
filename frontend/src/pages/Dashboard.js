@@ -25,6 +25,7 @@ import Onboarding from '../components/Onboarding';
 import Sidebar from '../components/Sidebar';
 import AutocompleteInput from '../components/AutocompleteInput';
 import TemplatesModal from '../components/TemplatesModal';
+import NewListModal from '../components/NewListModal';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils/userPreferences';
@@ -63,6 +64,7 @@ const Dashboard = () => {
   const [completedLists, setCompletedLists] = useState([]);
   const [hideCategories, setHideCategories] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showNewListModal, setShowNewListModal] = useState(false);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -223,18 +225,20 @@ const Dashboard = () => {
     }
   };
 
-  const createNewList = async () => {
-    const listName = prompt('Enter a name for the new shopping list:', `Shopping List ${lists.length + 1}`);
-    if (!listName) return;
+  const createNewList = async (listData = null) => {
+    // If no data provided, open the modal
+    if (!listData) {
+      setShowNewListModal(true);
+      return;
+    }
 
     try {
-      const response = await shoppingAPI.createList({ name: listName });
+      const response = await shoppingAPI.createList(listData);
       setActiveList(response.data);
       await loadLists();
       await loadListItems(response.data.id);
     } catch (error) {
       console.error('Error creating list:', error);
-      alert('Failed to create shopping list');
     }
   };
 
@@ -1050,6 +1054,14 @@ const Dashboard = () => {
         isOpen={showTemplates}
         onClose={() => setShowTemplates(false)}
         onAddItems={addTemplateItems}
+      />
+
+      {/* New List Modal */}
+      <NewListModal
+        isOpen={showNewListModal}
+        onClose={() => setShowNewListModal(false)}
+        onCreateList={createNewList}
+        existingLists={lists}
       />
 
         {/* Onboarding Tutorial */}
