@@ -20,7 +20,7 @@ const Sidebar = () => {
   const mainNavItems = [
     { path: '/', icon: ShoppingCart, label: 'Shopping List', color: 'text-blue-600' },
     { path: '/recipes', icon: ChefHat, label: 'Recipes', color: 'text-orange-600' },
-    { path: '/pantry', icon: Package, label: 'Pantry', color: 'text-green-600' },
+    { path: '/pantry', icon: Package, label: 'Kitchen Inventory', color: 'text-green-600' },
     { path: '/meal-plan', icon: Calendar, label: 'Meal Planner', color: 'text-purple-600' },
     { path: '/stats', icon: BarChart3, label: 'Statistics', color: 'text-pink-600' },
     { path: '/discover', icon: Search, label: 'Recipe Discovery', color: 'text-teal-600' },
