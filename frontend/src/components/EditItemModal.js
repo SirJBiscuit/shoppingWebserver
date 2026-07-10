@@ -11,9 +11,7 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
     price: '',
     category: '',
     item_icon: '',
-    notes: '',
-    package_count: '',
-    count_per_package: ''
+    notes: ''
   });
   const [showIconPicker, setShowIconPicker] = useState(false);
 
@@ -24,11 +22,9 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
         quantity: item.quantity || 1,
         unit: item.unit || '',
         price: item.price || '',
-        category: item.category || '',
+        category: item.category_name || item.category || '',
         item_icon: item.item_icon || '',
-        notes: item.notes || '',
-        package_count: item.package_count || '',
-        count_per_package: item.count_per_package || ''
+        notes: item.notes || ''
       });
     }
   }, [item]);
@@ -236,61 +232,6 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
                 </optgroup>
               </select>
             </div>
-
-            {/* Package Count - NEW */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Packages/Boxes
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.package_count}
-                  onChange={(e) => setFormData({ ...formData, package_count: e.target.value })}
-                  className="input-field"
-                  placeholder="2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Count per Package
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.count_per_package}
-                  onChange={(e) => setFormData({ ...formData, count_per_package: e.target.value })}
-                  className="input-field"
-                  placeholder="12"
-                />
-              </div>
-            </div>
-
-            {/* Total Count Display */}
-            {formData.package_count && formData.count_per_package && (
-              <div className="bg-gradient-to-r from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 border border-primary-200 dark:border-primary-700 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Total Count</p>
-                    <p className="text-2xl font-bold text-primary-700 dark:text-primary-300">
-                      {parseInt(formData.package_count) * parseInt(formData.count_per_package)}
-                      <span className="text-sm font-normal ml-2">
-                        {formData.unit === 'ct' ? 'items' : formData.unit || 'units'}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {formData.package_count} × {formData.count_per_package}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      📦 {formData.unit === 'box' ? 'boxes' : formData.unit === 'bag' ? 'bags' : 'packages'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Notes */}
             <div>
