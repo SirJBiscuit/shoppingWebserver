@@ -8,6 +8,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import PantryModal from '../components/PantryModal';
 import ExpirationBadge from '../components/ExpirationBadge';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { detectIcon } from '../utils/categoryDetector';
 
 const Pantry = () => {
@@ -20,6 +21,7 @@ const Pantry = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [activeTab, setActiveTab] = useState('all'); // all, pantry, fridge, freezer
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   useEffect(() => {
     fetchPantry();
@@ -57,14 +59,19 @@ const Pantry = () => {
   };
 
   const handleDeleteItem = async (id) => {
-    if (window.confirm('Remove this item from pantry?')) {
+    setConfirmDelete(id);
+  };
+
+  const confirmDeleteItem = async () => {
+    if (confirmDelete) {
       try {
-        await pantryAPI.deleteItem(id);
+        await pantryAPI.deleteItem(confirmDelete);
         fetchPantry();
         fetchExpiring();
       } catch (error) {
         console.error('Failed to delete item:', error);
       }
+      setConfirmDelete(null);
     }
   };
 
@@ -302,6 +309,18 @@ const Pantry = () => {
         onSave={handleEditItem}
         item={selectedItem}
         categories={categories}
+      />
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDelete !== null}
+        title="Remove Item"
+        message="Are you sure you want to remove this item from your kitchen inventory?"
+        onConfirm={confirmDeleteItem}
+        onCancel={() => setConfirmDelete(null)}
+        confirmText="Remove"
+        cancelText="Cancel"
+        type="danger"
       />
           </div>
         </div>

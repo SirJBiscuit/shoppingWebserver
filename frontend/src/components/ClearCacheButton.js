@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
+import ConfirmDialog from './ConfirmDialog';
 
 const ClearCacheButton = () => {
   const [clearing, setClearing] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const clearAllCaches = async () => {
+    setShowConfirm(false);
     setClearing(true);
 
     try {
@@ -49,15 +52,28 @@ const ClearCacheButton = () => {
   };
 
   return (
-    <button
-      onClick={clearAllCaches}
-      disabled={clearing}
-      className="flex items-center space-x-2 px-3 py-2 text-sm bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors disabled:opacity-50"
-      title="Clear all caches and reload to get the latest version"
-    >
-      <RefreshCw className={`w-4 h-4 ${clearing ? 'animate-spin' : ''}`} />
-      <span>{clearing ? 'Clearing...' : 'Clear Cache'}</span>
-    </button>
+    <>
+      <button
+        onClick={() => setShowConfirm(true)}
+        disabled={clearing}
+        className="flex items-center space-x-2 px-3 py-2 text-sm bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors disabled:opacity-50"
+        title="Clear all caches and reload to get the latest version"
+      >
+        <RefreshCw className={`w-4 h-4 ${clearing ? 'animate-spin' : ''}`} />
+        <span>{clearing ? 'Clearing...' : 'Clear Cache'}</span>
+      </button>
+
+      <ConfirmDialog
+        isOpen={showConfirm}
+        title="Clear Cache & Reload"
+        message="This will clear all caches and reload the page to ensure you have the latest version. Continue?"
+        onConfirm={clearAllCaches}
+        onCancel={() => setShowConfirm(false)}
+        confirmText="Clear & Reload"
+        cancelText="Cancel"
+        type="warning"
+      />
+    </>
   );
 };
 
