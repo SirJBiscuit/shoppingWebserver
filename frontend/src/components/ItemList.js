@@ -3,7 +3,7 @@ import { Check, Trash2, Edit2, Smile, Sparkles } from 'lucide-react';
 import EditItemModal from './EditItemModal';
 import { detectIcon, detectCategory } from '../utils/categoryDetector';
 
-const ItemList = ({ items, onToggleCheck, onDelete, onEdit }) => {
+const ItemList = ({ items, onToggleCheck, onDelete, onEdit, hideCategories = false }) => {
   const [editingItem, setEditingItem] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   // Group items by name to combine duplicates
@@ -54,20 +54,82 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit }) => {
     );
   }
 
+  // Flatten items if hiding categories
+  const displayItems = hideCategories 
+    ? Object.values(combinedItems)
+    : null;
+
   return (
     <>
     <div className="space-y-6 shopping-list-scroll custom-scrollbar max-h-[calc(100vh-400px)] pr-2">
-      {categories.map((category) => (
-        <div key={category}>
-          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-3 flex items-center">
-            <span className="text-2xl mr-2">{groupedItems[category].icon}</span>
-            {category}
-            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 normal-case">
-              ({groupedItems[category].items.length} items)
-            </span>
-          </h4>
-          <div className="space-y-2">
-            {groupedItems[category].items.map((item) => (
+      {hideCategories ? (
+        // Flat list without categories
+        <div className="space-y-2">
+          {displayItems.map((item) => (
+            <ItemCard 
+              key={item.id} 
+              item={item} 
+              onToggleCheck={onToggleCheck}
+              onDelete={onDelete}
+              setEditingItem={setEditingItem}
+              setShowEditModal={setShowEditModal}
+            />
+          ))}
+        </div>
+      ) : (
+        // Grouped by categories
+        categories.map((category) => (
+          <div key={category}>
+            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-3 flex items-center">
+              <span className="text-2xl mr-2">{groupedItems[category].icon}</span>
+              {category}
+              <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 normal-case">
+                ({groupedItems[category].items.length} items)
+              </span>
+            </h4>
+            <div className="space-y-2">
+              {groupedItems[category].items.map((item) => (
+                <ItemCard 
+                  key={item.id} 
+                  item={item} 
+                  onToggleCheck={onToggleCheck}
+                  onDelete={onDelete}
+                  setEditingItem={setEditingItem}
+                  setShowEditModal={setShowEditModal}
+                />
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+
+    {/* Edit Item Modal */}
+    <EditItemModal
+      item={editingItem}
+      isOpen={showEditModal}
+      onClose={() => {
+        setShowEditModal(false);
+        setEditingItem(null);
+      }}
+      onSave={(updatedItem) => {
+        if (onEdit) {
+          // Update all instances of this item
+          updatedItem.ids.forEach(id => {
+            onEdit({ ...updatedItem, id });
+          });
+        }
+        setShowEditModal(false);
+        setEditingItem(null);
+      }}
+    />
+    </>
+  );
+};
+
+// Separate ItemCard component for reusability
+const ItemCard = ({ item, onToggleCheck, onDelete, setEditingItem, setShowEditModal }) => {
+  return (
               <div
                 key={item.id}
                 className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
@@ -117,6 +179,13 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit }) => {
                         </span>
                       )}
                     </p>
+                    {/* Show notes if present */}
+                    {item.notes && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 italic flex items-center">
+                        <Smile className="w-3 h-3 mr-1" />
+                        {item.notes}
+                      </p>
+                    )}
                   </div>
                 </div>
                 
@@ -143,32 +212,6 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit }) => {
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-
-    {/* Edit Item Modal */}
-    <EditItemModal
-      item={editingItem}
-      isOpen={showEditModal}
-      onClose={() => {
-        setShowEditModal(false);
-        setEditingItem(null);
-      }}
-      onSave={(updatedItem) => {
-        if (onEdit) {
-          // Update all instances of this item
-          updatedItem.ids.forEach(id => {
-            onEdit({ ...updatedItem, id });
-          });
-        }
-        setShowEditModal(false);
-        setEditingItem(null);
-      }}
-    />
-    </>
   );
 };
 

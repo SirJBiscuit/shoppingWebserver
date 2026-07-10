@@ -5,7 +5,7 @@ import { useCartAnimation } from '../contexts/CartAnimationContext';
 import { shoppingAPI, itemsAPI, suggestionsAPI, inventoryAPI, categoriesAPI } from '../services/api';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
@@ -60,6 +60,7 @@ const Dashboard = () => {
   const [showCelebration, setShowCelebration] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
   const [completedLists, setCompletedLists] = useState([]);
+  const [hideCategories, setHideCategories] = useState(false);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -533,9 +534,11 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <div className="card">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex flex-col space-y-2 flex-1">
-                  <div className="flex items-center space-x-3">
+              {/* Shopping List Header */}
+              <div className="mb-6">
+                {/* Title and Dropdown Row */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3 flex-1">
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Shopping List</h2>
                     {lists.length > 0 && (
                       <select
@@ -545,7 +548,7 @@ const Dashboard = () => {
                           setActiveList(list);
                           if (list) loadListItems(list.id);
                         }}
-                        className="input-field text-sm min-w-[250px]"
+                        className="input-field text-sm flex-1 max-w-xs"
                       >
                         {lists.map(list => (
                           <option key={list.id} value={list.id}>
@@ -555,20 +558,24 @@ const Dashboard = () => {
                       </select>
                     )}
                   </div>
-                  {activeList && (
-                    <div className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-                      📋 {activeList.name}
-                    </div>
-                  )}
                 </div>
-                <div className="flex items-center space-x-2">
+
+                {/* Active List Name */}
+                {activeList && (
+                  <div className="text-2xl font-bold text-primary-600 dark:text-primary-400 mb-4">
+                    📋 {activeList.name}
+                  </div>
+                )}
+
+                {/* Action Buttons Row */}
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={createNewList}
                     className="btn-secondary text-sm flex items-center"
                   >
                     <Plus className="w-4 h-4 mr-1" />
-                    New List
+                    New
                   </button>
                   <button
                     type="button"
@@ -590,17 +597,24 @@ const Dashboard = () => {
                       Delete
                     </button>
                   )}
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
+                  <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
                   <button
                     onClick={() => setSmartSort(!smartSort)}
                     className={`btn-secondary text-sm flex items-center ${smartSort ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300' : ''}`}
                     title={smartSort ? 'Sorted by store layout' : 'Sort by store layout'}
                   >
                     <ArrowUpDown className="w-4 h-4 mr-1" />
-                    {smartSort ? `${calculateEfficiency(items)}%` : 'Smart Sort'}
+                    {smartSort ? `${calculateEfficiency(items)}%` : 'Sort'}
                   </button>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 font-medium px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                  <button
+                    onClick={() => setHideCategories(!hideCategories)}
+                    className={`btn-secondary text-sm flex items-center ${hideCategories ? 'bg-gray-200 dark:bg-gray-700' : ''}`}
+                    title={hideCategories ? 'Show categories' : 'Hide categories'}
+                  >
+                    {hideCategories ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
+                    {hideCategories ? 'Show' : 'Hide'}
+                  </button>
+                  <div className="ml-auto text-sm text-gray-600 dark:text-gray-400 font-medium px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
                     {checkedCount} / {items.length} items
                   </div>
                 </div>
@@ -820,6 +834,7 @@ const Dashboard = () => {
                 items={smartSort ? sortItemsByStoreLayout(items) : items}
                 onToggleCheck={toggleItemCheck}
                 onDelete={deleteItem}
+                hideCategories={hideCategories}
                 onEdit={async (updatedItem) => {
                   try {
                     console.log('Updating item:', updatedItem);
