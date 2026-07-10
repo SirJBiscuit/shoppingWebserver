@@ -132,7 +132,13 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit, hideCategories = fal
 // Separate ItemCard component for reusability
 const ItemCard = ({ item, onToggleCheck, onDelete, setEditingItem, setShowEditModal, storeName }) => {
   // Get aisle information if store is specified
-  const aisle = storeName ? getAisleForCategory(storeName, item.category_name || item.category || 'Other') : null;
+  const category = item.category_name || item.category || 'Other';
+  const aisle = storeName ? getAisleForCategory(storeName, category) : null;
+  
+  // Debug logging (remove after testing)
+  if (storeName && !aisle) {
+    console.log(`No aisle found for store: "${storeName}", category: "${category}"`);
+  }
   
   return (
               <div
@@ -176,20 +182,22 @@ const ItemCard = ({ item, onToggleCheck, onDelete, setEditingItem, setShowEditMo
                         </span>
                       )}
                     </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {Math.floor(item.totalQuantity)} {item.unit}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {Math.floor(item.totalQuantity)} {item.unit}
+                      </span>
                       {item.totalPrice > 0 && (
-                        <span className="font-semibold text-green-600 dark:text-green-400">
-                          {' '}• ${item.totalPrice.toFixed(2)}
+                        <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-bold">
+                          ${item.totalPrice.toFixed(2)}
                         </span>
                       )}
                       {aisle && (
-                        <span className="ml-2 inline-flex items-center text-xs text-blue-600 dark:text-blue-400">
+                        <span className="inline-flex items-center px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-medium">
                           <MapPin className="w-3 h-3 mr-1" />
                           Aisle {aisle.number}
                         </span>
                       )}
-                    </p>
+                    </div>
                     {/* Show aisle name if available */}
                     {aisle && (
                       <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">

@@ -137,14 +137,26 @@ export const storeLayouts = {
 
 // Get aisle for a category at a specific store
 export const getAisleForCategory = (storeName, category) => {
-  const store = storeLayouts[storeName.toLowerCase().replace(/\s+/g, '-')];
-  if (!store) return null;
+  if (!storeName || !category) return null;
+  
+  const storeKey = storeName.toLowerCase().replace(/\s+/g, '-');
+  const store = storeLayouts[storeKey];
+  
+  // Debug logging
+  if (!store) {
+    console.log(`Store not found: "${storeName}" (key: "${storeKey}"). Available stores:`, Object.keys(storeLayouts));
+    return null;
+  }
   
   const aisle = store.aisles.find(a => 
     a.categories.some(cat => 
       cat.toLowerCase() === category.toLowerCase()
     )
   );
+  
+  if (!aisle) {
+    console.log(`No aisle found for category "${category}" in store "${storeName}"`);
+  }
   
   return aisle;
 };
