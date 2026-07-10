@@ -136,9 +136,14 @@ const ItemCard = ({ item, onToggleCheck, onDelete, setEditingItem, setShowEditMo
   const aisle = storeName ? getAisleForCategory(storeName, category) : null;
   
   // Debug logging (remove after testing)
-  if (storeName && !aisle) {
-    console.log(`No aisle found for store: "${storeName}", category: "${category}"`);
-  }
+  console.log(`ItemCard Debug:`, {
+    itemName: item.item_name,
+    storeName,
+    category,
+    category_name: item.category_name,
+    item_category: item.category,
+    aisle: aisle ? `${aisle.number} - ${aisle.name}` : 'null'
+  });
   
   return (
               <div
