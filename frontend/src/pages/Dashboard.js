@@ -26,6 +26,8 @@ import Sidebar from '../components/Sidebar';
 import AutocompleteInput from '../components/AutocompleteInput';
 import TemplatesModal from '../components/TemplatesModal';
 import NewListModal from '../components/NewListModal';
+import PriceLearningModal from '../components/PriceLearningModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import { XPNotificationContainer, showXPNotification } from '../components/XPNotification';
@@ -69,6 +71,8 @@ const Dashboard = () => {
   const [hideCategories, setHideCategories] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showNewListModal, setShowNewListModal] = useState(false);
+  const [showPriceLearning, setShowPriceLearning] = useState(false);
+  const [listToDelete, setListToDelete] = useState(null);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -264,27 +268,34 @@ const Dashboard = () => {
       return;
     }
     
-    if (window.confirm('Are you sure you want to delete this shopping list? All items will be removed.')) {
-      try {
-        const wasActiveList = activeList?.id === listId;
-        
-        await shoppingAPI.deleteList(listId);
-        const response = await shoppingAPI.getLists();
-        setLists(response.data);
-        
-        // If we deleted the active list, switch to the first available list
-        if (wasActiveList && response.data.length > 0) {
-          const newActiveList = response.data[0];
-          setActiveList(newActiveList);
-          await loadListItems(newActiveList.id);
-        } else if (response.data.length === 0) {
-          // If no lists left, create a new one
-          await createNewList();
-        }
-      } catch (error) {
-        console.error('Error deleting list:', error);
-        error('Failed to delete shopping list');
+    setListToDelete(listId);
+  };
+
+  const confirmDeleteList = async () => {
+    if (!listToDelete) return;
+    
+    try {
+      const wasActiveList = activeList?.id === listToDelete;
+      
+      await shoppingAPI.deleteList(listToDelete);
+      success('Shopping list deleted');
+      const response = await shoppingAPI.getLists();
+      setLists(response.data);
+      
+      // If we deleted the active list, switch to the first available list
+      if (wasActiveList && response.data.length > 0) {
+        const newActiveList = response.data[0];
+        setActiveList(newActiveList);
+        await loadListItems(newActiveList.id);
+      } else if (response.data.length === 0) {
+        // If no lists left, create a new one
+        await createNewList();
       }
+    } catch (err) {
+      console.error('Error deleting list:', err);
+      showError('Failed to delete shopping list');
+    } finally {
+      setListToDelete(null);
     }
   };
 
@@ -310,6 +321,18 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Error restoring list:', error);
       error('Failed to restore shopping list');
+    }
+  };
+
+  const handlePriceLearningSubmit = async (priceData) => {
+    try {
+      // TODO: Send to backend API when stores route is ready
+      // For now, just show success
+      success('Price data saved! Thank you for contributing.');
+      setShowPriceLearning(false);
+    } catch (err) {
+      console.error('Error saving price data:', err);
+      showError('Failed to save price data');
     }
   };
 
@@ -661,6 +684,15 @@ const Dashboard = () => {
                   >
                     <Package className="w-4 h-4 mr-1" />
                     Templates
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPriceLearning(true)}
+                    className="btn-secondary text-sm flex items-center bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
+                    title="Learn prices and earn XP"
+                  >
+                    <DollarSign className="w-4 h-4 mr-1" />
+                    Learn Prices
                   </button>
                   <button
                     type="button"
@@ -1105,6 +1137,14 @@ const Dashboard = () => {
         existingLists={lists}
       />
 
+      {/* Price Learning Modal */}
+      <PriceLearningModal
+        isOpen={showPriceLearning}
+        onClose={() => setShowPriceLearning(false)}
+        onSubmit={handlePriceLearningSubmit}
+        storeLocation={activeList?.store_name ? { name: activeList.store_name } : null}
+      />
+
         {/* Onboarding Tutorial */}
         <Onboarding userId={user?.id || user?.username} />
         
@@ -1207,6 +1247,18 @@ const Dashboard = () => {
 
       {/* XP Notifications */}
       <XPNotificationContainer />
+
+      {/* Delete List Confirmation */}
+      <ConfirmDialog
+        isOpen={listToDelete !== null}
+        title="Delete Shopping List"
+        message="Are you sure you want to delete this shopping list? All items will be removed permanently."
+        onConfirm={confirmDeleteList}
+        onCancel={() => setListToDelete(null)}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+      />
     </PageTransition>
   );
 };
