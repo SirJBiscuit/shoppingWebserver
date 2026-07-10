@@ -1143,6 +1143,16 @@ const Dashboard = () => {
         onClose={() => setShowPriceLearning(false)}
         onSubmit={handlePriceLearningSubmit}
         storeLocation={activeList?.store_name ? { name: activeList.store_name } : null}
+        onAddToList={activeList ? async (itemData) => {
+          try {
+            await shoppingAPI.addItem(activeList.id, itemData);
+            await loadListItems(activeList.id);
+            success('Item added to shopping list!');
+          } catch (err) {
+            console.error('Error adding item to list:', err);
+            error('Failed to add item to list');
+          }
+        } : null}
       />
 
         {/* Onboarding Tutorial */}

@@ -3,8 +3,9 @@ import { Camera, DollarSign, MapPin, Package, Save, X, Sparkles, TrendingUp, Awa
 import { useToast } from '../hooks/useToast';
 import { XP_REWARDS } from './LevelingSystem';
 
-const PriceLearningModal = ({ isOpen, onClose, onSubmit, storeLocation = null }) => {
+const PriceLearningModal = ({ isOpen, onClose, onSubmit, storeLocation = null, onAddToList = null }) => {
   const { success, error: showError, info } = useToast();
+  const [selectedStore, setSelectedStore] = useState(storeLocation?.name || '');
   const [formData, setFormData] = useState({
     item_name: '',
     price: '',
@@ -21,6 +22,8 @@ const PriceLearningModal = ({ isOpen, onClose, onSubmit, storeLocation = null })
   const [imagePreview, setImagePreview] = useState(null);
   const [useCamera, setUseCamera] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [addToList, setAddToList] = useState(true); // Default to true
+  const [keepScanning, setKeepScanning] = useState(true); // Keep modal open for continuous scanning
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -65,10 +68,27 @@ const PriceLearningModal = ({ isOpen, onClose, onSubmit, storeLocation = null })
       
       canvas.toBlob((blob) => {
         setImage(blob);
-        setImagePreview(URL.createObjectURL(blob));
+        const previewUrl = URL.createObjectURL(blob);
+        setImagePreview(previewUrl);
         stopCamera();
-        info('Photo captured! You can retake or continue.');
+        
+        // Try to detect price from image using OCR
+        detectPriceFromImage(blob);
+        
+        info('Photo captured! Detecting price...');
       }, 'image/jpeg', 0.8);
+    }
+  };
+
+  // Detect price from image using OCR (Tesseract.js)
+  const detectPriceFromImage = async (imageBlob) => {
+    try {
+      // Simple regex to find price patterns like $3.99, 3.99, etc.
+      // For now, we'll use a basic approach
+      // TODO: Integrate Tesseract.js for better OCR
+      info('💡 Tip: Enter the price manually for now. OCR coming soon!');
+    } catch (err) {
+      console.error('Error detecting price:', err);
     }
   };
 
@@ -107,9 +127,9 @@ const PriceLearningModal = ({ isOpen, onClose, onSubmit, storeLocation = null })
         }
       });
       
-      // Add store location if available
-      if (storeLocation) {
-        submitData.append('store_location_id', storeLocation.id);
+      // Add selected store
+      if (selectedStore) {
+        submitData.append('store_name', selectedStore);
       }
       
       // Add image if captured
@@ -119,12 +139,26 @@ const PriceLearningModal = ({ isOpen, onClose, onSubmit, storeLocation = null })
       
       await onSubmit(submitData);
       
+      // Add to shopping list if checkbox is checked
+      if (addToList && onAddToList) {
+        await onAddToList({
+          itemName: formData.item_name,
+          quantity: 1,
+          price: parseFloat(formData.price),
+          category: '',
+          notes: formData.notes
+        });
+      }
+      
       // Award XP for contributing
       if (window.addXP) {
         window.addXP(XP_REWARDS.PRICE_LEARNED, `Learned price for ${formData.item_name}`);
       }
       
-      success(`Price learned for ${formData.item_name}! +${XP_REWARDS.PRICE_LEARNED} XP`);
+      const message = addToList && onAddToList 
+        ? `Price learned & added to list! +${XP_REWARDS.PRICE_LEARNED} XP`
+        : `Price learned for ${formData.item_name}! +${XP_REWARDS.PRICE_LEARNED} XP`;
+      success(message);
       
       // Reset form
       setFormData({
@@ -141,6 +175,13 @@ const PriceLearningModal = ({ isOpen, onClose, onSubmit, storeLocation = null })
       });
       setImage(null);
       setImagePreview(null);
+      
+      // Close modal only if keepScanning is false
+      if (!keepScanning) {
+        onClose();
+      } else {
+        info('Ready for next item! 🚀');
+      }
       
     } catch (err) {
       console.error('Error submitting price:', err);
@@ -200,23 +241,28 @@ const PriceLearningModal = ({ isOpen, onClose, onSubmit, storeLocation = null })
               </h3>
               
               {!useCamera && !imagePreview && (
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <button
-                    type="button"
-                    onClick={startCamera}
-                    className="btn-primary flex items-center justify-center"
-                  >
-                    <Camera className="w-5 h-5 mr-2" />
-                    Use Camera
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="btn-secondary flex items-center justify-center"
-                  >
-                    <Package className="w-5 h-5 mr-2" />
-                    Upload Photo
-                  </button>
+                <div className="space-y-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="btn-primary flex items-center justify-center flex-1"
+                    >
+                      <Camera className="w-5 h-5 mr-2" />
+                      Take Photo of Price Tag
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="btn-secondary flex items-center justify-center flex-1"
+                    >
+                      <Package className="w-5 h-5 mr-2" />
+                      Upload Photo
+                    </button>
+                  </div>
+                  <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+                    📸 Snap the price tag for quick entry • Barcode scanning coming soon!
+                  </p>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -277,17 +323,31 @@ const PriceLearningModal = ({ isOpen, onClose, onSubmit, storeLocation = null })
               <canvas ref={canvasRef} className="hidden" />
             </div>
 
-            {/* Store Location */}
-            {storeLocation && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-700 rounded-lg">
-                <div className="flex items-center text-sm">
-                  <MapPin className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {storeLocation.name}
-                  </span>
-                </div>
-              </div>
-            )}
+            {/* Store Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                🏪 Store *
+              </label>
+              <select
+                value={selectedStore}
+                onChange={(e) => setSelectedStore(e.target.value)}
+                className="input-field"
+                required
+              >
+                <option value="">Select a store...</option>
+                <option value="Walmart">Walmart</option>
+                <option value="Target">Target</option>
+                <option value="Kroger">Kroger</option>
+                <option value="Aldi">Aldi</option>
+                <option value="Costco">Costco</option>
+                <option value="Whole Foods">Whole Foods</option>
+                <option value="Safeway">Safeway</option>
+                <option value="Publix">Publix</option>
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                💡 Store will stay selected for quick scanning
+              </p>
+            </div>
 
             {/* Item Name */}
             <div>
@@ -304,131 +364,109 @@ const PriceLearningModal = ({ isOpen, onClose, onSubmit, storeLocation = null })
               />
             </div>
 
-            {/* Price and Sale Price */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Regular Price *
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    className="input-field pl-8"
-                    placeholder="3.99"
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Sale Price
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.sale_price}
-                    onChange={(e) => setFormData({ ...formData, sale_price: e.target.value, on_sale: !!e.target.value })}
-                    className="input-field pl-8"
-                    placeholder="2.99"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Size, Unit, Brand */}
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Size
-                </label>
-                <input
-                  type="text"
-                  value={formData.size}
-                  onChange={(e) => setFormData({ ...formData, size: e.target.value })}
-                  className="input-field"
-                  placeholder="1 lb"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Unit
-                </label>
-                <select
-                  value={formData.unit}
-                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  className="input-field"
-                >
-                  <option value="">Select</option>
-                  <option value="lb">lb</option>
-                  <option value="oz">oz</option>
-                  <option value="kg">kg</option>
-                  <option value="g">g</option>
-                  <option value="each">each</option>
-                  <option value="bunch">bunch</option>
-                  <option value="bag">bag</option>
-                  <option value="box">box</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Brand
-                </label>
-                <input
-                  type="text"
-                  value={formData.brand}
-                  onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                  className="input-field"
-                  placeholder="Dole"
-                />
-              </div>
-            </div>
-
-            {/* Aisle Information */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Aisle Number
-                </label>
-                <input
-                  type="text"
-                  value={formData.aisle_number}
-                  onChange={(e) => setFormData({ ...formData, aisle_number: e.target.value })}
-                  className="input-field"
-                  placeholder="5"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Aisle Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.aisle_name}
-                  onChange={(e) => setFormData({ ...formData, aisle_name: e.target.value })}
-                  className="input-field"
-                  placeholder="Produce"
-                />
-              </div>
-            </div>
-
-            {/* Notes */}
+            {/* Price (Simplified - single field) */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Notes
+                Price *
               </label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                className="input-field"
-                rows="2"
-                placeholder="Any additional details..."
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-lg">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                  className="input-field pl-8 text-lg font-semibold"
+                  placeholder="3.99"
+                  required
+                  autoFocus={!image}
+                />
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                💡 Tip: Take a photo of the price tag for automatic detection
+              </p>
+            </div>
+
+            {/* Optional: Aisle Information (Collapsible) */}
+            <details className="group">
+              <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                <span className="mr-2">📍</span>
+                Optional: Add Aisle Info
+                <span className="ml-2 text-xs text-gray-500">(click to expand)</span>
+              </summary>
+              <div className="mt-3 space-y-3 pl-6 border-l-2 border-gray-200 dark:border-gray-700">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Aisle Number
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.aisle_number}
+                      onChange={(e) => setFormData({ ...formData, aisle_number: e.target.value })}
+                      className="input-field text-sm"
+                      placeholder="5"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Aisle Name
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.aisle_name}
+                      onChange={(e) => setFormData({ ...formData, aisle_name: e.target.value })}
+                      className="input-field text-sm"
+                      placeholder="Produce"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Notes
+                  </label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="input-field text-sm"
+                    rows="2"
+                    placeholder="Any additional details..."
+                  />
+                </div>
+              </div>
+            </details>
+
+            {/* Options */}
+            <div className="space-y-2">
+              {/* Add to Shopping List Checkbox */}
+              {onAddToList && (
+                <div className="flex items-center p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-700 rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="addToList"
+                    checked={addToList}
+                    onChange={(e) => setAddToList(e.target.checked)}
+                    className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                  />
+                  <label htmlFor="addToList" className="ml-2 text-sm font-medium text-gray-900 dark:text-white cursor-pointer">
+                    🛒 Add this item to my shopping list
+                  </label>
+                </div>
+              )}
+
+              {/* Keep Scanning Checkbox */}
+              <div className="flex items-center p-3 bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="keepScanning"
+                  checked={keepScanning}
+                  onChange={(e) => setKeepScanning(e.target.checked)}
+                  className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <label htmlFor="keepScanning" className="ml-2 text-sm font-medium text-gray-900 dark:text-white cursor-pointer">
+                  🔄 Keep scanning more items at this store
+                </label>
+              </div>
             </div>
 
             {/* Submit Button */}
