@@ -92,7 +92,7 @@ if [ -d "backend/migrations" ]; then
             
             # Copy migration to container and execute
             docker cp "$migration" shop_postgres:/tmp/migration.sql
-            docker exec -i shop_postgres psql -U postgres -d shopping_app -f /tmp/migration.sql 2>&1 | while IFS= read -r line; do
+            docker exec -i shop_postgres psql -U shopuser -d shopdb -f /tmp/migration.sql 2>&1 | while IFS= read -r line; do
                 if [[ "$line" == *"ERROR"* ]] && [[ "$line" != *"already exists"* ]]; then
                     echo -e "${RED}  ⚠ $line${NC}"
                 elif [[ "$line" == *"already exists"* ]]; then
