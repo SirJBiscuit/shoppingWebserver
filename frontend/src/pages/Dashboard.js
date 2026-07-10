@@ -5,7 +5,7 @@ import { useCartAnimation } from '../contexts/CartAnimationContext';
 import { shoppingAPI, itemsAPI, suggestionsAPI, inventoryAPI, categoriesAPI } from '../services/api';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
@@ -40,7 +40,7 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [newItemName, setNewItemName] = useState('');
-  const [newItemQuantity, setNewItemQuantity] = useState('');
+  const [newItemQuantity, setNewItemQuantity] = useState('1');
   const [newItemSize, setNewItemSize] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
@@ -58,6 +58,8 @@ const Dashboard = () => {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpData, setLevelUpData] = useState(null);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [completedLists, setCompletedLists] = useState([]);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -263,6 +265,31 @@ const Dashboard = () => {
     }
   };
 
+  const loadCompletedLists = async () => {
+    try {
+      const response = await shoppingAPI.getCompletedLists();
+      setCompletedLists(response.data);
+      setShowRecovery(true);
+    } catch (error) {
+      console.error('Error loading completed lists:', error);
+      alert('Failed to load completed lists');
+    }
+  };
+
+  const restoreList = async (listId) => {
+    try {
+      const response = await shoppingAPI.restoreList(listId);
+      setActiveList(response.data);
+      await loadLists();
+      await loadListItems(response.data.id);
+      setShowRecovery(false);
+      alert('Shopping list restored successfully!');
+    } catch (error) {
+      console.error('Error restoring list:', error);
+      alert('Failed to restore shopping list');
+    }
+  };
+
   const addItem = async (e) => {
     e.preventDefault();
     
@@ -305,7 +332,7 @@ const Dashboard = () => {
       }
 
       setNewItemName('');
-      setNewItemQuantity('');
+      setNewItemQuantity('1');
       setNewItemSize('');
       setNewItemPrice('');
       setNewItemCategory('');
@@ -507,25 +534,34 @@ const Dashboard = () => {
           <div className="lg:col-span-2 space-y-6">
             <div className="card">
               <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-3">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Shopping List</h2>
-                  {lists.length > 0 && (
-                    <select
-                      value={activeList?.id || ''}
-                      onChange={(e) => {
-                        const list = lists.find(l => l.id === parseInt(e.target.value));
-                        setActiveList(list);
-                        if (list) loadListItems(list.id);
-                      }}
-                      className="input-field text-sm min-w-[250px]"
-                    >
-                      {lists.map(list => (
-                        <option key={list.id} value={list.id}>
-                          {list.name} ({list.item_count || 0} items)
-                        </option>
-                      ))}
-                    </select>
+                <div className="flex flex-col space-y-2 flex-1">
+                  <div className="flex items-center space-x-3">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Shopping List</h2>
+                    {lists.length > 0 && (
+                      <select
+                        value={activeList?.id || ''}
+                        onChange={(e) => {
+                          const list = lists.find(l => l.id === parseInt(e.target.value));
+                          setActiveList(list);
+                          if (list) loadListItems(list.id);
+                        }}
+                        className="input-field text-sm min-w-[250px]"
+                      >
+                        {lists.map(list => (
+                          <option key={list.id} value={list.id}>
+                            {list.name} ({list.item_count || 0} items)
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                  {activeList && (
+                    <div className="text-2xl font-bold text-primary-600 dark:text-primary-400">
+                      📋 {activeList.name}
+                    </div>
                   )}
+                </div>
+                <div className="flex items-center space-x-2">
                   <button
                     type="button"
                     onClick={createNewList}
@@ -533,6 +569,15 @@ const Dashboard = () => {
                   >
                     <Plus className="w-4 h-4 mr-1" />
                     New List
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadCompletedLists}
+                    className="btn-secondary text-sm flex items-center"
+                    title="Recover completed lists"
+                  >
+                    <History className="w-4 h-4 mr-1" />
+                    Recover
                   </button>
                   {lists.length > 1 && activeList && (
                     <button
@@ -982,6 +1027,70 @@ const Dashboard = () => {
             onClose={() => setShowLevelUp(false)}
             levelData={levelUpData}
           />
+        )}
+        
+        {/* Recovery Modal */}
+        {showRecovery && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  🔄 Recover Completed Lists
+                </h2>
+                <button
+                  onClick={() => setShowRecovery(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                </button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto max-h-[calc(80vh-80px)]">
+                {completedLists.length === 0 ? (
+                  <div className="text-center py-12">
+                    <History className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                    <p className="text-gray-600 dark:text-gray-300 text-lg">
+                      No completed lists found
+                    </p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
+                      Completed lists will appear here for recovery
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {completedLists.map((list) => (
+                      <div
+                        key={list.id}
+                        className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-lg transition-shadow"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                              📋 {list.name}
+                            </h3>
+                            <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                              <span>{list.item_count} items</span>
+                              <span>${parseFloat(list.total_cost || 0).toFixed(2)}</span>
+                              <span>
+                                Completed: {new Date(list.completed_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => restoreList(list.id)}
+                            className="btn-primary flex items-center"
+                          >
+                            <History className="w-4 h-4 mr-2" />
+                            Restore
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
         </div>
       </div>

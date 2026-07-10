@@ -46,6 +46,8 @@ export const shoppingAPI = {
   updateItem: (listId, itemId, data) => api.patch(`/shopping/lists/${listId}/items/${itemId}`, data),
   deleteItem: (listId, itemId) => api.delete(`/shopping/lists/${listId}/items/${itemId}`),
   completeList: (listId) => api.post(`/shopping/lists/${listId}/complete`),
+  getCompletedLists: () => api.get('/shopping/lists/history/completed'),
+  restoreList: (listId) => api.post(`/shopping/lists/${listId}/restore`),
 };
 
 export const itemsAPI = {

@@ -15,7 +15,7 @@ router.get('/lists', async (req, res) => {
        COALESCE(SUM(sli.price * sli.quantity), 0) as total_cost
        FROM shopping_lists sl
        LEFT JOIN shopping_list_items sli ON sl.id = sli.shopping_list_id
-       WHERE sl.user_id = $1
+       WHERE sl.user_id = $1 AND (sl.status = 'active' OR sl.status IS NULL)
        GROUP BY sl.id
        ORDER BY sl.created_at DESC`,
       [req.user.userId]
@@ -25,6 +25,85 @@ router.get('/lists', async (req, res) => {
   } catch (error) {
     console.error('Error fetching lists:', error);
     res.status(500).json({ error: 'Failed to fetch shopping lists' });
+  }
+});
+
+// Get completed/archived shopping lists
+router.get('/lists/history/completed', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT sl.*, COUNT(sli.id) as item_count, 
+       COALESCE(SUM(sli.price * sli.quantity), 0) as total_cost
+       FROM shopping_lists sl
+       LEFT JOIN shopping_list_items sli ON sl.id = sli.shopping_list_id
+       WHERE sl.user_id = $1 AND sl.status = 'completed'
+       GROUP BY sl.id
+       ORDER BY sl.completed_at DESC
+       LIMIT 50`,
+      [req.user.userId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching completed lists:', error);
+    res.status(500).json({ error: 'Failed to fetch completed lists' });
+  }
+});
+
+// Restore a completed list (create new list with same items)
+router.post('/lists/:id/restore', async (req, res) => {
+  try {
+    const oldListId = req.params.id;
+    
+    // Get the old list details
+    const oldListResult = await db.query(
+      'SELECT * FROM shopping_lists WHERE id = $1 AND user_id = $2',
+      [oldListId, req.user.userId]
+    );
+    
+    if (oldListResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Shopping list not found' });
+    }
+    
+    const oldList = oldListResult.rows[0];
+    
+    // Create new list with same name
+    const newListResult = await db.query(
+      `INSERT INTO shopping_lists (user_id, name, status)
+       VALUES ($1, $2, 'active')
+       RETURNING *`,
+      [req.user.userId, `${oldList.name} (Restored)`]
+    );
+    
+    const newList = newListResult.rows[0];
+    
+    // Copy all items from old list to new list
+    await db.query(
+      `INSERT INTO shopping_list_items (
+        shopping_list_id, item_name, quantity, unit, price, 
+        category, item_icon, notes, is_checked
+      )
+      SELECT $1, item_name, quantity, unit, price, 
+        category, item_icon, notes, false
+      FROM shopping_list_items
+      WHERE shopping_list_id = $2`,
+      [newList.id, oldListId]
+    );
+    
+    // Get the new list with item count
+    const result = await db.query(
+      `SELECT sl.*, COUNT(sli.id) as item_count
+       FROM shopping_lists sl
+       LEFT JOIN shopping_list_items sli ON sl.id = sli.shopping_list_id
+       WHERE sl.id = $1
+       GROUP BY sl.id`,
+      [newList.id]
+    );
+    
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error restoring list:', error);
+    res.status(500).json({ error: 'Failed to restore shopping list' });
   }
 });
 
