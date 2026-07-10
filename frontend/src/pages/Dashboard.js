@@ -33,6 +33,7 @@ import { useToast } from '../hooks/useToast';
 import { XPNotificationContainer, showXPNotification } from '../components/XPNotification';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
+import { sortItemsByStoreAisle } from '../data/storeLayouts';
 import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils/userPreferences';
 import { getAutocompleteSuggestions } from '../utils/autocomplete';
 
@@ -75,6 +76,7 @@ const Dashboard = () => {
   const [listToDelete, setListToDelete] = useState(null);
   const [editingListName, setEditingListName] = useState(false);
   const [newListName, setNewListName] = useState('');
+  const [newListStore, setNewListStore] = useState('');
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -342,16 +344,41 @@ const Dashboard = () => {
     if (!newListName.trim() || !activeList) return;
     
     try {
-      await shoppingAPI.updateList(activeList.id, { name: newListName.trim() });
-      setActiveList({ ...activeList, name: newListName.trim() });
+      const updateData = { 
+        name: newListName.trim(),
+        store_name: newListStore || null
+      };
+      await shoppingAPI.updateList(activeList.id, updateData);
+      setActiveList({ ...activeList, ...updateData });
       await loadLists();
-      success('List name updated!');
+      
+      // Auto-enable smart sort when store is set for efficient shopping
+      if (newListStore && !smartSort) {
+        setSmartSort(true);
+        info('🏪 List sorted by store aisles for fastest shopping!');
+      }
+      
+      success('List updated!');
       setEditingListName(false);
       setNewListName('');
+      setNewListStore('');
     } catch (err) {
-      console.error('Error updating list name:', err);
-      error('Failed to update list name');
+      console.error('Error updating list:', err);
+      error('Failed to update list');
     }
+  };
+
+  // Get sorted items based on store selection
+  const getSortedItems = () => {
+    if (!smartSort) return items;
+    
+    // If store is selected, sort by store-specific aisles
+    if (activeList?.store_name) {
+      return sortItemsByStoreAisle(items, activeList.store_name);
+    }
+    
+    // Otherwise use generic zone sorting
+    return sortItemsByStoreLayout(items);
   };
 
   const addItem = async (e) => {
@@ -666,6 +693,7 @@ const Dashboard = () => {
                       <button
                         onClick={() => {
                           setNewListName(activeList.name);
+                          setNewListStore(activeList.store_name || '');
                           setEditingListName(true);
                         }}
                         className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -674,18 +702,41 @@ const Dashboard = () => {
                         <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                       </button>
                     </div>
-                    {activeList.store_name && (
-                      <div className="mt-2 flex items-center text-sm text-gray-600 dark:text-gray-400">
-                        <Store className="w-4 h-4 mr-2" />
-                        <span className="font-medium">Shopping at: </span>
-                        <span className="ml-1 text-blue-600 dark:text-blue-400 font-semibold">{activeList.store_name}</span>
-                        {activeList.list_type && activeList.list_type !== 'general' && (
-                          <span className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full">
-                            {activeList.list_type}
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    <div className="mt-2 flex items-center text-sm text-gray-600 dark:text-gray-400">
+                      <Store className="w-4 h-4 mr-2" />
+                      {activeList.store_name ? (
+                        <>
+                          <span className="font-medium">Shopping at: </span>
+                          <span className="ml-1 text-blue-600 dark:text-blue-400 font-semibold">{activeList.store_name}</span>
+                          <button
+                            onClick={() => {
+                              setNewListName(activeList.name);
+                              setNewListStore(activeList.store_name || '');
+                              setEditingListName(true);
+                            }}
+                            className="ml-2 text-xs text-gray-500 hover:text-primary-600 dark:hover:text-primary-400"
+                          >
+                            (change)
+                          </button>
+                          {activeList.list_type && activeList.list_type !== 'general' && (
+                            <span className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full">
+                              {activeList.list_type}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setNewListName(activeList.name);
+                            setNewListStore('');
+                            setEditingListName(true);
+                          }}
+                          className="text-primary-600 dark:text-primary-400 hover:underline font-medium"
+                        >
+                          + Set store location
+                        </button>
+                      )}
+                    </div>
                     {activeList.notes && (
                       <div className="mt-1 text-sm text-gray-500 dark:text-gray-400 italic">
                         {activeList.notes}
@@ -746,10 +797,13 @@ const Dashboard = () => {
                   <button
                     onClick={() => setSmartSort(!smartSort)}
                     className={`btn-secondary text-sm flex items-center ${smartSort ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300' : ''}`}
-                    title={smartSort ? 'Sorted by store layout' : 'Sort by store layout'}
+                    title={smartSort 
+                      ? (activeList?.store_name ? `Sorted by ${activeList.store_name} aisles` : 'Sorted by store layout')
+                      : (activeList?.store_name ? `Sort by ${activeList.store_name} aisles` : 'Sort by store layout')
+                    }
                   >
                     <ArrowUpDown className="w-4 h-4 mr-1" />
-                    {smartSort ? `${calculateEfficiency(items)}%` : 'Sort'}
+                    {smartSort ? (activeList?.store_name ? '🏪' : `${calculateEfficiency(items)}%`) : 'Sort'}
                   </button>
                   <button
                     onClick={() => setHideCategories(!hideCategories)}
@@ -976,7 +1030,7 @@ const Dashboard = () => {
               )}
 
               <ItemList
-                items={smartSort ? sortItemsByStoreLayout(items) : items}
+                items={getSortedItems()}
                 onToggleCheck={toggleItemCheck}
                 onDelete={deleteItem}
                 hideCategories={hideCategories}
@@ -1039,7 +1093,7 @@ const Dashboard = () => {
           <div className="space-y-6">
             {/* Animated Shopping Cart */}
             <AnimatedCart 
-              items={smartSort ? sortItemsByStoreLayout(items) : items}
+              items={getSortedItems()}
               sortedByZone={smartSort}
             />
 
@@ -1303,23 +1357,51 @@ const Dashboard = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              Rename Shopping List
+              Edit Shopping List
             </h3>
-            <input
-              type="text"
-              value={newListName}
-              onChange={(e) => setNewListName(e.target.value)}
-              className="input-field mb-4"
-              placeholder="Enter new list name"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') updateListName();
-                if (e.key === 'Escape') {
-                  setEditingListName(false);
-                  setNewListName('');
-                }
-              }}
-            />
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  List Name
+                </label>
+                <input
+                  type="text"
+                  value={newListName}
+                  onChange={(e) => setNewListName(e.target.value)}
+                  className="input-field"
+                  placeholder="Enter list name"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') updateListName();
+                    if (e.key === 'Escape') {
+                      setEditingListName(false);
+                      setNewListName('');
+                      setNewListStore('');
+                    }
+                  }}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Store Location
+                </label>
+                <select
+                  value={newListStore}
+                  onChange={(e) => setNewListStore(e.target.value)}
+                  className="input-field"
+                >
+                  <option value="">No store selected</option>
+                  <option value="Walmart">Walmart</option>
+                  <option value="Target">Target</option>
+                  <option value="Kroger">Kroger</option>
+                  <option value="Aldi">Aldi</option>
+                  <option value="Costco">Costco</option>
+                  <option value="Whole Foods">Whole Foods</option>
+                  <option value="Safeway">Safeway</option>
+                  <option value="Publix">Publix</option>
+                </select>
+              </div>
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={updateListName}
@@ -1332,6 +1414,7 @@ const Dashboard = () => {
                 onClick={() => {
                   setEditingListName(false);
                   setNewListName('');
+                  setNewListStore('');
                 }}
                 className="btn-secondary flex-1"
               >
