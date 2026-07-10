@@ -17,6 +17,7 @@ const systemRoutes = require('./routes/system');
 const cosmeticsRoutes = require('./routes/cosmetics');
 const xpRoutes = require('./routes/xp');
 const expirationRoutes = require('./routes/expiration');
+const storesRoutes = require('./routes/stores');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -49,6 +50,7 @@ app.use('/api/system', systemRoutes);
 app.use('/api/cosmetics', cosmeticsRoutes);
 app.use('/api/xp', xpRoutes);
 app.use('/api/expiration', expirationRoutes);
+app.use('/api/stores', storesRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
