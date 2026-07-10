@@ -15,8 +15,7 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
   const [ingredients, setIngredients] = useState([]);
   const [newIngredient, setNewIngredient] = useState({
     item_name: '',
-    quantity: '',
-    unit: '',
+    amount: '',
     is_optional: false,
     notes: ''
   });
@@ -49,12 +48,11 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
   }, [recipe, isOpen]);
 
   const handleAddIngredient = () => {
-    if (newIngredient.item_name && newIngredient.quantity) {
+    if (newIngredient.item_name && newIngredient.amount) {
       setIngredients([...ingredients, { ...newIngredient }]);
       setNewIngredient({
         item_name: '',
-        quantity: '',
-        unit: '',
+        amount: '',
         is_optional: false,
         notes: ''
       });
@@ -205,13 +203,13 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
                   >
                     <div className="flex-1">
                       <span className="font-medium text-gray-900 dark:text-white">
-                        {ing.quantity} {ing.unit} {ing.item_name}
+                        {ing.amount} {ing.item_name}
                       </span>
                       {ing.is_optional && (
                         <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">(optional)</span>
                       )}
                       {ing.notes && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{ing.notes}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 italic">Note: {ing.notes}</p>
                       )}
                     </div>
                     <button
@@ -227,53 +225,56 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
             )}
 
             {/* Add Ingredient Form */}
-            <div className="grid grid-cols-12 gap-2">
-              <input
-                type="text"
-                placeholder="Item name"
-                value={newIngredient.item_name}
-                onChange={(e) => setNewIngredient({ ...newIngredient, item_name: e.target.value })}
-                className="input-field col-span-4"
-              />
-              <input
-                type="number"
-                placeholder="Qty"
-                value={newIngredient.quantity}
-                onChange={(e) => setNewIngredient({ ...newIngredient, quantity: e.target.value })}
-                className="input-field col-span-2"
-                step="0.1"
-              />
-              <input
-                type="text"
-                placeholder="Unit"
-                value={newIngredient.unit}
-                onChange={(e) => setNewIngredient({ ...newIngredient, unit: e.target.value })}
-                className="input-field col-span-2"
-              />
-              <input
-                type="text"
-                placeholder="Notes (optional)"
-                value={newIngredient.notes}
-                onChange={(e) => setNewIngredient({ ...newIngredient, notes: e.target.value })}
-                className="input-field col-span-3"
-              />
-              <button
-                type="button"
-                onClick={handleAddIngredient}
-                className="btn-primary col-span-1 flex items-center justify-center"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg space-y-3">
+              <div className="grid grid-cols-12 gap-3">
+                <input
+                  type="text"
+                  placeholder="Amount (e.g., 2 cups, 1 tbsp, 3 large)"
+                  value={newIngredient.amount}
+                  onChange={(e) => setNewIngredient({ ...newIngredient, amount: e.target.value })}
+                  className="input-field col-span-5"
+                />
+                <input
+                  type="text"
+                  placeholder="Ingredient name"
+                  value={newIngredient.item_name}
+                  onChange={(e) => setNewIngredient({ ...newIngredient, item_name: e.target.value })}
+                  className="input-field col-span-5"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddIngredient}
+                  className="btn-primary col-span-2 flex items-center justify-center"
+                  title="Add ingredient"
+                >
+                  <Plus className="w-5 h-5 mr-1" />
+                  Add
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-12 gap-3">
+                <input
+                  type="text"
+                  placeholder="Notes (e.g., 'chopped', 'room temperature')"
+                  value={newIngredient.notes}
+                  onChange={(e) => setNewIngredient({ ...newIngredient, notes: e.target.value })}
+                  className="input-field col-span-10"
+                />
+                <label className="col-span-2 flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <input
+                    type="checkbox"
+                    checked={newIngredient.is_optional}
+                    onChange={(e) => setNewIngredient({ ...newIngredient, is_optional: e.target.checked })}
+                    className="mr-2"
+                  />
+                  Optional
+                </label>
+              </div>
+              
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                💡 <strong>Examples:</strong> "2 cups" flour, "1 tbsp" olive oil, "3 large" eggs, "1 pinch" salt
+              </p>
             </div>
-            <label className="flex items-center mt-2 text-sm text-gray-600 dark:text-gray-400">
-              <input
-                type="checkbox"
-                checked={newIngredient.is_optional}
-                onChange={(e) => setNewIngredient({ ...newIngredient, is_optional: e.target.checked })}
-                className="mr-2"
-              />
-              Mark as optional
-            </label>
           </div>
 
           {/* Instructions */}
