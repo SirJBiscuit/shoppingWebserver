@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Lightbulb } from 'lucide-react';
+import { expirationAPI } from '../services/api';
 
 const PantryModal = ({ isOpen, onClose, onSave, item = null, categories = [] }) => {
   const [formData, setFormData] = useState({
@@ -7,10 +8,13 @@ const PantryModal = ({ isOpen, onClose, onSave, item = null, categories = [] }) 
     quantity: '',
     unit: '',
     category_id: '',
+    storage_location: 'pantry',
     expiry_date: '',
     barcode: '',
     image_url: ''
   });
+  const [estimatedExpiry, setEstimatedExpiry] = useState(null);
+  const [freshnessCheck, setFreshnessCheck] = useState('');
 
   useEffect(() => {
     if (item) {
@@ -29,12 +33,40 @@ const PantryModal = ({ isOpen, onClose, onSave, item = null, categories = [] }) 
         quantity: '',
         unit: '',
         category_id: '',
+        storage_location: 'pantry',
         expiry_date: '',
         barcode: '',
         image_url: ''
       });
+      setEstimatedExpiry(null);
+      setFreshnessCheck('');
     }
   }, [item, isOpen]);
+
+  // Auto-estimate expiration when item name changes
+  useEffect(() => {
+    const estimateExpiration = async () => {
+      if (formData.item_name && formData.item_name.length > 2 && !item) {
+        try {
+          const response = await expirationAPI.getEstimate({
+            itemName: formData.item_name,
+            storageLocation: formData.storage_location
+          });
+          setEstimatedExpiry(response.data.estimated_expiry);
+          setFreshnessCheck(response.data.freshness_check || '');
+          // Auto-fill if no expiry date set
+          if (!formData.expiry_date) {
+            setFormData(prev => ({ ...prev, expiry_date: response.data.estimated_expiry }));
+          }
+        } catch (error) {
+          console.error('Failed to estimate expiration:', error);
+        }
+      }
+    };
+
+    const debounce = setTimeout(estimateExpiration, 500);
+    return () => clearTimeout(debounce);
+  }, [formData.item_name, formData.storage_location, item]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -76,7 +108,14 @@ const PantryModal = ({ isOpen, onClose, onSave, item = null, categories = [] }) 
               className="input-field"
               required
               disabled={!!item}
+              placeholder="e.g., Chicken Breast, Milk, Bread"
             />
+            {estimatedExpiry && !item && (
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center">
+                <Lightbulb className="w-3 h-3 mr-1" />
+                Auto-estimated expiration: {new Date(estimatedExpiry).toLocaleDateString()}
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -108,22 +147,39 @@ const PantryModal = ({ isOpen, onClose, onSave, item = null, categories = [] }) 
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Category
-            </label>
-            <select
-              value={formData.category_id}
-              onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-              className="input-field"
-            >
-              <option value="">Select category...</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.icon} {cat.name}
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Category
+              </label>
+              <select
+                value={formData.category_id}
+                onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                className="input-field"
+              >
+                <option value="">Select category...</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.icon} {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Storage Location
+              </label>
+              <select
+                value={formData.storage_location}
+                onChange={(e) => setFormData({ ...formData, storage_location: e.target.value })}
+                className="input-field"
+              >
+                <option value="pantry">🏺 Pantry</option>
+                <option value="fridge">🧊 Fridge</option>
+                <option value="freezer">❄️ Freezer</option>
+              </select>
+            </div>
           </div>
 
           <div>
@@ -150,6 +206,12 @@ const PantryModal = ({ isOpen, onClose, onSave, item = null, categories = [] }) 
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Leave empty if item doesn't expire
             </p>
+            {freshnessCheck && (
+              <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <p className="text-xs font-medium text-blue-900 dark:text-blue-300 mb-1">💡 Freshness Tip:</p>
+                <p className="text-xs text-blue-700 dark:text-blue-400">{freshnessCheck}</p>
+              </div>
+            )}
           </div>
 
           <div>
