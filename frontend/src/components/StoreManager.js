@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Save, Copy, Edit2, MapPin } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import { storeLayouts } from '../data/storeLayouts';
+import ConfirmDialog from './ConfirmDialog';
 
 const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
   const { success, error } = useToast();
@@ -11,6 +12,7 @@ const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [editingStore, setEditingStore] = useState(null);
   const [aisles, setAisles] = useState([]);
+  const [storeToDelete, setStoreToDelete] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -91,11 +93,11 @@ const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
     }
   };
 
-  const deleteStore = async (storeId, storeName) => {
-    if (!confirm(`Delete "${storeName}"? This will remove all aisle configurations.`)) return;
+  const confirmDeleteStore = async () => {
+    if (!storeToDelete) return;
 
     try {
-      const response = await fetch(`/api/stores/${storeId}`, {
+      const response = await fetch(`/api/stores/${storeToDelete.id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
@@ -107,6 +109,8 @@ const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
     } catch (err) {
       console.error('Error deleting store:', err);
       error('Failed to delete store');
+    } finally {
+      setStoreToDelete(null);
     }
   };
 
@@ -435,7 +439,7 @@ const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
                         )}
                       </div>
                       <button
-                        onClick={() => deleteStore(store.id, store.name)}
+                        onClick={() => setStoreToDelete(store)}
                         className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -462,6 +466,18 @@ const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={storeToDelete !== null}
+        title="Delete Store"
+        message={`Are you sure you want to delete "${storeToDelete?.name}"? This will remove all aisle configurations.`}
+        onConfirm={confirmDeleteStore}
+        onCancel={() => setStoreToDelete(null)}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+      />
     </div>
   );
 };
