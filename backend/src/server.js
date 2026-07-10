@@ -21,6 +21,9 @@ const expirationRoutes = require('./routes/expiration');
 const app = express();
 const PORT = process.env.PORT || 3007;
 
+// Trust proxy for rate limiting behind reverse proxy
+app.set('trust proxy', 1);
+
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
