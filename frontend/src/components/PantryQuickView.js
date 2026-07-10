@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Package, ShoppingCart, AlertTriangle, Eye, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { detectIcon } from '../utils/categoryDetector';
 
 const PantryQuickView = ({ pantryItems, onAddToList, onViewPantry }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,14 +52,14 @@ const PantryQuickView = ({ pantryItems, onAddToList, onViewPantry }) => {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
           <Package className="w-5 h-5 mr-2 text-green-600" />
-          Pantry Quick View
+          Kitchen Inventory
         </h3>
         <button
           onClick={onViewPantry}
           className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 flex items-center"
         >
           <Eye className="w-4 h-4 mr-1" />
-          View Full Pantry
+          View Full Inventory
         </button>
       </div>
 
@@ -133,13 +134,16 @@ const PantryQuickView = ({ pantryItems, onAddToList, onViewPantry }) => {
                 animate={{ opacity: 1, x: 0 }}
                 className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg"
               >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                    {item.item_name}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {item.quantity} {item.unit} left
-                  </p>
+                <div className="flex-1 min-w-0 flex items-center">
+                  <span className="text-xl mr-2">{item.item_icon || detectIcon(item.item_name)}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {item.item_name}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {item.quantity} {item.unit} left
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={() => handleOutOfStock(item)}

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Package, AlertTriangle, Trash2, Edit2, ShoppingCart, ChefHat, LogOut, Settings } from 'lucide-react';
+import { Plus, Package, AlertTriangle, Trash2, Edit2, ShoppingCart, ChefHat, LogOut, Settings, Refrigerator, Snowflake } from 'lucide-react';
 import { pantryAPI, categoriesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import PantryModal from '../components/PantryModal';
+import { detectIcon } from '../utils/categoryDetector';
 
 const Pantry = () => {
   const navigate = useNavigate();
@@ -17,6 +18,7 @@ const Pantry = () => {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [activeTab, setActiveTab] = useState('all'); // all, pantry, fridge, freezer
 
   useEffect(() => {
     fetchPantry();
@@ -98,20 +100,50 @@ const Pantry = () => {
     }
   };
 
+  // Filter by storage location
+  const filteredItems = activeTab === 'all' 
+    ? pantryItems
+    : pantryItems.filter(item => {
+        const location = (item.storage_location || 'pantry').toLowerCase();
+        return location === activeTab;
+      });
+
+  // Category order for proper sorting
+  const categoryOrder = {
+    'Produce': 1,
+    'Fruits': 2,
+    'Dairy': 3,
+    'Meat': 4,
+    'Bakery': 5,
+    'Deli': 6,
+    'Frozen': 7,
+    'Pantry': 8,
+    'Canned': 9,
+    'Condiments': 10,
+    'Spices': 11,
+    'Snacks': 12,
+    'Beverages': 13,
+    'Other': 99
+  };
+
   // Group items by category
-  const groupedItems = pantryItems.reduce((acc, item) => {
-    const category = item.category_name || 'Other';
+  const groupedItems = filteredItems.reduce((acc, item) => {
+    const category = item.category_name || item.category || 'Other';
     if (!acc[category]) {
       acc[category] = {
         items: [],
-        icon: item.category_icon || '📦'
+        icon: item.category_icon || '📦',
+        order: categoryOrder[category] || 50
       };
     }
     acc[category].items.push(item);
     return acc;
   }, {});
 
-  const categoryKeys = Object.keys(groupedItems).sort();
+  // Sort categories by defined order
+  const categoryKeys = Object.keys(groupedItems).sort((a, b) => {
+    return groupedItems[a].order - groupedItems[b].order;
+  });
 
   if (loading) {
     return (
@@ -129,10 +161,10 @@ const Pantry = () => {
         <div className="lg:ml-72">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {/* Header */}
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
                 <Package className="w-8 h-8 text-primary-600 mr-3" />
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Pantry</h1>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Kitchen Inventory</h1>
               </div>
               <button
                 onClick={() => setShowAddModal(true)}
@@ -140,6 +172,54 @@ const Pantry = () => {
               >
                 <Plus className="w-5 h-5 mr-2" />
                 Add Item
+              </button>
+            </div>
+
+            {/* Storage Location Tabs */}
+            <div className="flex space-x-2 mb-8 border-b border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setActiveTab('all')}
+                className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+                  activeTab === 'all'
+                    ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                <Package className="w-4 h-4 inline mr-2" />
+                All Items ({pantryItems.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('pantry')}
+                className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+                  activeTab === 'pantry'
+                    ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                <Package className="w-4 h-4 inline mr-2" />
+                Pantry ({pantryItems.filter(i => (i.storage_location || 'pantry').toLowerCase() === 'pantry').length})
+              </button>
+              <button
+                onClick={() => setActiveTab('fridge')}
+                className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+                  activeTab === 'fridge'
+                    ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                <Refrigerator className="w-4 h-4 inline mr-2" />
+                Fridge ({pantryItems.filter(i => (i.storage_location || '').toLowerCase() === 'fridge').length})
+              </button>
+              <button
+                onClick={() => setActiveTab('freezer')}
+                className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+                  activeTab === 'freezer'
+                    ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                <Snowflake className="w-4 h-4 inline mr-2" />
+                Freezer ({pantryItems.filter(i => (i.storage_location || '').toLowerCase() === 'freezer').length})
               </button>
             </div>
 
@@ -240,10 +320,15 @@ const PantryItemCard = ({ item, onDelete, onUpdateQuantity, onEdit }) => {
   const isExpiringSoon = item.expiry_date && 
     new Date(item.expiry_date) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+  const itemIcon = item.item_icon || detectIcon(item.item_name);
+
   return (
-    <div className={`card ${isExpiringSoon ? 'border-red-300 bg-red-50' : ''}`}>
+    <div className={`card ${isExpiringSoon ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : ''}`}>
       <div className="flex justify-between items-start mb-2">
-        <h4 className="font-medium text-gray-900 dark:text-gray-100 flex-1">{item.item_name}</h4>
+        <div className="flex items-center flex-1">
+          {itemIcon && <span className="text-2xl mr-2">{itemIcon}</span>}
+          <h4 className="font-medium text-gray-900 dark:text-gray-100">{item.item_name}</h4>
+        </div>
         <div className="flex space-x-2">
           <button
             onClick={() => onEdit(item)}
