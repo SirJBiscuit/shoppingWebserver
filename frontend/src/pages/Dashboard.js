@@ -24,6 +24,7 @@ import NotificationCenter from '../components/NotificationCenter';
 import Onboarding from '../components/Onboarding';
 import Sidebar from '../components/Sidebar';
 import AutocompleteInput from '../components/AutocompleteInput';
+import TemplatesModal from '../components/TemplatesModal';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils/userPreferences';
@@ -61,6 +62,7 @@ const Dashboard = () => {
   const [showRecovery, setShowRecovery] = useState(false);
   const [completedLists, setCompletedLists] = useState([]);
   const [hideCategories, setHideCategories] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -353,6 +355,38 @@ const Dashboard = () => {
     }
   };
 
+  const addTemplateItems = async (templateItems) => {
+    if (!activeList) {
+      alert('No shopping list selected. Creating a new list...');
+      await createNewList();
+      return;
+    }
+
+    try {
+      // Add all template items
+      for (const item of templateItems) {
+        await shoppingAPI.addItem(activeList.id, {
+          itemName: item.name,
+          quantity: item.quantity || 1,
+          unit: item.unit || '',
+          price: 0,
+          category: item.category || '',
+          icon: item.icon || '',
+        });
+      }
+
+      await loadListItems(activeList.id);
+      
+      // Award XP for bulk add
+      if (window.addXP) {
+        window.addXP(XP_REWARDS.ADD_ITEM * templateItems.length, `Added ${templateItems.length} items from template`);
+      }
+    } catch (error) {
+      console.error('Error adding template items:', error);
+      alert('Failed to add some items');
+    }
+  };
+
   const addSuggestion = async (suggestion) => {
     if (!activeList) return;
 
@@ -576,6 +610,15 @@ const Dashboard = () => {
                   >
                     <Plus className="w-4 h-4 mr-1" />
                     New
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowTemplates(true)}
+                    className="btn-secondary text-sm flex items-center bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30"
+                    title="Add common items from templates"
+                  >
+                    <Package className="w-4 h-4 mr-1" />
+                    Templates
                   </button>
                   <button
                     type="button"
@@ -1000,6 +1043,13 @@ const Dashboard = () => {
             window.addXP(XP_REWARDS.ADD_ITEM * parsedItems.length, `Added ${parsedItems.length} items by voice`);
           }
         }}
+      />
+
+      {/* Templates Modal */}
+      <TemplatesModal
+        isOpen={showTemplates}
+        onClose={() => setShowTemplates(false)}
+        onAddItems={addTemplateItems}
       />
 
         {/* Onboarding Tutorial */}
