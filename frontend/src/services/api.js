@@ -118,4 +118,12 @@ export const imagesAPI = {
   deleteImage: (id) => api.delete(`/images/${id}`),
 };
 
+export const expirationAPI = {
+  getEstimate: (params) => api.get('/expiration/estimate', { params }),
+  learn: (data) => api.post('/expiration/learn', data),
+  getHistory: (itemName) => api.get(`/expiration/history/${encodeURIComponent(itemName)}`),
+  getDefaults: (params) => api.get('/expiration/defaults', { params }),
+  getStatus: (days) => api.get(`/expiration/status/${days}`),
+};
+
 export default api;
