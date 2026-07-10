@@ -5,10 +5,6 @@ const ClearCacheButton = () => {
   const [clearing, setClearing] = useState(false);
 
   const clearAllCaches = async () => {
-    if (!window.confirm('Clear all caches and reload? This will ensure you have the latest version.')) {
-      return;
-    }
-
     setClearing(true);
 
     try {
@@ -45,8 +41,10 @@ const ClearCacheButton = () => {
       window.location.reload(true);
     } catch (error) {
       console.error('Error clearing caches:', error);
-      alert('Error clearing caches. Try manually: Ctrl+Shift+Delete');
+      console.error('Try manually: Ctrl+Shift+Delete');
       setClearing(false);
+      // Reload anyway to try to fix issues
+      setTimeout(() => window.location.reload(true), 1000);
     }
   };
 
