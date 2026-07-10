@@ -1,27 +1,37 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { CartAnimationProvider } from './contexts/CartAnimationContext';
 import FlyingItemAnimation from './components/FlyingItemAnimation';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Recipes from './pages/Recipes';
-import Pantry from './pages/Pantry';
-import PantryEnhanced from './pages/PantryEnhanced';
-import MealPlan from './pages/MealPlan';
-import Stats from './pages/Stats';
-import Statistics from './pages/Statistics';
-import RecipeDiscover from './pages/RecipeDiscover';
-import Settings from './pages/Settings';
+
+// Lazy load pages for better performance
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Recipes = lazy(() => import('./pages/Recipes'));
+const PantryEnhanced = lazy(() => import('./pages/PantryEnhanced'));
+const MealPlan = lazy(() => import('./pages/MealPlan'));
+const Statistics = lazy(() => import('./pages/Statistics'));
+const RecipeDiscover = lazy(() => import('./pages/RecipeDiscover'));
+const Settings = lazy(() => import('./pages/Settings'));
 import History from './pages/History';
-import Admin from './pages/Admin';
-import Subscription from './pages/Subscription';
-import IconCollectionGallery from './components/IconCollectionGallery';
-import CustomizationHub from './components/CustomizationHub';
-import IconUploadPanel from './components/admin/IconUploadPanel';
+const Admin = lazy(() => import('./pages/Admin'));
+const Subscription = lazy(() => import('./pages/Subscription'));
+const IconCollectionGallery = lazy(() => import('./components/IconCollectionGallery'));
+const CustomizationHub = lazy(() => import('./components/CustomizationHub'));
+const IconUploadPanel = lazy(() => import('./components/admin/IconUploadPanel'));
+
+// Loading component
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+      <div className="text-lg">Loading...</div>
+    </div>
+  </div>
+);
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -56,7 +66,8 @@ const AnimatedRoutes = () => {
   
   return (
     <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
+      <Suspense fallback={<PageLoader />}>
+        <Routes location={location} key={location.pathname}>
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
@@ -72,7 +83,8 @@ const AnimatedRoutes = () => {
         <Route path="/icons" element={<PrivateRoute><IconCollectionGallery /></PrivateRoute>} />
         <Route path="/customize" element={<PrivateRoute><CustomizationHub /></PrivateRoute>} />
         <Route path="/admin/icons" element={<PrivateRoute><IconUploadPanel /></PrivateRoute>} />
-      </Routes>
+        </Routes>
+      </Suspense>
     </AnimatePresence>
   );
 };
