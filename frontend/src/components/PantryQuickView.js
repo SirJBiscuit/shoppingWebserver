@@ -176,18 +176,26 @@ const PantryQuickView = ({ pantryItems, onAddToList, onViewPantry }) => {
                 key={item.id}
                 className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg"
               >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                    {item.item_name}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {item.quantity} {item.unit}
+                <div className="flex-1 min-w-0 flex items-center">
+                  <span className="text-xl mr-2">{item.item_icon || detectIcon(item.item_name)}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {item.item_name}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {item.quantity} {item.unit}
+                      {item.expiry_date && (
+                        <span className="ml-2">
+                          • Expires {new Date(item.expiry_date).toLocaleDateString()}
+                        </span>
+                      )}
+                    </p>
                     {item.expiry_date && (
-                      <span className="ml-2">
-                        • Expires {new Date(item.expiry_date).toLocaleDateString()}
-                      </span>
+                      <div className="mt-1">
+                        <ExpirationBadge expiryDate={item.expiry_date} compact={true} />
+                      </div>
                     )}
-                  </p>
+                  </div>
                 </div>
                 <button
                   onClick={() => handleOutOfStock(item)}

@@ -9,11 +9,14 @@ import PageTransition from '../components/PageTransition';
 import PantryModal from '../components/PantryModal';
 import ExpirationBadge from '../components/ExpirationBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Toast from '../components/Toast';
+import { useToast } from '../hooks/useToast';
 import { detectIcon } from '../utils/categoryDetector';
 
 const Pantry = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { success, error: showError, warning, toasts, hideToast } = useToast();
   const [pantryItems, setPantryItems] = useState([]);
   const [expiringItems, setExpiringItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -66,10 +69,12 @@ const Pantry = () => {
     if (confirmDelete) {
       try {
         await pantryAPI.deleteItem(confirmDelete);
+        success('Item removed from inventory');
         fetchPantry();
         fetchExpiring();
       } catch (error) {
         console.error('Failed to delete item:', error);
+        showError('Failed to remove item. Please try again.');
       }
       setConfirmDelete(null);
     }
@@ -325,6 +330,17 @@ const Pantry = () => {
           </div>
         </div>
       </div>
+
+      {/* Toast Notifications */}
+      {toasts.map((toast) => (
+        <Toast
+          key={toast.id}
+          message={toast.message}
+          type={toast.type}
+          onClose={() => hideToast(toast.id)}
+          duration={toast.duration}
+        />
+      ))}
     </PageTransition>
   );
 };
