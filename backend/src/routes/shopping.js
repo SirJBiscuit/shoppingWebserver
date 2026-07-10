@@ -376,16 +376,7 @@ router.put('/lists/:id', async (req, res) => {
   console.log('PUT /lists/:id - Request:', { listId, name, store_name, list_type, notes });
 
   try {
-    // First, check what columns exist in the table
-    const columnCheck = await db.query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'shopping_lists'
-    `);
-    const existingColumns = columnCheck.rows.map(row => row.column_name);
-    console.log('Existing columns in shopping_lists:', existingColumns);
-
-    // Build dynamic update query based on what fields exist
+    // Build dynamic update query - only update name for now to avoid column issues
     const updates = [];
     const values = [];
     let paramCount = 1;
@@ -394,25 +385,15 @@ router.put('/lists/:id', async (req, res) => {
       updates.push(`name = $${paramCount++}`);
       values.push(name);
     }
-    if (store_name !== undefined && existingColumns.includes('store_name')) {
+    
+    // Only add store_name if it's provided (we'll handle missing column gracefully)
+    if (store_name !== undefined) {
       updates.push(`store_name = $${paramCount++}`);
       values.push(store_name);
-    }
-    if (list_type !== undefined && existingColumns.includes('list_type')) {
-      updates.push(`list_type = $${paramCount++}`);
-      values.push(list_type);
-    }
-    if (notes !== undefined && existingColumns.includes('notes')) {
-      updates.push(`notes = $${paramCount++}`);
-      values.push(notes);
     }
 
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
-    }
-
-    if (existingColumns.includes('updated_at')) {
-      updates.push(`updated_at = CURRENT_TIMESTAMP`);
     }
     
     values.push(listId);
@@ -426,7 +407,22 @@ router.put('/lists/:id', async (req, res) => {
     console.log('Update query:', query);
     console.log('Values:', values);
 
-    const result = await db.query(query, values);
+    let result;
+    try {
+      result = await db.query(query, values);
+    } catch (dbError) {
+      // If store_name column doesn't exist, try again with just name
+      if (dbError.code === '42703' && store_name !== undefined) {
+        console.log('store_name column does not exist, updating name only');
+        const fallbackQuery = `UPDATE shopping_lists 
+                               SET name = $1
+                               WHERE id = $2 AND user_id = $3
+                               RETURNING *`;
+        result = await db.query(fallbackQuery, [name, listId, req.user.userId]);
+      } else {
+        throw dbError;
+      }
+    }
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Shopping list not found' });
