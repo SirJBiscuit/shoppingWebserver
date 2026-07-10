@@ -624,7 +624,7 @@ const Dashboard = () => {
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={createNewList}
+                    onClick={() => createNewList()}
                     className="btn-secondary text-sm flex items-center"
                   >
                     <Plus className="w-4 h-4 mr-1" />
