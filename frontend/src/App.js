@@ -19,6 +19,9 @@ import Settings from './pages/Settings';
 import History from './pages/History';
 import Admin from './pages/Admin';
 import Subscription from './pages/Subscription';
+import IconCollectionGallery from './components/IconCollectionGallery';
+import CustomizationHub from './components/CustomizationHub';
+import IconUploadPanel from './components/admin/IconUploadPanel';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -66,6 +69,9 @@ const AnimatedRoutes = () => {
         <Route path="/subscription" element={<PrivateRoute><Subscription /></PrivateRoute>} />
         <Route path="/history" element={<PrivateRoute><History /></PrivateRoute>} />
         <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
+        <Route path="/icons" element={<PrivateRoute><IconCollectionGallery /></PrivateRoute>} />
+        <Route path="/customize" element={<PrivateRoute><CustomizationHub /></PrivateRoute>} />
+        <Route path="/admin/icons" element={<PrivateRoute><IconUploadPanel /></PrivateRoute>} />
       </Routes>
     </AnimatePresence>
   );
