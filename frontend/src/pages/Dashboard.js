@@ -983,6 +983,7 @@ const Dashboard = () => {
             <BudgetTracker 
               items={items}
               totalCost={totalCost}
+              listId={activeList?.id}
             />
 
             {/* Leveling System */}

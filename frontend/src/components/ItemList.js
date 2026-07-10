@@ -198,10 +198,12 @@ const ItemCard = ({ item, onToggleCheck, onDelete, setEditingItem, setShowEditMo
                     )}
                     {/* Show notes if present */}
                     {item.notes && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 italic flex items-center">
-                        <Smile className="w-3 h-3 mr-1" />
-                        {item.notes}
-                      </p>
+                      <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border-l-2 border-yellow-400 dark:border-yellow-600 rounded">
+                        <p className="text-sm text-gray-700 dark:text-gray-300 flex items-start">
+                          <Smile className="w-4 h-4 mr-1.5 mt-0.5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+                          <span className="italic">{item.notes}</span>
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>

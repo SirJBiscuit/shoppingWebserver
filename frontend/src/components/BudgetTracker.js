@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, TrendingDown, AlertCircle, Target } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const BudgetTracker = ({ items, totalCost }) => {
+const BudgetTracker = ({ items, totalCost, listId }) => {
   const [budget, setBudget] = useState(100);
   const [showBudgetInput, setShowBudgetInput] = useState(false);
   const [tempBudget, setTempBudget] = useState('100');
@@ -12,19 +12,27 @@ const BudgetTracker = ({ items, totalCost }) => {
   const isOverBudget = totalCost > budget;
   const isNearBudget = percentUsed > 80 && !isOverBudget;
 
-  // Load budget from localStorage
+  // Load budget from localStorage (per-list)
   useEffect(() => {
-    const saved = localStorage.getItem('shoppingBudget');
-    if (saved) {
-      setBudget(parseFloat(saved));
-      setTempBudget(saved);
+    if (listId) {
+      const saved = localStorage.getItem(`shoppingBudget_${listId}`);
+      if (saved) {
+        setBudget(parseFloat(saved));
+        setTempBudget(saved);
+      } else {
+        // Default budget
+        setBudget(100);
+        setTempBudget('100');
+      }
     }
-  }, []);
+  }, [listId]);
 
   const saveBudget = () => {
     const newBudget = parseFloat(tempBudget) || 100;
     setBudget(newBudget);
-    localStorage.setItem('shoppingBudget', newBudget.toString());
+    if (listId) {
+      localStorage.setItem(`shoppingBudget_${listId}`, newBudget.toString());
+    }
     setShowBudgetInput(false);
   };
 
