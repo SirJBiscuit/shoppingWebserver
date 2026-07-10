@@ -54,7 +54,10 @@ const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
         }),
       });
 
-      if (!storeResponse.ok) throw new Error('Failed to create store');
+      if (!storeResponse.ok) {
+        const errorData = await storeResponse.json();
+        throw new Error(errorData.error || 'Failed to create store');
+      }
       const newStore = await storeResponse.json();
 
       // If template selected, copy aisles from template
@@ -89,7 +92,7 @@ const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
       if (onStoreCreated) onStoreCreated(newStore);
     } catch (err) {
       console.error('Error creating store:', err);
-      error('Failed to create store');
+      error(err.message || 'Failed to create store');
     }
   };
 

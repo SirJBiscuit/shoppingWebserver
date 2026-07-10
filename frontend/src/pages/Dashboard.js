@@ -1408,16 +1408,22 @@ const Dashboard = () => {
                   <option value="">No store selected</option>
                   <option value="Walmart">Walmart</option>
                   <option value="Target">Target</option>
-                  <optgroup label="Kroger Locations">
-                    <option value="Kroger - Ashland">Kroger - Ashland</option>
-                    <option value="Kroger - Lexington">Kroger - Lexington</option>
-                  </optgroup>
+                  <option value="Kroger">Kroger</option>
                   <option value="Aldi">Aldi</option>
                   <option value="Costco">Costco</option>
                   <option value="Whole Foods">Whole Foods</option>
                   <option value="Safeway">Safeway</option>
                   <option value="Publix">Publix</option>
                 </select>
+                <button
+                  onClick={() => {
+                    setEditingListName(false);
+                    setShowStoreManager(true);
+                  }}
+                  className="mt-2 text-sm text-primary-600 dark:text-primary-400 hover:underline flex items-center"
+                >
+                  🏪 Create custom store or manage aisles →
+                </button>
               </div>
             </div>
             <div className="flex gap-2">
