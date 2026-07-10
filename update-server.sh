@@ -79,25 +79,26 @@ echo ""
 echo -e "${YELLOW}Running database migrations...${NC}"
 
 # Check if migrations directory exists
-if [ -d "backend/src/database/migrations" ]; then
+if [ -d "backend/migrations" ]; then
     # Count migrations
-    migration_count=$(ls -1 backend/src/database/migrations/*.sql 2>/dev/null | wc -l)
+    migration_count=$(ls -1 backend/migrations/*.sql 2>/dev/null | wc -l)
     echo -e "${CYAN}Found ${migration_count} migration file(s)${NC}"
     
     # Run each migration file in order
-    for migration in backend/src/database/migrations/*.sql; do
+    for migration in backend/migrations/*.sql; do
         if [ -f "$migration" ]; then
             migration_name=$(basename "$migration")
             echo -e "${CYAN}Running migration: ${migration_name}${NC}"
             
-            # Execute migration
-            docker exec -i shop_postgres psql -U shopuser -d shopdb < "$migration" 2>&1 | while IFS= read -r line; do
-                if [[ "$line" == *"ERROR"* ]]; then
+            # Copy migration to container and execute
+            docker cp "$migration" shop_postgres:/tmp/migration.sql
+            docker exec -i shop_postgres psql -U postgres -d shopping_app -f /tmp/migration.sql 2>&1 | while IFS= read -r line; do
+                if [[ "$line" == *"ERROR"* ]] && [[ "$line" != *"already exists"* ]]; then
                     echo -e "${RED}  ⚠ $line${NC}"
-                elif [[ "$line" == *"NOTICE"* ]]; then
+                elif [[ "$line" == *"already exists"* ]]; then
+                    echo -e "${YELLOW}  ℹ $line (skipping)${NC}"
+                elif [[ "$line" == *"CREATE"* ]] || [[ "$line" == *"INSERT"* ]] || [[ "$line" == *"ALTER"* ]]; then
                     echo -e "${GREEN}  ✓ $line${NC}"
-                else
-                    echo -e "${CYAN}  $line${NC}"
                 fi
             done
             
