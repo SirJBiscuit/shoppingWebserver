@@ -16,7 +16,7 @@ const MealPlan = lazy(() => import('./pages/MealPlan'));
 const Statistics = lazy(() => import('./pages/Statistics'));
 const RecipeDiscover = lazy(() => import('./pages/RecipeDiscover'));
 const Settings = lazy(() => import('./pages/Settings'));
-import History from './pages/History';
+const History = lazy(() => import('./pages/History'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Subscription = lazy(() => import('./pages/Subscription'));
 const IconCollectionGallery = lazy(() => import('./components/IconCollectionGallery'));
