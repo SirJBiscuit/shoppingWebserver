@@ -337,7 +337,10 @@ const PriceLearningModal = ({ isOpen, onClose, onSubmit, storeLocation = null, o
                 <option value="">Select a store...</option>
                 <option value="Walmart">Walmart</option>
                 <option value="Target">Target</option>
-                <option value="Kroger">Kroger</option>
+                <optgroup label="Kroger Locations">
+                  <option value="Kroger - Ashland">Kroger - Ashland</option>
+                  <option value="Kroger - Lexington">Kroger - Lexington</option>
+                </optgroup>
                 <option value="Aldi">Aldi</option>
                 <option value="Costco">Costco</option>
                 <option value="Whole Foods">Whole Foods</option>

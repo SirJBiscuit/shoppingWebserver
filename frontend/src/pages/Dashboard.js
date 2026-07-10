@@ -27,6 +27,7 @@ import AutocompleteInput from '../components/AutocompleteInput';
 import TemplatesModal from '../components/TemplatesModal';
 import NewListModal from '../components/NewListModal';
 import PriceLearningModal from '../components/PriceLearningModal';
+import AisleConfigModal from '../components/AisleConfigModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { useToast } from '../hooks/useToast';
@@ -77,6 +78,7 @@ const Dashboard = () => {
   const [editingListName, setEditingListName] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [newListStore, setNewListStore] = useState('');
+  const [showAisleConfig, setShowAisleConfig] = useState(false);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -717,6 +719,12 @@ const Dashboard = () => {
                             className="ml-2 text-xs text-gray-500 hover:text-primary-600 dark:hover:text-primary-400"
                           >
                             (change)
+                          </button>
+                          <button
+                            onClick={() => setShowAisleConfig(true)}
+                            className="ml-2 text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium"
+                          >
+                            ⚙️ Configure Aisles
                           </button>
                           {activeList.list_type && activeList.list_type !== 'general' && (
                             <span className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full">
@@ -1393,7 +1401,10 @@ const Dashboard = () => {
                   <option value="">No store selected</option>
                   <option value="Walmart">Walmart</option>
                   <option value="Target">Target</option>
-                  <option value="Kroger">Kroger</option>
+                  <optgroup label="Kroger Locations">
+                    <option value="Kroger - Ashland">Kroger - Ashland</option>
+                    <option value="Kroger - Lexington">Kroger - Lexington</option>
+                  </optgroup>
                   <option value="Aldi">Aldi</option>
                   <option value="Costco">Costco</option>
                   <option value="Whole Foods">Whole Foods</option>

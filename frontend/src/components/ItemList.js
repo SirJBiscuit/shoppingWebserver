@@ -196,11 +196,23 @@ const ItemCard = ({ item, onToggleCheck, onDelete, setEditingItem, setShowEditMo
                           ${item.totalPrice.toFixed(2)}
                         </span>
                       )}
-                      {aisle && (
-                        <span className="inline-flex items-center px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-medium">
+                      {aisle ? (
+                        <span 
+                          onClick={() => setEditingItem(item)}
+                          className="inline-flex items-center px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-medium cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800/40"
+                          title="Click to edit aisle"
+                        >
                           <MapPin className="w-3 h-3 mr-1" />
                           Aisle {aisle.number}
                         </span>
+                      ) : storeName && (
+                        <button
+                          onClick={() => setEditingItem(item)}
+                          className="inline-flex items-center px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600"
+                        >
+                          <MapPin className="w-3 h-3 mr-1" />
+                          + Add Aisle
+                        </button>
                       )}
                     </div>
                     {/* Show aisle name if available */}

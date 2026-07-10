@@ -73,8 +73,34 @@ export const storeLayouts = {
     priceMultiplier: 0.85, // Bulk pricing discount
   },
   
-  kroger: {
-    name: 'Kroger',
+  'kroger-ashland': {
+    name: 'Kroger - Ashland',
+    aisles: [
+      { number: 1, name: 'Produce', categories: ['Produce', 'Fruits'] },
+      { number: 2, name: 'Bakery', categories: ['Bakery'] },
+      { number: 3, name: 'Deli', categories: ['Deli'] },
+      { number: 4, name: 'Meat & Seafood', categories: ['Meat', 'Seafood'] },
+      { number: 5, name: 'Dairy & Eggs', categories: ['Dairy', 'Eggs', 'Dairy & Eggs'] },
+      { number: 6, name: 'Frozen Foods', categories: ['Frozen'] },
+      { number: 7, name: 'Breakfast & Cereal', categories: ['Breakfast', 'Cereal'] },
+      { number: 8, name: 'Canned Goods', categories: ['Canned', 'Soup'] },
+      { number: 9, name: 'Pasta & Rice', categories: ['Pantry', 'Pasta', 'Rice', 'Pantry Staples'] },
+      { number: 10, name: 'Baking', categories: ['Baking', 'Spices'] },
+      { number: 11, name: 'Condiments', categories: ['Condiments', 'Sauces'] },
+      { number: 12, name: 'Snacks', categories: ['Snacks', 'Chips', 'Candy', 'Lunch'] },
+      { number: 13, name: 'Beverages', categories: ['Beverages', 'Soda', 'Juice'] },
+      { number: 14, name: 'Coffee & Tea', categories: ['Coffee', 'Tea'] },
+      { number: 15, name: 'Paper Products', categories: ['Paper', 'Paper Towels'] },
+      { number: 16, name: 'Cleaning', categories: ['Cleaning', 'Household', 'Kitchen'] },
+      { number: 17, name: 'Personal Care', categories: ['Personal Care', 'Health'] },
+      { number: 18, name: 'Baby & Pet', categories: ['Baby', 'Pet'] },
+      { number: 99, name: 'Other', categories: ['Other'] },
+    ],
+    priceMultiplier: 1.0,
+  },
+
+  'kroger-lexington': {
+    name: 'Kroger - Lexington',
     aisles: [
       { number: 1, name: 'Produce', categories: ['Produce', 'Fruits'] },
       { number: 2, name: 'Bakery', categories: ['Bakery'] },

@@ -260,4 +260,90 @@ router.get('/:storeId/weekly-ad', async (req, res) => {
   }
 });
 
+// Get aisles for a specific store
+router.get('/:storeId/aisles', async (req, res) => {
+  const { storeId } = req.params;
+
+  try {
+    const aisles = await db.query(
+      `SELECT sa.id, sa.aisle_number, sa.aisle_name, sa.display_order,
+              array_agg(ac.category_name) as categories
+       FROM store_aisles sa
+       LEFT JOIN aisle_categories ac ON sa.id = ac.store_aisle_id
+       WHERE sa.store_location_id = $1
+       GROUP BY sa.id, sa.aisle_number, sa.aisle_name, sa.display_order
+       ORDER BY sa.display_order, sa.aisle_number`,
+      [storeId]
+    );
+
+    res.json(aisles.rows);
+  } catch (error) {
+    console.error('Error fetching store aisles:', error);
+    res.status(500).json({ error: 'Failed to fetch aisles' });
+  }
+});
+
+// Add/update aisle for a store
+router.post('/:storeId/aisles', async (req, res) => {
+  const { storeId } = req.params;
+  const { aisle_number, aisle_name, categories, display_order } = req.body;
+
+  try {
+    // Insert or update aisle
+    const aisleResult = await db.query(
+      `INSERT INTO store_aisles (store_location_id, aisle_number, aisle_name, display_order)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (store_location_id, aisle_number)
+       DO UPDATE SET aisle_name = $3, display_order = $4
+       RETURNING id`,
+      [storeId, aisle_number, aisle_name, display_order || 0]
+    );
+
+    const aisleId = aisleResult.rows[0].id;
+
+    // Delete existing categories
+    await db.query('DELETE FROM aisle_categories WHERE store_aisle_id = $1', [aisleId]);
+
+    // Insert new categories
+    if (categories && categories.length > 0) {
+      const categoryValues = categories.map((cat, idx) => `($1, $${idx + 2})`).join(',');
+      const categoryParams = [aisleId, ...categories];
+      await db.query(
+        `INSERT INTO aisle_categories (store_aisle_id, category_name) VALUES ${categoryValues}`,
+        categoryParams
+      );
+    }
+
+    res.json({ success: true, aisleId });
+  } catch (error) {
+    console.error('Error saving aisle:', error);
+    res.status(500).json({ error: 'Failed to save aisle' });
+  }
+});
+
+// Get aisle for a specific category at a store
+router.get('/:storeId/category/:categoryName/aisle', async (req, res) => {
+  const { storeId, categoryName } = req.params;
+
+  try {
+    const result = await db.query(
+      `SELECT sa.aisle_number, sa.aisle_name
+       FROM store_aisles sa
+       JOIN aisle_categories ac ON sa.id = ac.store_aisle_id
+       WHERE sa.store_location_id = $1 AND ac.category_name = $2
+       LIMIT 1`,
+      [storeId, categoryName]
+    );
+
+    if (result.rows.length > 0) {
+      res.json(result.rows[0]);
+    } else {
+      res.status(404).json({ error: 'Aisle not found for category' });
+    }
+  } catch (error) {
+    console.error('Error fetching aisle for category:', error);
+    res.status(500).json({ error: 'Failed to fetch aisle' });
+  }
+});
+
 module.exports = router;
