@@ -373,27 +373,60 @@ router.put('/lists/:id', async (req, res) => {
   const listId = req.params.id;
   const { name, store_name, list_type, notes } = req.body;
 
+  console.log('PUT /lists/:id - Request:', { listId, name, store_name, list_type, notes });
+
   try {
-    const result = await db.query(
-      `UPDATE shopping_lists 
-       SET name = COALESCE($1, name),
-           store_name = COALESCE($2, store_name),
-           list_type = COALESCE($3, list_type),
-           notes = COALESCE($4, notes),
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $5 AND user_id = $6
-       RETURNING *`,
-      [name, store_name, list_type, notes, listId, req.user.userId]
-    );
+    // Build dynamic update query based on what fields exist
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (name !== undefined) {
+      updates.push(`name = $${paramCount++}`);
+      values.push(name);
+    }
+    if (store_name !== undefined) {
+      updates.push(`store_name = $${paramCount++}`);
+      values.push(store_name);
+    }
+    if (list_type !== undefined) {
+      updates.push(`list_type = $${paramCount++}`);
+      values.push(list_type);
+    }
+    if (notes !== undefined) {
+      updates.push(`notes = $${paramCount++}`);
+      values.push(notes);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(listId);
+    values.push(req.user.userId);
+
+    const query = `UPDATE shopping_lists 
+                   SET ${updates.join(', ')}
+                   WHERE id = $${paramCount++} AND user_id = $${paramCount++}
+                   RETURNING *`;
+
+    console.log('Update query:', query);
+    console.log('Values:', values);
+
+    const result = await db.query(query, values);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Shopping list not found' });
     }
 
+    console.log('Update successful:', result.rows[0]);
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating list:', error);
-    res.status(500).json({ error: 'Failed to update shopping list' });
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: 'Failed to update shopping list', details: error.message });
   }
 });
 
