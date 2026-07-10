@@ -123,6 +123,161 @@ const itemIcons = {
   'toothpaste': '🦷',
   'shampoo': '🧴',
   'lotion': '🧴',
+  'deodorant': '🧴',
+  
+  // More Fruits & Vegetables
+  'blueberry': '🫐',
+  'coconut': '🥥',
+  'celery': '🥬',
+  'spinach': '🥬',
+  'kale': '🥬',
+  'cabbage': '🥬',
+  'zucchini': '🥒',
+  'squash': '🥒',
+  'radish': '🥕',
+  'beet': '🥕',
+  'turnip': '🥔',
+  
+  // More Proteins
+  'salmon': '🐟',
+  'tuna': '🐟',
+  'tilapia': '🐟',
+  'cod': '🐟',
+  'ground beef': '🥩',
+  'ribeye': '🥩',
+  'sirloin': '🥩',
+  'pork chop': '🥓',
+  'ribs': '🍖',
+  'wings': '🍗',
+  'drumstick': '🍗',
+  
+  // More Dairy
+  'cream': '🥛',
+  'sour cream': '🥛',
+  'cottage cheese': '🧀',
+  'cheddar': '🧀',
+  'mozzarella': '🧀',
+  'parmesan': '🧀',
+  'cream cheese': '🧀',
+  
+  // Breakfast Items
+  'cereal': '🥣',
+  'oatmeal': '🥣',
+  'granola': '🥣',
+  'pancake': '🥞',
+  'waffle': '🧇',
+  'syrup': '🍯',
+  'french toast': '🍞',
+  
+  // More Snacks & Sweets
+  'gummy': '🍬',
+  'lollipop': '🍭',
+  'cupcake': '🧁',
+  'brownie': '🍫',
+  'ice cream': '🍨',
+  'popsicle': '🍡',
+  'pudding': '🍮',
+  'jello': '🍮',
+  
+  // More Beverages
+  'latte': '☕',
+  'espresso': '☕',
+  'cappuccino': '☕',
+  'green tea': '🍵',
+  'black tea': '🍵',
+  'smoothie': '🥤',
+  'milkshake': '🥤',
+  'lemonade': '🍋',
+  'cocktail': '🍹',
+  'champagne': '🍾',
+  
+  // Condiments & Seasonings
+  'salt': '🧂',
+  'pepper': '🧂',
+  'oil': '🫒',
+  'olive oil': '🫒',
+  'vinegar': '🫗',
+  'soy sauce': '🥫',
+  'hot sauce': '🌶️',
+  'salsa': '🫔',
+  'guacamole': '🥑',
+  'hummus': '🫘',
+  'ranch': '🥗',
+  'dressing': '🥗',
+  
+  // Baking & Cooking
+  'flour': '🌾',
+  'sugar': '🍬',
+  'brown sugar': '🍬',
+  'baking soda': '🧂',
+  'baking powder': '🧂',
+  'yeast': '🍞',
+  'vanilla': '🍦',
+  'cinnamon': '🧂',
+  
+  // Grains & Legumes
+  'quinoa': '🌾',
+  'couscous': '🌾',
+  'barley': '🌾',
+  'oats': '🌾',
+  'beans': '🫘',
+  'lentils': '🫘',
+  'chickpeas': '🫘',
+  'black beans': '🫘',
+  'kidney beans': '🫘',
+  'pinto beans': '🫘',
+  
+  // Frozen Foods
+  'frozen pizza': '🍕',
+  'frozen dinner': '🍱',
+  'frozen vegetables': '🥦',
+  'frozen fruit': '🍓',
+  'ice': '🧊',
+  
+  // Prepared Foods
+  'sandwich': '🥪',
+  'wrap': '🌯',
+  'salad': '🥗',
+  'bowl': '🍱',
+  'meal': '🍱',
+  
+  // International
+  'sushi': '🍣',
+  'ramen': '🍜',
+  'curry': '🍛',
+  'dim sum': '🥟',
+  'dumpling': '🥟',
+  'spring roll': '🥟',
+  'falafel': '🧆',
+  'kebab': '🥙',
+  'gyro': '🥙',
+  
+  // Household & Cleaning
+  'detergent': '🧴',
+  'bleach': '🧴',
+  'cleaner': '🧴',
+  'spray': '🧴',
+  'wipes': '🧻',
+  'sponge': '🧽',
+  'towel': '🧻',
+  'napkin': '🧻',
+  'foil': '📦',
+  'wrap': '📦',
+  'bag': '🛍️',
+  'container': '📦',
+  
+  // Pet Supplies
+  'dog food': '🐕',
+  'cat food': '🐈',
+  'pet food': '🐾',
+  'treats': '🦴',
+  'litter': '🐈',
+  
+  // Baby Items
+  'diaper': '👶',
+  'wipes': '👶',
+  'formula': '🍼',
+  'baby food': '🍼',
 };
 
 // Auto-detect category based on item name
