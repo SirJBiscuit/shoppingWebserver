@@ -839,7 +839,8 @@ const Dashboard = () => {
                     
                     console.log('Update payload:', updateData);
                     
-                    await shoppingAPI.updateItem(activeList.id, updatedItem.id, updateData);
+                    const response = await shoppingAPI.updateItem(activeList.id, updatedItem.id, updateData);
+                    console.log('Update response:', response.data);
                     
                     // Learn the user's icon choice
                     if (updatedItem.item_icon && updatedItem.item_name) {
@@ -851,11 +852,15 @@ const Dashboard = () => {
                       learnPrice(updatedItem.item_name, parseFloat(updatedItem.price));
                     }
                     
-                    // Reload list items and preferences
+                    // Force reload list items to show updated icon
                     await loadListItems(activeList.id);
                     await loadItemPreferences();
+                    
+                    // Force a re-render by updating state
+                    setItems(prevItems => [...prevItems]);
                   } catch (error) {
                     console.error('Error updating item:', error);
+                    alert('Failed to update item. Please try again.');
                   }
                 }}
               />
