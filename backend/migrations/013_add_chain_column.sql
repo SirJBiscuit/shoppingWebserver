@@ -16,9 +16,7 @@ BEGIN
     END IF;
 END $$;
 
--- Create indexes if they don't exist
+-- Create index for chain column
 CREATE INDEX IF NOT EXISTS idx_store_locations_chain ON store_locations(chain);
-CREATE INDEX IF NOT EXISTS idx_store_aisles_location ON store_aisles(store_location_id);
-CREATE INDEX IF NOT EXISTS idx_aisle_categories_aisle ON aisle_categories(store_aisle_id);
 
 COMMIT;
