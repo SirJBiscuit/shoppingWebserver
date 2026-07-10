@@ -153,12 +153,20 @@ router.get('/lists/:id', async (req, res) => {
 });
 
 router.post('/lists', async (req, res) => {
-  const { name, profileId } = req.body;
+  const { name, profileId, store_name, list_type, notes } = req.body;
 
   try {
     const result = await db.query(
-      'INSERT INTO shopping_lists (user_id, profile_id, name) VALUES ($1, $2, $3) RETURNING *',
-      [req.user.userId, profileId || null, name || 'Shopping List']
+      `INSERT INTO shopping_lists (user_id, profile_id, name, store_name, list_type, notes) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [
+        req.user.userId, 
+        profileId || null, 
+        name || 'Shopping List',
+        store_name || null,
+        list_type || 'general',
+        notes || null
+      ]
     );
 
     res.status(201).json(result.rows[0]);
