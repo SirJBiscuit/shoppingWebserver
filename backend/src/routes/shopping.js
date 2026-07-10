@@ -368,6 +368,35 @@ router.delete('/lists/:listId/items/:itemId', async (req, res) => {
   }
 });
 
+// Update shopping list
+router.put('/lists/:id', async (req, res) => {
+  const listId = req.params.id;
+  const { name, store_name, list_type, notes } = req.body;
+
+  try {
+    const result = await db.query(
+      `UPDATE shopping_lists 
+       SET name = COALESCE($1, name),
+           store_name = COALESCE($2, store_name),
+           list_type = COALESCE($3, list_type),
+           notes = COALESCE($4, notes),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $5 AND user_id = $6
+       RETURNING *`,
+      [name, store_name, list_type, notes, listId, req.user.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Shopping list not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating list:', error);
+    res.status(500).json({ error: 'Failed to update shopping list' });
+  }
+});
+
 // Delete shopping list
 router.delete('/lists/:id', async (req, res) => {
   const listId = req.params.id;
