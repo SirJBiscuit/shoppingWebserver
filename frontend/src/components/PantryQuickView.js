@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Package, ShoppingCart, AlertTriangle, Eye, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { detectIcon } from '../utils/categoryDetector';
+import ExpirationBadge from './ExpirationBadge';
 
 const PantryQuickView = ({ pantryItems, onAddToList, onViewPantry }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -143,6 +144,11 @@ const PantryQuickView = ({ pantryItems, onAddToList, onViewPantry }) => {
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {item.quantity} {item.unit} left
                     </p>
+                    {item.expiry_date && (
+                      <div className="mt-1">
+                        <ExpirationBadge expiryDate={item.expiry_date} compact={true} />
+                      </div>
+                    )}
                   </div>
                 </div>
                 <button

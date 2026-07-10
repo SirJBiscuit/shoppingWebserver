@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Package, AlertTriangle, Trash2, Edit2, ShoppingCart, ChefHat, LogOut, Settings, Refrigerator, Snowflake } from 'lucide-react';
-import { pantryAPI, categoriesAPI } from '../services/api';
+import { Plus, Package, AlertTriangle, Trash2, Edit2, ShoppingCart, ChefHat, LogOut, Settings, Refrigerator, Snowflake, Calendar, ThumbsDown, ThumbsUp, XCircle } from 'lucide-react';
+import { pantryAPI, categoriesAPI, expirationAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import PantryModal from '../components/PantryModal';
+import ExpirationBadge from '../components/ExpirationBadge';
 import { detectIcon } from '../utils/categoryDetector';
 
 const Pantry = () => {
@@ -278,6 +279,7 @@ const Pantry = () => {
                     onDelete={handleDeleteItem}
                     onUpdateQuantity={handleUpdateQuantity}
                     onEdit={setSelectedItem}
+                    onRefresh={fetchPantry}
                   />
                 ))}
               </div>
@@ -308,9 +310,10 @@ const Pantry = () => {
   );
 };
 
-const PantryItemCard = ({ item, onDelete, onUpdateQuantity, onEdit }) => {
+const PantryItemCard = ({ item, onDelete, onUpdateQuantity, onEdit, onRefresh }) => {
   const [editing, setEditing] = useState(false);
   const [quantity, setQuantity] = useState(item.quantity);
+  const [showActions, setShowActions] = useState(false);
 
   const handleSave = () => {
     onUpdateQuantity(item.id, parseFloat(quantity));
@@ -322,8 +325,69 @@ const PantryItemCard = ({ item, onDelete, onUpdateQuantity, onEdit }) => {
 
   const itemIcon = item.item_icon || detectIcon(item.item_name);
 
+  const handleSetExpiry = async () => {
+    const days = prompt('How many days until this expires?', '7');
+    if (days) {
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + parseInt(days));
+      await onUpdateQuantity(item.id, item.quantity, { expiry_date: expiryDate.toISOString().split('T')[0] });
+      if (onRefresh) onRefresh();
+    }
+  };
+
+  const handleExpiredEarly = async () => {
+    if (window.confirm('Mark this item as expired early?')) {
+      await expirationAPI.learn({
+        itemName: item.item_name,
+        purchaseDate: item.purchase_date || item.added_date,
+        estimatedExpiry: item.expiry_date,
+        actualExpiry: new Date().toISOString().split('T')[0],
+        expiredEarly: true,
+        discarded: true,
+        discardReason: 'expired'
+      });
+      await onDelete(item.id);
+    }
+  };
+
+  const handleStillGood = async () => {
+    const days = prompt('How many more days is it good for?', '3');
+    if (days) {
+      const newExpiry = new Date();
+      newExpiry.setDate(newExpiry.getDate() + parseInt(days));
+      await expirationAPI.learn({
+        itemName: item.item_name,
+        purchaseDate: item.purchase_date || item.added_date,
+        estimatedExpiry: item.expiry_date,
+        stillGoodAfter: true
+      });
+      await onUpdateQuantity(item.id, item.quantity, { expiry_date: newExpiry.toISOString().split('T')[0] });
+      if (onRefresh) onRefresh();
+    }
+  };
+
+  const handleThrowOut = async () => {
+    if (window.confirm('Throw out this item?')) {
+      await expirationAPI.learn({
+        itemName: item.item_name,
+        purchaseDate: item.purchase_date || item.added_date,
+        estimatedExpiry: item.expiry_date,
+        actualExpiry: new Date().toISOString().split('T')[0],
+        discarded: true,
+        discardReason: 'user_discarded'
+      });
+      await onDelete(item.id);
+    }
+  };
+
   return (
     <div className={`card ${isExpiringSoon ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : ''}`}>
+      {/* Expiration Badge */}
+      {item.expiry_date && (
+        <div className="mb-3">
+          <ExpirationBadge expiryDate={item.expiry_date} purchaseDate={item.purchase_date || item.added_date} />
+        </div>
+      )}
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center flex-1">
           {itemIcon && <span className="text-2xl mr-2">{itemIcon}</span>}
@@ -374,15 +438,55 @@ const PantryItemCard = ({ item, onDelete, onUpdateQuantity, onEdit }) => {
         </div>
       )}
 
-      {item.expiry_date && (
-        <p className={`text-xs ${isExpiringSoon ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
-          {isExpiringSoon && '⚠️ '}
-          Expires: {new Date(item.expiry_date).toLocaleDateString()}
-        </p>
-      )}
+      {/* Action Buttons */}
+      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => setShowActions(!showActions)}
+          className="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 mb-2"
+        >
+          {showActions ? '▼' : '▶'} Quick Actions
+        </button>
+        
+        {showActions && (
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <button
+              onClick={handleSetExpiry}
+              className="btn-secondary text-xs py-1 flex items-center justify-center"
+              title="Set expiration date"
+            >
+              <Calendar className="w-3 h-3 mr-1" />
+              Set Expiry
+            </button>
+            <button
+              onClick={handleStillGood}
+              className="btn-secondary text-xs py-1 flex items-center justify-center text-green-600 hover:text-green-700"
+              title="Item is still good - extend expiration"
+            >
+              <ThumbsUp className="w-3 h-3 mr-1" />
+              Still Good
+            </button>
+            <button
+              onClick={handleExpiredEarly}
+              className="btn-secondary text-xs py-1 flex items-center justify-center text-orange-600 hover:text-orange-700"
+              title="Item expired before expected date"
+            >
+              <ThumbsDown className="w-3 h-3 mr-1" />
+              Expired Early
+            </button>
+            <button
+              onClick={handleThrowOut}
+              className="btn-secondary text-xs py-1 flex items-center justify-center text-red-600 hover:text-red-700"
+              title="Throw out this item"
+            >
+              <XCircle className="w-3 h-3 mr-1" />
+              Throw Out
+            </button>
+          </div>
+        )}
+      </div>
 
       {item.added_date && (
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-xs text-gray-400 mt-2">
           Added: {new Date(item.added_date).toLocaleDateString()}
         </p>
       )}
