@@ -376,6 +376,15 @@ router.put('/lists/:id', async (req, res) => {
   console.log('PUT /lists/:id - Request:', { listId, name, store_name, list_type, notes });
 
   try {
+    // First, check what columns exist in the table
+    const columnCheck = await db.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'shopping_lists'
+    `);
+    const existingColumns = columnCheck.rows.map(row => row.column_name);
+    console.log('Existing columns in shopping_lists:', existingColumns);
+
     // Build dynamic update query based on what fields exist
     const updates = [];
     const values = [];
@@ -385,15 +394,15 @@ router.put('/lists/:id', async (req, res) => {
       updates.push(`name = $${paramCount++}`);
       values.push(name);
     }
-    if (store_name !== undefined) {
+    if (store_name !== undefined && existingColumns.includes('store_name')) {
       updates.push(`store_name = $${paramCount++}`);
       values.push(store_name);
     }
-    if (list_type !== undefined) {
+    if (list_type !== undefined && existingColumns.includes('list_type')) {
       updates.push(`list_type = $${paramCount++}`);
       values.push(list_type);
     }
-    if (notes !== undefined) {
+    if (notes !== undefined && existingColumns.includes('notes')) {
       updates.push(`notes = $${paramCount++}`);
       values.push(notes);
     }
@@ -402,7 +411,10 @@ router.put('/lists/:id', async (req, res) => {
       return res.status(400).json({ error: 'No fields to update' });
     }
 
-    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    if (existingColumns.includes('updated_at')) {
+      updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    }
+    
     values.push(listId);
     values.push(req.user.userId);
 
