@@ -112,6 +112,27 @@ export const storeLayouts = {
     ],
     priceMultiplier: 1.25, // Premium pricing
   },
+  
+  aldi: {
+    name: 'Aldi',
+    aisles: [
+      { number: 1, name: 'Fresh Produce', categories: ['Produce', 'Fruits'] },
+      { number: 2, name: 'Bakery & Bread', categories: ['Bakery', 'Bread'] },
+      { number: 3, name: 'Meat & Deli', categories: ['Meat', 'Deli', 'Seafood'] },
+      { number: 4, name: 'Dairy & Refrigerated', categories: ['Dairy', 'Eggs'] },
+      { number: 5, name: 'Frozen Foods', categories: ['Frozen'] },
+      { number: 6, name: 'Breakfast & Cereal', categories: ['Breakfast', 'Cereal'] },
+      { number: 7, name: 'Pantry Essentials', categories: ['Pantry', 'Canned', 'Pasta', 'Rice'] },
+      { number: 8, name: 'Baking & Spices', categories: ['Baking', 'Spices'] },
+      { number: 9, name: 'Condiments & Sauces', categories: ['Condiments', 'Sauces'] },
+      { number: 10, name: 'Snacks & Candy', categories: ['Snacks', 'Candy'] },
+      { number: 11, name: 'Beverages', categories: ['Beverages', 'Soda', 'Juice', 'Coffee', 'Tea'] },
+      { number: 12, name: 'Paper & Household', categories: ['Paper', 'Cleaning', 'Laundry'] },
+      { number: 13, name: 'Personal Care', categories: ['Personal Care', 'Health', 'Beauty'] },
+      { number: 14, name: 'Baby & Pet', categories: ['Baby', 'Pet'] },
+    ],
+    priceMultiplier: 0.80, // Budget-friendly pricing (20% cheaper on average)
+  },
 };
 
 // Get aisle for a category at a specific store

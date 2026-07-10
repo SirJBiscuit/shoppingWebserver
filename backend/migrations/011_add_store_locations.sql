@@ -105,7 +105,8 @@ CREATE TRIGGER update_store_item_prices_updated_at
 INSERT INTO store_locations (store_chain, store_number, name, address, city, state, zip_code, latitude, longitude) VALUES
 ('Walmart', '1234', 'Walmart Supercenter', '123 Main St', 'Anytown', 'CA', '12345', 34.0522, -118.2437),
 ('Target', '5678', 'Target Store', '456 Oak Ave', 'Somewhere', 'NY', '67890', 40.7128, -74.0060),
-('Kroger', '9012', 'Kroger Marketplace', '789 Elm St', 'Elsewhere', 'TX', '54321', 29.7604, -95.3698)
+('Kroger', '9012', 'Kroger Marketplace', '789 Elm St', 'Elsewhere', 'TX', '54321', 29.7604, -95.3698),
+('Aldi', '3456', 'Aldi', '321 Pine St', 'Somewhere Else', 'FL', '98765', 25.7617, -80.1918)
 ON CONFLICT DO NOTHING;
 
 COMMENT ON TABLE store_locations IS 'Physical store locations with GPS coordinates';
