@@ -28,6 +28,7 @@ import TemplatesModal from '../components/TemplatesModal';
 import NewListModal from '../components/NewListModal';
 import PriceLearningModal from '../components/PriceLearningModal';
 import AisleConfigModal from '../components/AisleConfigModal';
+import StoreManager from '../components/StoreManager';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { useToast } from '../hooks/useToast';
@@ -79,6 +80,7 @@ const Dashboard = () => {
   const [newListName, setNewListName] = useState('');
   const [newListStore, setNewListStore] = useState('');
   const [showAisleConfig, setShowAisleConfig] = useState(false);
+  const [showStoreManager, setShowStoreManager] = useState(false);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -647,7 +649,12 @@ const Dashboard = () => {
     <PageTransition>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
         {/* Sidebar Navigation */}
-        <Sidebar />
+        <Sidebar onAction={(action) => {
+          if (action === 'stores') setShowStoreManager(true);
+          else if (action === 'voice') setShowVoice(true);
+          else if (action === 'scan') setShowScanner(true);
+          else if (action === 'share') setShowShare(true);
+        }} />
 
         {/* Main Content */}
         <div className="flex-1 min-w-0">
@@ -1435,6 +1442,16 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Store Manager */}
+      <StoreManager
+        isOpen={showStoreManager}
+        onClose={() => setShowStoreManager(false)}
+        onStoreCreated={(store) => {
+          // Optionally set the new store as the active list's store
+          console.log('Store created:', store);
+        }}
+      />
     </PageTransition>
   );
 };

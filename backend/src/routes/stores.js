@@ -6,6 +6,63 @@ const router = express.Router();
 
 router.use(authenticateToken);
 
+// Get user's custom stores
+router.get('/user', async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT * FROM store_locations WHERE created_by = $1 ORDER BY created_at DESC',
+      [req.user.userId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching user stores:', error);
+    res.status(500).json({ error: 'Failed to fetch stores' });
+  }
+});
+
+// Create a new store
+router.post('/', async (req, res) => {
+  const { name, chain, address, city, state, zip_code } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ error: 'Store name is required' });
+  }
+
+  try {
+    const result = await db.query(
+      `INSERT INTO store_locations (name, chain, address, city, state, zip_code, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [name, chain, address, city, state, zip_code, req.user.userId]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating store:', error);
+    res.status(500).json({ error: 'Failed to create store' });
+  }
+});
+
+// Delete a store
+router.delete('/:storeId', async (req, res) => {
+  const { storeId } = req.params;
+
+  try {
+    const result = await db.query(
+      'DELETE FROM store_locations WHERE id = $1 AND created_by = $2 RETURNING id',
+      [storeId, req.user.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Store not found' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting store:', error);
+    res.status(500).json({ error: 'Failed to delete store' });
+  }
+});
+
 // Search stores by location (GPS coordinates)
 router.get('/nearby', async (req, res) => {
   const { lat, lng, radius = 10 } = req.query;

@@ -3,14 +3,14 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   ShoppingCart, ChefHat, Package, Calendar, BarChart3, 
   Settings, Shield, History, Search, Mic, Scan, Share2,
-  Menu, X, LogOut, Bell, Moon, Sun, Crown
+  Menu, X, LogOut, Bell, Moon, Sun, Crown, Store
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import ClearCacheButton from './ClearCacheButton';
 
-const Sidebar = () => {
+const Sidebar = ({ onAction }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
@@ -34,6 +34,7 @@ const Sidebar = () => {
   ];
 
   const settingsItems = [
+    { action: 'stores', icon: Store, label: 'Manage Stores', color: 'text-blue-600' },
     { path: '/settings', icon: Settings, label: 'Settings', color: 'text-gray-600' },
     { path: '/admin', icon: Shield, label: 'Admin', color: 'text-red-600' },
   ];
@@ -154,8 +155,8 @@ const Sidebar = () => {
             </h3>
             {settingsItems.map((item) => (
               <button
-                key={item.path}
-                onClick={() => handleNavClick(item.path)}
+                key={item.path || item.action}
+                onClick={() => item.action ? onAction?.(item.action) : handleNavClick(item.path)}
                 className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
                   isActive(item.path)
                     ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 shadow-sm'

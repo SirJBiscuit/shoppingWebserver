@@ -131,19 +131,28 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit, hideCategories = fal
 
 // Separate ItemCard component for reusability
 const ItemCard = ({ item, onToggleCheck, onDelete, setEditingItem, setShowEditModal, storeName }) => {
+  const [editingAisle, setEditingAisle] = useState(false);
+  const [aisleNumber, setAisleNumber] = useState('');
+  const [aisleName, setAisleName] = useState('');
+  
   // Get aisle information if store is specified
   const category = item.category_name || item.category || 'Other';
   const aisle = storeName ? getAisleForCategory(storeName, category) : null;
   
-  // Debug logging (remove after testing)
-  console.log(`ItemCard Debug:`, {
-    itemName: item.item_name,
-    storeName,
-    category,
-    category_name: item.category_name,
-    item_category: item.category,
-    aisle: aisle ? `${aisle.number} - ${aisle.name}` : 'null'
-  });
+  const saveAisle = async () => {
+    if (!aisleNumber.trim()) return;
+    
+    try {
+      // TODO: Save to backend API
+      // For now, just show success message
+      console.log('Saving aisle:', { storeName, category, aisleNumber, aisleName });
+      setEditingAisle(false);
+      // Reload the page to see changes
+      window.location.reload();
+    } catch (err) {
+      console.error('Error saving aisle:', err);
+    }
+  };
   
   return (
               <div
@@ -196,9 +205,43 @@ const ItemCard = ({ item, onToggleCheck, onDelete, setEditingItem, setShowEditMo
                           ${item.totalPrice.toFixed(2)}
                         </span>
                       )}
-                      {aisle ? (
+                      {editingAisle ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={aisleNumber}
+                            onChange={(e) => setAisleNumber(e.target.value)}
+                            placeholder="Aisle #"
+                            className="w-16 px-2 py-1 text-xs border rounded"
+                            autoFocus
+                          />
+                          <input
+                            type="text"
+                            value={aisleName}
+                            onChange={(e) => setAisleName(e.target.value)}
+                            placeholder="Name (optional)"
+                            className="w-24 px-2 py-1 text-xs border rounded"
+                          />
+                          <button
+                            onClick={saveAisle}
+                            className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={() => setEditingAisle(false)}
+                            className="px-2 py-1 bg-gray-400 text-white text-xs rounded hover:bg-gray-500"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : aisle ? (
                         <span 
-                          onClick={() => setEditingItem(item)}
+                          onClick={() => {
+                            setAisleNumber(aisle.number.toString());
+                            setAisleName(aisle.name || '');
+                            setEditingAisle(true);
+                          }}
                           className="inline-flex items-center px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-medium cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800/40"
                           title="Click to edit aisle"
                         >
@@ -207,7 +250,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, setEditingItem, setShowEditMo
                         </span>
                       ) : storeName && (
                         <button
-                          onClick={() => setEditingItem(item)}
+                          onClick={() => setEditingAisle(true)}
                           className="inline-flex items-center px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600"
                         >
                           <MapPin className="w-3 h-3 mr-1" />
