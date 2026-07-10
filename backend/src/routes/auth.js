@@ -6,11 +6,15 @@ const db = require('../database/db');
 
 const router = express.Router();
 
+// Registration temporarily disabled
 router.post('/register',
   body('username').trim().isLength({ min: 3, max: 50 }).isAlphanumeric(),
   body('password').isLength({ min: 6 }),
   async (req, res) => {
-    const errors = validationResult(req);
+    // Temporarily disabled
+    return res.status(403).json({ error: 'Registration is temporarily disabled' });
+    
+    /* const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
@@ -58,7 +62,7 @@ router.post('/register',
     } catch (error) {
       console.error('Registration error:', error);
       res.status(500).json({ error: 'Registration failed' });
-    }
+    } */
   }
 );
 
