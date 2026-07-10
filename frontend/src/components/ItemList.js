@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Check, Trash2, Edit2, Smile, Sparkles } from 'lucide-react';
+import { Check, Trash2, Edit2, Smile, Sparkles, MapPin } from 'lucide-react';
 import EditItemModal from './EditItemModal';
 import { detectIcon, detectCategory } from '../utils/categoryDetector';
+import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts';
 
-const ItemList = ({ items, onToggleCheck, onDelete, onEdit, hideCategories = false }) => {
+const ItemList = ({ items, onToggleCheck, onDelete, onEdit, hideCategories = false, storeName = null }) => {
   const [editingItem, setEditingItem] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   // Group items by name to combine duplicates
@@ -96,6 +97,7 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit, hideCategories = fal
                   onDelete={onDelete}
                   setEditingItem={setEditingItem}
                   setShowEditModal={setShowEditModal}
+                  storeName={storeName}
                 />
               ))}
             </div>
@@ -128,7 +130,10 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit, hideCategories = fal
 };
 
 // Separate ItemCard component for reusability
-const ItemCard = ({ item, onToggleCheck, onDelete, setEditingItem, setShowEditModal }) => {
+const ItemCard = ({ item, onToggleCheck, onDelete, setEditingItem, setShowEditModal, storeName }) => {
+  // Get aisle information if store is specified
+  const aisle = storeName ? getAisleForCategory(storeName, item.category_name || item.category || 'Other') : null;
+  
   return (
               <div
                 key={item.id}
@@ -178,7 +183,19 @@ const ItemCard = ({ item, onToggleCheck, onDelete, setEditingItem, setShowEditMo
                           {' '}• ${item.totalPrice.toFixed(2)}
                         </span>
                       )}
+                      {aisle && (
+                        <span className="ml-2 inline-flex items-center text-xs text-blue-600 dark:text-blue-400">
+                          <MapPin className="w-3 h-3 mr-1" />
+                          Aisle {aisle.number}
+                        </span>
+                      )}
                     </p>
+                    {/* Show aisle name if available */}
+                    {aisle && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                        {aisle.name}
+                      </p>
+                    )}
                     {/* Show notes if present */}
                     {item.notes && (
                       <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 italic flex items-center">

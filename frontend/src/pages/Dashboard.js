@@ -615,8 +615,27 @@ const Dashboard = () => {
 
                 {/* Active List Name */}
                 {activeList && (
-                  <div className="text-2xl font-bold text-primary-600 dark:text-primary-400 mb-4">
-                    📋 {activeList.name}
+                  <div className="mb-4">
+                    <div className="text-2xl font-bold text-primary-600 dark:text-primary-400 flex items-center">
+                      📋 {activeList.name}
+                    </div>
+                    {activeList.store_name && (
+                      <div className="mt-2 flex items-center text-sm text-gray-600 dark:text-gray-400">
+                        <Store className="w-4 h-4 mr-2" />
+                        <span className="font-medium">Shopping at: </span>
+                        <span className="ml-1 text-blue-600 dark:text-blue-400 font-semibold">{activeList.store_name}</span>
+                        {activeList.list_type && activeList.list_type !== 'general' && (
+                          <span className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full">
+                            {activeList.list_type}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {activeList.notes && (
+                      <div className="mt-1 text-sm text-gray-500 dark:text-gray-400 italic">
+                        {activeList.notes}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -897,6 +916,7 @@ const Dashboard = () => {
                 onToggleCheck={toggleItemCheck}
                 onDelete={deleteItem}
                 hideCategories={hideCategories}
+                storeName={activeList?.store_name}
                 onEdit={async (updatedItem) => {
                   try {
                     console.log('Updating item:', updatedItem);
