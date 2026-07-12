@@ -56,7 +56,7 @@ const TemplatesModal = ({ isOpen, onClose, onAddItems }) => {
     }
   };
 
-  const useTemplate = async (templateId) => {
+  const applyTemplate = async (templateId) => {
     try {
       const response = await shoppingAPI.getTemplateItems(templateId);
       const items = response.data || [];
@@ -233,7 +233,7 @@ const TemplatesModal = ({ isOpen, onClose, onAddItems }) => {
                         </button>
                       </div>
                       <button
-                        onClick={() => useTemplate(template.id)}
+                        onClick={() => applyTemplate(template.id)}
                         className="w-full btn-primary flex items-center justify-center"
                       >
                         <Plus className="w-4 h-4 mr-2" />
