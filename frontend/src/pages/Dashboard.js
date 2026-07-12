@@ -1424,6 +1424,30 @@ const Dashboard = () => {
                   }
                 }}
                 onViewPantry={() => navigate('/pantry')}
+                onDeleteItem={async (itemId) => {
+                  try {
+                    await inventoryAPI.deleteItem(itemId);
+                    await loadInventory();
+                    success('Item removed from inventory');
+                  } catch (error) {
+                    console.error('Error deleting item:', error);
+                    error('Failed to delete item');
+                  }
+                }}
+                onClearAll={async () => {
+                  if (window.confirm('Are you sure you want to clear all items from your inventory?')) {
+                    try {
+                      for (const item of inventory) {
+                        await inventoryAPI.deleteItem(item.id);
+                      }
+                      await loadInventory();
+                      success('All items cleared from inventory');
+                    } catch (error) {
+                      console.error('Error clearing inventory:', error);
+                      error('Failed to clear inventory');
+                    }
+                  }
+                }}
               />
             </div>
           </div>

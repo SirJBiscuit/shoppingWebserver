@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Package, ShoppingCart, AlertTriangle, Eye, Plus } from 'lucide-react';
+import { Package, ShoppingCart, AlertTriangle, Eye, Plus, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { detectIcon } from '../utils/categoryDetector';
 import ExpirationBadge from './ExpirationBadge';
 
-const PantryQuickView = ({ pantryItems, onAddToList, onViewPantry }) => {
+const PantryQuickView = ({ pantryItems, onAddToList, onViewPantry, onDeleteItem, onClearAll }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter items
@@ -55,13 +55,25 @@ const PantryQuickView = ({ pantryItems, onAddToList, onViewPantry }) => {
           <Package className="w-5 h-5 mr-2 text-green-600" />
           Kitchen Inventory
         </h3>
-        <button
-          onClick={onViewPantry}
-          className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 flex items-center"
-        >
-          <Eye className="w-4 h-4 mr-1" />
-          View Full Inventory
-        </button>
+        <div className="flex items-center gap-2">
+          {pantryItems.length > 0 && onClearAll && (
+            <button
+              onClick={onClearAll}
+              className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 flex items-center"
+              title="Clear all items"
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              Clear All
+            </button>
+          )}
+          <button
+            onClick={onViewPantry}
+            className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 flex items-center"
+          >
+            <Eye className="w-4 h-4 mr-1" />
+            View Full Inventory
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -151,13 +163,24 @@ const PantryQuickView = ({ pantryItems, onAddToList, onViewPantry }) => {
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => handleOutOfStock(item)}
-                  className="ml-2 p-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
-                  title="Add to shopping list"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleOutOfStock(item)}
+                    className="p-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
+                    title="Add to shopping list"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                  {onDeleteItem && (
+                    <button
+                      onClick={() => onDeleteItem(item.id)}
+                      className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      title="Delete item"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </motion.div>
             ))}
           </div>
@@ -197,13 +220,24 @@ const PantryQuickView = ({ pantryItems, onAddToList, onViewPantry }) => {
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => handleOutOfStock(item)}
-                  className="ml-2 p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                  title="Out of stock - add to list"
-                >
-                  <ShoppingCart className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleOutOfStock(item)}
+                    className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                    title="Out of stock - add to list"
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                  </button>
+                  {onDeleteItem && (
+                    <button
+                      onClick={() => onDeleteItem(item.id)}
+                      className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      title="Delete item"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
