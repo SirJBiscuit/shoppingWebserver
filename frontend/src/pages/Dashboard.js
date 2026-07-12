@@ -52,8 +52,8 @@ const Dashboard = () => {
   const addButtonRef = useRef(null);
   const { toasts, hideToast, success, error, warning, info } = useToast();
   
-  // Enable scroll sounds
-  useScrollSound(true);
+  // Disable scroll sounds (too annoying)
+  useScrollSound(false);
   const [activeList, setActiveList] = useState(null);
   const [lists, setLists] = useState([]);
   const [items, setItems] = useState([]);
@@ -159,6 +159,8 @@ const Dashboard = () => {
   useEffect(() => {
     if (activeList) {
       loadListItems(activeList.id);
+      // Remember last used list
+      localStorage.setItem('lastActiveListId', activeList.id.toString());
     }
   }, [activeList]);
 
@@ -201,9 +203,24 @@ const Dashboard = () => {
       const response = await shoppingAPI.getLists();
       setLists(response.data);
       
-      const activeLists = response.data.filter(l => l.status === 'active');
-      if (activeLists.length > 0) {
-        setActiveList(activeLists[0]);
+      // Try to restore last used list from localStorage
+      const lastListId = localStorage.getItem('lastActiveListId');
+      let listToActivate = null;
+      
+      if (lastListId) {
+        listToActivate = response.data.find(l => l.id.toString() === lastListId && l.status === 'active');
+      }
+      
+      // Fallback to first active list if last list not found
+      if (!listToActivate) {
+        const activeLists = response.data.filter(l => l.status === 'active');
+        if (activeLists.length > 0) {
+          listToActivate = activeLists[0];
+        }
+      }
+      
+      if (listToActivate) {
+        setActiveList(listToActivate);
       } else if (response.data.length === 0) {
         await createNewList();
       }
