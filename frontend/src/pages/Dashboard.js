@@ -91,6 +91,7 @@ const Dashboard = () => {
   const [showAisleConfig, setShowAisleConfig] = useState(false);
   const [showStoreManager, setShowStoreManager] = useState(false);
   const [addItemsMinimized, setAddItemsMinimized] = useState(false);
+  const [customStores, setCustomStores] = useState([]);
   const [showCopyItemModal, setShowCopyItemModal] = useState(false);
   const [itemToCopy, setItemToCopy] = useState(null);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
@@ -106,12 +107,30 @@ const Dashboard = () => {
     }
   };
 
+  // Load custom stores from database
+  const loadCustomStores = async () => {
+    try {
+      const response = await fetch('/api/stores/user', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      if (response.ok) {
+        const stores = await response.json();
+        setCustomStores(stores);
+      }
+    } catch (error) {
+      console.error('Error loading custom stores:', error);
+    }
+  };
+
   useEffect(() => {
     loadLists();
     loadSuggestions();
     loadItemPreferences();
     loadInventory();
     loadCategories();
+    loadCustomStores();
 
     // Listen for sidebar tool clicks
     const handleSidebarTool = (event) => {
@@ -1587,14 +1606,30 @@ const Dashboard = () => {
                   className="input-field"
                 >
                   <option value="">No store selected</option>
-                  <option value="Walmart">Walmart</option>
-                  <option value="Target">Target</option>
-                  <option value="Kroger">Kroger</option>
-                  <option value="Aldi">Aldi</option>
-                  <option value="Costco">Costco</option>
-                  <option value="Whole Foods">Whole Foods</option>
-                  <option value="Safeway">Safeway</option>
-                  <option value="Publix">Publix</option>
+                  
+                  {/* Default store chains */}
+                  <optgroup label="Store Chains">
+                    <option value="Walmart">Walmart</option>
+                    <option value="Target">Target</option>
+                    <option value="Kroger">Kroger</option>
+                    <option value="Aldi">Aldi</option>
+                    <option value="Costco">Costco</option>
+                    <option value="Amazon">Amazon Fresh</option>
+                    <option value="Whole Foods">Whole Foods Market</option>
+                    <option value="Safeway">Safeway</option>
+                    <option value="Publix">Publix</option>
+                  </optgroup>
+                  
+                  {/* Custom stores */}
+                  {customStores.length > 0 && (
+                    <optgroup label="My Custom Stores">
+                      {customStores.map((store) => (
+                        <option key={store.id} value={store.name}>
+                          {store.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
                 <button
                   onClick={() => {
@@ -1633,10 +1668,14 @@ const Dashboard = () => {
       {/* Store Manager */}
       <StoreManager
         isOpen={showStoreManager}
-        onClose={() => setShowStoreManager(false)}
+        onClose={() => {
+          setShowStoreManager(false);
+          loadCustomStores(); // Reload stores when manager closes
+        }}
         onStoreCreated={(store) => {
           // Optionally set the new store as the active list's store
           console.log('Store created:', store);
+          loadCustomStores(); // Reload stores when new store is created
         }}
       />
 

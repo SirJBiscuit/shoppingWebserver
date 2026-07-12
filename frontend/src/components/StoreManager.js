@@ -384,6 +384,11 @@ const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
                         type="text"
                         value={newStoreName}
                         onChange={(e) => setNewStoreName(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            createStore(e);
+                          }
+                        }}
                         className="input-field"
                         placeholder="e.g., Kroger - Main Street"
                         autoFocus
@@ -408,12 +413,14 @@ const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
                     </div>
                     <div className="flex gap-2">
                       <button
+                        type="button"
                         onClick={createStore}
                         className="btn-primary flex-1"
                       >
                         Create Store
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
                           setShowCreateForm(false);
                           setNewStoreName('');
