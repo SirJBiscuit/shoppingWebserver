@@ -20,6 +20,7 @@ const expirationRoutes = require('./routes/expiration');
 const storesRoutes = require('./routes/stores');
 const dealsRoutes = require('./routes/deals');
 const gitRoutes = require('./routes/git');
+const aiAppsRoutes = require('./routes/aiApps');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -55,6 +56,7 @@ app.use('/api/expiration', expirationRoutes);
 app.use('/api/stores', storesRoutes);
 app.use('/api/deals', dealsRoutes);
 app.use('/api/admin/git', gitRoutes);
+app.use('/api/admin/ai-apps', aiAppsRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

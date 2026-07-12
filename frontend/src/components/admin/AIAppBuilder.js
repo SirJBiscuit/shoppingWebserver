@@ -2,8 +2,9 @@ import React, { useState, useRef } from 'react';
 import { 
   Sparkles, Send, Code, Download, Play, Smartphone, 
   Monitor, Tablet, Zap, CheckCircle, AlertCircle, Loader,
-  Copy, Save, RefreshCw, Brain, Wand2
+  Copy, Save, RefreshCw, Brain, Wand2, Store
 } from 'lucide-react';
+import AppTemplateMarketplace from './AppTemplateMarketplace';
 
 const AIAppBuilder = () => {
   const [prompt, setPrompt] = useState('');
@@ -13,6 +14,7 @@ const AIAppBuilder = () => {
   const [selectedPlatform, setSelectedPlatform] = useState('web');
   const [codeErrors, setCodeErrors] = useState([]);
   const [isFixing, setIsFixing] = useState(false);
+  const [showMarketplace, setShowMarketplace] = useState(false);
 
   // FREE AI SOLUTIONS - NO API KEYS NEEDED
   const generateAppWithFreeAI = async (userPrompt) => {
@@ -416,19 +418,53 @@ const styles = StyleSheet.create({
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6">
-        <div className="flex items-center space-x-3 mb-2">
-          <Sparkles className="w-8 h-8" />
-          <h2 className="text-2xl font-bold">AI App Builder</h2>
-          <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">100% FREE</span>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center space-x-3">
+            <Sparkles className="w-8 h-8" />
+            <h2 className="text-2xl font-bold">AI App Builder</h2>
+            <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">100% FREE</span>
+          </div>
+          <button
+            onClick={() => setShowMarketplace(!showMarketplace)}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition ${
+              showMarketplace 
+                ? 'bg-white text-purple-600' 
+                : 'bg-purple-700 hover:bg-purple-800'
+            }`}
+          >
+            <Store className="w-5 h-5" />
+            <span className="font-medium">Templates</span>
+          </button>
         </div>
         <p className="text-purple-100">
           Describe your app in plain English - AI builds it instantly. No API keys, no costs!
         </p>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel - Chat */}
-        <div className="flex-1 flex flex-col">
+      {showMarketplace ? (
+        <AppTemplateMarketplace 
+          onSelectTemplate={(template) => {
+            // Load template into AI builder
+            const appStructure = {
+              type: template.type,
+              name: template.name,
+              features: template.features || [],
+              code: template.code,
+              platform: template.platform,
+              timestamp: Date.now()
+            };
+            setGeneratedApp(appStructure);
+            setShowMarketplace(false);
+            setChatHistory([...chatHistory, {
+              role: 'assistant',
+              content: `Loaded template: ${template.name}! You can now customize it.`
+            }]);
+          }}
+        />
+      ) : (
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Panel - Chat */}
+          <div className="flex-1 flex flex-col">
           {/* Chat History */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {chatHistory.length === 0 && (
@@ -587,6 +623,7 @@ const styles = StyleSheet.create({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };
