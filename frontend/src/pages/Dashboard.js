@@ -952,23 +952,45 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* Active List Name */}
+                {/* Item Counter - Top Right */}
+                {activeList && (
+                  <div className="mb-4 flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="text-2xl font-bold text-primary-600 dark:text-primary-400 flex items-center gap-2">
+                        📋 {activeList.name}
+                        <button
+                          onClick={() => {
+                            setNewListName(activeList.name);
+                            setNewListStore(activeList.store_name || '');
+                            setEditingListName(true);
+                          }}
+                          className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                          title="Edit list name"
+                        >
+                          <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Item Counter */}
+                    <div className={`text-lg font-bold px-4 py-2 rounded-lg shadow-md border-2 transition-all ${
+                      checkedCount === items.length && items.length > 0
+                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-500'
+                        : checkedCount > 0
+                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-500'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-400'
+                    }`}>
+                      <span className="text-2xl font-extrabold">{checkedCount}</span>
+                      <span className="mx-1">/</span>
+                      <span className="text-xl">{items.length}</span>
+                      <span className="ml-2 text-sm font-normal">items</span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Store Info */}
                 {activeList && (
                   <div className="mb-4">
-                    <div className="text-2xl font-bold text-primary-600 dark:text-primary-400 flex items-center gap-2">
-                      📋 {activeList.name}
-                      <button
-                        onClick={() => {
-                          setNewListName(activeList.name);
-                          setNewListStore(activeList.store_name || '');
-                          setEditingListName(true);
-                        }}
-                        className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                        title="Edit list name"
-                      >
-                        <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                      </button>
-                    </div>
                     <div className="mt-2 flex items-center text-sm text-gray-600 dark:text-gray-400">
                       <Store className="w-4 h-4 mr-2" />
                       {activeList.store_name ? (
@@ -1086,18 +1108,6 @@ const Dashboard = () => {
                     {hideCategories ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
                     {hideCategories ? 'Show' : 'Hide'}
                   </button>
-                  <div className={`ml-auto text-lg font-bold px-4 py-2 rounded-lg shadow-md border-2 transition-all ${
-                    checkedCount === items.length && items.length > 0
-                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-500'
-                      : checkedCount > 0
-                      ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-500'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-400'
-                  }`}>
-                    <span className="text-2xl font-extrabold">{checkedCount}</span>
-                    <span className="mx-1">/</span>
-                    <span className="text-xl">{items.length}</span>
-                    <span className="ml-2 text-sm font-normal">items</span>
-                  </div>
                 </div>
               </div>
 
@@ -1355,6 +1365,7 @@ const Dashboard = () => {
                     nextItem={nextItem} 
                     sameAisleItems={sameAisleItems}
                     onCheck={() => toggleItemCheck(nextItem.id)}
+                    onCopyMove={() => handleCopyMove(nextItem)}
                     onSkip={skipNextItem}
                     onHide={() => setHideNextItem(true)}
                   />

@@ -1,8 +1,8 @@
 import React from 'react';
-import { MapPin, ArrowRight, Check, SkipForward, EyeOff } from 'lucide-react';
+import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide }) => {
+const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove }) => {
   if (!nextItem) return null;
 
   return (
@@ -24,7 +24,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               <button
                 onClick={onHide}
                 className="p-1 hover:bg-green-200 dark:hover:bg-green-800 rounded transition-colors"
-                title="Hide Looking for Next"
+                title="Hide 'Looking for Next' feature - You can re-enable it later"
               >
                 <EyeOff className="w-4 h-4 text-green-700 dark:text-green-300" />
               </button>
@@ -55,14 +55,21 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           <button
             onClick={onCheck}
             className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg"
-            title="Mark as found"
+            title="✓ Found it! Check off this item"
           >
             <Check className="w-5 h-5" />
           </button>
           <button
+            onClick={onCopyMove}
+            className="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg"
+            title="📋 Copy or Move to another list"
+          >
+            <Copy className="w-5 h-5" />
+          </button>
+          <button
             onClick={onSkip}
             className="bg-yellow-500 hover:bg-yellow-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg"
-            title="Skip for now (come back later)"
+            title="⏭️ Skip this item - Can't find it right now, I'll come back to it later"
           >
             <SkipForward className="w-5 h-5" />
           </button>
