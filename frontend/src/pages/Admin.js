@@ -98,6 +98,8 @@ const Admin = () => {
           const statusRes = await api.get('/system/update-status');
           const status = statusRes.data;
           
+          console.log('runUpdateScript status:', status);
+          
           // Update log with current status
           setUpdateLog([
             { step: `Progress: ${status.progress}%`, status: 'running' },
@@ -141,6 +143,19 @@ const Admin = () => {
           
         } catch (statusError) {
           console.error('Failed to get status:', statusError);
+          // Handle 502/503 errors during container restart (normal)
+          if (statusError.response?.status === 502 || statusError.response?.status === 503) {
+            setUpdateLog(prev => {
+              const newLog = [...prev];
+              if (newLog.length > 0) {
+                newLog[newLog.length - 1] = { 
+                  step: 'Containers restarting... (this is normal)', 
+                  status: 'running' 
+                };
+              }
+              return newLog;
+            });
+          }
         }
       }, 2000); // Poll every 2 seconds
       
@@ -186,6 +201,8 @@ const Admin = () => {
           const statusRes = await api.get('/system/update-status');
           const status = statusRes.data;
           
+          console.log('applyUpdates status:', status);
+          
           // Update log with current status
           setUpdateLog([
             { step: `Progress: ${status.progress}%`, status: 'running' },
@@ -229,6 +246,19 @@ const Admin = () => {
           
         } catch (statusError) {
           console.error('Failed to get status:', statusError);
+          // Handle 502/503 errors during container restart (normal)
+          if (statusError.response?.status === 502 || statusError.response?.status === 503) {
+            setUpdateLog(prev => {
+              const newLog = [...prev];
+              if (newLog.length > 0) {
+                newLog[newLog.length - 1] = { 
+                  step: 'Containers restarting... (this is normal)', 
+                  status: 'running' 
+                };
+              }
+              return newLog;
+            });
+          }
         }
       }, 2000); // Poll every 2 seconds
       
