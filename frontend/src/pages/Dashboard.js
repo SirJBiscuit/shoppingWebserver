@@ -96,6 +96,9 @@ const Dashboard = () => {
   const [itemToCopy, setItemToCopy] = useState(null);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [checkOffCounter, setCheckOffCounter] = useState(0);
+  const [itemSearchQuery, setItemSearchQuery] = useState('');
+  const [hideNextItem, setHideNextItem] = useState(false);
+  const [skippedItems, setSkippedItems] = useState([]);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -434,7 +437,28 @@ const Dashboard = () => {
   // Get next unchecked item for "Looking for Next" feature
   const getNextItem = () => {
     const sortedItems = getSortedItems();
-    return sortedItems.find(item => !item.is_checked);
+    return sortedItems.find(item => !item.is_checked && !skippedItems.includes(item.id));
+  };
+  
+  // Skip current item and move to next
+  const skipNextItem = () => {
+    const nextItem = getNextItem();
+    if (nextItem) {
+      setSkippedItems(prev => [...prev, nextItem.id]);
+    }
+  };
+  
+  // Filter items by search query
+  const getFilteredItems = () => {
+    const sorted = getSortedItems();
+    if (!itemSearchQuery.trim()) return sorted;
+    
+    const query = itemSearchQuery.toLowerCase();
+    return sorted.filter(item => 
+      item.item_name.toLowerCase().includes(query) ||
+      (item.category && item.category.toLowerCase().includes(query)) ||
+      (item.aisle_name && item.aisle_name.toLowerCase().includes(query))
+    );
   };
 
   // Get items in the same aisle as the next item
@@ -1062,8 +1086,17 @@ const Dashboard = () => {
                     {hideCategories ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
                     {hideCategories ? 'Show' : 'Hide'}
                   </button>
-                  <div className="ml-auto text-sm text-gray-600 dark:text-gray-400 font-medium px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                    {checkedCount} / {items.length} items
+                  <div className={`ml-auto text-lg font-bold px-4 py-2 rounded-lg shadow-md border-2 transition-all ${
+                    checkedCount === items.length && items.length > 0
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-500'
+                      : checkedCount > 0
+                      ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-500'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-400'
+                  }`}>
+                    <span className="text-2xl font-extrabold">{checkedCount}</span>
+                    <span className="mx-1">/</span>
+                    <span className="text-xl">{items.length}</span>
+                    <span className="ml-2 text-sm font-normal">items</span>
                   </div>
                 </div>
               </div>
@@ -1284,20 +1317,68 @@ const Dashboard = () => {
                 </div>
               )}
 
+              {/* Item Search Bar */}
+              {items.length > 0 && (
+                <div className="mb-6">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <input
+                      type="text"
+                      value={itemSearchQuery}
+                      onChange={(e) => setItemSearchQuery(e.target.value)}
+                      placeholder="Search items in your list..."
+                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary-500 dark:focus:border-primary-400 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all"
+                    />
+                    {itemSearchQuery && (
+                      <button
+                        onClick={() => setItemSearchQuery('')}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                  {itemSearchQuery && (
+                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                      Found {getFilteredItems().length} of {items.length} items
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Next Item Suggestion - Smart aisle-based */}
-              {items.length > 0 && (() => {
+              {!hideNextItem && items.length > 0 && (() => {
                 const nextItem = getNextItem();
                 const sameAisleItems = nextItem ? getSameAisleItems(nextItem) : [];
                 return nextItem ? (
                   <NextItemSuggestion 
                     nextItem={nextItem} 
                     sameAisleItems={sameAisleItems}
+                    onCheck={() => toggleItemCheck(nextItem.id)}
+                    onSkip={skipNextItem}
+                    onHide={() => setHideNextItem(true)}
                   />
                 ) : null;
               })()}
+              
+              {/* Show button to re-enable Looking for Next if hidden */}
+              {hideNextItem && items.length > 0 && getNextItem() && (
+                <div className="mb-6">
+                  <button
+                    onClick={() => {
+                      setHideNextItem(false);
+                      setSkippedItems([]);
+                    }}
+                    className="w-full py-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-2 border-green-500 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-all flex items-center justify-center gap-2 font-semibold"
+                  >
+                    <ArrowRight className="w-5 h-5" />
+                    Show Looking for Next Feature
+                  </button>
+                </div>
+              )}
 
               <ItemList
-                items={getSortedItems()}
+                items={getFilteredItems()}
                 onToggleCheck={toggleItemCheck}
                 onDelete={deleteItem}
                 onCopyMove={handleCopyMove}
