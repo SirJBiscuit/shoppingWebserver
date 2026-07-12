@@ -8,8 +8,8 @@ const Onboarding = ({ userId }) => {
 
   const steps = [
     {
-      title: 'Welcome to Smart Shopping List! 🎉',
-      description: 'Your intelligent shopping companion with AI-powered features',
+      title: 'Welcome to Listzy! 🎉',
+      description: 'Your intelligent shopping companion with AI-powered features, deals, and recipes',
       image: '🛒',
       tips: [
         'Create multiple shopping lists',

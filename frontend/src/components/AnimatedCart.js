@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingCart, DollarSign, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { playSound } from '../utils/soundEffects';
 
 const AnimatedCart = ({ items, sortedByZone = false }) => {
   const [flyingItems, setFlyingItems] = useState([]);
@@ -169,7 +170,10 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
                             }}
                           >
                             {/* Item card */}
-                            <div className="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-lg border-2 border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform cursor-pointer relative">
+                            <div 
+                              onClick={() => playSound('shake')}
+                              className="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-lg border-2 border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform cursor-pointer relative"
+                            >
                               <div className="text-4xl text-center mb-1">
                                 {item.item_icon || '📦'}
                               </div>

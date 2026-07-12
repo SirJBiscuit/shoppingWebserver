@@ -39,7 +39,7 @@ const Register = () => {
       <div className="card max-w-md w-full mx-4">
         <div className="flex items-center justify-center mb-8">
           <ShoppingCart className="w-12 h-12 text-primary-600 mr-3" />
-          <h1 className="text-3xl font-bold text-gray-900">CloudMC Shop</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Listzy</h1>
         </div>
         
         <h2 className="text-2xl font-semibold text-center mb-6">Create Account</h2>

@@ -668,6 +668,9 @@ const Dashboard = () => {
     if (!activeList) return;
 
     try {
+      // Play success sound
+      playSound('success');
+      
       // Show celebration animation
       setShowCelebration(true);
       
@@ -695,12 +698,13 @@ const Dashboard = () => {
         
         const xpResult = await xpResponse.json();
         
-        // Show level up modal if user leveled up
+        // Show level up modal if user leveled up (faster)
         if (xpResult.levelUp) {
           setTimeout(() => {
             setLevelUpData(xpResult);
             setShowLevelUp(true);
-          }, 1500);
+            playSound('coin');
+          }, 800); // Reduced from 1500ms to 800ms
         }
       } catch (xpError) {
         console.error('Error awarding XP:', xpError);

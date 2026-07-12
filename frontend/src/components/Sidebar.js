@@ -88,8 +88,8 @@ const Sidebar = ({ onAction }) => {
               <ShoppingCart className="w-8 h-8 text-primary-600 dark:text-primary-400" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">CloudMC Shop</h1>
-              <p className="text-xs text-gray-600 dark:text-gray-400">Smart Shopping</p>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Listzy</h1>
+              <p className="text-xs text-gray-600 dark:text-gray-400">Smart Shopping Lists</p>
             </div>
           </div>
         </div>

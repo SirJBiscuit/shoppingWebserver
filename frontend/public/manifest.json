@@ -1,7 +1,7 @@
 {
-  "short_name": "ShopList",
-  "name": "Smart Shopping List",
-  "description": "Your intelligent shopping companion with meal planning, budget tracking, and smart suggestions",
+  "short_name": "Listzy",
+  "name": "Listzy - Smart Shopping Lists",
+  "description": "Your intelligent shopping companion with AI-powered features, deals, recipes, and smart suggestions",
   "icons": [
     {
       "src": "favicon.ico",

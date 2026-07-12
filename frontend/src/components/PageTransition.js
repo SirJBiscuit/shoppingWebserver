@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { playSound } from '../utils/soundEffects';
 
 const pageVariants = {
   initial: (direction) => ({
@@ -26,6 +27,11 @@ const pageVariants = {
 };
 
 const PageTransition = ({ children, direction = 0 }) => {
+  useEffect(() => {
+    // Play woosh sound on page transition
+    playSound('woosh');
+  }, []);
+
   return (
     <motion.div
       custom={direction}
