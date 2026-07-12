@@ -6,14 +6,14 @@ const XPNotification = ({ xpAmount, message, onComplete }) => {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Fade out after 3 seconds
+    // Fade out after 1.5 seconds
     const timer = setTimeout(() => {
       setIsVisible(false);
       // Call onComplete after animation finishes
       setTimeout(() => {
         if (onComplete) onComplete();
-      }, 500);
-    }, 3000);
+      }, 300);
+    }, 1500);
 
     return () => clearTimeout(timer);
   }, [onComplete]);

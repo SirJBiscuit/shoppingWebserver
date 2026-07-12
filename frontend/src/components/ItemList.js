@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Check, Trash2, Edit2, Smile, Sparkles, MapPin } from 'lucide-react';
+import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy } from 'lucide-react';
 import EditItemModal from './EditItemModal';
 import { detectIcon, detectCategory } from '../utils/categoryDetector';
 import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts';
 
-const ItemList = ({ items, onToggleCheck, onDelete, onEdit, hideCategories = false, storeName = null }) => {
+const ItemList = ({ items, onToggleCheck, onDelete, onEdit, onCopyMove, hideCategories = false, storeName = null }) => {
   const [editingItem, setEditingItem] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   // Group items by name to combine duplicates
@@ -72,6 +72,7 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit, hideCategories = fal
               item={item} 
               onToggleCheck={onToggleCheck}
               onDelete={onDelete}
+              onCopyMove={onCopyMove}
               setEditingItem={setEditingItem}
               setShowEditModal={setShowEditModal}
             />
@@ -95,6 +96,7 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit, hideCategories = fal
                   item={item} 
                   onToggleCheck={onToggleCheck}
                   onDelete={onDelete}
+                  onCopyMove={onCopyMove}
                   setEditingItem={setEditingItem}
                   setShowEditModal={setShowEditModal}
                   storeName={storeName}
@@ -130,7 +132,7 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit, hideCategories = fal
 };
 
 // Separate ItemCard component for reusability
-const ItemCard = ({ item, onToggleCheck, onDelete, setEditingItem, setShowEditModal, storeName }) => {
+const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, setEditingItem, setShowEditModal, storeName }) => {
   const [editingAisle, setEditingAisle] = useState(false);
   const [aisleNumber, setAisleNumber] = useState('');
   const [aisleName, setAisleName] = useState('');
@@ -287,6 +289,15 @@ const ItemCard = ({ item, onToggleCheck, onDelete, setEditingItem, setShowEditMo
                   >
                     <Edit2 className="w-5 h-5" />
                   </button>
+                  {onCopyMove && (
+                    <button
+                      onClick={() => onCopyMove(item)}
+                      className="text-green-500 hover:text-green-700 dark:hover:text-green-400 transition-colors"
+                      title="Copy/Move to another list"
+                    >
+                      <Copy className="w-5 h-5" />
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       // Delete all instances of this item

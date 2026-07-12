@@ -5,7 +5,7 @@ import { useCartAnimation } from '../contexts/CartAnimationContext';
 import { shoppingAPI, itemsAPI, suggestionsAPI, inventoryAPI, categoriesAPI } from '../services/api';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
@@ -29,6 +29,7 @@ import NewListModal from '../components/NewListModal';
 import PriceLearningModal from '../components/PriceLearningModal';
 import AisleConfigModal from '../components/AisleConfigModal';
 import StoreManager from '../components/StoreManager';
+import CopyItemModal from '../components/CopyItemModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { useToast } from '../hooks/useToast';
@@ -81,6 +82,9 @@ const Dashboard = () => {
   const [newListStore, setNewListStore] = useState('');
   const [showAisleConfig, setShowAisleConfig] = useState(false);
   const [showStoreManager, setShowStoreManager] = useState(false);
+  const [addItemsMinimized, setAddItemsMinimized] = useState(false);
+  const [showCopyItemModal, setShowCopyItemModal] = useState(false);
+  const [itemToCopy, setItemToCopy] = useState(null);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -521,6 +525,85 @@ const Dashboard = () => {
     }
   };
 
+  const handleCopyMove = (item) => {
+    setItemToCopy(item);
+    setShowCopyItemModal(true);
+  };
+
+  const copyItemToList = async (item, targetListId) => {
+    try {
+      // Add item to target list
+      for (const id of item.ids) {
+        const itemData = items.find(i => i.id === id);
+        await shoppingAPI.addItem(targetListId, {
+          item_name: itemData.item_name,
+          quantity: itemData.quantity,
+          unit: itemData.unit,
+          price: itemData.price,
+          category: itemData.category,
+          item_icon: itemData.item_icon,
+          notes: itemData.notes
+        });
+      }
+      success(`Copied "${item.item_name}" to list`);
+    } catch (error) {
+      console.error('Error copying item:', error);
+      error('Failed to copy item');
+    }
+  };
+
+  const moveItemToList = async (item, targetListId) => {
+    try {
+      // Add to target list
+      await copyItemToList(item, targetListId);
+      // Delete from current list
+      for (const id of item.ids) {
+        await shoppingAPI.deleteItem(activeList.id, id);
+      }
+      await loadListItems(activeList.id);
+      success(`Moved "${item.item_name}" to list`);
+    } catch (error) {
+      console.error('Error moving item:', error);
+      error('Failed to move item');
+    }
+  };
+
+  const saveListAsTemplate = async () => {
+    if (!activeList || items.length === 0) {
+      error('Cannot save empty list as template');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/shopping/templates', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: activeList.name,
+          items: items.map(item => ({
+            item_name: item.item_name,
+            quantity: item.quantity,
+            unit: item.unit,
+            category: item.category,
+            item_icon: item.item_icon
+          }))
+        })
+      });
+
+      if (response.ok) {
+        success(`Saved "${activeList.name}" as template!`);
+      } else {
+        throw new Error('Failed to save template');
+      }
+    } catch (err) {
+      console.error('Error saving template:', err);
+      error('Failed to save template');
+    }
+  };
+
   const completeList = async () => {
     if (!activeList) return;
 
@@ -836,16 +919,30 @@ const Dashboard = () => {
 
               {/* Add Item Section - Highlighted */}
               <div className="mb-6 p-6 rounded-xl bg-gradient-to-br from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 border-2 border-primary-300 dark:border-primary-600 shadow-lg">
-                <div className="flex items-center mb-4">
-                  <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center mr-3">
-                    <Plus className="w-6 h-6 text-white" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center mr-3">
+                      <Plus className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">Add Items to Your List</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Start typing to add items with smart suggestions</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Add Items to Your List</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Start typing to add items with smart suggestions</p>
-                  </div>
+                  <button
+                    onClick={() => setAddItemsMinimized(!addItemsMinimized)}
+                    className="p-2 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-lg transition-colors"
+                    title={addItemsMinimized ? "Expand" : "Minimize"}
+                  >
+                    {addItemsMinimized ? (
+                      <ChevronDown className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    ) : (
+                      <ChevronUp className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    )}
+                  </button>
                 </div>
               
+              {!addItemsMinimized && (
               <form onSubmit={addItem}>
                 <div className="mb-4">
                   <AutocompleteInput
@@ -1034,6 +1131,7 @@ const Dashboard = () => {
                   </button>
                 </div>
               </form>
+              )}
               </div>
               {/* End Add Item Section */}
 
@@ -1048,6 +1146,7 @@ const Dashboard = () => {
                 items={getSortedItems()}
                 onToggleCheck={toggleItemCheck}
                 onDelete={deleteItem}
+                onCopyMove={handleCopyMove}
                 hideCategories={hideCategories}
                 storeName={activeList?.store_name}
                 onEdit={async (updatedItem) => {
@@ -1094,13 +1193,22 @@ const Dashboard = () => {
               />
 
               {items.length > 0 && (
-                <button
-                  onClick={completeList}
-                  className="w-full mt-6 btn-primary flex items-center justify-center"
-                >
-                  <Check className="w-5 h-5 mr-2" />
-                  Complete Shopping Trip
-                </button>
+                <div className="mt-6 space-y-2">
+                  <button
+                    onClick={completeList}
+                    className="w-full btn-primary flex items-center justify-center"
+                  >
+                    <Check className="w-5 h-5 mr-2" />
+                    Complete Shopping Trip
+                  </button>
+                  <button
+                    onClick={saveListAsTemplate}
+                    className="w-full btn-secondary flex items-center justify-center text-sm"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    Save as Template
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -1457,6 +1565,19 @@ const Dashboard = () => {
           // Optionally set the new store as the active list's store
           console.log('Store created:', store);
         }}
+      />
+
+      {/* Copy/Move Item Modal */}
+      <CopyItemModal
+        isOpen={showCopyItemModal}
+        onClose={() => {
+          setShowCopyItemModal(false);
+          setItemToCopy(null);
+        }}
+        item={itemToCopy}
+        lists={lists.filter(list => list.id !== activeList?.id)}
+        onCopy={copyItemToList}
+        onMove={moveItemToList}
       />
     </PageTransition>
   );
