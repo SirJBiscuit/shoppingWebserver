@@ -12,6 +12,7 @@ import PatternDataManager from '../components/admin/PatternDataManager';
 import MediaAssetManager from '../components/admin/MediaAssetManager';
 import MobileLayoutCustomizer from '../components/admin/MobileLayoutCustomizer';
 import InterfaceBuilder from '../components/admin/InterfaceBuilder';
+import GitIntegration from '../components/admin/GitIntegration';
 
 const AdminCustomization = () => {
   const [activeTab, setActiveTab] = useState('layout');
@@ -212,6 +213,7 @@ const AdminCustomization = () => {
                 { id: 'media', label: 'Media Assets', icon: FileImage },
                 { id: 'mobile', label: 'Mobile Layout', icon: Smartphone },
                 { id: 'interfaces', label: 'UI Builder', icon: MessageSquare },
+                { id: 'git', label: 'Git & Version Control', icon: GitBranch },
                 { id: 'theme', label: 'Theme', icon: Palette },
                 { id: 'code', label: 'Custom Code', icon: Code },
               ].map((tab) => {
@@ -502,6 +504,17 @@ const AdminCustomization = () => {
                 exit={{ opacity: 0, y: -20 }}
               >
                 <InterfaceBuilder />
+              </motion.div>
+            )}
+
+            {activeTab === 'git' && (
+              <motion.div
+                key="git"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                <GitIntegration />
               </motion.div>
             )}
           </AnimatePresence>
