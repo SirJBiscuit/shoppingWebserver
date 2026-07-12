@@ -2,11 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { 
   Settings, Layout, Palette, Code, Save, Download, Upload, 
   Eye, EyeOff, Grid, Move, Maximize2, Minimize2, Plus, Trash2,
-  Copy, RotateCcw, Zap, Sliders, Package, RefreshCw
+  Copy, RotateCcw, Zap, Sliders, Package, RefreshCw, Database,
+  FileImage, Smartphone, MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition from '../components/PageTransition';
 import { playSound } from '../utils/soundEffects';
+import PatternDataManager from '../components/admin/PatternDataManager';
+import MediaAssetManager from '../components/admin/MediaAssetManager';
+import MobileLayoutCustomizer from '../components/admin/MobileLayoutCustomizer';
+import InterfaceBuilder from '../components/admin/InterfaceBuilder';
 
 const AdminCustomization = () => {
   const [activeTab, setActiveTab] = useState('layout');
@@ -203,9 +208,12 @@ const AdminCustomization = () => {
                 { id: 'layout', label: 'Layout Editor', icon: Layout },
                 { id: 'widgets', label: 'Widgets', icon: Package },
                 { id: 'features', label: 'Features', icon: Zap },
+                { id: 'patterns', label: 'Pattern Data', icon: Database },
+                { id: 'media', label: 'Media Assets', icon: FileImage },
+                { id: 'mobile', label: 'Mobile Layout', icon: Smartphone },
+                { id: 'interfaces', label: 'UI Builder', icon: MessageSquare },
                 { id: 'theme', label: 'Theme', icon: Palette },
                 { id: 'code', label: 'Custom Code', icon: Code },
-                { id: 'presets', label: 'Presets', icon: Grid },
               ].map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -450,6 +458,50 @@ const AdminCustomization = () => {
                     ))}
                   </div>
                 </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'patterns' && (
+              <motion.div
+                key="patterns"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                <PatternDataManager />
+              </motion.div>
+            )}
+
+            {activeTab === 'media' && (
+              <motion.div
+                key="media"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                <MediaAssetManager />
+              </motion.div>
+            )}
+
+            {activeTab === 'mobile' && (
+              <motion.div
+                key="mobile"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                <MobileLayoutCustomizer />
+              </motion.div>
+            )}
+
+            {activeTab === 'interfaces' && (
+              <motion.div
+                key="interfaces"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                <InterfaceBuilder />
               </motion.div>
             )}
           </AnimatePresence>
