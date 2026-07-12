@@ -1,8 +1,8 @@
 import React from 'react';
-import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy } from 'lucide-react';
+import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, ArrowDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove }) => {
+const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem }) => {
   if (!nextItem) return null;
 
   return (
@@ -53,8 +53,11 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             </div>
           )}
           {/* Item Checkbox - synced with actual item */}
-          <button
+          <motion.button
             onClick={onCheck}
+            whileTap={{ scale: 0.9 }}
+            animate={nextItem.is_checked ? { scale: [1, 1.2, 1] } : {}}
+            transition={{ duration: 0.3 }}
             className={`w-12 h-12 rounded-lg border-2 flex items-center justify-center transition-all transform hover:scale-110 shadow-lg ${
               nextItem.is_checked
                 ? 'bg-green-500 border-green-600 text-white'
@@ -63,6 +66,13 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             title={nextItem.is_checked ? "✓ Item found!" : "☐ Mark as found"}
           >
             {nextItem.is_checked && <Check className="w-6 h-6" />}
+          </motion.button>
+          <button
+            onClick={onJumpToItem}
+            className="bg-purple-500 hover:bg-purple-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg"
+            title="🎯 Jump to this item in the list"
+          >
+            <ArrowDown className="w-5 h-5" />
           </button>
           <button
             onClick={onCopyMove}

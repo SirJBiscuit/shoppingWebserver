@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy } from 'lucide-react';
+import { motion } from 'framer-motion';
 import EditItemModal from './EditItemModal';
 import { detectIcon, detectCategory } from '../utils/categoryDetector';
 import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts';
@@ -172,6 +173,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
   return (
               <div
                 ref={itemRef}
+                id={`item-${item.id}`}
                 key={item.id}
                 className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
                   item.is_checked
@@ -182,8 +184,11 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                 }`}
               >
                 <div className="flex items-center flex-1">
-                  <button
+                  <motion.button
                     onClick={handleCheck}
+                    whileTap={{ scale: 0.85 }}
+                    animate={item.is_checked ? { scale: [1, 1.15, 1] } : {}}
+                    transition={{ duration: 0.2 }}
                     className={`w-6 h-6 rounded border-2 flex items-center justify-center mr-3 transition-colors ${
                       item.is_checked
                         ? 'bg-primary-600 border-primary-600'
@@ -191,7 +196,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                     }`}
                   >
                     {item.is_checked && <Check className="w-4 h-4 text-white" />}
-                  </button>
+                  </motion.button>
                   
                   {/* Icon */}
                   <div className="text-2xl mr-2 relative">

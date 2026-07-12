@@ -448,6 +448,19 @@ const Dashboard = () => {
     }
   };
   
+  // Scroll to item in the list
+  const scrollToItem = (itemId) => {
+    const element = document.getElementById(`item-${itemId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Flash highlight
+      element.classList.add('ring-4', 'ring-purple-500', 'ring-opacity-50');
+      setTimeout(() => {
+        element.classList.remove('ring-4', 'ring-purple-500', 'ring-opacity-50');
+      }, 2000);
+    }
+  };
+  
   // Filter items by search query
   const getFilteredItems = () => {
     const sorted = getSortedItems();
@@ -1367,6 +1380,7 @@ const Dashboard = () => {
                     onCopyMove={() => handleCopyMove(nextItem)}
                     onSkip={skipNextItem}
                     onHide={() => setHideNextItem(true)}
+                    onJumpToItem={() => scrollToItem(nextItem.id)}
                   />
                 ) : null;
               })()}
