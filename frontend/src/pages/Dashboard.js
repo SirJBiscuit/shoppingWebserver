@@ -1135,6 +1135,7 @@ const Dashboard = () => {
                 onToggleCheck={toggleItemCheck}
                 onDelete={deleteItem}
                 onCopyMove={handleCopyMove}
+                triggerAnimation={triggerFlyingAnimation}
                 hideCategories={hideCategories}
                 storeName={activeList?.store_name}
                 onEdit={async (updatedItem) => {

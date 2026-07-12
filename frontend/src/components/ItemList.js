@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy } from 'lucide-react';
 import EditItemModal from './EditItemModal';
 import { detectIcon, detectCategory } from '../utils/categoryDetector';
 import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts';
 
-const ItemList = ({ items, onToggleCheck, onDelete, onEdit, onCopyMove, hideCategories = false, storeName = null }) => {
+const ItemList = ({ items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, hideCategories = false, storeName = null }) => {
   const [editingItem, setEditingItem] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   // Group items by name to combine duplicates
@@ -73,6 +73,7 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit, onCopyMove, hideCate
               onToggleCheck={onToggleCheck}
               onDelete={onDelete}
               onCopyMove={onCopyMove}
+              triggerAnimation={triggerAnimation}
               setEditingItem={setEditingItem}
               setShowEditModal={setShowEditModal}
             />
@@ -97,6 +98,7 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit, onCopyMove, hideCate
                   onToggleCheck={onToggleCheck}
                   onDelete={onDelete}
                   onCopyMove={onCopyMove}
+                  triggerAnimation={triggerAnimation}
                   setEditingItem={setEditingItem}
                   setShowEditModal={setShowEditModal}
                   storeName={storeName}
@@ -132,10 +134,11 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit, onCopyMove, hideCate
 };
 
 // Separate ItemCard component for reusability
-const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, setEditingItem, setShowEditModal, storeName }) => {
+const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, setEditingItem, setShowEditModal, storeName }) => {
   const [editingAisle, setEditingAisle] = useState(false);
   const [aisleNumber, setAisleNumber] = useState('');
   const [aisleName, setAisleName] = useState('');
+  const itemRef = useRef(null);
   
   // Get aisle information if store is specified
   const category = item.category_name || item.category || 'Other';
@@ -156,8 +159,17 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, setEditingItem, s
     }
   };
   
+  const handleCheck = () => {
+    // Trigger animation from this item's position when checking
+    if (!item.is_checked && triggerAnimation && itemRef.current) {
+      triggerAnimation(item, itemRef.current);
+    }
+    onToggleCheck(item);
+  };
+
   return (
               <div
+                ref={itemRef}
                 key={item.id}
                 className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
                   item.is_checked
@@ -167,7 +179,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, setEditingItem, s
               >
                 <div className="flex items-center flex-1">
                   <button
-                    onClick={() => onToggleCheck(item)}
+                    onClick={handleCheck}
                     className={`w-6 h-6 rounded border-2 flex items-center justify-center mr-3 transition-colors ${
                       item.is_checked
                         ? 'bg-primary-600 border-primary-600'

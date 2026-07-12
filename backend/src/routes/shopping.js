@@ -557,4 +557,130 @@ router.post('/lists/:id/complete', async (req, res) => {
   }
 });
 
+// Template Management Routes
+
+// Get user's templates
+router.get('/templates', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT t.*, COUNT(ti.id) as item_count
+       FROM shopping_templates t
+       LEFT JOIN template_items ti ON t.id = ti.template_id
+       WHERE t.user_id = $1
+       GROUP BY t.id
+       ORDER BY t.created_at DESC`,
+      [req.user.userId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching templates:', error);
+    res.status(500).json({ error: 'Failed to fetch templates' });
+  }
+});
+
+// Create template
+router.post('/templates', async (req, res) => {
+  const { name, items } = req.body;
+
+  if (!name || !items || items.length === 0) {
+    return res.status(400).json({ error: 'Template name and items required' });
+  }
+
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Create template
+    const templateResult = await client.query(
+      'INSERT INTO shopping_templates (user_id, name) VALUES ($1, $2) RETURNING *',
+      [req.user.userId, name]
+    );
+    const template = templateResult.rows[0];
+
+    // Add items to template
+    for (const item of items) {
+      await client.query(
+        `INSERT INTO template_items (template_id, item_name, quantity, unit, category, item_icon)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [template.id, item.item_name, item.quantity || 1, item.unit || '', item.category || '', item.item_icon || '']
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json(template);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating template:', error);
+    res.status(500).json({ error: 'Failed to create template' });
+  } finally {
+    client.release();
+  }
+});
+
+// Rename template
+router.put('/templates/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ error: 'Template name required' });
+  }
+
+  try {
+    const result = await db.query(
+      'UPDATE shopping_templates SET name = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
+      [name, id, req.user.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error renaming template:', error);
+    res.status(500).json({ error: 'Failed to rename template' });
+  }
+});
+
+// Delete template
+router.delete('/templates/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await db.query(
+      'DELETE FROM shopping_templates WHERE id = $1 AND user_id = $2 RETURNING id',
+      [id, req.user.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting template:', error);
+    res.status(500).json({ error: 'Failed to delete template' });
+  }
+});
+
+// Get template items
+router.get('/templates/:id/items', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await db.query(
+      `SELECT ti.* FROM template_items ti
+       JOIN shopping_templates t ON ti.template_id = t.id
+       WHERE t.id = $1 AND t.user_id = $2
+       ORDER BY ti.created_at`,
+      [id, req.user.userId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching template items:', error);
+    res.status(500).json({ error: 'Failed to fetch template items' });
+  }
+});
+
 module.exports = router;
