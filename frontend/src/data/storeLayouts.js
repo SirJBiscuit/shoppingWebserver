@@ -160,6 +160,59 @@ export const storeLayouts = {
     ],
     priceMultiplier: 0.80, // Budget-friendly pricing (20% cheaper on average)
   },
+
+  amazon: {
+    name: 'Amazon Fresh',
+    aisles: [
+      { number: 1, name: 'Fresh Produce', categories: ['Produce', 'Fruits', 'Vegetables'] },
+      { number: 2, name: 'Bakery & Bread', categories: ['Bakery', 'Bread'] },
+      { number: 3, name: 'Meat & Seafood', categories: ['Meat', 'Seafood'] },
+      { number: 4, name: 'Dairy & Eggs', categories: ['Dairy', 'Eggs'] },
+      { number: 5, name: 'Prepared Foods', categories: ['Deli', 'Prepared Foods'] },
+      { number: 6, name: 'Frozen Foods', categories: ['Frozen'] },
+      { number: 7, name: 'Beverages', categories: ['Beverages', 'Soda', 'Juice'] },
+      { number: 8, name: 'Wine & Beer', categories: ['Alcohol'] },
+      { number: 9, name: 'Snacks & Candy', categories: ['Snacks', 'Candy'] },
+      { number: 10, name: 'Breakfast & Cereal', categories: ['Breakfast', 'Cereal'] },
+      { number: 11, name: 'Pantry Staples', categories: ['Pantry', 'Canned', 'Pasta', 'Rice'] },
+      { number: 12, name: 'International Foods', categories: ['International'] },
+      { number: 13, name: 'Condiments & Sauces', categories: ['Condiments', 'Sauces'] },
+      { number: 14, name: 'Baking & Spices', categories: ['Baking', 'Spices'] },
+      { number: 15, name: 'Coffee & Tea', categories: ['Coffee', 'Tea'] },
+      { number: 16, name: 'Health & Wellness', categories: ['Health', 'Supplements'] },
+      { number: 17, name: 'Personal Care & Beauty', categories: ['Personal Care', 'Beauty'] },
+      { number: 18, name: 'Household & Cleaning', categories: ['Cleaning', 'Paper', 'Laundry'] },
+      { number: 19, name: 'Pet Supplies', categories: ['Pet'] },
+      { number: 20, name: 'Baby & Kids', categories: ['Baby'] },
+    ],
+    priceMultiplier: 1.0, // Competitive pricing
+  },
+
+  'whole-foods-market': {
+    name: 'Whole Foods Market',
+    aisles: [
+      { number: 1, name: 'Organic Produce', categories: ['Produce', 'Fruits', 'Vegetables'] },
+      { number: 2, name: 'Bakery', categories: ['Bakery', 'Bread'] },
+      { number: 3, name: 'Butcher & Seafood', categories: ['Meat', 'Seafood'] },
+      { number: 4, name: 'Dairy & Cheese', categories: ['Dairy', 'Eggs'] },
+      { number: 5, name: 'Prepared Foods', categories: ['Deli', 'Prepared Foods'] },
+      { number: 6, name: 'Frozen', categories: ['Frozen'] },
+      { number: 7, name: 'Beverages & Kombucha', categories: ['Beverages', 'Soda', 'Juice'] },
+      { number: 8, name: 'Wine & Beer', categories: ['Alcohol'] },
+      { number: 9, name: 'Snacks & Sweets', categories: ['Snacks', 'Candy'] },
+      { number: 10, name: 'Breakfast & Granola', categories: ['Breakfast', 'Cereal'] },
+      { number: 11, name: 'Pantry & Grains', categories: ['Pantry', 'Canned', 'Pasta', 'Rice'] },
+      { number: 12, name: 'International & Specialty', categories: ['International'] },
+      { number: 13, name: 'Condiments & Oils', categories: ['Condiments', 'Sauces'] },
+      { number: 14, name: 'Baking & Natural Sweeteners', categories: ['Baking', 'Spices'] },
+      { number: 15, name: 'Coffee & Tea', categories: ['Coffee', 'Tea'] },
+      { number: 16, name: 'Vitamins & Supplements', categories: ['Health', 'Supplements'] },
+      { number: 17, name: 'Body Care', categories: ['Personal Care', 'Beauty'] },
+      { number: 18, name: 'Eco-Friendly Household', categories: ['Cleaning', 'Paper', 'Laundry'] },
+      { number: 19, name: 'Pet Care', categories: ['Pet'] },
+    ],
+    priceMultiplier: 1.30, // Premium organic pricing
+  },
 };
 
 // Get aisle for a category at a specific store

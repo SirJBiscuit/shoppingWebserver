@@ -208,7 +208,7 @@ const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
 
   if (!isOpen) return null;
 
-  const availableTemplates = ['Walmart', 'Target', 'Kroger', 'Aldi', 'Costco'];
+  const availableTemplates = ['Walmart', 'Target', 'Kroger', 'Aldi', 'Costco', 'Amazon', 'Whole Foods Market'];
   const commonCategories = [
     'Produce', 'Bakery', 'Deli', 'Meat', 'Seafood', 'Dairy', 'Eggs',
     'Frozen', 'Breakfast', 'Cereal', 'Canned', 'Soup', 'Pantry',

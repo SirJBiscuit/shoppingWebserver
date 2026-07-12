@@ -217,6 +217,53 @@ export const getStoreLayoutTemplate = (chain) => {
         { number: 10, name: 'Household Bulk', categories: ['Cleaning', 'Paper'] },
         { number: 11, name: 'Personal Care', categories: ['Personal Care'] }
       ]
+    },
+    'amazon': {
+      name: 'Amazon Fresh / Whole Foods',
+      aisles: [
+        { number: 1, name: 'Fresh Produce', categories: ['Produce', 'Fruits', 'Vegetables'] },
+        { number: 2, name: 'Bakery & Bread', categories: ['Bakery', 'Bread'] },
+        { number: 3, name: 'Meat & Seafood', categories: ['Meat', 'Seafood'] },
+        { number: 4, name: 'Dairy & Eggs', categories: ['Dairy', 'Eggs'] },
+        { number: 5, name: 'Prepared Foods & Deli', categories: ['Deli', 'Prepared Foods'] },
+        { number: 6, name: 'Frozen Foods', categories: ['Frozen'] },
+        { number: 7, name: 'Beverages', categories: ['Beverages'] },
+        { number: 8, name: 'Wine & Beer', categories: ['Alcohol'] },
+        { number: 9, name: 'Snacks & Candy', categories: ['Snacks', 'Candy'] },
+        { number: 10, name: 'Breakfast & Cereal', categories: ['Breakfast', 'Cereal'] },
+        { number: 11, name: 'Pantry Staples', categories: ['Pantry', 'Canned', 'Pasta'] },
+        { number: 12, name: 'International Foods', categories: ['International'] },
+        { number: 13, name: 'Condiments & Sauces', categories: ['Condiments', 'Sauces'] },
+        { number: 14, name: 'Baking & Spices', categories: ['Baking', 'Spices'] },
+        { number: 15, name: 'Health & Wellness', categories: ['Health', 'Supplements'] },
+        { number: 16, name: 'Personal Care & Beauty', categories: ['Personal Care', 'Beauty'] },
+        { number: 17, name: 'Household & Cleaning', categories: ['Cleaning', 'Paper', 'Laundry'] },
+        { number: 18, name: 'Pet Supplies', categories: ['Pet'] },
+        { number: 19, name: 'Baby & Kids', categories: ['Baby'] }
+      ]
+    },
+    'wholefoodsmarket': {
+      name: 'Whole Foods Market',
+      aisles: [
+        { number: 1, name: 'Organic Produce', categories: ['Produce', 'Fruits', 'Vegetables'] },
+        { number: 2, name: 'Bakery', categories: ['Bakery', 'Bread'] },
+        { number: 3, name: 'Butcher & Seafood', categories: ['Meat', 'Seafood'] },
+        { number: 4, name: 'Dairy & Cheese', categories: ['Dairy', 'Eggs'] },
+        { number: 5, name: 'Prepared Foods', categories: ['Deli', 'Prepared Foods'] },
+        { number: 6, name: 'Frozen', categories: ['Frozen'] },
+        { number: 7, name: 'Beverages & Kombucha', categories: ['Beverages'] },
+        { number: 8, name: 'Wine & Beer', categories: ['Alcohol'] },
+        { number: 9, name: 'Snacks & Sweets', categories: ['Snacks', 'Candy'] },
+        { number: 10, name: 'Breakfast & Granola', categories: ['Breakfast', 'Cereal'] },
+        { number: 11, name: 'Pantry & Grains', categories: ['Pantry', 'Canned'] },
+        { number: 12, name: 'International & Specialty', categories: ['International'] },
+        { number: 13, name: 'Condiments & Oils', categories: ['Condiments'] },
+        { number: 14, name: 'Baking & Natural Sweeteners', categories: ['Baking'] },
+        { number: 15, name: 'Vitamins & Supplements', categories: ['Health'] },
+        { number: 16, name: 'Body Care', categories: ['Personal Care', 'Beauty'] },
+        { number: 17, name: 'Eco-Friendly Household', categories: ['Cleaning', 'Paper'] },
+        { number: 18, name: 'Pet Care', categories: ['Pet'] }
+      ]
     }
   };
 
