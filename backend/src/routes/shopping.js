@@ -7,6 +7,33 @@ const { recordItemCheckOff, getPersonalizedSortOrder } = require('../services/so
 
 const router = express.Router();
 
+// Auto-determine storage location based on item name and category
+function determineStorageLocation(itemName, category) {
+  const name = (itemName || '').toLowerCase();
+  const cat = (category || '').toLowerCase();
+
+  // Freezer items
+  const freezerKeywords = ['frozen', 'ice cream', 'popsicle', 'ice', 'freezer'];
+  const freezerCategories = ['frozen', 'ice cream'];
+
+  // Fridge items
+  const fridgeKeywords = ['milk', 'cheese', 'yogurt', 'butter', 'cream', 'eggs', 'fresh', 'meat', 'chicken', 'beef', 'fish', 'juice', 'soda'];
+  const fridgeCategories = ['dairy', 'produce', 'fruits', 'vegetables', 'meat', 'deli', 'seafood', 'beverages'];
+
+  // Check freezer
+  if (freezerCategories.includes(cat) || freezerKeywords.some(k => name.includes(k))) {
+    return 'freezer';
+  }
+
+  // Check fridge
+  if (fridgeCategories.includes(cat) || fridgeKeywords.some(k => name.includes(k))) {
+    return 'fridge';
+  }
+
+  // Default to pantry
+  return 'pantry';
+}
+
 router.use(authenticateToken);
 
 router.get('/lists', async (req, res) => {
@@ -528,12 +555,15 @@ router.post('/lists/:id/complete', async (req, res) => {
             );
           }
 
+          // Determine storage location based on category
+          const storageLocation = determineStorageLocation(item.item_name, item.category);
+          
           await client.query(
-            `INSERT INTO inventory (user_id, item_id, current_quantity, unit, percentage_left, last_purchased)
-             VALUES ($1, $2, $3, $4, 100, CURRENT_TIMESTAMP)
+            `INSERT INTO inventory (user_id, item_id, current_quantity, unit, percentage_left, last_purchased, storage_location)
+             VALUES ($1, $2, $3, $4, 100, CURRENT_TIMESTAMP, $5)
              ON CONFLICT (user_id, profile_id, item_id) 
-             DO UPDATE SET current_quantity = $3, percentage_left = 100, last_purchased = CURRENT_TIMESTAMP, last_updated = CURRENT_TIMESTAMP`,
-            [req.user.userId, item.item_id, item.quantity, item.unit]
+             DO UPDATE SET current_quantity = $3, percentage_left = 100, last_purchased = CURRENT_TIMESTAMP, last_updated = CURRENT_TIMESTAMP, storage_location = $5`,
+            [req.user.userId, item.item_id, item.quantity, item.unit, storageLocation]
           );
         }
       }
