@@ -16,7 +16,9 @@ const AutocompleteInput = ({
   const [ghostText, setGhostText] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const inputRef = useRef(null);
+  const prevValueRef = useRef('');
 
   useEffect(() => {
     if (disableAutocomplete) {
@@ -26,11 +28,17 @@ const AutocompleteInput = ({
       return;
     }
     
+    // Check if user is deleting (value got shorter)
+    const isCurrentlyDeleting = value.length < prevValueRef.current.length;
+    setIsDeleting(isCurrentlyDeleting);
+    prevValueRef.current = value;
+    
     if (value && value.length >= 2) {
       const newSuggestions = getAutocompleteSuggestions(value, previousItems);
       setSuggestions(newSuggestions);
       setGhostText(getGhostText(value, previousItems));
-      setShowSuggestions(newSuggestions.length > 0);
+      // Only show suggestions if NOT deleting
+      setShowSuggestions(!isCurrentlyDeleting && newSuggestions.length > 0);
     } else {
       setSuggestions([]);
       setGhostText('');
@@ -115,7 +123,7 @@ const AutocompleteInput = ({
           value={value}
           onChange={onChange}
           onKeyDown={handleKeyDown}
-          onFocus={() => value.length >= 2 && suggestions.length > 0 && setShowSuggestions(true)}
+          onFocus={() => value.length >= 2 && suggestions.length > 0 && !isDeleting && setShowSuggestions(true)}
           onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
           placeholder={placeholder}
           className={`${className} relative z-20 bg-transparent`}
@@ -123,10 +131,10 @@ const AutocompleteInput = ({
         />
       </div>
 
-      {/* Dropdown suggestions */}
+      {/* Dropdown suggestions - positioned above to avoid covering inputs below */}
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute z-30 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-          {suggestions.map((suggestion, index) => (
+        <div className="absolute z-30 w-full bottom-full mb-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-32 overflow-y-auto">
+          {suggestions.slice(0, 5).map((suggestion, index) => (
             <div
               key={index}
               onClick={() => selectSuggestion(suggestion)}
