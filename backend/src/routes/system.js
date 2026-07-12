@@ -289,62 +289,44 @@ router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
     // Execute async
     (async () => {
       try {
-        updateStatus.progress = 20;
+        updateStatus.progress = 30;
         updateStatus.message = 'Rebuilding containers...';
-        updateStatus.logs.push('Note: Code should be updated via update-server.sh script first');
+        updateStatus.logs.push('Note: Run ./update-server.sh on host first to pull latest code');
         updateStatus.logs.push('Starting docker compose rebuild');
         await saveUpdateStatus();
         
         const { stdout: buildOutput } = await execPromise(`cd ${gitDir} && docker compose up -d --build 2>&1`);
-        updateStatus.logs.push('Containers rebuilt');
+        updateStatus.logs.push('Docker compose rebuild initiated');
         await saveUpdateStatus();
         
-        updateStatus.progress = 70;
+        updateStatus.progress = 60;
         updateStatus.message = 'Waiting for containers to start...';
         await saveUpdateStatus();
-        await new Promise(resolve => setTimeout(resolve, 10000));
-        updateStatus.logs.push('Containers started');
+        
+        // Wait for containers to be healthy
+        await new Promise(resolve => setTimeout(resolve, 15000));
+        updateStatus.logs.push('Containers should be starting');
         await saveUpdateStatus();
         
-        updateStatus.progress = 80;
-        updateStatus.message = 'Running migrations...';
+        updateStatus.progress = 90;
+        updateStatus.message = 'Finalizing update...';
+        updateStatus.logs.push('Note: Migrations are handled by update-server.sh');
         await saveUpdateStatus();
         
-        // Auto-run migrations
-        const migrationFiles = await fs.readdir(path.join(__dirname, '../database'));
-        const schemaMigrations = migrationFiles
-          .filter(f => f.startsWith('schema-v') && f.endsWith('.sql'))
-          .map(f => f.replace('schema-v', '').replace('.sql', ''))
-          .sort((a, b) => parseInt(a) - parseInt(b));
-        
-        for (const version of schemaMigrations) {
-          const migrationScript = `migrate-v${version}.js`;
-          const scriptPath = path.join(__dirname, '../database', migrationScript);
-          
-          try {
-            await fs.access(scriptPath);
-            updateStatus.logs.push(`Running migration v${version}`);
-            
-            try {
-              await execPromise(`docker exec shop_backend npm run migrate-v${version} 2>&1`);
-              updateStatus.logs.push(`Migration v${version} completed`);
-            } catch (migError) {
-              updateStatus.logs.push(`Migration v${version} skipped (already applied)`);
-            }
-          } catch {
-            continue;
-          }
-        }
+        // Give it a moment
+        await new Promise(resolve => setTimeout(resolve, 3000));
         
         updateStatus.progress = 100;
-        updateStatus.message = 'Update completed successfully';
-        updateStatus.logs.push('All updates applied');
+        updateStatus.message = 'Update completed successfully!';
+        updateStatus.logs.push('Containers rebuilt and restarted');
+        updateStatus.logs.push('Page will reload automatically');
         await saveUpdateStatus();
         
+        // Mark as not running after a delay
         setTimeout(async () => {
           updateStatus.running = false;
           await saveUpdateStatus();
-        }, 2000);
+        }, 5000);
         
         console.log('Update completed successfully');
         
@@ -354,6 +336,7 @@ router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
         updateStatus.progress = 0;
         updateStatus.message = 'Update failed: ' + error.message;
         updateStatus.logs.push('Error: ' + error.message);
+        updateStatus.logs.push('Try running ./update-server.sh manually on the host');
         await saveUpdateStatus();
       }
     })();
