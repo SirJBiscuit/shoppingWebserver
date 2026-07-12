@@ -633,7 +633,7 @@ const Dashboard = () => {
           i.id === item.id ? { ...i, is_checked: !newCheckedState } : i
         )
       );
-      playSound('error');
+      // Error - no sound
     }
   };
 
@@ -779,8 +779,7 @@ const Dashboard = () => {
     if (!activeList) return;
 
     try {
-      // Play success sound
-      playSound('success');
+      // Success - no sound needed
       
       // Show celebration animation
       setShowCelebration(true);
@@ -814,7 +813,7 @@ const Dashboard = () => {
           setTimeout(() => {
             setLevelUpData(xpResult);
             setShowLevelUp(true);
-            playSound('coin');
+            // Level up - no sound
           }, 800); // Reduced from 1500ms to 800ms
         }
       } catch (xpError) {
