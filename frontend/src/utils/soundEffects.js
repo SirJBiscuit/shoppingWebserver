@@ -2,7 +2,7 @@
 
 class SoundManager {
   constructor() {
-    this.enabled = localStorage.getItem('soundEnabled') !== 'false';
+    this.enabled = localStorage.getItem('soundEnabled') === 'true'; // Disabled by default
     this.volume = parseFloat(localStorage.getItem('soundVolume') || '0.3');
     this.sounds = {};
     this.initSounds();

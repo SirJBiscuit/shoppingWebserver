@@ -1364,7 +1364,7 @@ const Dashboard = () => {
                   <NextItemSuggestion 
                     nextItem={nextItem} 
                     sameAisleItems={sameAisleItems}
-                    onCheck={() => toggleItemCheck(nextItem.id)}
+                    onCheck={() => toggleItemCheck(nextItem)}
                     onCopyMove={() => handleCopyMove(nextItem)}
                     onSkip={skipNextItem}
                     onHide={() => setHideNextItem(true)}
