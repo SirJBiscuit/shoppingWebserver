@@ -6,14 +6,14 @@ const XPNotification = ({ xpAmount, message, onComplete }) => {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Fade out after 1.5 seconds
+    // Fade out after 0.8 seconds (faster)
     const timer = setTimeout(() => {
       setIsVisible(false);
       // Call onComplete after animation finishes
       setTimeout(() => {
         if (onComplete) onComplete();
-      }, 300);
-    }, 1500);
+      }, 200);
+    }, 800);
 
     return () => clearTimeout(timer);
   }, [onComplete]);
@@ -26,7 +26,7 @@ const XPNotification = ({ xpAmount, message, onComplete }) => {
         initial={{ opacity: 0, y: -50, scale: 0.8 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -20, scale: 0.8 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
         className="fixed top-20 right-4 z-50 pointer-events-none"
       >
         <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-full shadow-2xl flex items-center space-x-3 border-2 border-yellow-300">

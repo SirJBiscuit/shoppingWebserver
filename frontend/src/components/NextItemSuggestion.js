@@ -52,12 +52,17 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               ×{nextItem.quantity}
             </div>
           )}
+          {/* Item Checkbox - synced with actual item */}
           <button
             onClick={onCheck}
-            className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg"
-            title="✓ Found it! Check off this item"
+            className={`w-12 h-12 rounded-lg border-2 flex items-center justify-center transition-all transform hover:scale-110 shadow-lg ${
+              nextItem.is_checked
+                ? 'bg-green-500 border-green-600 text-white'
+                : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:border-green-500'
+            }`}
+            title={nextItem.is_checked ? "✓ Item found!" : "☐ Mark as found"}
           >
-            <Check className="w-5 h-5" />
+            {nextItem.is_checked && <Check className="w-6 h-6" />}
           </button>
           <button
             onClick={onCopyMove}
