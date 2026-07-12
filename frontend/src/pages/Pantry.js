@@ -25,6 +25,7 @@ const Pantry = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [activeTab, setActiveTab] = useState('all'); // all, pantry, fridge, freezer
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
 
   useEffect(() => {
     fetchPantry();
@@ -102,16 +103,13 @@ const Pantry = () => {
   };
 
   const handleClearAll = async () => {
-    if (!window.confirm('Are you sure you want to clear all items from your kitchen inventory? This cannot be undone.')) {
-      return;
-    }
-
     try {
       // Delete all items
       for (const item of pantryItems) {
         await pantryAPI.deleteItem(item.id);
       }
       success('All items cleared from inventory');
+      setShowClearAllConfirm(false);
       fetchPantry();
       fetchExpiring();
     } catch (error) {
@@ -208,7 +206,7 @@ const Pantry = () => {
                 </button>
                 {pantryItems.length > 0 && (
                   <button
-                    onClick={handleClearAll}
+                    onClick={() => setShowClearAllConfirm(true)}
                     className="btn-secondary flex items-center text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                   >
                     <Trash2 className="w-5 h-5 mr-2" />
@@ -371,6 +369,18 @@ const Pantry = () => {
           duration={toast.duration}
         />
       ))}
+
+      {/* Clear All Confirmation */}
+      <ConfirmDialog
+        isOpen={showClearAllConfirm}
+        title="Clear All Inventory?"
+        message="Are you sure you want to clear all items from your kitchen inventory? This will permanently delete all items from your Pantry, Fridge, and Freezer. This action cannot be undone."
+        confirmText="Clear All"
+        cancelText="Cancel"
+        type="danger"
+        onConfirm={handleClearAll}
+        onCancel={() => setShowClearAllConfirm(false)}
+      />
     </PageTransition>
   );
 };

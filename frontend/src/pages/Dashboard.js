@@ -99,6 +99,7 @@ const Dashboard = () => {
   const [itemSearchQuery, setItemSearchQuery] = useState('');
   const [hideNextItem, setHideNextItem] = useState(false);
   const [skippedItems, setSkippedItems] = useState([]);
+  const [showClearInventoryConfirm, setShowClearInventoryConfirm] = useState(false);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -1542,20 +1543,7 @@ const Dashboard = () => {
                     error('Failed to delete item');
                   }
                 }}
-                onClearAll={async () => {
-                  if (window.confirm('Are you sure you want to clear all items from your inventory?')) {
-                    try {
-                      for (const item of inventory) {
-                        await inventoryAPI.deleteItem(item.id);
-                      }
-                      await loadInventory();
-                      success('All items cleared from inventory');
-                    } catch (error) {
-                      console.error('Error clearing inventory:', error);
-                      error('Failed to clear inventory');
-                    }
-                  }
-                }}
+                onClearAll={() => setShowClearInventoryConfirm(true)}
               />
             </div>
           </div>
@@ -1906,6 +1894,30 @@ const Dashboard = () => {
         onClose={() => setShowSaveTemplateModal(false)}
         onSave={saveTemplateWithName}
         defaultName={activeList?.name}
+      />
+
+      {/* Clear Inventory Confirmation */}
+      <ConfirmDialog
+        isOpen={showClearInventoryConfirm}
+        title="Clear All Inventory?"
+        message="Are you sure you want to clear all items from your kitchen inventory? This will permanently delete all items from your Pantry, Fridge, and Freezer. This action cannot be undone."
+        confirmText="Clear All"
+        cancelText="Cancel"
+        type="danger"
+        onConfirm={async () => {
+          try {
+            for (const item of inventory) {
+              await inventoryAPI.deleteItem(item.id);
+            }
+            await loadInventory();
+            success('All items cleared from inventory');
+            setShowClearInventoryConfirm(false);
+          } catch (error) {
+            console.error('Error clearing inventory:', error);
+            showError('Failed to clear inventory');
+          }
+        }}
+        onCancel={() => setShowClearInventoryConfirm(false)}
       />
     </PageTransition>
   );
