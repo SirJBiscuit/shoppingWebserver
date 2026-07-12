@@ -737,14 +737,17 @@ const Dashboard = () => {
         })
       });
 
+      const data = await response.json();
+
       if (response.ok) {
         success(`Saved "${templateName}" as template!`);
+        setShowSaveTemplateModal(false);
       } else {
-        throw new Error('Failed to save template');
+        throw new Error(data.error || 'Failed to save template');
       }
     } catch (err) {
       console.error('Error saving template:', err);
-      error('Failed to save template');
+      error(err.message || 'Failed to save template. Please try again.');
     }
   };
 
