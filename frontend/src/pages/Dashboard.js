@@ -42,6 +42,7 @@ import { sortItemsByStoreAisle } from '../data/storeLayouts';
 import { smartSortItems, getShoppingEfficiency } from '../utils/storeSorting';
 import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils/userPreferences';
 import { getAutocompleteSuggestions } from '../utils/autocomplete';
+import { playSound } from '../utils/soundEffects';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -527,9 +528,20 @@ const Dashboard = () => {
   };
 
   const toggleItemCheck = async (item) => {
+    const newCheckedState = !item.is_checked;
+    
+    // Play sound immediately
+    playSound(newCheckedState ? 'check' : 'uncheck');
+    
+    // Optimistic update - update UI immediately
+    setItems(prevItems => 
+      prevItems.map(i => 
+        i.id === item.id ? { ...i, is_checked: newCheckedState } : i
+      )
+    );
+    
     try {
-      const newCheckedState = !item.is_checked;
-      
+      // Update backend
       await shoppingAPI.updateItem(activeList.id, item.id, {
         isChecked: newCheckedState,
       });
@@ -539,25 +551,25 @@ const Dashboard = () => {
         const nextOrder = checkOffCounter + 1;
         setCheckOffCounter(nextOrder);
         
-        // Send to backend for learning
-        try {
-          await fetch(`/api/shopping/lists/${activeList.id}/items/${item.id}/check`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ checkOffOrder: nextOrder })
-          });
-        } catch (err) {
-          console.error('Error recording check-off for learning:', err);
-          // Don't fail the check-off if learning fails
-        }
+        // Send to backend for learning (non-blocking)
+        fetch(`/api/shopping/lists/${activeList.id}/items/${item.id}/check`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ checkOffOrder: nextOrder })
+        }).catch(err => console.error('Error recording check-off:', err));
       }
-      
-      await loadListItems(activeList.id);
     } catch (error) {
       console.error('Error updating item:', error);
+      // Revert optimistic update on error
+      setItems(prevItems => 
+        prevItems.map(i => 
+          i.id === item.id ? { ...i, is_checked: !newCheckedState } : i
+        )
+      );
+      playSound('error');
     }
   };
 
@@ -1037,7 +1049,9 @@ const Dashboard = () => {
                         if (preference.preferred_icon) setNewItemIcon(preference.preferred_icon);
                         if (preference.average_price) setNewItemPrice(preference.average_price.toString());
                         if (preference.category) setNewItemCategory(preference.category);
-                        if (preference.preferred_quantity) setNewItemQuantity(preference.preferred_quantity.toString());
+                        // Set quantity as integer
+                        const qty = preference.preferred_quantity ? Math.floor(preference.preferred_quantity) : 1;
+                        setNewItemQuantity(qty.toString());
                         if (preference.preferred_unit) setNewItemSize(preference.preferred_unit);
                       } else {
                         // Fallback to local learning and detection
@@ -1051,6 +1065,12 @@ const Dashboard = () => {
                           setNewItemPrice(learnedPriceValue.toString());
                         }
                         setNewItemCategory(detectedCat || '');
+                      }
+                    }}
+                    onAutoFill={() => {
+                      // Set quantity to 1 when autofilling from dropdown
+                      if (!newItemQuantity) {
+                        setNewItemQuantity('1');
                       }
                     }}
                     previousItems={[

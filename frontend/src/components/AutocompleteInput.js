@@ -6,9 +6,11 @@ const AutocompleteInput = ({
   value, 
   onChange, 
   onSelect,
+  onAutoFill,
   previousItems = [],
   placeholder = "Type to search...",
-  className = ""
+  className = "",
+  disableAutocomplete = false
 }) => {
   const [suggestions, setSuggestions] = useState([]);
   const [ghostText, setGhostText] = useState('');
@@ -17,6 +19,13 @@ const AutocompleteInput = ({
   const inputRef = useRef(null);
 
   useEffect(() => {
+    if (disableAutocomplete) {
+      setSuggestions([]);
+      setGhostText('');
+      setShowSuggestions(false);
+      return;
+    }
+    
     if (value && value.length >= 2) {
       const newSuggestions = getAutocompleteSuggestions(value, previousItems);
       setSuggestions(newSuggestions);
@@ -28,7 +37,7 @@ const AutocompleteInput = ({
       setShowSuggestions(false);
     }
     setSelectedIndex(-1);
-  }, [value, previousItems]);
+  }, [value, previousItems, disableAutocomplete]);
 
   const handleKeyDown = (e) => {
     if (!showSuggestions || suggestions.length === 0) {
@@ -82,6 +91,7 @@ const AutocompleteInput = ({
   const selectSuggestion = (suggestion) => {
     onChange({ target: { value: suggestion } });
     if (onSelect) onSelect(suggestion);
+    if (onAutoFill) onAutoFill(); // Trigger auto-fill for quantity
     setShowSuggestions(false);
     setSelectedIndex(-1);
   };
