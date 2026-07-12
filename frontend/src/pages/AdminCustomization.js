@@ -3,7 +3,7 @@ import {
   Settings, Layout, Palette, Code, Save, Download, Upload, 
   Eye, EyeOff, Grid, Move, Maximize2, Minimize2, Plus, Trash2,
   Copy, RotateCcw, Zap, Sliders, Package, RefreshCw, Database,
-  FileImage, Smartphone, MessageSquare, Sparkles
+  FileImage, Smartphone, MessageSquare, Sparkles, GitBranch
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition from '../components/PageTransition';

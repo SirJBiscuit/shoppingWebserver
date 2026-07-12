@@ -45,7 +45,7 @@ const AppTemplateMarketplace = ({ onSelectTemplate }) => {
     return matchesSearch && matchesCategory;
   });
 
-  const useTemplate = (template) => {
+  const loadTemplate = (template) => {
     if (onSelectTemplate) {
       onSelectTemplate(template);
     }
@@ -165,7 +165,7 @@ const AppTemplateMarketplace = ({ onSelectTemplate }) => {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    useTemplate(template);
+                    loadTemplate(template);
                   }}
                   className="btn-primary w-full mt-3 text-sm"
                 >
@@ -234,7 +234,7 @@ const AppTemplateMarketplace = ({ onSelectTemplate }) => {
             <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex space-x-3">
               <button
                 onClick={() => {
-                  useTemplate(selectedTemplate);
+                  loadTemplate(selectedTemplate);
                   setShowPreview(false);
                 }}
                 className="btn-primary flex-1"

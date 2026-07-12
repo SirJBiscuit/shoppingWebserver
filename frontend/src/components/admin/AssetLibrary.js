@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Package, Upload, Download, Trash2, Copy, Eye, 
-  Image, Zap, Box, Search, Filter, Star, Plus
+  Image, Zap, Box, Search, Filter, Star, Plus, Code
 } from 'lucide-react';
 
 const AssetLibrary = ({ onSelectAsset, type = 'all' }) => {
