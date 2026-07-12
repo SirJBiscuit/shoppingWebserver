@@ -13,6 +13,10 @@ import MediaAssetManager from '../components/admin/MediaAssetManager';
 import MobileLayoutCustomizer from '../components/admin/MobileLayoutCustomizer';
 import InterfaceBuilder from '../components/admin/InterfaceBuilder';
 import GitIntegration from '../components/admin/GitIntegration';
+import ComponentEditor from '../components/admin/ComponentEditor';
+import APIRouteBuilder from '../components/admin/APIRouteBuilder';
+import DatabaseSchemaEditor from '../components/admin/DatabaseSchemaEditor';
+import VisualPageCreator from '../components/admin/VisualPageCreator';
 
 const AdminCustomization = () => {
   const [activeTab, setActiveTab] = useState('layout');
@@ -206,6 +210,7 @@ const AdminCustomization = () => {
           <div className="max-w-7xl mx-auto px-6">
             <div className="flex space-x-1 overflow-x-auto">
               {[
+                { id: 'visual', label: '🎨 Visual Page Creator', icon: Layout },
                 { id: 'layout', label: 'Layout Editor', icon: Layout },
                 { id: 'widgets', label: 'Widgets', icon: Package },
                 { id: 'features', label: 'Features', icon: Zap },
@@ -213,9 +218,11 @@ const AdminCustomization = () => {
                 { id: 'media', label: 'Media Assets', icon: FileImage },
                 { id: 'mobile', label: 'Mobile Layout', icon: Smartphone },
                 { id: 'interfaces', label: 'UI Builder', icon: MessageSquare },
+                { id: 'components', label: 'Component Editor', icon: Code },
+                { id: 'api', label: 'API Builder', icon: Zap },
+                { id: 'database', label: 'Database Editor', icon: Database },
                 { id: 'git', label: 'Git & Version Control', icon: GitBranch },
                 { id: 'theme', label: 'Theme', icon: Palette },
-                { id: 'code', label: 'Custom Code', icon: Code },
               ].map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -243,6 +250,18 @@ const AdminCustomization = () => {
         {/* Content */}
         <div className="max-w-7xl mx-auto p-6">
           <AnimatePresence mode="wait">
+            {activeTab === 'visual' && (
+              <motion.div
+                key="visual"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="h-full -m-6"
+              >
+                <VisualPageCreator />
+              </motion.div>
+            )}
+
             {activeTab === 'layout' && (
               <motion.div
                 key="layout"
@@ -504,6 +523,39 @@ const AdminCustomization = () => {
                 exit={{ opacity: 0, y: -20 }}
               >
                 <InterfaceBuilder />
+              </motion.div>
+            )}
+
+            {activeTab === 'components' && (
+              <motion.div
+                key="components"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                <ComponentEditor />
+              </motion.div>
+            )}
+
+            {activeTab === 'api' && (
+              <motion.div
+                key="api"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                <APIRouteBuilder />
+              </motion.div>
+            )}
+
+            {activeTab === 'database' && (
+              <motion.div
+                key="database"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                <DatabaseSchemaEditor />
               </motion.div>
             )}
 
