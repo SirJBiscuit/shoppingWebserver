@@ -43,6 +43,7 @@ import { smartSortItems, getShoppingEfficiency } from '../utils/storeSorting';
 import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils/userPreferences';
 import { getAutocompleteSuggestions } from '../utils/autocomplete';
 import { playSound } from '../utils/soundEffects';
+import useScrollSound from '../hooks/useScrollSound';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -50,6 +51,9 @@ const Dashboard = () => {
   const { triggerFlyingAnimation } = useCartAnimation();
   const addButtonRef = useRef(null);
   const { toasts, hideToast, success, error, warning, info } = useToast();
+  
+  // Enable scroll sounds
+  useScrollSound(true);
   const [activeList, setActiveList] = useState(null);
   const [lists, setLists] = useState([]);
   const [items, setItems] = useState([]);
