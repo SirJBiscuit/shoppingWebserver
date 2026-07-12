@@ -634,10 +634,21 @@ const Dashboard = () => {
 
   const moveItemToList = async (item, targetListId) => {
     try {
+      console.log('Moving item:', item);
+      console.log('Target list ID:', targetListId);
+      console.log('Item IDs:', item.ids);
+      
       // Add to target list
       for (const id of item.ids) {
         const itemData = items.find(i => i.id === id);
-        await shoppingAPI.addItem(targetListId, {
+        console.log('Found item data:', itemData);
+        
+        if (!itemData) {
+          console.error('Item data not found for ID:', id);
+          continue;
+        }
+        
+        const addResponse = await shoppingAPI.addItem(targetListId, {
           item_name: itemData.item_name,
           quantity: itemData.quantity,
           unit: itemData.unit,
@@ -646,20 +657,26 @@ const Dashboard = () => {
           item_icon: itemData.item_icon,
           notes: itemData.notes
         });
+        console.log('Added to target list:', addResponse);
       }
       
       // Delete from current list
       for (const id of item.ids) {
-        await shoppingAPI.deleteItem(activeList.id, id);
+        console.log('Deleting item ID:', id, 'from list:', activeList.id);
+        const deleteResponse = await shoppingAPI.deleteItem(activeList.id, id);
+        console.log('Delete response:', deleteResponse);
       }
       
       // Refresh the current list to show updated items
+      console.log('Refreshing list items...');
       await loadListItems(activeList.id);
+      console.log('List refreshed, new items:', items);
       
       success(`Moved "${item.item_name}" to another list`);
     } catch (error) {
       console.error('Error moving item:', error);
-      error('Failed to move item');
+      console.error('Error details:', error.response?.data);
+      error(`Failed to move item: ${error.message}`);
     }
   };
 
