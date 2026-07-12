@@ -3,7 +3,7 @@ import {
   Settings, Layout, Palette, Code, Save, Download, Upload, 
   Eye, EyeOff, Grid, Move, Maximize2, Minimize2, Plus, Trash2,
   Copy, RotateCcw, Zap, Sliders, Package, RefreshCw, Database,
-  FileImage, Smartphone, MessageSquare
+  FileImage, Smartphone, MessageSquare, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition from '../components/PageTransition';
@@ -17,6 +17,7 @@ import ComponentEditor from '../components/admin/ComponentEditor';
 import APIRouteBuilder from '../components/admin/APIRouteBuilder';
 import DatabaseSchemaEditor from '../components/admin/DatabaseSchemaEditor';
 import VisualPageCreator from '../components/admin/VisualPageCreator';
+import AIAppBuilder from '../components/admin/AIAppBuilder';
 
 const AdminCustomization = () => {
   const [activeTab, setActiveTab] = useState('layout');
@@ -210,6 +211,7 @@ const AdminCustomization = () => {
           <div className="max-w-7xl mx-auto px-6">
             <div className="flex space-x-1 overflow-x-auto">
               {[
+                { id: 'ai-builder', label: '✨ AI App Builder', icon: Sparkles },
                 { id: 'visual', label: '🎨 Visual Page Creator', icon: Layout },
                 { id: 'layout', label: 'Layout Editor', icon: Layout },
                 { id: 'widgets', label: 'Widgets', icon: Package },
@@ -250,6 +252,18 @@ const AdminCustomization = () => {
         {/* Content */}
         <div className="max-w-7xl mx-auto p-6">
           <AnimatePresence mode="wait">
+            {activeTab === 'ai-builder' && (
+              <motion.div
+                key="ai-builder"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="h-full -m-6"
+              >
+                <AIAppBuilder />
+              </motion.div>
+            )}
+
             {activeTab === 'visual' && (
               <motion.div
                 key="visual"
