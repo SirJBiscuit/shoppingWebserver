@@ -3,9 +3,11 @@ import {
   Layout, Code, Eye, Save, Download, Upload, Plus, Trash2,
   Move, Copy, Settings, Layers, Grid, Zap, Image, Type,
   Square, Circle, MousePointer, Maximize2, RotateCw, Palette,
-  ChevronRight, ChevronLeft, Play, Pause, GitBranch
+  ChevronRight, ChevronLeft, Play, Pause, GitBranch, Package
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import AssetLibrary from './AssetLibrary';
+import NodeCraftEditor from './NodeCraftEditor';
 
 const VisualPageCreator = () => {
   const [mode, setMode] = useState('layout'); // 'layout' or 'nodecraft'
@@ -17,13 +19,17 @@ const VisualPageCreator = () => {
   const [contextMenu, setContextMenu] = useState(null);
   const [showToolbar, setShowToolbar] = useState(true);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [showAssetLibrary, setShowAssetLibrary] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState('top');
   const [sidebarPosition, setSidebarPosition] = useState('left');
+  const [sidebarWidth, setSidebarWidth] = useState(256);
   const [isDragging, setIsDragging] = useState(false);
   const [draggedElement, setDraggedElement] = useState(null);
+  const [draggingToolbar, setDraggingToolbar] = useState(false);
   const [animationLibrary, setAnimationLibrary] = useState([]);
   const [widgetLibrary, setWidgetLibrary] = useState([]);
   const [customFunctions, setCustomFunctions] = useState([]);
+  const [generatedCode, setGeneratedCode] = useState('');
   const canvasRef = useRef(null);
 
   // Animation presets
@@ -255,6 +261,13 @@ const VisualPageCreator = () => {
 
         {/* Actions */}
         <div className="flex items-center space-x-2">
+          <button 
+            onClick={() => setShowAssetLibrary(!showAssetLibrary)} 
+            className={`btn-secondary text-sm flex items-center ${showAssetLibrary ? 'bg-purple-100 dark:bg-purple-900/20' : ''}`}
+          >
+            <Package className="w-4 h-4 mr-1" />
+            Assets
+          </button>
           <button onClick={savePage} className="btn-secondary text-sm flex items-center">
             <Save className="w-4 h-4 mr-1" />
             Save
@@ -270,8 +283,27 @@ const VisualPageCreator = () => {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
+        {/* Asset Library Sidebar */}
+        {showAssetLibrary && (
+          <div className="w-80 border-r border-gray-200 dark:border-gray-700">
+            <AssetLibrary 
+              onSelectAsset={(asset) => {
+                if (asset.type === 'animation') {
+                  if (selectedElement) {
+                    updateElement(selectedElement.id, { animation: asset });
+                  }
+                } else if (asset.code) {
+                  // Add widget from asset
+                  const template = widgetTemplates.find(w => w.id === 'container');
+                  if (template) addElement(template);
+                }
+              }}
+            />
+          </div>
+        )}
+
         {/* Left Sidebar - Widgets & Tools */}
-        {showSidebar && sidebarPosition === 'left' && (
+        {showSidebar && sidebarPosition === 'left' && !showAssetLibrary && (
           <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
             <div className="p-4 space-y-4">
               {/* Pages */}
@@ -452,26 +484,7 @@ const VisualPageCreator = () => {
             </div>
           ) : (
             /* NODECRAFT MODE */
-            <div className="p-8">
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 className="text-xl font-bold mb-4 flex items-center">
-                  <GitBranch className="w-6 h-6 mr-2 text-purple-600" />
-                  NodeCraft Mode - Visual Programming
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  Connect nodes to build logic visually. Changes automatically update your page code.
-                </p>
-                
-                {/* Node Canvas */}
-                <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-8 min-h-96 border-2 border-dashed border-gray-300 dark:border-gray-700">
-                  <div className="text-center text-gray-400">
-                    <Code className="w-12 h-12 mx-auto mb-2" />
-                    <p>NodeCraft visual programming interface</p>
-                    <p className="text-sm mt-2">Drag nodes to create logic flows</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <NodeCraftEditor onCodeGenerate={(code) => setGeneratedCode(code)} />
           )}
         </div>
 
