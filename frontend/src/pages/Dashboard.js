@@ -30,6 +30,7 @@ import PriceLearningModal from '../components/PriceLearningModal';
 import AisleConfigModal from '../components/AisleConfigModal';
 import StoreManager from '../components/StoreManager';
 import CopyItemModal from '../components/CopyItemModal';
+import SaveTemplateModal from '../components/SaveTemplateModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { useToast } from '../hooks/useToast';
@@ -52,7 +53,7 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [newItemName, setNewItemName] = useState('');
-  const [newItemQuantity, setNewItemQuantity] = useState('1');
+  const [newItemQuantity, setNewItemQuantity] = useState('');
   const [newItemSize, setNewItemSize] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
@@ -85,6 +86,7 @@ const Dashboard = () => {
   const [addItemsMinimized, setAddItemsMinimized] = useState(false);
   const [showCopyItemModal, setShowCopyItemModal] = useState(false);
   const [itemToCopy, setItemToCopy] = useState(null);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -407,8 +409,8 @@ const Dashboard = () => {
       
       await shoppingAPI.addItem(activeList.id, {
         itemName: itemName,
-        quantity: parseInt(newItemQuantity) || 1,
-        unit: newItemSize,
+        quantity: newItemQuantity ? parseFloat(newItemQuantity) : 1,
+        unit: newItemSize || '',
         price: itemPrice,
         category: newItemCategory,
         icon: itemIcon,
@@ -431,7 +433,7 @@ const Dashboard = () => {
       }
 
       setNewItemName('');
-      setNewItemQuantity('1');
+      setNewItemQuantity('');
       setNewItemSize('');
       setNewItemPrice('');
       setNewItemCategory('');
@@ -568,12 +570,15 @@ const Dashboard = () => {
     }
   };
 
-  const saveListAsTemplate = async () => {
+  const saveListAsTemplate = () => {
     if (!activeList || items.length === 0) {
       error('Cannot save empty list as template');
       return;
     }
+    setShowSaveTemplateModal(true);
+  };
 
+  const saveTemplateWithName = async (templateName) => {
     try {
       const response = await fetch('/api/shopping/templates', {
         method: 'POST',
@@ -582,7 +587,7 @@ const Dashboard = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          name: activeList.name,
+          name: templateName,
           items: items.map(item => ({
             item_name: item.item_name,
             quantity: item.quantity,
@@ -594,7 +599,7 @@ const Dashboard = () => {
       });
 
       if (response.ok) {
-        success(`Saved "${activeList.name}" as template!`);
+        success(`Saved "${templateName}" as template!`);
       } else {
         throw new Error('Failed to save template');
       }
@@ -1072,41 +1077,24 @@ const Dashboard = () => {
 
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <input
-                    type="number"
-                    step="1"
-                    min="1"
+                    type="text"
                     value={newItemQuantity}
                     onChange={(e) => setNewItemQuantity(e.target.value)}
-                    placeholder="Qty"
+                    placeholder="Qty (e.g., 2, 1.5)"
                     className="input-field"
                   />
-                  <select
+                  <input
+                    type="text"
                     value={newItemSize}
                     onChange={(e) => setNewItemSize(e.target.value)}
+                    placeholder="Size (e.g., 1lb, 16oz)"
                     className="input-field"
-                  >
-                    <option value="">Size</option>
-                    <option value="oz">oz (ounces)</option>
-                    <option value="lb">lb (pounds)</option>
-                    <option value="g">g (grams)</option>
-                    <option value="kg">kg (kilograms)</option>
-                    <option value="ml">ml (milliliters)</option>
-                    <option value="L">L (liters)</option>
-                    <option value="pt">pt (pints)</option>
-                    <option value="qt">qt (quarts)</option>
-                    <option value="gal">gal (gallons)</option>
-                    <option value="ct">ct (count)</option>
-                    <option value="pkg">pkg (package)</option>
-                    <option value="box">box</option>
-                    <option value="can">can</option>
-                    <option value="bag">bag</option>
-                  </select>
+                  />
                   <input
-                    type="number"
-                    step="0.01"
+                    type="text"
                     value={newItemPrice}
                     onChange={(e) => setNewItemPrice(e.target.value)}
-                    placeholder="Price"
+                    placeholder="Price (e.g., 3.99)"
                     className="input-field"
                   />
                   <select
@@ -1578,6 +1566,14 @@ const Dashboard = () => {
         lists={lists.filter(list => list.id !== activeList?.id)}
         onCopy={copyItemToList}
         onMove={moveItemToList}
+      />
+
+      {/* Save Template Modal */}
+      <SaveTemplateModal
+        isOpen={showSaveTemplateModal}
+        onClose={() => setShowSaveTemplateModal(false)}
+        onSave={saveTemplateWithName}
+        defaultName={activeList?.name}
       />
     </PageTransition>
   );

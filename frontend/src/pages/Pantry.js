@@ -101,6 +101,25 @@ const Pantry = () => {
     }
   };
 
+  const handleClearAll = async () => {
+    if (!window.confirm('Are you sure you want to clear all items from your kitchen inventory? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Delete all items
+      for (const item of pantryItems) {
+        await pantryAPI.deleteItem(item.id);
+      }
+      success('All items cleared from inventory');
+      fetchPantry();
+      fetchExpiring();
+    } catch (error) {
+      console.error('Failed to clear inventory:', error);
+      showError('Failed to clear inventory. Please try again.');
+    }
+  };
+
   const handleEditItem = async (itemData) => {
     try {
       await pantryAPI.updateItem(selectedItem.id, itemData);
@@ -179,13 +198,24 @@ const Pantry = () => {
                 <Package className="w-8 h-8 text-primary-600 mr-3" />
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Kitchen Inventory</h1>
               </div>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="btn-primary flex items-center"
-              >
-                <Plus className="w-5 h-5 mr-2" />
-                Add Item
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="btn-primary flex items-center"
+                >
+                  <Plus className="w-5 h-5 mr-2" />
+                  Add Item
+                </button>
+                {pantryItems.length > 0 && (
+                  <button
+                    onClick={handleClearAll}
+                    className="btn-secondary flex items-center text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    <Trash2 className="w-5 h-5 mr-2" />
+                    Clear All
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Storage Location Tabs */}
