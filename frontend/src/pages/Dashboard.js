@@ -38,6 +38,7 @@ import { XPNotificationContainer, showXPNotification } from '../components/XPNot
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 import { sortItemsByStoreAisle } from '../data/storeLayouts';
+import { smartSortItems, getShoppingEfficiency } from '../utils/storeSorting';
 import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils/userPreferences';
 import { getAutocompleteSuggestions } from '../utils/autocomplete';
 
@@ -382,13 +383,9 @@ const Dashboard = () => {
   const getSortedItems = () => {
     if (!smartSort) return items;
     
-    // If store is selected, sort by store-specific aisles
-    if (activeList?.store_name) {
-      return sortItemsByStoreAisle(items, activeList.store_name);
-    }
-    
-    // Otherwise use generic zone sorting
-    return sortItemsByStoreLayout(items);
+    // Use new smart sorting with temperature zones and fragility rules
+    // This ensures: produce first, frozen last, fragile items on top
+    return smartSortItems(items, null); // TODO: Pass store template when available
   };
 
   const addItem = async (e) => {

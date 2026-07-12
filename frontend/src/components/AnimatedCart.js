@@ -173,7 +173,7 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
                               <div className="text-4xl text-center mb-1">
                                 {item.item_icon || '📦'}
                               </div>
-                              <div className="text-xs text-center font-medium text-gray-700 dark:text-gray-300 truncate">
+                              <div className="text-xs text-center font-medium text-gray-700 dark:text-gray-300 truncate mb-1">
                                 {item.item_name}
                               </div>
                               
@@ -184,13 +184,6 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
                                 </div>
                               )}
                               
-                              {/* Price - Bottom left */}
-                              {item.price && item.price > 0 && (
-                                <div className="absolute -bottom-1 -left-1 bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg">
-                                  ${(item.price * (item.quantity || 1)).toFixed(2)}
-                                </div>
-                              )}
-                              
                               {/* Checked overlay */}
                               {item.is_checked && (
                                 <div className="absolute inset-0 bg-green-500 bg-opacity-20 rounded-lg flex items-center justify-center">
@@ -198,6 +191,15 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
                                 </div>
                               )}
                             </div>
+                            
+                            {/* Price - Below card */}
+                            {item.price && item.price > 0 && (
+                              <div className="text-center mt-1">
+                                <span className="bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg inline-block">
+                                  ${(item.price * (item.quantity || 1)).toFixed(2)}
+                                </span>
+                              </div>
+                            )}
                           </motion.div>
                         ))}
                       </div>
