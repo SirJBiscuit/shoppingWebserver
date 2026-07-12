@@ -635,13 +635,28 @@ const Dashboard = () => {
   const moveItemToList = async (item, targetListId) => {
     try {
       // Add to target list
-      await copyItemToList(item, targetListId);
+      for (const id of item.ids) {
+        const itemData = items.find(i => i.id === id);
+        await shoppingAPI.addItem(targetListId, {
+          item_name: itemData.item_name,
+          quantity: itemData.quantity,
+          unit: itemData.unit,
+          price: itemData.price,
+          category: itemData.category,
+          item_icon: itemData.item_icon,
+          notes: itemData.notes
+        });
+      }
+      
       // Delete from current list
       for (const id of item.ids) {
         await shoppingAPI.deleteItem(activeList.id, id);
       }
+      
+      // Refresh the current list to show updated items
       await loadListItems(activeList.id);
-      success(`Moved "${item.item_name}" to list`);
+      
+      success(`Moved "${item.item_name}" to another list`);
     } catch (error) {
       console.error('Error moving item:', error);
       error('Failed to move item');
