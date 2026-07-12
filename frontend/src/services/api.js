@@ -49,6 +49,10 @@ export const shoppingAPI = {
   completeList: (listId) => api.post(`/shopping/lists/${listId}/complete`),
   getCompletedLists: () => api.get('/shopping/lists/history/completed'),
   restoreList: (listId) => api.post(`/shopping/lists/${listId}/restore`),
+  getTemplates: () => api.get('/shopping/templates'),
+  getTemplateItems: (templateId) => api.get(`/shopping/templates/${templateId}/items`),
+  createTemplate: (data) => api.post('/shopping/templates', data),
+  deleteTemplate: (templateId) => api.delete(`/shopping/templates/${templateId}`),
 };
 
 export const itemsAPI = {
