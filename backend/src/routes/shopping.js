@@ -185,7 +185,7 @@ router.post('/lists/:id/items',
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { itemName, quantity, unit, price, category, icon, notes } = req.body;
+    const { itemName, quantity, unit, price, category, icon, notes, aisleNumber, aisleName, upc, isOnSale, originalPrice } = req.body;
     const listId = req.params.id;
 
     try {
@@ -216,9 +216,9 @@ router.post('/lists/:id/items',
 
       const result = await db.query(
         `INSERT INTO shopping_list_items 
-         (shopping_list_id, item_id, item_name, quantity, unit, price, category, item_icon, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-        [listId, itemId, itemName, quantity, unit, price, category, icon, notes]
+         (shopping_list_id, item_id, item_name, quantity, unit, price, category, item_icon, notes, aisle_number, aisle_name, upc, is_on_sale, original_price)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
+        [listId, itemId, itemName, quantity, unit, price, category, icon, notes, aisleNumber, aisleName, upc, isOnSale, originalPrice]
       );
 
       // Update item preferences

@@ -616,13 +616,18 @@ const Dashboard = () => {
       for (const id of item.ids) {
         const itemData = items.find(i => i.id === id);
         await shoppingAPI.addItem(targetListId, {
-          item_name: itemData.item_name,
+          itemName: itemData.item_name,
           quantity: itemData.quantity,
           unit: itemData.unit,
           price: itemData.price,
           category: itemData.category,
-          item_icon: itemData.item_icon,
-          notes: itemData.notes
+          icon: itemData.item_icon,
+          notes: itemData.notes,
+          aisleNumber: itemData.aisle_number,
+          aisleName: itemData.aisle_name,
+          upc: itemData.upc,
+          isOnSale: itemData.is_on_sale,
+          originalPrice: itemData.original_price
         });
       }
       success(`Copied "${item.item_name}" to list`);
@@ -649,13 +654,18 @@ const Dashboard = () => {
         }
         
         const addResponse = await shoppingAPI.addItem(targetListId, {
-          item_name: itemData.item_name,
+          itemName: itemData.item_name,
           quantity: itemData.quantity,
           unit: itemData.unit,
           price: itemData.price,
           category: itemData.category,
-          item_icon: itemData.item_icon,
-          notes: itemData.notes
+          icon: itemData.item_icon,
+          notes: itemData.notes,
+          aisleNumber: itemData.aisle_number,
+          aisleName: itemData.aisle_name,
+          upc: itemData.upc,
+          isOnSale: itemData.is_on_sale,
+          originalPrice: itemData.original_price
         });
         console.log('Added to target list:', addResponse);
       }
@@ -669,8 +679,10 @@ const Dashboard = () => {
       
       // Refresh the current list to show updated items
       console.log('Refreshing list items...');
-      await loadListItems(activeList.id);
-      console.log('List refreshed, new items:', items);
+      const response = await shoppingAPI.getList(activeList.id);
+      console.log('Got fresh list data:', response.data);
+      setItems([...response.data.items]); // Force new array reference to trigger re-render
+      console.log('List refreshed, new items count:', response.data.items.length);
       
       success(`Moved "${item.item_name}" to another list`);
     } catch (error) {
