@@ -7,7 +7,7 @@ const FlyingItemAnimation = () => {
   const [cartPosition, setCartPosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    // Find cart position
+    // Find cart position - update whenever flying items change
     const updateCartPosition = () => {
       const cartElement = document.querySelector('[data-cart-target]');
       if (cartElement) {
@@ -21,13 +21,13 @@ const FlyingItemAnimation = () => {
 
     updateCartPosition();
     window.addEventListener('resize', updateCartPosition);
-    window.addEventListener('scroll', updateCartPosition);
+    window.addEventListener('scroll', updateCartPosition, true); // Use capture phase
 
     return () => {
       window.removeEventListener('resize', updateCartPosition);
-      window.removeEventListener('scroll', updateCartPosition);
+      window.removeEventListener('scroll', updateCartPosition, true);
     };
-  }, []);
+  }, [flyingItems]); // Update when items change
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[9999]">

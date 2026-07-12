@@ -34,11 +34,15 @@ const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
     }
   };
 
-  const createStore = async () => {
+  const createStore = async (e) => {
+    if (e) e.preventDefault();
+    
     if (!newStoreName.trim()) {
       error('Please enter a store name');
       return;
     }
+
+    console.log('Creating store:', newStoreName, 'with template:', selectedTemplate);
 
     try {
       // Create the store

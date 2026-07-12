@@ -4,7 +4,7 @@ import EditItemModal from './EditItemModal';
 import { detectIcon, detectCategory } from '../utils/categoryDetector';
 import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts';
 
-const ItemList = ({ items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, hideCategories = false, storeName = null }) => {
+const ItemList = ({ items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null }) => {
   const [editingItem, setEditingItem] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   // Group items by name to combine duplicates
@@ -74,6 +74,7 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerA
               onDelete={onDelete}
               onCopyMove={onCopyMove}
               triggerAnimation={triggerAnimation}
+              isNextItem={item.id === nextItemId}
               setEditingItem={setEditingItem}
               setShowEditModal={setShowEditModal}
             />
@@ -99,6 +100,7 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerA
                   onDelete={onDelete}
                   onCopyMove={onCopyMove}
                   triggerAnimation={triggerAnimation}
+                  isNextItem={item.id === nextItemId}
                   setEditingItem={setEditingItem}
                   setShowEditModal={setShowEditModal}
                   storeName={storeName}
@@ -134,7 +136,7 @@ const ItemList = ({ items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerA
 };
 
 // Separate ItemCard component for reusability
-const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, setEditingItem, setShowEditModal, storeName }) => {
+const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName }) => {
   const [editingAisle, setEditingAisle] = useState(false);
   const [aisleNumber, setAisleNumber] = useState('');
   const [aisleName, setAisleName] = useState('');
@@ -174,6 +176,8 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                 className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
                   item.is_checked
                     ? 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                    : isNextItem
+                    ? 'bg-green-50 dark:bg-green-900/20 border-2 border-green-400 dark:border-green-500 shadow-lg shadow-green-200 dark:shadow-green-900/50'
                     : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-primary-300 dark:hover:border-primary-500'
                 }`}
               >

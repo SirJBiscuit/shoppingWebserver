@@ -31,6 +31,7 @@ import AisleConfigModal from '../components/AisleConfigModal';
 import StoreManager from '../components/StoreManager';
 import CopyItemModal from '../components/CopyItemModal';
 import SaveTemplateModal from '../components/SaveTemplateModal';
+import NextItemSuggestion from '../components/NextItemSuggestion';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { useToast } from '../hooks/useToast';
@@ -88,6 +89,7 @@ const Dashboard = () => {
   const [showCopyItemModal, setShowCopyItemModal] = useState(false);
   const [itemToCopy, setItemToCopy] = useState(null);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [checkOffCounter, setCheckOffCounter] = useState(0);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -388,6 +390,26 @@ const Dashboard = () => {
     return smartSortItems(items, null); // TODO: Pass store template when available
   };
 
+  // Get next unchecked item for "Looking for Next" feature
+  const getNextItem = () => {
+    const sortedItems = getSortedItems();
+    return sortedItems.find(item => !item.is_checked);
+  };
+
+  // Get items in the same aisle as the next item
+  const getSameAisleItems = (nextItem) => {
+    if (!nextItem || !nextItem.aisle) return [];
+    
+    const sortedItems = getSortedItems();
+    return sortedItems
+      .filter(item => 
+        !item.is_checked && 
+        item.id !== nextItem.id && 
+        item.aisle === nextItem.aisle
+      )
+      .slice(0, 3); // Show max 3 same-aisle items
+  };
+
   const addItem = async (e) => {
     e.preventDefault();
     
@@ -506,9 +528,33 @@ const Dashboard = () => {
 
   const toggleItemCheck = async (item) => {
     try {
+      const newCheckedState = !item.is_checked;
+      
       await shoppingAPI.updateItem(activeList.id, item.id, {
-        isChecked: !item.is_checked,
+        isChecked: newCheckedState,
       });
+      
+      // Record check-off order for learning (only when checking, not unchecking)
+      if (newCheckedState && activeList) {
+        const nextOrder = checkOffCounter + 1;
+        setCheckOffCounter(nextOrder);
+        
+        // Send to backend for learning
+        try {
+          await fetch(`/api/shopping/lists/${activeList.id}/items/${item.id}/check`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ checkOffOrder: nextOrder })
+          });
+        } catch (err) {
+          console.error('Error recording check-off for learning:', err);
+          // Don't fail the check-off if learning fails
+        }
+      }
+      
       await loadListItems(activeList.id);
     } catch (error) {
       console.error('Error updating item:', error);
@@ -1127,12 +1173,25 @@ const Dashboard = () => {
                 </div>
               )}
 
+              {/* Next Item Suggestion - Smart aisle-based */}
+              {items.length > 0 && (() => {
+                const nextItem = getNextItem();
+                const sameAisleItems = nextItem ? getSameAisleItems(nextItem) : [];
+                return nextItem ? (
+                  <NextItemSuggestion 
+                    nextItem={nextItem} 
+                    sameAisleItems={sameAisleItems}
+                  />
+                ) : null;
+              })()}
+
               <ItemList
                 items={getSortedItems()}
                 onToggleCheck={toggleItemCheck}
                 onDelete={deleteItem}
                 onCopyMove={handleCopyMove}
                 triggerAnimation={triggerFlyingAnimation}
+                nextItemId={getNextItem()?.id}
                 hideCategories={hideCategories}
                 storeName={activeList?.store_name}
                 onEdit={async (updatedItem) => {
@@ -1564,6 +1623,21 @@ const Dashboard = () => {
         lists={lists.filter(list => list.id !== activeList?.id)}
         onCopy={copyItemToList}
         onMove={moveItemToList}
+      />
+
+      {/* Aisle Configuration Modal */}
+      <AisleConfigModal
+        isOpen={showAisleConfig}
+        onClose={() => setShowAisleConfig(false)}
+        storeName={activeList?.store_name}
+        onSave={async (aisles) => {
+          console.log('Saving aisles:', aisles);
+          setShowAisleConfig(false);
+          // Reload items to see aisle updates
+          if (activeList) {
+            await loadListItems(activeList.id);
+          }
+        }}
       />
 
       {/* Save Template Modal */}

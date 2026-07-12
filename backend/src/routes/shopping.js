@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const db = require('../database/db');
 const { authenticateToken } = require('../middleware/auth');
 const { updateItemPreferences } = require('../services/itemPreferences');
+const { recordItemCheckOff, getPersonalizedSortOrder } = require('../services/sortingLearning');
 
 const router = express.Router();
 
@@ -554,6 +555,35 @@ router.post('/lists/:id/complete', async (req, res) => {
   } catch (error) {
     console.error('Error completing list:', error);
     res.status(500).json({ error: 'Failed to complete shopping list' });
+  }
+});
+
+// Learning and Personalization Routes
+
+// Record item check-off for learning
+router.post('/lists/:listId/items/:itemId/check', async (req, res) => {
+  const { listId, itemId } = req.params;
+  const { checkOffOrder } = req.body;
+
+  try {
+    await recordItemCheckOff(req.user.userId, listId, itemId, checkOffOrder);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error recording check-off:', error);
+    res.status(500).json({ error: 'Failed to record check-off' });
+  }
+});
+
+// Get personalized sort order
+router.get('/personalized-sort', async (req, res) => {
+  const { storeId } = req.query;
+
+  try {
+    const sortOrder = await getPersonalizedSortOrder(req.user.userId, storeId || null);
+    res.json(sortOrder);
+  } catch (error) {
+    console.error('Error getting personalized sort:', error);
+    res.status(500).json({ error: 'Failed to get sort order' });
   }
 });
 
