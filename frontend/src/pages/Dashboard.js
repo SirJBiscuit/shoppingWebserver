@@ -1382,10 +1382,7 @@ const Dashboard = () => {
                     onSkip={skipNextItem}
                     onHide={() => setHideNextItem(true)}
                     onJumpToItem={() => scrollToItem(nextItem.id)}
-                    onEdit={() => {
-                      setEditingItem(nextItem);
-                      setShowEditItemModal(true);
-                    }}
+                    onEdit={() => scrollToItem(nextItem.id)}
                   />
                 ) : null;
               })()}
