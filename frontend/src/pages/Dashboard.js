@@ -1912,9 +1912,9 @@ const Dashboard = () => {
             await loadInventory();
             success('All items cleared from inventory');
             setShowClearInventoryConfirm(false);
-          } catch (error) {
-            console.error('Error clearing inventory:', error);
-            showError('Failed to clear inventory');
+          } catch (err) {
+            console.error('Error clearing inventory:', err);
+            error('Failed to clear inventory');
           }
         }}
         onCancel={() => setShowClearInventoryConfirm(false)}
