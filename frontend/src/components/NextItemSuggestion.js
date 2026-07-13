@@ -1,34 +1,34 @@
 import React from 'react';
-import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, ArrowDown } from 'lucide-react';
+import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, ArrowDown, Edit2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem }) => {
+const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit }) => {
   if (!nextItem) return null;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-300 dark:border-green-700 rounded-xl p-4 shadow-lg"
+      className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-300 dark:border-green-700 rounded-xl p-4 shadow-lg relative"
     >
+      {/* Hide button - absolute top-right */}
+      <button
+        onClick={onHide}
+        className="absolute top-2 right-2 p-1.5 hover:bg-green-200 dark:hover:bg-green-800 rounded-lg transition-colors"
+        title="Hide 'Looking for Next' feature - You can re-enable it later"
+      >
+        <EyeOff className="w-5 h-5 text-green-700 dark:text-green-300" />
+      </button>
+
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3 flex-1">
           <div className="bg-green-500 text-white rounded-full p-2">
             <ArrowRight className="w-5 h-5" />
           </div>
           <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-green-700 dark:text-green-300 uppercase tracking-wide">
-                Looking for Next
-              </p>
-              <button
-                onClick={onHide}
-                className="p-1 hover:bg-green-200 dark:hover:bg-green-800 rounded transition-colors"
-                title="Hide 'Looking for Next' feature - You can re-enable it later"
-              >
-                <EyeOff className="w-4 h-4 text-green-700 dark:text-green-300" />
-              </button>
-            </div>
+            <p className="text-xs font-semibold text-green-700 dark:text-green-300 uppercase tracking-wide">
+              Looking for Next
+            </p>
             <div className="flex items-center mt-1">
               <span className="text-3xl mr-2">{nextItem.item_icon || '📦'}</span>
               <div className="flex-1">
@@ -81,6 +81,13 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             title="📋 Copy or Move to another list"
           >
             <Copy className="w-5 h-5" />
+          </button>
+          <button
+            onClick={onEdit}
+            className="bg-gray-500 hover:bg-gray-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg"
+            title="✏️ Edit this item"
+          >
+            <Edit2 className="w-5 h-5" />
           </button>
           <button
             onClick={onSkip}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCartAnimation } from '../contexts/CartAnimationContext';
-import { shoppingAPI, itemsAPI, suggestionsAPI, inventoryAPI, categoriesAPI } from '../services/api';
+import { shoppingAPI, itemsAPI, suggestionsAPI, inventoryAPI, pantryAPI, categoriesAPI } from '../services/api';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
   AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight
@@ -256,8 +256,8 @@ const Dashboard = () => {
 
   const loadInventory = async () => {
     try {
-      // Load pantry items instead of inventory
-      const response = await inventoryAPI.getInventory();
+      // Load pantry items
+      const response = await pantryAPI.getPantry();
       setInventory(response.data);
     } catch (error) {
       console.error('Error loading pantry:', error);
@@ -1382,6 +1382,10 @@ const Dashboard = () => {
                     onSkip={skipNextItem}
                     onHide={() => setHideNextItem(true)}
                     onJumpToItem={() => scrollToItem(nextItem.id)}
+                    onEdit={() => {
+                      setEditingItem(nextItem);
+                      setShowEditItemModal(true);
+                    }}
                   />
                 ) : null;
               })()}
@@ -1535,7 +1539,7 @@ const Dashboard = () => {
                 onViewPantry={() => navigate('/pantry')}
                 onDeleteItem={async (itemId) => {
                   try {
-                    await inventoryAPI.deleteItem(itemId);
+                    await pantryAPI.deleteItem(itemId);
                     await loadInventory();
                     success('Item removed from inventory');
                   } catch (error) {
@@ -1907,7 +1911,7 @@ const Dashboard = () => {
         onConfirm={async () => {
           try {
             for (const item of inventory) {
-              await inventoryAPI.deleteItem(item.id);
+              await pantryAPI.deleteItem(item.id);
             }
             await loadInventory();
             success('All items cleared from inventory');
