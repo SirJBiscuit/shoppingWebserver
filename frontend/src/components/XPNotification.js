@@ -6,40 +6,33 @@ const XPNotification = ({ xpAmount, message, onComplete }) => {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Fade out after 0.8 seconds (faster)
+    // Auto-dismiss after 600ms (very fast for mobile)
     const timer = setTimeout(() => {
       setIsVisible(false);
-      // Call onComplete after animation finishes
-      setTimeout(() => {
-        if (onComplete) onComplete();
-      }, 200);
-    }, 800);
+      // Call onComplete immediately when hiding
+      if (onComplete) onComplete();
+    }, 600);
 
     return () => clearTimeout(timer);
   }, [onComplete]);
 
-  if (!isVisible) return null;
-
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: -50, scale: 0.8 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -20, scale: 0.8 }}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
-        className="fixed top-20 right-4 z-50 pointer-events-none"
-      >
-        <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-full shadow-2xl flex items-center space-x-3 border-2 border-yellow-300">
-          <Sparkles className="w-5 h-5 animate-pulse" />
-          <div className="flex flex-col">
-            <span className="text-2xl font-bold">+{xpAmount} XP</span>
-            {message && (
-              <span className="text-xs opacity-90">{message}</span>
-            )}
-          </div>
-          <TrendingUp className="w-5 h-5" />
-        </div>
-      </motion.div>
+      {isVisible && (
+        <motion.div
+          initial={{ opacity: 0, y: -30, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -10, scale: 0.95 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-full shadow-xl flex items-center space-x-2 border-2 border-yellow-300"
+        >
+          <Sparkles className="w-4 h-4" />
+          <span className="text-lg font-bold">+{xpAmount} XP</span>
+          {message && (
+            <span className="text-xs opacity-90 hidden sm:inline">{message}</span>
+          )}
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 };

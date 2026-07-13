@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy } from 'lucide-react';
 import { motion } from 'framer-motion';
 import EditItemModal from './EditItemModal';
+import ItemTooltip from './ItemTooltip';
 import { detectIcon, detectCategory } from '../utils/categoryDetector';
 import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts';
 
@@ -141,6 +142,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
   const [editingAisle, setEditingAisle] = useState(false);
   const [aisleNumber, setAisleNumber] = useState('');
   const [aisleName, setAisleName] = useState('');
+  const [checkAnimKey, setCheckAnimKey] = useState(0);
   const itemRef = useRef(null);
   
   // Get aisle information if store is specified
@@ -167,6 +169,8 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
     if (!item.is_checked && triggerAnimation && itemRef.current) {
       triggerAnimation(item, itemRef.current);
     }
+    // Trigger checkbox animation
+    setCheckAnimKey(prev => prev + 1);
     onToggleCheck(item);
   };
 
@@ -185,9 +189,10 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
               >
                 <div className="flex items-center flex-1">
                   <motion.button
+                    key={checkAnimKey}
                     onClick={handleCheck}
                     whileTap={{ scale: 0.85 }}
-                    animate={item.is_checked ? { scale: [1, 1.15, 1] } : {}}
+                    animate={{ scale: [1, 1.15, 1] }}
                     transition={{ duration: 0.2 }}
                     className={`w-6 h-6 rounded border-2 flex items-center justify-center mr-3 transition-colors ${
                       item.is_checked
@@ -207,18 +212,20 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   </div>
 
                   <div className="flex-1">
-                    <p
-                      className={`font-medium flex items-center ${
-                        item.is_checked ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'
-                      }`}
-                    >
-                      {item.item_name}
-                      {item.count > 1 && (
-                        <span className="ml-2 px-2 py-0.5 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 text-xs font-bold rounded-full">
-                          x{item.count}
-                        </span>
-                      )}
-                    </p>
+                    <ItemTooltip item={item}>
+                      <p
+                        className={`font-medium flex items-center ${
+                          item.is_checked ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'
+                        }`}
+                      >
+                        {item.item_name}
+                        {item.count > 1 && (
+                          <span className="ml-2 px-2 py-0.5 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 text-xs font-bold rounded-full">
+                            x{item.count}
+                          </span>
+                        )}
+                      </p>
+                    </ItemTooltip>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm text-gray-500 dark:text-gray-400">
                         {Math.floor(item.totalQuantity)} {item.unit}

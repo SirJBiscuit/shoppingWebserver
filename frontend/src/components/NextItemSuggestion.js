@@ -54,9 +54,10 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           )}
           {/* Item Checkbox - synced with actual item */}
           <motion.button
+            key={`${nextItem.id}-${nextItem.is_checked}`}
             onClick={onCheck}
             whileTap={{ scale: 0.9 }}
-            animate={nextItem.is_checked ? { scale: [1, 1.2, 1] } : {}}
+            animate={{ scale: [1, 1.2, 1] }}
             transition={{ duration: 0.3 }}
             className={`w-12 h-12 rounded-lg border-2 flex items-center justify-center transition-all transform hover:scale-110 shadow-lg ${
               nextItem.is_checked
