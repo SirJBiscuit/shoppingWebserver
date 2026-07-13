@@ -217,7 +217,7 @@ const Pantry = () => {
             </div>
 
             {/* Storage Location Tabs */}
-            <div className="flex space-x-2 mb-8 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex space-x-2 mb-8 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
               <button
                 onClick={() => setActiveTab('all')}
                 className={`px-4 py-2 font-medium transition-colors border-b-2 ${
