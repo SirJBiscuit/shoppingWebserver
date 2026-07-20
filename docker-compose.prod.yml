@@ -38,6 +38,12 @@ services:
       WEBHOOK_SECRET: ${WEBHOOK_SECRET}
       NODE_ENV: production
       PORT: 3007
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      STRIPE_PRICE_WEEKLY: ${STRIPE_PRICE_WEEKLY}
+      STRIPE_PRICE_MONTHLY: ${STRIPE_PRICE_MONTHLY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/cloudmc-shop:/opt/cloudmc-shop:ro
