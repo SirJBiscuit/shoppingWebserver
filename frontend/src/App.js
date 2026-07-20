@@ -21,6 +21,7 @@ const History = lazy(() => import('./pages/History'));
 const Admin = lazy(() => import('./pages/Admin'));
 const AdminCustomization = lazy(() => import('./pages/AdminCustomization'));
 const Subscription = lazy(() => import('./pages/Subscription'));
+const Premium = lazy(() => import('./pages/Premium'));
 const IconCollectionGallery = lazy(() => import('./components/IconCollectionGallery'));
 const CustomizationHub = lazy(() => import('./components/CustomizationHub'));
 const IconUploadPanel = lazy(() => import('./components/admin/IconUploadPanel'));
@@ -80,6 +81,7 @@ const AnimatedRoutes = () => {
         <Route path="/discover" element={<PrivateRoute><RecipeDiscover /></PrivateRoute>} />
         <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
         <Route path="/subscription" element={<PrivateRoute><Subscription /></PrivateRoute>} />
+        <Route path="/premium" element={<PrivateRoute><Premium /></PrivateRoute>} />
         <Route path="/history" element={<PrivateRoute><History /></PrivateRoute>} />
         <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
         <Route path="/admin/customize" element={<PrivateRoute><AdminCustomization /></PrivateRoute>} />
