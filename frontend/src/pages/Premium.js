@@ -207,17 +207,32 @@ const Premium = () => {
             {/* Payment Methods Info */}
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6 mb-12">
               <div className="flex items-start">
-                <Smartphone className="w-6 h-6 text-blue-600 dark:text-blue-400 mr-3 mt-1" />
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                    Multiple Payment Options
+                <Shield className="w-6 h-6 text-blue-600 dark:text-blue-400 mr-3 mt-1 flex-shrink-0" />
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
+                    Secure Payment Methods
                   </h3>
-                  <p className="text-gray-700 dark:text-gray-300 mb-3">
-                    <strong>Web:</strong> Credit/Debit cards via Stripe
+                  <p className="text-gray-700 dark:text-gray-300 mb-4 font-medium">
+                    We accept all major credit and debit cards, Apple Pay, and Google Pay. Payments are securely processed by Stripe.
                   </p>
-                  <p className="text-gray-700 dark:text-gray-300">
-                    <strong>Android App (Coming Soon):</strong> Google Pay, PayPal, and Credit Cards
-                  </p>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white mb-1">💳 Cards</p>
+                      <p className="text-gray-600 dark:text-gray-400">Visa, Mastercard, Amex, Discover</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white mb-1">🍎 Apple Pay</p>
+                      <p className="text-gray-600 dark:text-gray-400">iPhone, iPad, Mac, Safari</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white mb-1">📱 Google Pay</p>
+                      <p className="text-gray-600 dark:text-gray-400">Android app (coming soon)</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white mb-1">🔗 Stripe Link</p>
+                      <p className="text-gray-600 dark:text-gray-400">Fast checkout</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
