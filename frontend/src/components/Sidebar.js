@@ -184,7 +184,7 @@ const Sidebar = ({ onAction }) => {
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
           {/* Premium Button */}
           <button
-            onClick={() => handleNavClick('/subscription')}
+            onClick={() => handleNavClick('/premium')}
             className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 shadow-lg hover:shadow-xl"
           >
             <Crown className="w-5 h-5" />
