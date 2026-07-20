@@ -3,16 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Settings, RefreshCw, Download, Server, Database, 
   GitBranch, Package, ShoppingCart, ChefHat, LogOut,
-  CheckCircle, XCircle, AlertCircle, Terminal, Play
+  CheckCircle, XCircle, AlertCircle, Terminal, Play, Flag,
+  Crown, Users
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
+import FeatureManager from '../components/FeatureManager';
 
-const Admin = () => {
+const AdminNew = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState('system');
   const [updateInfo, setUpdateInfo] = useState(null);
   const [systemStatus, setSystemStatus] = useState(null);
   const [updating, setUpdating] = useState(false);
@@ -22,16 +25,17 @@ const Admin = () => {
   const [selectedService, setSelectedService] = useState('backend');
 
   useEffect(() => {
-    checkForUpdates();
-    getSystemStatus();
-    
-    // Auto-refresh system status every 30 seconds to update uptime
-    const statusInterval = setInterval(() => {
+    if (activeTab === 'system') {
+      checkForUpdates();
       getSystemStatus();
-    }, 30000);
-    
-    return () => clearInterval(statusInterval);
-  }, []);
+      
+      const statusInterval = setInterval(() => {
+        getSystemStatus();
+      }, 30000);
+      
+      return () => clearInterval(statusInterval);
+    }
+  }, [activeTab]);
 
   const checkForUpdates = async () => {
     setChecking(true);
@@ -40,7 +44,6 @@ const Admin = () => {
       setUpdateInfo(response.data);
     } catch (error) {
       console.error('Failed to check updates:', error);
-      // Set fallback data instead of showing alert
       setUpdateInfo({
         hasUpdate: false,
         currentVersion: 'v1.0.0',
@@ -60,7 +63,6 @@ const Admin = () => {
       setSystemStatus(response.data);
     } catch (error) {
       console.error('Failed to get system status:', error);
-      // Set fallback status
       setSystemStatus({
         uptime: 'Unknown',
         version: 'v1.0.0',
@@ -71,111 +73,8 @@ const Admin = () => {
     }
   };
 
-  const runUpdateScript = async () => {
-    if (!window.confirm('Run update script? This will pull latest code, rebuild containers, and run migrations. The page will reload after completion.')) {
-      return;
-    }
-
-    setUpdating(true);
-    setUpdateLog([{ step: 'Starting update...', status: 'running' }]);
-
-    try {
-      // Start the update
-      const response = await api.post('/system/run-update-script');
-      
-      if (!response.data.success) {
-        setUpdateLog([
-          { step: response.data.message || 'Update failed to start', status: 'error' },
-          { step: response.data.instructions || response.data.error, status: 'error' }
-        ]);
-        setUpdating(false);
-        return;
-      }
-
-      // Poll for status
-      const statusInterval = setInterval(async () => {
-        try {
-          const statusRes = await api.get('/system/update-status');
-          const status = statusRes.data;
-          
-          console.log('runUpdateScript status:', status);
-          
-          // Update log with current status
-          setUpdateLog([
-            { step: `Progress: ${status.progress}%`, status: 'running' },
-            { step: status.message, status: status.running ? 'running' : 'success' },
-            ...status.logs.map(log => ({ step: log, status: 'success' }))
-          ]);
-          
-          // If update is complete
-          if (!status.running && status.progress === 100) {
-            clearInterval(statusInterval);
-            setUpdateLog(prev => [...prev, { step: 'Update completed successfully!', status: 'success' }]);
-            
-            // Countdown to reload
-            let countdown = 10;
-            const countdownInterval = setInterval(() => {
-              countdown--;
-              setUpdateLog(prev => {
-                const newLog = [...prev];
-                newLog[newLog.length - 1] = { 
-                  step: `Page will reload in ${countdown} seconds...`, 
-                  status: 'running' 
-                };
-                return newLog;
-              });
-              
-              if (countdown <= 0) {
-                clearInterval(countdownInterval);
-                window.location.reload();
-              }
-            }, 1000);
-            
-            setUpdating(false);
-          }
-          
-          // If update failed
-          if (!status.running && status.progress === 0 && status.message.includes('failed')) {
-            clearInterval(statusInterval);
-            setUpdateLog(prev => [...prev, { step: 'Update failed!', status: 'error' }]);
-            setUpdating(false);
-          }
-          
-        } catch (statusError) {
-          console.error('Failed to get status:', statusError);
-          // Handle 502/503 errors during container restart (normal)
-          if (statusError.response?.status === 502 || statusError.response?.status === 503) {
-            setUpdateLog(prev => {
-              const newLog = [...prev];
-              if (newLog.length > 0) {
-                newLog[newLog.length - 1] = { 
-                  step: 'Containers restarting... (this is normal)', 
-                  status: 'running' 
-                };
-              }
-              return newLog;
-            });
-          }
-        }
-      }, 2000); // Poll every 2 seconds
-      
-      // Stop polling after 10 minutes
-      setTimeout(() => {
-        clearInterval(statusInterval);
-        setUpdating(false);
-      }, 600000);
-      
-    } catch (error) {
-      console.error('Failed to run update script:', error);
-      setUpdateLog([
-        { step: `Error: ${error.response?.data?.details || error.message}`, status: 'error' }
-      ]);
-      setUpdating(false);
-    }
-  };
-
   const applyUpdates = async () => {
-    if (!window.confirm('Rebuild and restart containers? This will apply any code changes and reload the page.\n\nNote: Run ./update-server.sh on the host first to pull latest code.')) {
+    if (!window.confirm('This will update the system and may cause brief downtime. Continue?')) {
       return;
     }
 
@@ -183,39 +82,23 @@ const Admin = () => {
     setUpdateLog([{ step: 'Starting update...', status: 'running' }]);
 
     try {
-      // Start the update
-      const response = await api.post('/system/apply-updates');
+      await api.post('/admin/git/update');
       
-      if (!response.data.success) {
-        setUpdateLog([
-          { step: response.data.message || 'Update failed to start', status: 'error' },
-          { step: response.data.error || 'Unknown error', status: 'error' }
-        ]);
-        setUpdating(false);
-        return;
-      }
-
-      // Poll for status (same as runUpdateScript)
       const statusInterval = setInterval(async () => {
         try {
           const statusRes = await api.get('/system/update-status');
           const status = statusRes.data;
           
-          console.log('applyUpdates status:', status);
-          
-          // Update log with current status
           setUpdateLog([
             { step: `Progress: ${status.progress}%`, status: 'running' },
             { step: status.message, status: status.running ? 'running' : 'success' },
             ...status.logs.map(log => ({ step: log, status: 'success' }))
           ]);
           
-          // If update is complete
           if (!status.running && status.progress === 100) {
             clearInterval(statusInterval);
             setUpdateLog(prev => [...prev, { step: 'Update completed successfully!', status: 'success' }]);
             
-            // Countdown to reload
             let countdown = 10;
             const countdownInterval = setInterval(() => {
               countdown--;
@@ -237,7 +120,6 @@ const Admin = () => {
             setUpdating(false);
           }
           
-          // If update failed
           if (!status.running && status.progress === 0 && status.message.includes('failed')) {
             clearInterval(statusInterval);
             setUpdateLog(prev => [...prev, { step: 'Update failed!', status: 'error' }]);
@@ -246,320 +128,319 @@ const Admin = () => {
           
         } catch (statusError) {
           console.error('Failed to get status:', statusError);
-          // Handle 502/503 errors during container restart (normal)
-          if (statusError.response?.status === 502 || statusError.response?.status === 503) {
-            setUpdateLog(prev => {
-              const newLog = [...prev];
-              if (newLog.length > 0) {
-                newLog[newLog.length - 1] = { 
-                  step: 'Containers restarting... (this is normal)', 
-                  status: 'running' 
-                };
-              }
-              return newLog;
-            });
-          }
         }
-      }, 2000); // Poll every 2 seconds
-      
-      // Stop polling after 10 minutes
-      setTimeout(() => {
-        clearInterval(statusInterval);
-        setUpdating(false);
-      }, 600000);
+      }, 2000);
       
     } catch (error) {
       console.error('Failed to apply updates:', error);
       setUpdateLog([
-        { step: `Error: ${error.response?.data?.details || error.message}`, status: 'error' }
+        { step: 'Failed to start update', status: 'error' },
+        { step: error.response?.data?.error || error.message, status: 'error' }
       ]);
       setUpdating(false);
     }
   };
 
-  const restartService = async (service) => {
-    if (!window.confirm(`Restart ${service}?`)) {
-      return;
-    }
-
+  const getLogs = async (service) => {
+    setSelectedService(service);
     try {
-      await api.post('/system/restart', { service });
-      alert(`${service} restarted successfully`);
-      getSystemStatus();
-    } catch (error) {
-      console.error('Failed to restart service:', error);
-      alert('Failed to restart service');
-    }
-  };
-
-  const viewLogs = async (service) => {
-    try {
-      const response = await api.get(`/system/logs/${service}?lines=100`);
+      const response = await api.get(`/system/logs/${service}`);
       setLogs(response.data.logs);
-      setSelectedService(service);
     } catch (error) {
       console.error('Failed to get logs:', error);
-      alert('Failed to get logs');
+      setLogs('Failed to fetch logs');
     }
   };
+
+  const formatUptime = (seconds) => {
+    if (!seconds) return 'Unknown';
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${days}d ${hours}h ${minutes}m`;
+  };
+
+  const tabs = [
+    { id: 'system', name: 'System & Updates', icon: Server },
+    { id: 'features', name: 'Feature Management', icon: Flag },
+    { id: 'users', name: 'User Management', icon: Users },
+    { id: 'logs', name: 'System Logs', icon: Terminal },
+  ];
 
   return (
     <PageTransition>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 mb-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Settings className="w-8 h-8 text-primary-600 mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Listzy Admin</h1>
-            </div>
-            <div className="flex items-center space-x-6">
-              <button
-                onClick={() => navigate('/')}
-                className="flex items-center text-gray-600 hover:text-primary-600 font-medium"
-              >
-                <ShoppingCart className="w-5 h-5 mr-1" />
-                Shopping
-              </button>
-              <button
-                onClick={() => navigate('/recipes')}
-                className="flex items-center text-gray-600 hover:text-primary-600 font-medium"
-              >
-                <ChefHat className="w-5 h-5 mr-1" />
-                Recipes
-              </button>
-              <button
-                onClick={() => navigate('/pantry')}
-                className="flex items-center text-gray-600 hover:text-primary-600 font-medium"
-              >
-                <Package className="w-5 h-5 mr-1" />
-                Pantry
-              </button>
-              <button
-                onClick={() => navigate('/admin')}
-                className="flex items-center text-primary-600 dark:text-primary-400 font-medium"
-              >
-                <Settings className="w-5 h-5 mr-1" />
-                Admin
-              </button>
-              <span className="text-gray-600 dark:text-gray-300">Welcome, {user?.username}</span>
-              <ThemeToggle />
-              <button
-                onClick={logout}
-                className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-              >
-                <LogOut className="w-5 h-5 mr-1" />
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
-            <Settings className="w-8 h-8 mr-3 text-primary-600" />
-            System Administration
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">Manage updates, view system status, and monitor services</p>
-        </div>
-
-        {/* Update Section */}
-        <div className="card mb-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
-              <Download className="w-6 h-6 mr-2 text-primary-600" />
-              System Updates
-            </h2>
-            <button
-              onClick={checkForUpdates}
-              disabled={checking}
-              className="btn-secondary flex items-center"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${checking ? 'animate-spin' : ''}`} />
-              Check for Updates
-            </button>
-          </div>
-
-          {updateInfo && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Current Version</p>
-                  <p className="text-lg font-mono font-semibold text-gray-900 dark:text-gray-100">{updateInfo.currentCommit}</p>
-                </div>
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Previous Version</p>
-                  <p className="text-lg font-mono font-semibold text-gray-500 dark:text-gray-400">{updateInfo.previousCommit || 'N/A'}</p>
-                </div>
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Latest Version</p>
-                  <p className="text-lg font-mono font-semibold text-green-600">{updateInfo.latestCommit}</p>
-                </div>
+        {/* Header */}
+        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Settings className="w-8 h-8 text-primary-600 mr-3" />
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Listzy Admin</h1>
               </div>
+              <div className="flex items-center space-x-6">
+                <button
+                  onClick={() => navigate('/')}
+                  className="flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
+                >
+                  <ShoppingCart className="w-5 h-5 mr-1" />
+                  Shopping
+                </button>
+                <button
+                  onClick={() => navigate('/premium')}
+                  className="flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 font-medium"
+                >
+                  <Crown className="w-5 h-5 mr-1" />
+                  Premium
+                </button>
+                <span className="text-gray-600 dark:text-gray-300">Welcome, {user?.username}</span>
+                <ThemeToggle />
+                <button
+                  onClick={logout}
+                  className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                >
+                  <LogOut className="w-5 h-5 mr-1" />
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
 
-              {updateInfo.lastUpdated && (
-                <div className="text-sm text-gray-600 text-center">
-                  Last updated: {new Date(updateInfo.lastUpdated).toLocaleString()}
-                </div>
-              )}
-
-              {updateInfo.hasUpdates ? (
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-                  <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Updates Available!</p>
-                  <div className="space-y-1 mb-4">
-                    {updateInfo.commits.map((commit, idx) => (
-                      <p key={idx} className="text-sm text-blue-800 dark:text-blue-200 font-mono">• {commit}</p>
-                    ))}
-                  </div>
-                  <button
-                    onClick={applyUpdates}
-                    disabled={updating}
-                    className="btn-primary flex items-center"
-                  >
-                    {updating ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Updating...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4 mr-2" />
-                        Rebuild Containers
-                      </>
-                    )}
-                  </button>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                    💡 Tip: Run <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">./update-server.sh</code> on the host to pull latest code, then click "Rebuild Containers"
-                  </p>
-                </div>
-              ) : (
-                <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
-                  <p className="font-semibold text-green-900 dark:text-green-100 flex items-center mb-3">
-                    <CheckCircle className="w-5 h-5 mr-2" />
-                    System is up to date
-                  </p>
-                  <div className="flex space-x-3">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          {/* Tabs */}
+          <div className="mb-8">
+            <div className="border-b border-gray-200 dark:border-gray-700">
+              <nav className="-mb-px flex space-x-8">
+                {tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  return (
                     <button
-                      onClick={applyUpdates}
-                      disabled={updating}
-                      className="btn-secondary flex items-center text-sm"
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`
+                        flex items-center py-4 px-1 border-b-2 font-medium text-sm
+                        ${activeTab === tab.id
+                          ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                        }
+                      `}
                     >
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Force Update Anyway
+                      <Icon className="w-5 h-5 mr-2" />
+                      {tab.name}
                     </button>
-                  </div>
-                </div>
-              )}
+                  );
+                })}
+              </nav>
+            </div>
+          </div>
 
-              {updateLog.length > 0 && (
-                <div className="p-4 bg-gray-900 rounded-lg">
-                  <p className="text-white font-semibold mb-2">Update Log:</p>
-                  <div className="space-y-1 font-mono text-sm">
-                    {updateLog.map((log, idx) => (
-                      <div key={idx} className="flex items-center text-gray-300">
-                        {log.status === 'success' && <CheckCircle className="w-4 h-4 mr-2 text-green-400" />}
-                        {log.status === 'running' && <RefreshCw className="w-4 h-4 mr-2 text-blue-400 animate-spin" />}
-                        {log.status === 'skipped' && <AlertCircle className="w-4 h-4 mr-2 text-yellow-400" />}
-                        {log.status === 'error' && <XCircle className="w-4 h-4 mr-2 text-red-400" />}
-                        <span className={log.status === 'error' ? 'text-red-400' : ''}>{log.step}</span>
+          {/* Tab Content */}
+          <div className="mt-6">
+            {/* System & Updates Tab */}
+            {activeTab === 'system' && (
+              <div className="space-y-6">
+                {/* System Status */}
+                <div className="card">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center mb-6">
+                    <Server className="w-6 h-6 mr-2 text-primary-600" />
+                    System Status
+                  </h2>
+                  {systemStatus && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Uptime</p>
+                        <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                          {formatUptime(systemStatus.uptime)}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* System Status */}
-        {systemStatus && (
-          <div className="card mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center mb-6">
-              <Server className="w-6 h-6 mr-2 text-primary-600" />
-              System Status
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
-                  <GitBranch className="w-4 h-4 mr-1" />
-                  Git Branch
-                </p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{systemStatus.git.branch}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{systemStatus.git.commit}</p>
-              </div>
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
-                  <Database className="w-4 h-4 mr-1" />
-                  Database
-                </p>
-                <p className="text-lg font-semibold">
-                  {systemStatus.database.connected ? 'Connected' : 'Disconnected'}
-                </p>
-              </div>
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                <p className="text-sm text-gray-600 dark:text-gray-400">Uptime</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  {Math.floor(systemStatus.uptime / 3600)}h {Math.floor((systemStatus.uptime % 3600) / 60)}m
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Docker Containers</h3>
-              {systemStatus.containers.map((container, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center">
-                    {container.status === 'running' ? (
-                      <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
-                    ) : (
-                      <XCircle className="w-5 h-5 text-red-500 mr-3" />
-                    )}
-                    <div>
-                      <p className="font-medium">{container.name}</p>
-                      <p className="text-sm text-gray-600">{container.status}</p>
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Version</p>
+                        <p className="text-lg font-mono font-semibold text-gray-900 dark:text-gray-100">
+                          {systemStatus.version}
+                        </p>
+                      </div>
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Environment</p>
+                        <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                          {systemStatus.environment}
+                        </p>
+                      </div>
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
+                          <Database className="w-4 h-4 mr-1" />
+                          Database
+                        </p>
+                        <p className="text-lg font-semibold">
+                          {systemStatus.database.connected ? (
+                            <span className="text-green-600">Connected</span>
+                          ) : (
+                            <span className="text-red-600">Disconnected</span>
+                          )}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => viewLogs(container.name.replace('shop_', ''))}
-                      className="btn-secondary text-sm px-3 py-1 flex items-center"
-                    >
-                      <Terminal className="w-4 h-4 mr-1" />
-                      Logs
-                    </button>
-                    <button
-                      onClick={() => restartService(container.name.replace('shop_', ''))}
-                      className="btn-secondary text-sm px-3 py-1 flex items-center"
-                    >
-                      <Play className="w-4 h-4 mr-1" />
-                      Restart
-                    </button>
-                  </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* Logs Viewer */}
-        {logs && (
-          <div className="card">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center mb-4">
-              <Terminal className="w-6 h-6 mr-2 text-primary-600" />
-              Logs: {selectedService}
-            </h2>
-            <div className="bg-gray-900 dark:bg-gray-950 rounded-lg p-4 overflow-x-auto border border-gray-700">
-              <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap">{logs}</pre>
-            </div>
+                {/* Updates */}
+                <div className="card">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                      <Download className="w-6 h-6 mr-2 text-primary-600" />
+                      System Updates
+                    </h2>
+                    <button
+                      onClick={checkForUpdates}
+                      disabled={checking}
+                      className="btn-secondary flex items-center"
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-2 ${checking ? 'animate-spin' : ''}`} />
+                      Check for Updates
+                    </button>
+                  </div>
+
+                  {updateInfo && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Current Version</p>
+                          <p className="text-lg font-mono font-semibold text-gray-900 dark:text-gray-100">
+                            {updateInfo.currentCommit}
+                          </p>
+                        </div>
+                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Previous Version</p>
+                          <p className="text-lg font-mono font-semibold text-gray-500 dark:text-gray-400">
+                            {updateInfo.previousCommit || 'N/A'}
+                          </p>
+                        </div>
+                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Latest Version</p>
+                          <p className="text-lg font-mono font-semibold text-green-600">
+                            {updateInfo.latestCommit}
+                          </p>
+                        </div>
+                      </div>
+
+                      {updateInfo.hasUpdate && (
+                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                          <div className="flex items-start">
+                            <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-3 mt-0.5" />
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                                Update Available
+                              </h3>
+                              <p className="text-sm text-blue-800 dark:text-blue-200 mb-4">
+                                A new version is available. Click below to update the system.
+                              </p>
+                              <button
+                                onClick={applyUpdates}
+                                disabled={updating}
+                                className="btn-primary flex items-center"
+                              >
+                                <Play className="w-4 h-4 mr-2" />
+                                {updating ? 'Updating...' : 'Apply Update'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {updateLog.length > 0 && (
+                        <div className="bg-gray-900 dark:bg-gray-950 rounded-lg p-4 border border-gray-700">
+                          <h3 className="text-white font-semibold mb-3">Update Log:</h3>
+                          <div className="space-y-2">
+                            {updateLog.map((log, index) => (
+                              <div key={index} className="flex items-start text-sm">
+                                {log.status === 'success' && (
+                                  <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                                )}
+                                {log.status === 'running' && (
+                                  <RefreshCw className="w-4 h-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0 animate-spin" />
+                                )}
+                                {log.status === 'error' && (
+                                  <XCircle className="w-4 h-4 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
+                                )}
+                                <span className="text-gray-300">{log.step}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Feature Management Tab */}
+            {activeTab === 'features' && (
+              <div className="card">
+                <FeatureManager />
+              </div>
+            )}
+
+            {/* User Management Tab */}
+            {activeTab === 'users' && (
+              <div className="card">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center mb-6">
+                  <Users className="w-6 h-6 mr-2 text-primary-600" />
+                  User Management
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">User management features coming soon...</p>
+              </div>
+            )}
+
+            {/* System Logs Tab */}
+            {activeTab === 'logs' && (
+              <div className="card">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center mb-4">
+                  <Terminal className="w-6 h-6 mr-2 text-primary-600" />
+                  System Logs
+                </h2>
+                <div className="flex space-x-2 mb-4">
+                  <button
+                    onClick={() => getLogs('backend')}
+                    className={`px-4 py-2 rounded-lg ${
+                      selectedService === 'backend'
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    Backend
+                  </button>
+                  <button
+                    onClick={() => getLogs('frontend')}
+                    className={`px-4 py-2 rounded-lg ${
+                      selectedService === 'frontend'
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    Frontend
+                  </button>
+                  <button
+                    onClick={() => getLogs('postgres')}
+                    className={`px-4 py-2 rounded-lg ${
+                      selectedService === 'postgres'
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    Database
+                  </button>
+                </div>
+                <div className="bg-gray-900 dark:bg-gray-950 rounded-lg p-4 overflow-x-auto border border-gray-700 max-h-96 overflow-y-auto">
+                  <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap">{logs || 'Click a service to view logs...'}</pre>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
-    </div>
     </PageTransition>
   );
 };
 
-export default Admin;
+export default AdminNew;
