@@ -131,4 +131,11 @@ export const expirationAPI = {
   getStatus: (days) => api.get(`/expiration/status/${days}`),
 };
 
+export const subscriptionAPI = {
+  getStatus: () => api.get('/subscription/status'),
+  createCheckoutSession: (tier) => api.post('/subscription/create-checkout-session', { tier }),
+  createPortalSession: () => api.post('/subscription/create-portal-session'),
+  cancel: () => api.post('/subscription/cancel'),
+};
+
 export default api;
