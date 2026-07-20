@@ -138,4 +138,16 @@ export const subscriptionAPI = {
   cancel: () => api.post('/subscription/cancel'),
 };
 
+export const featuresAPI = {
+  getFlags: () => api.get('/features/flags'),
+  getLimits: () => api.get('/features/limits'),
+  checkFeature: (featureKey) => api.get(`/features/check/${featureKey}`),
+  // Admin endpoints
+  getAllFeatures: () => api.get('/features/admin/all'),
+  updateFeature: (id, data) => api.put(`/features/admin/feature/${id}`, data),
+  toggleFeature: (id) => api.post(`/features/admin/toggle/${id}`),
+  getAllLimits: () => api.get('/features/admin/limits'),
+  updateLimit: (id, data) => api.put(`/features/admin/limit/${id}`, data),
+};
+
 export default api;
