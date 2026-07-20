@@ -21,6 +21,8 @@ const storesRoutes = require('./routes/stores');
 const dealsRoutes = require('./routes/deals');
 const gitRoutes = require('./routes/git');
 const aiAppsRoutes = require('./routes/aiApps');
+const subscriptionRoutes = require('./routes/subscription');
+const featuresRoutes = require('./routes/features');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -57,6 +59,8 @@ app.use('/api/stores', storesRoutes);
 app.use('/api/deals', dealsRoutes);
 app.use('/api/admin/git', gitRoutes);
 app.use('/api/admin/ai-apps', aiAppsRoutes);
+app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/features', featuresRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
