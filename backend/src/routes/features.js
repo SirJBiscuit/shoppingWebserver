@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
-const auth = require('../middleware/auth');
+const { authenticateToken: auth, isAdmin } = require('../middleware/auth');
 
 // Get all feature flags (public - for checking user access)
 router.get('/flags', auth, async (req, res) => {
@@ -122,18 +122,8 @@ router.get('/check/:featureKey', auth, async (req, res) => {
 // ============= ADMIN ROUTES =============
 
 // Admin: Get all features (including disabled)
-router.get('/admin/all', auth, async (req, res) => {
+router.get('/admin/all', auth, isAdmin, async (req, res) => {
   try {
-    // Check if user is admin
-    const userResult = await db.query(
-      'SELECT is_admin FROM users WHERE id = $1',
-      [req.user.id]
-    );
-
-    if (!userResult.rows[0]?.is_admin) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-
     const result = await db.query(
       `SELECT * FROM feature_flags ORDER BY category, display_order, feature_name`
     );
@@ -146,18 +136,8 @@ router.get('/admin/all', auth, async (req, res) => {
 });
 
 // Admin: Update feature flag
-router.put('/admin/feature/:id', auth, async (req, res) => {
+router.put('/admin/feature/:id', auth, isAdmin, async (req, res) => {
   try {
-    // Check if user is admin
-    const userResult = await db.query(
-      'SELECT is_admin FROM users WHERE id = $1',
-      [req.user.id]
-    );
-
-    if (!userResult.rows[0]?.is_admin) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-
     const { id } = req.params;
     const {
       feature_name,
@@ -197,18 +177,8 @@ router.put('/admin/feature/:id', auth, async (req, res) => {
 });
 
 // Admin: Get all tier limits
-router.get('/admin/limits', auth, async (req, res) => {
+router.get('/admin/limits', auth, isAdmin, async (req, res) => {
   try {
-    // Check if user is admin
-    const userResult = await db.query(
-      'SELECT is_admin FROM users WHERE id = $1',
-      [req.user.id]
-    );
-
-    if (!userResult.rows[0]?.is_admin) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-
     const result = await db.query(
       'SELECT * FROM tier_limits ORDER BY tier_name, limit_key'
     );
@@ -221,18 +191,8 @@ router.get('/admin/limits', auth, async (req, res) => {
 });
 
 // Admin: Update tier limit
-router.put('/admin/limit/:id', auth, async (req, res) => {
+router.put('/admin/limit/:id', auth, isAdmin, async (req, res) => {
   try {
-    // Check if user is admin
-    const userResult = await db.query(
-      'SELECT is_admin FROM users WHERE id = $1',
-      [req.user.id]
-    );
-
-    if (!userResult.rows[0]?.is_admin) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-
     const { id } = req.params;
     const { limit_value, description } = req.body;
 
@@ -258,18 +218,8 @@ router.put('/admin/limit/:id', auth, async (req, res) => {
 });
 
 // Admin: Toggle feature on/off quickly
-router.post('/admin/toggle/:id', auth, async (req, res) => {
+router.post('/admin/toggle/:id', auth, isAdmin, async (req, res) => {
   try {
-    // Check if user is admin
-    const userResult = await db.query(
-      'SELECT is_admin FROM users WHERE id = $1',
-      [req.user.id]
-    );
-
-    if (!userResult.rows[0]?.is_admin) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-
     const { id } = req.params;
 
     const result = await db.query(
