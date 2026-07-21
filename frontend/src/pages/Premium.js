@@ -170,6 +170,28 @@ const Premium = () => {
                   >
                     {loading ? 'Loading...' : 'Start Weekly'}
                   </button>
+                  <ul className="space-y-3 text-left">
+                    <li className="flex items-start text-gray-700 dark:text-gray-300">
+                      <Check className="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
+                      <span>Unlimited shopping lists</span>
+                    </li>
+                    <li className="flex items-start text-gray-700 dark:text-gray-300">
+                      <Check className="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
+                      <span>Unlimited pantry items</span>
+                    </li>
+                    <li className="flex items-start text-gray-700 dark:text-gray-300">
+                      <Check className="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
+                      <span>Unlimited recipes</span>
+                    </li>
+                    <li className="flex items-start text-gray-700 dark:text-gray-300">
+                      <Check className="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
+                      <span>Advanced meal planning</span>
+                    </li>
+                    <li className="flex items-start text-gray-700 dark:text-gray-300">
+                      <Check className="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
+                      <span>Priority support</span>
+                    </li>
+                  </ul>
                 </div>
 
                 {/* Monthly Plan - Recommended */}
@@ -200,6 +222,28 @@ const Premium = () => {
                   >
                     {loading ? 'Loading...' : 'Start Monthly'}
                   </button>
+                  <ul className="space-y-3 text-left">
+                    <li className="flex items-start text-white">
+                      <Check className="w-5 h-5 text-yellow-300 mr-2 flex-shrink-0 mt-0.5" />
+                      <span>Unlimited shopping lists</span>
+                    </li>
+                    <li className="flex items-start text-white">
+                      <Check className="w-5 h-5 text-yellow-300 mr-2 flex-shrink-0 mt-0.5" />
+                      <span>Unlimited pantry items</span>
+                    </li>
+                    <li className="flex items-start text-white">
+                      <Check className="w-5 h-5 text-yellow-300 mr-2 flex-shrink-0 mt-0.5" />
+                      <span>Unlimited recipes</span>
+                    </li>
+                    <li className="flex items-start text-white">
+                      <Check className="w-5 h-5 text-yellow-300 mr-2 flex-shrink-0 mt-0.5" />
+                      <span>Advanced meal planning</span>
+                    </li>
+                    <li className="flex items-start text-white">
+                      <Check className="w-5 h-5 text-yellow-300 mr-2 flex-shrink-0 mt-0.5" />
+                      <span>Priority support</span>
+                    </li>
+                  </ul>
                 </div>
               </div>
             )}
