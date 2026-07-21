@@ -592,8 +592,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     try {
       await api.post('/features/admin/layouts', {
         widgets,
-        colors: customColors,
-        animations
+        tier: currentTier
       });
       alert('Layout saved successfully!');
       onSave?.();
@@ -610,48 +609,6 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     }
   };
 
-  // Load existing widgets from the page
-  const loadExistingWidgets = () => {
-    const widgets = [];
-    document.querySelectorAll('[data-widget], .card, .widget').forEach((el, idx) => {
-      const name = el.querySelector('h2, h3, h4')?.textContent || `Widget ${idx + 1}`;
-      widgets.push({
-        id: `existing-${idx}`,
-        name,
-        element: el,
-        type: el.className.includes('card') ? 'card' : 'widget',
-        tier: currentTier
-      });
-    });
-    setExistingWidgets(widgets);
-    
-    // Load sidebar items
-    const sidebar = [];
-    document.querySelectorAll('nav a, nav button, .sidebar-item').forEach((el, idx) => {
-      sidebar.push({
-        id: `sidebar-${idx}`,
-        name: el.textContent.trim(),
-        element: el,
-        icon: el.querySelector('svg')?.outerHTML || '',
-        tier: currentTier
-      });
-    });
-    setSidebarItems(sidebar);
-    
-    // Load toolbar items
-    const toolbar = [];
-    document.querySelectorAll('header button, header a').forEach((el, idx) => {
-      if (!el.hasAttribute('data-editor-control')) {
-        toolbar.push({
-          id: `toolbar-${idx}`,
-          name: el.getAttribute('title') || el.textContent.trim(),
-          element: el,
-          tier: currentTier
-        });
-      }
-    });
-    setToolbarItems(toolbar);
-  };
 
   // Track removed item
   const trackRemovedItem = (item, type) => {
@@ -724,58 +681,6 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     });
   };
 
-  // Tools panel dragging
-  const handlePanelMouseDown = (e) => {
-    if (e.target.closest('.panel-resize-handle')) return;
-    setIsDraggingPanel(true);
-    setDragOffset({
-      x: e.clientX - toolsPanelPos.x,
-      y: e.clientY - toolsPanelPos.y
-    });
-  };
-
-  const handlePanelResize = (e) => {
-    setIsResizingPanel(true);
-    resizeStartRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-      width: toolsPanelSize.width,
-      height: toolsPanelSize.height
-    };
-  };
-
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      if (isDraggingPanel) {
-        setToolsPanelPos({
-          x: e.clientX - dragOffset.x,
-          y: e.clientY - dragOffset.y
-        });
-      }
-      if (isResizingPanel) {
-        const deltaX = e.clientX - resizeStartRef.current.x;
-        const deltaY = e.clientY - resizeStartRef.current.y;
-        setToolsPanelSize({
-          width: Math.max(280, resizeStartRef.current.width + deltaX),
-          height: Math.max(400, resizeStartRef.current.height + deltaY)
-        });
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsDraggingPanel(false);
-      setIsResizingPanel(false);
-    };
-
-    if (isDraggingPanel || isResizingPanel) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-    }
-  }, [isDraggingPanel, isResizingPanel, dragOffset]);
 
   return (
     <>
@@ -787,44 +692,21 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center space-x-4">
             <Layout className="w-5 h-5" />
-            <span className="font-semibold">Live Editor Mode</span>
-            <div className="flex items-center space-x-2 ml-4">
-              <button
-                onClick={() => setEditMode('widgets')}
-                className={`px-3 py-1 rounded ${editMode === 'widgets' ? 'bg-white text-blue-600' : 'bg-blue-700'}`}
-                data-editor-control
-              >
-                Widgets
-              </button>
-              <button
-                onClick={() => setEditMode('sidebar')}
-                className={`px-3 py-1 rounded ${editMode === 'sidebar' ? 'bg-white text-purple-600' : 'bg-purple-700'}`}
-                data-editor-control
-              >
-                Sidebar
-              </button>
-              <button
-                onClick={() => setEditMode('toolbar')}
-                className={`px-3 py-1 rounded ${editMode === 'toolbar' ? 'bg-white text-green-600' : 'bg-green-700'}`}
-                data-editor-control
-              >
-                Toolbar
-              </button>
-            </div>
+            <span className="font-semibold">Smart Live Editor</span>
             
             {/* Tier Selector */}
             <div className="flex items-center space-x-2 ml-4 border-l border-white/30 pl-4">
-              <span className="text-sm text-white/80">Editing:</span>
+              <span className="text-sm text-white/80">Tier:</span>
               <select
                 value={currentTier}
                 onChange={(e) => setCurrentTier(e.target.value)}
                 className="px-3 py-1 rounded bg-white/20 text-white border border-white/30 text-sm"
                 data-editor-control
               >
-                <option value="guest">Guest Tier</option>
-                <option value="free">Free Tier</option>
-                <option value="premium">Premium Tier</option>
-                <option value="admin">Admin View</option>
+                <option value="guest">Guest</option>
+                <option value="free">Free</option>
+                <option value="premium">Premium</option>
+                <option value="admin">Admin</option>
               </select>
             </div>
           </div>
@@ -935,139 +817,8 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
               )}
             </div>
 
-            {/* Toolbar Customization */}
-            {editMode === 'toolbar' && (
-              <div>
-                <h4 className="font-semibold text-sm mb-2 flex items-center">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Toolbar Items
-                </h4>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => addSeparator('toolbar')}
-                    className="w-full px-3 py-2 text-sm bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30"
-                    data-editor-control
-                  >
-                    + Add Separator
-                  </button>
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
-                    {toolbarItems.filter(t => t.tier === currentTier).map(item => (
-                      <div key={item.id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 border rounded text-xs">
-                        <span>{item.name}</span>
-                        <button
-                          onClick={() => {
-                            item.element.style.display = 'none';
-                            trackRemovedItem(item, 'toolbar');
-                          }}
-                          className="text-red-500 hover:text-red-700"
-                          data-editor-control
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Sidebar Customization */}
-            {editMode === 'sidebar' && (
-              <div>
-                <h4 className="font-semibold text-sm mb-2 flex items-center">
-                  <SidebarIcon className="w-4 h-4 mr-2" />
-                  Sidebar Items
-                </h4>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => addSeparator('sidebar')}
-                    className="w-full px-3 py-2 text-sm bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded hover:bg-purple-100 dark:hover:bg-purple-900/30"
-                    data-editor-control
-                  >
-                    + Add Separator
-                  </button>
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
-                    {sidebarItems.filter(s => s.tier === currentTier).map(item => (
-                      <div key={item.id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 border rounded text-xs">
-                        <span>{item.name}</span>
-                        <div className="flex items-center space-x-1">
-                          <button
-                            onClick={() => moveToToolbar(item)}
-                            className="text-blue-500 hover:text-blue-700"
-                            data-editor-control
-                            title="Move to Toolbar"
-                          >
-                            <Move className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              item.element.style.display = 'none';
-                              trackRemovedItem(item, 'sidebar');
-                            }}
-                            className="text-red-500 hover:text-red-700"
-                            data-editor-control
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Existing Widgets */}
-            {editMode === 'widgets' && (
-              <div>
-                <h4 className="font-semibold text-sm mb-2 flex items-center">
-                  <RotateCw className="w-4 h-4 mr-2" />
-                  Restore Widgets
-                </h4>
-              <div className="space-y-1 max-h-40 overflow-y-auto">
-                {existingWidgets.map(widget => (
-                  <button
-                    key={widget.id}
-                    onClick={() => {
-                      if (widget.element.style.display === 'none') {
-                        widget.element.style.display = '';
-                        widget.element.style.opacity = '1';
-                      }
-                    }}
-                    className="w-full px-3 py-2 text-left text-xs border border-gray-300 dark:border-gray-600 rounded hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center justify-between"
-                    data-editor-control
-                  >
-                    <span>{widget.name}</span>
-                    <Plus className="w-3 h-3" />
-                  </button>
-                ))}
-              </div>
-              </div>
-            )}
-
-            {/* Widget Library */}
-            {editMode === 'widgets' && (
-            <div>
-              <h4 className="font-semibold text-sm mb-2 flex items-center">
-                <Plus className="w-4 h-4 mr-2" />
-                Add New Widgets
-              </h4>
-              <div className="grid grid-cols-2 gap-2">
-                {['Stats', 'Chart', 'List', 'Calendar', 'Notes', 'Weather'].map(widget => (
-                  <button
-                    key={widget}
-                    className="p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm"
-                    data-editor-control
-                  >
-                    {widget}
-                  </button>
-                ))}
-              </div>
-            </div>
-            )}
-
             {/* Color Picker */}
-            {editMode === 'widgets' && (
+            {selectedElement && (
             <div>
               <h4 className="font-semibold text-sm mb-2 flex items-center">
                 <Palette className="w-4 h-4 mr-2" />
@@ -1077,9 +828,10 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
                 {['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6B7280', '#1F2937'].map(color => (
                   <button
                     key={color}
-                    onClick={() => selectedElement && (selectedElement.style.backgroundColor = color)}
+                    onClick={() => selectedElement.style.backgroundColor = color}
                     className="w-full h-8 rounded border-2 border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform"
                     style={{ backgroundColor: color }}
+                    data-editor-control
                   />
                 ))}
               </div>
@@ -1087,7 +839,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
             )}
 
             {/* Animations */}
-            {editMode === 'widgets' && (
+            {selectedElement && (
             <div>
               <h4 className="font-semibold text-sm mb-2 flex items-center">
                 <Wand2 className="w-4 h-4 mr-2" />
@@ -1151,7 +903,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
             )}
 
             {/* Settings */}
-            {editMode === 'widgets' && (
+            {selectedElement && (
             <div>
               <h4 className="font-semibold text-sm mb-2 flex items-center">
                 <Settings className="w-4 h-4 mr-2" />
@@ -1196,30 +948,6 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
                     <option value="0 20px 25px rgba(0,0,0,0.15)">XL</option>
                   </select>
                 </label>
-              </div>
-            </div>
-            )}
-
-            {/* Quick Actions */}
-            {editMode === 'widgets' && (
-            <div>
-              <h4 className="font-semibold text-sm mb-2 flex items-center">
-                <Settings className="w-4 h-4 mr-2" />
-                Quick Actions
-              </h4>
-              <div className="space-y-2">
-                <button className="w-full btn-secondary text-sm justify-start" data-editor-control>
-                  <Type className="w-4 h-4 mr-2" />
-                  Edit Text
-                </button>
-                <button className="w-full btn-secondary text-sm justify-start" data-editor-control>
-                  <Image className="w-4 h-4 mr-2" />
-                  Change Icon
-                </button>
-                <button className="w-full btn-secondary text-sm justify-start" data-editor-control>
-                  <Copy className="w-4 h-4 mr-2" />
-                  Duplicate
-                </button>
               </div>
             </div>
             )}
