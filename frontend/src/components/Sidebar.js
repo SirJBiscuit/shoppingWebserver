@@ -18,7 +18,7 @@ const Sidebar = ({ onAction }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const mainNavItems = [
-    { path: '/', icon: ShoppingCart, label: 'Shopping List', color: 'text-blue-600' },
+    { path: '/', icon: ShoppingCart, label: 'Dashboard', color: 'text-blue-600' },
     { path: '/recipes', icon: ChefHat, label: 'Recipe Box', color: 'text-orange-600' },
     { path: '/pantry', icon: Package, label: 'Kitchen Inventory', color: 'text-green-600' },
     { path: '/meal-plan', icon: Calendar, label: 'Meal Planner', color: 'text-purple-600' },

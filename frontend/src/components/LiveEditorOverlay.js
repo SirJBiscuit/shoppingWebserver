@@ -23,6 +23,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const draggedElementRef = useRef(null);
   const resizeHandleRef = useRef(null);
+  const originalStatesRef = useRef(new Map()); // Store original element states
 
   useEffect(() => {
     // Add wiggle animation to all editable elements
@@ -59,15 +60,29 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         box-shadow: 0 0 30px rgba(59, 130, 246, 0.5);
       }
       
-      .editor-active .editable-sidebar-item {
+      .editor-active .editable-sidebar {
         outline: 2px dashed rgba(168, 85, 247, 0.3);
         outline-offset: 2px;
-        cursor: move;
+        cursor: move !important;
+        position: relative;
       }
       
-      .editor-active .editable-sidebar-item:hover {
+      .editor-active .editable-sidebar:hover {
         outline: 2px solid rgba(168, 85, 247, 0.8);
-        background: rgba(168, 85, 247, 0.1);
+        background: rgba(168, 85, 247, 0.1) !important;
+        animation: subtle-wiggle 0.5s ease-in-out;
+      }
+      
+      .editor-active .editable-toolbar {
+        outline: 2px dashed rgba(34, 197, 94, 0.3);
+        outline-offset: 2px;
+        cursor: move !important;
+        position: relative;
+      }
+      
+      .editor-active .editable-toolbar:hover {
+        outline: 2px solid rgba(34, 197, 94, 0.8);
+        background: rgba(34, 197, 94, 0.1) !important;
         animation: subtle-wiggle 0.5s ease-in-out;
       }
       
@@ -206,12 +221,28 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
   // Smart context detection and setup
   useEffect(() => {
     const setupElement = (element, type) => {
+      // Save original state
+      const elementId = element.id || `${type}-${Math.random().toString(36).substr(2, 9)}`;
+      originalStatesRef.current.set(elementId, {
+        display: element.style.display || '',
+        position: element.style.position || '',
+        left: element.style.left || '',
+        top: element.style.top || '',
+        width: element.style.width || '',
+        height: element.style.height || '',
+        transform: element.style.transform || '',
+        zIndex: element.style.zIndex || ''
+      });
+      
       element.classList.add(`editable-${type}`);
-      element.setAttribute(`data-${type}-id`, element.id || Math.random().toString(36));
+      element.setAttribute(`data-${type}-id`, elementId);
       element.setAttribute('data-element-type', type);
       
       if (type === 'widget') {
-        element.style.position = 'relative';
+        // Ensure widget can be positioned
+        if (!element.style.position || element.style.position === 'static') {
+          element.style.position = 'relative';
+        }
         
         // Add resize handles
         if (!element.querySelector('.resize-handle')) {
@@ -219,6 +250,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
             const handle = document.createElement('div');
             handle.className = `resize-handle ${pos}`;
             handle.setAttribute('data-resize-pos', pos);
+            handle.setAttribute('data-editor-control', 'true');
             handle.style.display = 'none';
             handle.addEventListener('mousedown', (e) => startResize(e, element, pos));
             element.appendChild(handle);
@@ -247,18 +279,25 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         });
       }
       
-      // Drag to move
-      element.addEventListener('mousedown', (e) => {
-        if (e.target.classList.contains('resize-handle') || e.target.hasAttribute('data-editor-control')) return;
+      // Drag to move (for all types)
+      const handleMouseDown = (e) => {
+        // Don't drag if clicking on a link, button content, or editor control
+        if (e.target.classList.contains('resize-handle') || 
+            e.target.hasAttribute('data-editor-control') ||
+            e.target.closest('a, button') !== element) {
+          return;
+        }
         startDrag(e, element);
-      });
+      };
+      element.addEventListener('mousedown', handleMouseDown);
       
-      // Right-click context menu
-      element.addEventListener('contextmenu', (e) => {
+      // Right-click context menu (for all types)
+      const handleContextMenu = (e) => {
         e.preventDefault();
         e.stopPropagation();
         showContextMenu(e, element, type);
-      });
+      };
+      element.addEventListener('contextmenu', handleContextMenu);
     };
 
     // Auto-detect and setup widgets
@@ -277,6 +316,11 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     });
   }, []);
 
+  // Grid snap helper
+  const snapToGrid = (value, gridSize = 20) => {
+    return Math.round(value / gridSize) * gridSize;
+  };
+
   // Smart drag handler
   const startDrag = (e, element) => {
     e.preventDefault();
@@ -285,16 +329,21 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     setIsDragging(true);
     draggedElementRef.current = element;
     
+    // Store original position
     const rect = element.getBoundingClientRect();
+    const parent = element.offsetParent || document.body;
+    const parentRect = parent.getBoundingClientRect();
+    
     setDragStart({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-      elementX: rect.left,
-      elementY: rect.top
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      elementLeft: element.offsetLeft,
+      elementTop: element.offsetTop
     });
     
     element.style.cursor = 'grabbing';
     element.classList.add('dragging');
+    element.style.zIndex = '1000';
   };
 
   // Smart resize handler
@@ -322,13 +371,23 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     const handleMouseMove = (e) => {
       if (isDragging && draggedElementRef.current) {
         const element = draggedElementRef.current;
-        const newX = e.clientX - dragStart.x;
-        const newY = e.clientY - dragStart.y;
         
-        element.style.position = 'fixed';
-        element.style.left = `${newX}px`;
-        element.style.top = `${newY}px`;
-        element.style.zIndex = '10000';
+        // Calculate delta from start position
+        const deltaX = e.clientX - dragStart.mouseX;
+        const deltaY = e.clientY - dragStart.mouseY;
+        
+        // Calculate new position
+        let newLeft = dragStart.elementLeft + deltaX;
+        let newTop = dragStart.elementTop + deltaY;
+        
+        // Snap to grid
+        newLeft = snapToGrid(newLeft);
+        newTop = snapToGrid(newTop);
+        
+        // Apply position using offset (stays in document flow)
+        element.style.left = `${newLeft}px`;
+        element.style.top = `${newTop}px`;
+        
         setHasChanges(true);
       }
       
@@ -353,6 +412,10 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
           newHeight = Math.max(100, resizeStart.height - deltaY);
         }
         
+        // Snap to grid
+        newWidth = snapToGrid(newWidth);
+        newHeight = snapToGrid(newHeight);
+        
         element.style.width = `${newWidth}px`;
         element.style.height = `${newHeight}px`;
         setHasChanges(true);
@@ -363,6 +426,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
       if (isDragging && draggedElementRef.current) {
         draggedElementRef.current.style.cursor = 'move';
         draggedElementRef.current.classList.remove('dragging');
+        draggedElementRef.current.style.zIndex = '';
       }
       setIsDragging(false);
       setIsResizing(false);
@@ -605,7 +669,22 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
 
   const handleClose = () => {
     // eslint-disable-next-line no-restricted-globals
-    if (confirm('Discard changes?')) {
+    if (!hasChanges || confirm('Discard changes?')) {
+      // Restore all original states
+      originalStatesRef.current.forEach((state, elementId) => {
+        const element = document.querySelector(`[data-widget-id="${elementId}"], [data-sidebar-id="${elementId}"], [data-toolbar-id="${elementId}"]`);
+        if (element) {
+          element.style.display = state.display;
+          element.style.position = state.position;
+          element.style.left = state.left;
+          element.style.top = state.top;
+          element.style.width = state.width;
+          element.style.height = state.height;
+          element.style.transform = state.transform;
+          element.style.zIndex = state.zIndex;
+        }
+      });
+      
       onClose();
     }
   };
@@ -756,6 +835,58 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
               <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
                 {currentTier.charAt(0).toUpperCase() + currentTier.slice(1)} Tier
               </p>
+            </div>
+
+            {/* Quick Settings */}
+            <div>
+              <h4 className="font-semibold text-sm mb-2 flex items-center">
+                <Settings className="w-4 h-4 mr-2" />
+                Quick Settings
+              </h4>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setGridVisible(!gridVisible)}
+                  className={`w-full px-3 py-2 text-sm rounded flex items-center justify-between ${
+                    gridVisible ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100' : 'bg-gray-100 dark:bg-gray-700'
+                  }`}
+                  data-editor-control
+                >
+                  <span className="flex items-center">
+                    <Grid className="w-4 h-4 mr-2" />
+                    Grid Overlay
+                  </span>
+                  <span className="text-xs">{gridVisible ? 'ON' : 'OFF'}</span>
+                </button>
+                
+                <div className="bg-gray-50 dark:bg-gray-900 p-2 rounded">
+                  <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">
+                    Grid Snap Size: 20px
+                  </label>
+                  <p className="text-xs text-gray-500">Widgets snap to 20px grid when moving</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Theme Presets */}
+            <div>
+              <h4 className="font-semibold text-sm mb-2 flex items-center">
+                <Palette className="w-4 h-4 mr-2" />
+                Theme Presets
+              </h4>
+              <div className="grid grid-cols-2 gap-2">
+                <button className="p-2 border-2 border-blue-300 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 text-xs" data-editor-control>
+                  Ocean Blue
+                </button>
+                <button className="p-2 border-2 border-purple-300 dark:border-purple-700 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20 text-xs" data-editor-control>
+                  Purple Dream
+                </button>
+                <button className="p-2 border-2 border-green-300 dark:border-green-700 rounded hover:bg-green-50 dark:hover:bg-green-900/20 text-xs" data-editor-control>
+                  Forest Green
+                </button>
+                <button className="p-2 border-2 border-orange-300 dark:border-orange-700 rounded hover:bg-orange-50 dark:hover:bg-orange-900/20 text-xs" data-editor-control>
+                  Sunset Orange
+                </button>
+              </div>
             </div>
 
             {/* Removed Items Manager */}
