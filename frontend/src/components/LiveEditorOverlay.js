@@ -11,34 +11,19 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
   const [selectedElement, setSelectedElement] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [showTools, setShowTools] = useState(true);
-  const [editMode, setEditMode] = useState('widgets'); // 'widgets' or 'sidebar'
-  const [customColors, setCustomColors] = useState({});
-  const [animations, setAnimations] = useState({});
-  const [history, setHistory] = useState([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const [gridVisible, setGridVisible] = useState(true);
-  const [zoom, setZoom] = useState(100);
-  const [toolsPanelPos, setToolsPanelPos] = useState({ x: window.innerWidth - 340, y: 80 });
-  const [toolsPanelSize, setToolsPanelSize] = useState({ width: 320, height: 600 });
-  const [isDraggingPanel, setIsDraggingPanel] = useState(false);
-  const [isResizingPanel, setIsResizingPanel] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [existingWidgets, setExistingWidgets] = useState([]);
   const [currentTier, setCurrentTier] = useState('free');
   const [removedItems, setRemovedItems] = useState({ widgets: [], sidebar: [], toolbar: [] });
-  const [showRemovedPanel, setShowRemovedPanel] = useState(false);
-  const [toolbarItems, setToolbarItems] = useState([]);
-  const [sidebarItems, setSidebarItems] = useState([]);
+  const [gridVisible, setGridVisible] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
-  const overlayRef = useRef(null);
-  const toolsPanelRef = useRef(null);
+  const [savedThemes, setSavedThemes] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const draggedElementRef = useRef(null);
-  const resizeStartRef = useRef({ x: 0, y: 0, width: 0, height: 0 });
+  const resizeHandleRef = useRef(null);
 
   useEffect(() => {
-    // Load existing widgets from dashboard
-    loadExistingWidgets();
-    
     // Add wiggle animation to all editable elements
     document.body.classList.add('editor-active');
     
@@ -217,77 +202,232 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     };
   }, []);
 
-  // Mark all widgets as editable
+  // Smart context detection and setup
   useEffect(() => {
-    const widgets = document.querySelectorAll('[data-widget], .card, .widget');
-    widgets.forEach((widget, index) => {
-      widget.classList.add('editable-widget');
-      widget.setAttribute('data-widget-id', index);
-      widget.style.position = 'relative';
+    const setupElement = (element, type) => {
+      element.classList.add(`editable-${type}`);
+      element.setAttribute(`data-${type}-id`, element.id || Math.random().toString(36));
+      element.setAttribute('data-element-type', type);
       
-      // Add resize handles
-      if (!widget.querySelector('.resize-handle')) {
-        ['top-left', 'top-right', 'bottom-left', 'bottom-right'].forEach(pos => {
-          const handle = document.createElement('div');
-          handle.className = `resize-handle ${pos}`;
-          handle.style.display = 'none';
-          widget.appendChild(handle);
-        });
+      if (type === 'widget') {
+        element.style.position = 'relative';
         
-        // Add delete button
-        const deleteBtn = document.createElement('div');
-        deleteBtn.className = 'delete-button';
-        deleteBtn.innerHTML = '×';
-        deleteBtn.onclick = (e) => {
-          e.stopPropagation();
-          handleDeleteWidget(widget);
-        };
-        widget.appendChild(deleteBtn);
+        // Add resize handles
+        if (!element.querySelector('.resize-handle')) {
+          ['top-left', 'top-right', 'bottom-left', 'bottom-right'].forEach(pos => {
+            const handle = document.createElement('div');
+            handle.className = `resize-handle ${pos}`;
+            handle.setAttribute('data-resize-pos', pos);
+            handle.style.display = 'none';
+            handle.addEventListener('mousedown', (e) => startResize(e, element, pos));
+            element.appendChild(handle);
+          });
+          
+          // Add delete button
+          const deleteBtn = document.createElement('div');
+          deleteBtn.className = 'delete-button';
+          deleteBtn.innerHTML = '×';
+          deleteBtn.setAttribute('data-editor-control', 'true');
+          deleteBtn.onclick = (e) => {
+            e.stopPropagation();
+            handleDeleteWidget(element);
+          };
+          element.appendChild(deleteBtn);
+        }
+        
+        // Show handles on hover
+        element.addEventListener('mouseenter', () => {
+          element.querySelectorAll('.resize-handle').forEach(h => h.style.display = 'block');
+        });
+        element.addEventListener('mouseleave', () => {
+          if (!element.classList.contains('selected')) {
+            element.querySelectorAll('.resize-handle').forEach(h => h.style.display = 'none');
+          }
+        });
       }
       
-      // Show handles on hover/select
-      widget.addEventListener('mouseenter', () => {
-        widget.querySelectorAll('.resize-handle').forEach(h => h.style.display = 'block');
-      });
-      widget.addEventListener('mouseleave', () => {
-        if (!widget.classList.contains('selected')) {
-          widget.querySelectorAll('.resize-handle').forEach(h => h.style.display = 'none');
-        }
-      });
-      
-      // Click to select
-      widget.addEventListener('click', (e) => {
-        e.stopPropagation();
-        selectWidget(widget);
+      // Drag to move
+      element.addEventListener('mousedown', (e) => {
+        if (e.target.classList.contains('resize-handle') || e.target.hasAttribute('data-editor-control')) return;
+        startDrag(e, element);
       });
       
       // Right-click context menu
-      widget.addEventListener('contextmenu', (e) => {
+      element.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        selectWidget(widget);
-        setContextMenu({ x: e.clientX, y: e.clientY, element: widget });
+        showContextMenu(e, element, type);
       });
+    };
+
+    // Auto-detect and setup widgets
+    document.querySelectorAll('[data-widget], .card, .widget, .dashboard-widget').forEach(el => {
+      if (!el.hasAttribute('data-editor-control')) setupElement(el, 'widget');
     });
 
-    // Mark sidebar items as editable
-    const sidebarItems = document.querySelectorAll('nav a, nav button, .sidebar-item');
-    sidebarItems.forEach((item, index) => {
-      item.classList.add('editable-sidebar-item');
-      item.setAttribute('data-sidebar-id', index);
+    // Auto-detect and setup sidebar items
+    document.querySelectorAll('nav a, nav button, .sidebar-item').forEach(el => {
+      if (!el.hasAttribute('data-editor-control')) setupElement(el, 'sidebar');
     });
-  }, [editMode]);
+
+    // Auto-detect and setup toolbar items
+    document.querySelectorAll('header button, header a, .toolbar-item').forEach(el => {
+      if (!el.hasAttribute('data-editor-control')) setupElement(el, 'toolbar');
+    });
+  }, []);
+
+  // Smart drag handler
+  const startDrag = (e, element) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsDragging(true);
+    draggedElementRef.current = element;
+    
+    const rect = element.getBoundingClientRect();
+    setDragStart({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      elementX: rect.left,
+      elementY: rect.top
+    });
+    
+    element.style.cursor = 'grabbing';
+    element.classList.add('dragging');
+  };
+
+  // Smart resize handler
+  const startResize = (e, element, position) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsResizing(true);
+    draggedElementRef.current = element;
+    resizeHandleRef.current = position;
+    
+    const rect = element.getBoundingClientRect();
+    setResizeStart({
+      x: e.clientX,
+      y: e.clientY,
+      width: rect.width,
+      height: rect.height,
+      left: rect.left,
+      top: rect.top
+    });
+  };
+
+  // Mouse move handler
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (isDragging && draggedElementRef.current) {
+        const element = draggedElementRef.current;
+        const newX = e.clientX - dragStart.x;
+        const newY = e.clientY - dragStart.y;
+        
+        element.style.position = 'fixed';
+        element.style.left = `${newX}px`;
+        element.style.top = `${newY}px`;
+        element.style.zIndex = '10000';
+        setHasChanges(true);
+      }
+      
+      if (isResizing && draggedElementRef.current) {
+        const element = draggedElementRef.current;
+        const deltaX = e.clientX - resizeStart.x;
+        const deltaY = e.clientY - resizeStart.y;
+        const position = resizeHandleRef.current;
+        
+        let newWidth = resizeStart.width;
+        let newHeight = resizeStart.height;
+        
+        if (position.includes('right')) {
+          newWidth = Math.max(100, resizeStart.width + deltaX);
+        } else if (position.includes('left')) {
+          newWidth = Math.max(100, resizeStart.width - deltaX);
+        }
+        
+        if (position.includes('bottom')) {
+          newHeight = Math.max(100, resizeStart.height + deltaY);
+        } else if (position.includes('top')) {
+          newHeight = Math.max(100, resizeStart.height - deltaY);
+        }
+        
+        element.style.width = `${newWidth}px`;
+        element.style.height = `${newHeight}px`;
+        setHasChanges(true);
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging && draggedElementRef.current) {
+        draggedElementRef.current.style.cursor = 'move';
+        draggedElementRef.current.classList.remove('dragging');
+      }
+      setIsDragging(false);
+      setIsResizing(false);
+      draggedElementRef.current = null;
+      resizeHandleRef.current = null;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, isResizing, dragStart, resizeStart]);
+
+  // Smart context menu
+  const showContextMenu = (e, element, type) => {
+    const menu = {
+      x: e.clientX,
+      y: e.clientY,
+      element,
+      type,
+      options: []
+    };
+
+    if (type === 'widget') {
+      menu.options = [
+        { label: 'Edit Text', action: 'edit-text', icon: Edit3 },
+        { label: 'Change Color', action: 'change-color', icon: Palette },
+        { label: 'Add Animation', action: 'add-animation', icon: Wand2 },
+        { label: 'Duplicate', action: 'duplicate', icon: Copy },
+        { label: 'Delete', action: 'delete', icon: Trash2, danger: true }
+      ];
+    } else if (type === 'sidebar') {
+      menu.options = [
+        { label: 'Move to Toolbar', action: 'move-to-toolbar', icon: Move },
+        { label: 'Move to Dashboard', action: 'move-to-dashboard', icon: Layout },
+        { label: 'Add Separator After', action: 'add-separator', icon: Plus },
+        { label: 'Hide', action: 'hide', icon: Eye }
+      ];
+    } else if (type === 'toolbar') {
+      menu.options = [
+        { label: 'Move to Sidebar', action: 'move-to-sidebar', icon: SidebarIcon },
+        { label: 'Add Separator After', action: 'add-separator', icon: Plus },
+        { label: 'Hide', action: 'hide', icon: Eye }
+      ];
+    }
+
+    setContextMenu(menu);
+  };
 
   const selectWidget = (widget) => {
     // Deselect previous
-    document.querySelectorAll('.editable-widget.selected').forEach(w => {
+    document.querySelectorAll('.editable-widget.selected, .editable-sidebar.selected, .editable-toolbar.selected').forEach(w => {
       w.classList.remove('selected');
-      w.querySelectorAll('.resize-handle').forEach(h => h.style.display = 'none');
+      if (w.querySelectorAll) {
+        w.querySelectorAll('.resize-handle').forEach(h => h.style.display = 'none');
+      }
     });
     
     // Select new
     widget.classList.add('selected');
-    widget.querySelectorAll('.resize-handle').forEach(h => h.style.display = 'block');
+    if (widget.querySelectorAll) {
+      widget.querySelectorAll('.resize-handle').forEach(h => h.style.display = 'block');
+    }
     setSelectedElement(widget);
   };
 
@@ -316,6 +456,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     if (!contextMenu?.element) return;
     
     const element = contextMenu.element;
+    const type = contextMenu.type;
     
     switch (action) {
       case 'edit-text':
@@ -324,7 +465,6 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         element.style.outline = '2px solid #3B82F6';
         element.style.outlineOffset = '2px';
         
-        // Auto-save on blur (no apply button needed)
         const handleBlur = () => {
           element.contentEditable = 'false';
           element.style.outline = '';
@@ -334,7 +474,6 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         };
         element.addEventListener('blur', handleBlur);
         
-        // Also save on Enter key
         const handleKeyDown = (e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -343,27 +482,95 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         };
         element.addEventListener('keydown', handleKeyDown);
         break;
+        
       case 'duplicate':
         const clone = element.cloneNode(true);
         clone.style.marginTop = '20px';
         element.parentNode.insertBefore(clone, element.nextSibling);
         setHasChanges(true);
         break;
+        
       case 'change-color':
-        const color = prompt('Enter color (hex or name):');
-        if (color) {
-          element.style.backgroundColor = color;
-          setCustomColors(prev => ({ ...prev, [element.dataset.widgetId]: color }));
+        // Show color picker in tools panel
+        setSelectedElement(element);
+        setShowTools(true);
+        break;
+        
+      case 'add-animation':
+        // Show animation panel in tools
+        setSelectedElement(element);
+        setShowTools(true);
+        break;
+        
+      case 'delete':
+        handleDeleteWidget(element);
+        break;
+        
+      case 'move-to-toolbar':
+        const toolbar = document.querySelector('header .flex, header');
+        if (toolbar) {
+          const clonedToToolbar = element.cloneNode(true);
+          clonedToToolbar.classList.remove('editable-sidebar');
+          clonedToToolbar.classList.add('editable-toolbar');
+          clonedToToolbar.setAttribute('data-element-type', 'toolbar');
+          toolbar.appendChild(clonedToToolbar);
+          element.style.display = 'none';
+          trackRemovedItem({ id: element.dataset.sidebarId, name: element.textContent, element, tier: currentTier }, 'sidebar');
           setHasChanges(true);
         }
         break;
-      case 'add-animation':
-        element.style.animation = 'pulse 2s infinite';
+        
+      case 'move-to-sidebar':
+        const sidebar = document.querySelector('nav');
+        if (sidebar) {
+          const clonedToSidebar = element.cloneNode(true);
+          clonedToSidebar.classList.remove('editable-toolbar');
+          clonedToSidebar.classList.add('editable-sidebar');
+          clonedToSidebar.setAttribute('data-element-type', 'sidebar');
+          sidebar.appendChild(clonedToSidebar);
+          element.style.display = 'none';
+          trackRemovedItem({ id: element.dataset.toolbarId, name: element.textContent, element, tier: currentTier }, 'toolbar');
+          setHasChanges(true);
+        }
+        break;
+        
+      case 'move-to-dashboard':
+        const dashboard = document.querySelector('main, .dashboard');
+        if (dashboard) {
+          const widget = document.createElement('div');
+          widget.className = 'card editable-widget';
+          widget.innerHTML = `<h3>${element.textContent}</h3>`;
+          widget.style.padding = '20px';
+          widget.style.margin = '10px';
+          dashboard.appendChild(widget);
+          element.style.display = 'none';
+          trackRemovedItem({ id: element.dataset.sidebarId, name: element.textContent, element, tier: currentTier }, 'sidebar');
+          setHasChanges(true);
+        }
+        break;
+        
+      case 'add-separator':
+        const separator = document.createElement('div');
+        separator.className = 'separator';
+        separator.style.cssText = type === 'toolbar' 
+          ? 'width: 1px; height: 24px; background: rgba(0,0,0,0.1); margin: 0 8px; display: inline-block;'
+          : 'width: 100%; height: 1px; background: rgba(0,0,0,0.1); margin: 8px 0;';
+        separator.setAttribute('data-separator', 'true');
+        element.parentNode.insertBefore(separator, element.nextSibling);
         setHasChanges(true);
         break;
-      case 'remove':
-        handleDeleteWidget(element);
+        
+      case 'hide':
+        element.style.display = 'none';
+        trackRemovedItem({ 
+          id: element.dataset[`${type}Id`], 
+          name: element.textContent || element.getAttribute('title') || 'Item', 
+          element, 
+          tier: currentTier 
+        }, `${type}s`);
+        setHasChanges(true);
         break;
+        
       default:
         break;
     }
@@ -645,48 +852,26 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         </div>
       </div>
 
-      {/* Floating Tools Panel */}
+      {/* Simplified Tools Panel */}
       {showTools && (
         <div 
-          ref={toolsPanelRef}
-          className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-2xl border-2 border-blue-500 z-[9999] overflow-hidden"
-          style={{
-            left: `${toolsPanelPos.x}px`,
-            top: `${toolsPanelPos.y}px`,
-            width: `${toolsPanelSize.width}px`,
-            height: `${toolsPanelSize.height}px`,
-            cursor: isDraggingPanel ? 'grabbing' : 'default'
-          }}
+          className="fixed right-4 top-20 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border-2 border-blue-500 z-[9999] w-80 max-h-[80vh] overflow-y-auto"
         >
-          <div 
-            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 flex items-center justify-between rounded-t-lg cursor-grab active:cursor-grabbing"
-            onMouseDown={handlePanelMouseDown}
-            data-editor-control
-          >
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 flex items-center justify-between rounded-t-lg sticky top-0">
             <h3 className="font-semibold flex items-center">
               <Sliders className="w-4 h-4 mr-2" />
-              Editor Tools
+              Tools & Themes
             </h3>
             <button onClick={() => setShowTools(false)} className="hover:bg-white/20 rounded p-1" data-editor-control>
               <Minimize2 className="w-4 h-4" />
             </button>
           </div>
-          
-          {/* Resize Handle */}
-          <div 
-            className="panel-resize-handle absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize bg-blue-500 rounded-tl"
-            onMouseDown={handlePanelResize}
-            data-editor-control
-          />
 
-          <div className="p-4 space-y-4 overflow-y-auto" style={{ height: `${toolsPanelSize.height - 60}px` }}>
-            {/* Tier Info Banner */}
-            <div className="bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900 p-3 rounded-lg">
+          <div className="p-4 space-y-4">
+            {/* Tier Info */}
+            <div className="bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900 p-3 rounded-lg text-center">
               <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
-                Editing: {currentTier.charAt(0).toUpperCase() + currentTier.slice(1)} Tier
-              </p>
-              <p className="text-xs text-blue-700 dark:text-blue-200 mt-1">
-                Changes apply only to this tier
+                {currentTier.charAt(0).toUpperCase() + currentTier.slice(1)} Tier
               </p>
             </div>
 
@@ -1052,34 +1237,33 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         </button>
       )}
 
-      {/* Context Menu */}
+      {/* Smart Context Menu */}
       {contextMenu && (
         <div
-          className="fixed bg-white dark:bg-gray-800 border-2 border-blue-500 rounded-lg shadow-2xl py-2 z-[10000]"
+          className="fixed bg-white dark:bg-gray-800 border-2 border-blue-500 rounded-lg shadow-2xl py-2 z-[10000] min-w-[200px]"
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button onClick={() => handleContextAction('edit-text')} className="w-full px-4 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center space-x-2">
-            <Edit3 className="w-4 h-4" />
-            <span>Edit Text</span>
-          </button>
-          <button onClick={() => handleContextAction('change-color')} className="w-full px-4 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center space-x-2">
-            <Palette className="w-4 h-4" />
-            <span>Change Color</span>
-          </button>
-          <button onClick={() => handleContextAction('add-animation')} className="w-full px-4 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center space-x-2">
-            <Wand2 className="w-4 h-4" />
-            <span>Add Animation</span>
-          </button>
-          <button onClick={() => handleContextAction('duplicate')} className="w-full px-4 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center space-x-2">
-            <Copy className="w-4 h-4" />
-            <span>Duplicate</span>
-          </button>
-          <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
-          <button onClick={() => handleContextAction('remove')} className="w-full px-4 py-2 text-left hover:bg-red-100 dark:hover:bg-red-900 text-red-600 flex items-center space-x-2">
-            <Trash2 className="w-4 h-4" />
-            <span>Remove</span>
-          </button>
+          {contextMenu.options.map((option, idx) => (
+            <div key={idx}>
+              {option.label === 'separator' ? (
+                <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+              ) : (
+                <button
+                  onClick={() => handleContextAction(option.action)}
+                  className={`w-full px-4 py-2 text-left flex items-center space-x-2 ${
+                    option.danger
+                      ? 'hover:bg-red-100 dark:hover:bg-red-900 text-red-600'
+                      : 'hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                  }`}
+                  data-editor-control
+                >
+                  {option.icon && <option.icon className="w-4 h-4" />}
+                  <span>{option.label}</span>
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
