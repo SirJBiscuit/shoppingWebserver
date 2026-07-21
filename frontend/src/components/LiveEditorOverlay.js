@@ -3,12 +3,15 @@ import {
   Save, X, Palette, Wand2, Volume2, FileText, Grid, Move, 
   Trash2, Copy, Edit3, Plus, Undo, Redo, Settings, Eye,
   Layout, Sidebar as SidebarIcon, Sliders, Image, Type,
-  Maximize2, Minimize2, RotateCw, ZoomIn, ZoomOut
+  Maximize2, Minimize2, RotateCw, ZoomIn, ZoomOut, CheckCircle, Info
 } from 'lucide-react';
 import api from '../services/api';
+import { useToast } from '../context/ToastContext';
 
 const LiveEditorOverlay = ({ onClose, onSave }) => {
+  const { success, error, info, warning } = useToast();
   const [selectedElement, setSelectedElement] = useState(null);
+  const [selectedElementInfo, setSelectedElementInfo] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [showTools, setShowTools] = useState(true);
   const [currentTier, setCurrentTier] = useState('free');
@@ -281,15 +284,27 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
       
       // Drag to move (for all types)
       const handleMouseDown = (e) => {
-        // Don't drag if clicking on a link, button content, or editor control
+        // Don't drag if clicking on resize handle or editor control
         if (e.target.classList.contains('resize-handle') || 
-            e.target.hasAttribute('data-editor-control') ||
-            e.target.closest('a, button') !== element) {
+            e.target.hasAttribute('data-editor-control')) {
           return;
         }
+        
+        // For sidebar/toolbar, allow drag on the element itself
+        if (type === 'sidebar' || type === 'toolbar') {
+          e.preventDefault();
+          startDrag(e, element);
+          return;
+        }
+        
+        // For widgets, only drag if not clicking on interactive content
+        if (type === 'widget' && e.target.closest('a, button') !== element) {
+          return;
+        }
+        
         startDrag(e, element);
       };
-      element.addEventListener('mousedown', handleMouseDown);
+      element.addEventListener('mousedown', handleMouseDown, true);
       
       // Right-click context menu (for all types)
       const handleContextMenu = (e) => {
@@ -329,6 +344,20 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     setIsDragging(true);
     draggedElementRef.current = element;
     
+    // Set selected element and show info
+    setSelectedElement(element);
+    const elementType = element.getAttribute('data-element-type') || 'widget';
+    const elementName = element.textContent?.trim().substring(0, 30) || element.getAttribute('title') || 'Element';
+    setSelectedElementInfo({
+      type: elementType,
+      name: elementName,
+      animation: element.style.animation || 'None'
+    });
+    
+    // Remove selected class from all elements
+    document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+    element.classList.add('selected');
+    
     // Store original position
     const rect = element.getBoundingClientRect();
     const parent = element.offsetParent || document.body;
@@ -344,6 +373,8 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     element.style.cursor = 'grabbing';
     element.classList.add('dragging');
     element.style.zIndex = '1000';
+    
+    info(`Dragging ${elementType}: ${elementName}`);
   };
 
   // Smart resize handler
@@ -659,11 +690,12 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         widgets,
         tier: currentTier
       });
-      alert('Layout saved successfully!');
+      success(`Layout saved for ${currentTier} tier!`);
+      setHasChanges(false);
       onSave?.();
-    } catch (error) {
-      console.error('Error saving:', error);
-      alert('Failed to save layout');
+    } catch (err) {
+      console.error('Error saving:', err);
+      error('Failed to save layout');
     }
   };
 
@@ -814,10 +846,63 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         </div>
       </div>
 
+      {/* Selected Element Indicator */}
+      {selectedElementInfo && (
+        <div className="fixed right-4 top-16 bg-white dark:bg-gray-800 rounded-lg shadow-lg border-2 border-blue-500 z-[9999] p-3 w-80">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-semibold text-sm flex items-center text-blue-600 dark:text-blue-400">
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Selected Element
+            </h4>
+            <button 
+              onClick={() => {
+                setSelectedElement(null);
+                setSelectedElementInfo(null);
+                document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+              }}
+              className="text-gray-400 hover:text-gray-600"
+              data-editor-control
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Type:</span>
+              <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                selectedElementInfo.type === 'widget' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                selectedElementInfo.type === 'sidebar' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
+                'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+              }`}>
+                {selectedElementInfo.type.toUpperCase()}
+              </span>
+            </div>
+            <div className="flex items-start justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Name:</span>
+              <span className="text-right font-medium">{selectedElementInfo.name}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Animation:</span>
+              <span className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                {selectedElementInfo.animation}
+              </span>
+            </div>
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-400 flex items-start">
+                <Info className="w-3 h-3 mr-1 mt-0.5 flex-shrink-0" />
+                Right-click for more options or use Tools panel below
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Simplified Tools Panel */}
       {showTools && (
         <div 
-          className="fixed right-4 top-20 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border-2 border-blue-500 z-[9999] w-80 max-h-[80vh] overflow-y-auto"
+          className={`fixed right-4 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border-2 border-blue-500 z-[9999] w-80 max-h-[80vh] overflow-y-auto ${
+            selectedElementInfo ? 'top-[280px]' : 'top-20'
+          }`}
         >
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 flex items-center justify-between rounded-t-lg sticky top-0">
             <h3 className="font-semibold flex items-center">
