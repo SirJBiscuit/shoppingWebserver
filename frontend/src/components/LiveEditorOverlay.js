@@ -29,6 +29,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
   const [showRemovedPanel, setShowRemovedPanel] = useState(false);
   const [toolbarItems, setToolbarItems] = useState([]);
   const [sidebarItems, setSidebarItems] = useState([]);
+  const [hasChanges, setHasChanges] = useState(false);
   const overlayRef = useRef(null);
   const toolsPanelRef = useRef(null);
   const draggedElementRef = useRef(null);
