@@ -393,16 +393,21 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     element.classList.add('selected');
     
-    // Store original position
+    // Get element position
     const rect = element.getBoundingClientRect();
-    const parent = element.offsetParent || document.body;
-    const parentRect = parent.getBoundingClientRect();
+    
+    // Calculate offset from mouse position to element's top-left corner
+    // This ensures the element stays under the mouse cursor where grabbed
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
     
     setDragStart({
       mouseX: e.clientX,
       mouseY: e.clientY,
       elementLeft: element.offsetLeft,
-      elementTop: element.offsetTop
+      elementTop: element.offsetTop,
+      offsetX: offsetX,  // Where on the element the mouse grabbed
+      offsetY: offsetY
     });
     
     element.style.cursor = 'grabbing';
@@ -437,20 +442,20 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     const handleMouseMove = (e) => {
       if (isDragging && draggedElementRef.current) {
         const element = draggedElementRef.current;
+        const parent = element.offsetParent || document.body;
+        const parentRect = parent.getBoundingClientRect();
         
-        // Calculate delta from start position
-        const deltaX = e.clientX - dragStart.mouseX;
-        const deltaY = e.clientY - dragStart.mouseY;
-        
-        // Calculate new position
-        let newLeft = dragStart.elementLeft + deltaX;
-        let newTop = dragStart.elementTop + deltaY;
+        // Calculate new position based on mouse position minus the grab offset
+        // This keeps the element under the cursor at the exact spot where it was grabbed
+        let newLeft = e.clientX - parentRect.left - dragStart.offsetX;
+        let newTop = e.clientY - parentRect.top - dragStart.offsetY;
         
         // Snap to grid
         newLeft = snapToGrid(newLeft);
         newTop = snapToGrid(newTop);
         
-        // Apply position using offset (stays in document flow)
+        // Apply position
+        element.style.position = 'absolute';
         element.style.left = `${newLeft}px`;
         element.style.top = `${newTop}px`;
         
