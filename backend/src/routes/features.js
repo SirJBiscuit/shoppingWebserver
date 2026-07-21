@@ -2,46 +2,49 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
 const { authenticateToken: auth, isAdmin } = require('../middleware/auth');
+const { getUserFeatures, getUserLimits, TIER_HIERARCHY } = require('../middleware/featureAccess');
 
 // Get all feature flags (public - for checking user access)
 router.get('/flags', auth, async (req, res) => {
   try {
-    // Get user's subscription status
+    // Get user's tier and features
     const userResult = await db.query(
-      'SELECT subscription_status FROM users WHERE id = $1',
+      'SELECT subscription_tier, subscription_status, is_guest FROM users WHERE id = $1',
       [req.user.id]
     );
-    const isPremium = userResult.rows[0]?.subscription_status === 'active' || 
-                      userResult.rows[0]?.subscription_status === 'trialing';
+    
+    const user = userResult.rows[0];
+    const userTier = user?.is_guest ? 'guest' : (user?.subscription_tier || 'free');
+    const userTierLevel = TIER_HIERARCHY[userTier] || 0;
 
     // Get all enabled features
     const result = await db.query(
-      `SELECT feature_key, feature_name, description, category, icon, 
-              requires_premium, free_tier_enabled, premium_tier_enabled
+      `SELECT feature_key, feature_name, description, category, min_tier, is_enabled
        FROM feature_flags 
        WHERE is_enabled = TRUE
-       ORDER BY display_order, feature_name`
+       ORDER BY category, feature_name`
     );
 
     // Filter features based on user's tier
     const features = result.rows.map(feature => {
-      const isAvailable = isPremium 
-        ? feature.premium_tier_enabled 
-        : feature.free_tier_enabled;
+      const minTierLevel = TIER_HIERARCHY[feature.min_tier] || 0;
+      const isAvailable = userTierLevel >= minTierLevel;
 
       return {
         key: feature.feature_key,
         name: feature.feature_name,
         description: feature.description,
         category: feature.category,
-        icon: feature.icon,
-        requiresPremium: feature.requires_premium,
+        minTier: feature.min_tier,
         isAvailable: isAvailable,
-        isPremium: isPremium,
       };
     });
 
-    res.json({ features, isPremium });
+    res.json({ 
+      features, 
+      userTier,
+      isGuest: user?.is_guest || false
+    });
   } catch (error) {
     console.error('Error fetching feature flags:', error);
     res.status(500).json({ error: 'Failed to fetch features' });
@@ -51,29 +54,17 @@ router.get('/flags', auth, async (req, res) => {
 // Get tier limits for current user
 router.get('/limits', auth, async (req, res) => {
   try {
+    const limits = await getUserLimits(req.user.id);
+    
     const userResult = await db.query(
-      'SELECT subscription_status FROM users WHERE id = $1',
+      'SELECT subscription_tier, is_guest FROM users WHERE id = $1',
       [req.user.id]
     );
-    const isPremium = userResult.rows[0]?.subscription_status === 'active' || 
-                      userResult.rows[0]?.subscription_status === 'trialing';
     
-    const tier = isPremium ? 'premium' : 'free';
+    const user = userResult.rows[0];
+    const tier = user?.is_guest ? 'guest' : (user?.subscription_tier || 'free');
 
-    const result = await db.query(
-      'SELECT limit_key, limit_value, description FROM tier_limits WHERE tier_name = $1',
-      [tier]
-    );
-
-    const limits = {};
-    result.rows.forEach(row => {
-      limits[row.limit_key] = {
-        value: row.limit_value,
-        description: row.description,
-      };
-    });
-
-    res.json({ tier, limits });
+    res.json({ tier, limits, isGuest: user?.is_guest || false });
   } catch (error) {
     console.error('Error fetching tier limits:', error);
     res.status(500).json({ error: 'Failed to fetch limits' });

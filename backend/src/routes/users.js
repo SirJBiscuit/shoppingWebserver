@@ -155,9 +155,9 @@ router.post('/guest-login', async (req, res) => {
     const hashedPassword = await bcrypt.hash(guestPassword, 10);
 
     const result = await db.query(
-      `INSERT INTO users (username, password_hash, subscription_status)
-       VALUES ($1, $2, 'free')
-       RETURNING id, username`,
+      `INSERT INTO users (username, password_hash, subscription_status, subscription_tier, is_guest)
+       VALUES ($1, $2, 'free', 'guest', true)
+       RETURNING id, username, is_guest`,
       [guestUsername, hashedPassword]
     );
 
