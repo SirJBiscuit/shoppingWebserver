@@ -46,7 +46,7 @@ router.post('/register',
       );
 
       const token = jwt.sign(
-        { userId: user.id, username: user.username },
+        { userId: user.id, username: user.username, isAdmin: false },
         process.env.JWT_SECRET,
         { expiresIn: '7d' }
       );
@@ -57,6 +57,7 @@ router.post('/register',
         user: {
           id: user.id,
           username: user.username,
+          isAdmin: false,
         },
       });
     } catch (error) {
@@ -79,7 +80,7 @@ router.post('/login',
 
     try {
       const result = await db.query(
-        'SELECT id, username, password_hash FROM users WHERE username = $1',
+        'SELECT id, username, password_hash, is_admin FROM users WHERE username = $1',
         [username]
       );
 
@@ -95,7 +96,7 @@ router.post('/login',
       }
 
       const token = jwt.sign(
-        { userId: user.id, username: user.username },
+        { userId: user.id, username: user.username, isAdmin: user.is_admin || false },
         process.env.JWT_SECRET,
         { expiresIn: '7d' }
       );
@@ -106,6 +107,7 @@ router.post('/login',
         user: {
           id: user.id,
           username: user.username,
+          isAdmin: user.is_admin || false,
         },
       });
     } catch (error) {
