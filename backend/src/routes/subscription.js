@@ -32,6 +32,10 @@ router.get('/status', auth, async (req, res) => {
 
     const user = result.rows[0];
     
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
     res.json({
       status: user.subscription_status || 'free',
       tier: user.subscription_tier,
@@ -60,6 +64,10 @@ router.post('/create-checkout-session', auth, async (req, res) => {
       [req.user.id]
     );
     const user = userResult.rows[0];
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
 
     let customerId = user.stripe_customer_id;
 
