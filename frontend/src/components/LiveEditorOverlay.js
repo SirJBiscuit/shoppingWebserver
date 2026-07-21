@@ -75,12 +75,13 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         cursor: grab !important;
         position: relative;
         user-select: none;
+        animation: continuous-wiggle 3s ease-in-out infinite;
       }
       
       .editor-active .editable-sidebar:hover {
         outline: 3px solid rgba(168, 85, 247, 1) !important;
         background: rgba(168, 85, 247, 0.15) !important;
-        animation: subtle-wiggle 0.5s ease-in-out;
+        animation: hover-wiggle 0.5s ease-in-out infinite;
         transform: translateX(5px);
       }
       
@@ -94,17 +95,30 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         cursor: grab !important;
         position: relative;
         user-select: none;
+        animation: continuous-wiggle 3s ease-in-out infinite;
       }
       
       .editor-active .editable-toolbar:hover {
         outline: 3px solid rgba(34, 197, 94, 1) !important;
         background: rgba(34, 197, 94, 0.15) !important;
-        animation: subtle-wiggle 0.5s ease-in-out;
+        animation: hover-wiggle 0.5s ease-in-out infinite;
         transform: translateY(-2px);
       }
       
       .editor-active .editable-toolbar:active {
         cursor: grabbing !important;
+      }
+      
+      @keyframes continuous-wiggle {
+        0%, 100% { transform: rotate(0deg); }
+        25% { transform: rotate(0.3deg); }
+        50% { transform: rotate(0deg); }
+        75% { transform: rotate(-0.3deg); }
+      }
+      
+      @keyframes hover-wiggle {
+        0%, 100% { transform: rotate(0deg) scale(1.02); }
+        50% { transform: rotate(0.5deg) scale(1.02); }
       }
       
       @keyframes subtle-wiggle {
@@ -153,6 +167,25 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
       .editor-active .editable-widget:hover .delete-button,
       .editor-active .editable-widget.selected .delete-button {
         opacity: 1;
+      }
+      
+      /* Drop zone highlighting */
+      .drop-zone-highlight {
+        background: rgba(59, 130, 246, 0.1) !important;
+        outline: 3px dashed rgba(59, 130, 246, 0.8) !important;
+        outline-offset: -3px;
+        animation: pulse-zone 1s ease-in-out infinite;
+      }
+      
+      @keyframes pulse-zone {
+        0%, 100% { 
+          background: rgba(59, 130, 246, 0.1);
+          outline-color: rgba(59, 130, 246, 0.8);
+        }
+        50% { 
+          background: rgba(59, 130, 246, 0.2);
+          outline-color: rgba(59, 130, 246, 1);
+        }
       }
       
       /* Animation triggers */
@@ -371,6 +404,113 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     return Math.round(value / gridSize) * gridSize;
   };
 
+  // Detect which zone the mouse is in
+  const detectDropZone = (mouseX, mouseY) => {
+    // Get zone boundaries
+    const sidebar = document.querySelector('nav');
+    const toolbar = document.querySelector('header');
+    const main = document.querySelector('main');
+    
+    if (sidebar) {
+      const sidebarRect = sidebar.getBoundingClientRect();
+      if (mouseX >= sidebarRect.left && mouseX <= sidebarRect.right &&
+          mouseY >= sidebarRect.top && mouseY <= sidebarRect.bottom) {
+        return 'sidebar';
+      }
+    }
+    
+    if (toolbar) {
+      const toolbarRect = toolbar.getBoundingClientRect();
+      if (mouseX >= toolbarRect.left && mouseX <= toolbarRect.right &&
+          mouseY >= toolbarRect.top && mouseY <= toolbarRect.bottom) {
+        return 'toolbar';
+      }
+    }
+    
+    if (main) {
+      const mainRect = main.getBoundingClientRect();
+      if (mouseX >= mainRect.left && mouseX <= mainRect.right &&
+          mouseY >= mainRect.top && mouseY <= mainRect.bottom) {
+        return 'widget'; // Dashboard area
+      }
+    }
+    
+    return null;
+  };
+
+  // Convert element from one type to another
+  const convertElement = (element, fromType, toType) => {
+    const elementName = element.textContent?.trim() || element.getAttribute('title') || 'Item';
+    
+    info(`Converting ${fromType} → ${toType}: ${elementName}`);
+    
+    // Remove old type class
+    element.classList.remove(`editable-${fromType}`);
+    
+    // Add new type class
+    element.classList.add(`editable-${toType}`);
+    
+    // Update data attribute
+    element.setAttribute('data-element-type', toType);
+    element.removeAttribute(`data-${fromType}-id`);
+    element.setAttribute(`data-${toType}-id`, element.id || `${toType}-${Math.random().toString(36).substr(2, 9)}`);
+    
+    if (toType === 'widget') {
+      // Converting to dashboard widget
+      const main = document.querySelector('main');
+      if (main) {
+        // Create widget wrapper
+        const widget = document.createElement('div');
+        widget.className = 'card widget dashboard-widget editable-widget';
+        widget.innerHTML = `
+          <div class="p-4">
+            <h3 class="font-semibold mb-2">${elementName}</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Widget converted from ${fromType}</p>
+          </div>
+        `;
+        widget.style.position = 'absolute';
+        widget.style.left = element.style.left || '20px';
+        widget.style.top = element.style.top || '20px';
+        widget.style.minWidth = '200px';
+        widget.style.minHeight = '150px';
+        
+        main.appendChild(widget);
+        success(`Created dashboard widget: ${elementName}`);
+        
+        // Hide original element
+        element.style.display = 'none';
+        trackRemovedItem({ 
+          id: element.getAttribute(`data-${fromType}-id`), 
+          name: elementName, 
+          element, 
+          tier: currentTier 
+        }, `${fromType}s`);
+      }
+    } else if (toType === 'sidebar') {
+      // Converting to sidebar item
+      const sidebar = document.querySelector('nav');
+      if (sidebar) {
+        element.style.position = 'relative';
+        element.style.left = '0';
+        element.style.top = '0';
+        sidebar.appendChild(element);
+        success(`Moved to sidebar: ${elementName}`);
+      }
+    } else if (toType === 'toolbar') {
+      // Converting to toolbar item
+      const toolbar = document.querySelector('header');
+      if (toolbar) {
+        element.style.position = 'relative';
+        element.style.left = '0';
+        element.style.top = '0';
+        toolbar.appendChild(element);
+        success(`Moved to toolbar: ${elementName}`);
+      }
+    }
+    
+    setHasChanges(true);
+  };
+
   // Smart drag handler
   const startDrag = (e, element) => {
     e.preventDefault();
@@ -459,6 +599,23 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         element.style.left = `${newLeft}px`;
         element.style.top = `${newTop}px`;
         
+        // Highlight drop zone
+        const dropZone = detectDropZone(e.clientX, e.clientY);
+        const originalType = element.getAttribute('data-element-type');
+        
+        // Remove all zone highlights
+        document.querySelectorAll('.drop-zone-highlight').forEach(el => el.classList.remove('drop-zone-highlight'));
+        
+        // Add highlight to target zone if different from original
+        if (dropZone && dropZone !== originalType) {
+          const zoneElement = dropZone === 'widget' ? document.querySelector('main') :
+                             dropZone === 'sidebar' ? document.querySelector('nav') :
+                             dropZone === 'toolbar' ? document.querySelector('header') : null;
+          if (zoneElement) {
+            zoneElement.classList.add('drop-zone-highlight');
+          }
+        }
+        
         setHasChanges(true);
       }
       
@@ -493,11 +650,22 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
       }
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e) => {
       if (isDragging && draggedElementRef.current) {
-        draggedElementRef.current.style.cursor = 'move';
-        draggedElementRef.current.classList.remove('dragging');
-        draggedElementRef.current.style.zIndex = '';
+        const element = draggedElementRef.current;
+        const originalType = element.getAttribute('data-element-type');
+        
+        // Detect drop zone based on mouse position
+        const dropZone = detectDropZone(e.clientX, e.clientY);
+        
+        // Smart conversion if dropped in different zone
+        if (dropZone && dropZone !== originalType) {
+          convertElement(element, originalType, dropZone);
+        }
+        
+        element.style.cursor = 'grab';
+        element.classList.remove('dragging');
+        element.style.zIndex = '';
       }
       setIsDragging(false);
       setIsResizing(false);
@@ -534,16 +702,26 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
       ];
     } else if (type === 'sidebar') {
       menu.options = [
+        { label: 'Edit Text', action: 'edit-text', icon: Edit3 },
+        { label: 'Move Up', action: 'move-up', icon: Move },
+        { label: 'Move Down', action: 'move-down', icon: Move },
         { label: 'Move to Toolbar', action: 'move-to-toolbar', icon: Move },
         { label: 'Move to Dashboard', action: 'move-to-dashboard', icon: Layout },
         { label: 'Add Separator After', action: 'add-separator', icon: Plus },
-        { label: 'Hide', action: 'hide', icon: Eye }
+        { label: 'Add New Item After', action: 'add-new-item', icon: Plus },
+        { label: 'Enable/Disable', action: 'toggle-enabled', icon: Eye },
+        { label: 'Hide', action: 'hide', icon: Trash2, danger: true }
       ];
     } else if (type === 'toolbar') {
       menu.options = [
+        { label: 'Edit Text', action: 'edit-text', icon: Edit3 },
+        { label: 'Move Left', action: 'move-left', icon: Move },
+        { label: 'Move Right', action: 'move-right', icon: Move },
         { label: 'Move to Sidebar', action: 'move-to-sidebar', icon: SidebarIcon },
         { label: 'Add Separator After', action: 'add-separator', icon: Plus },
-        { label: 'Hide', action: 'hide', icon: Eye }
+        { label: 'Add New Item After', action: 'add-new-item', icon: Plus },
+        { label: 'Enable/Disable', action: 'toggle-enabled', icon: Eye },
+        { label: 'Hide', action: 'hide', icon: Trash2, danger: true }
       ];
     }
 
@@ -654,6 +832,64 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
           trackRemovedItem({ id: element.dataset.sidebarId, name: element.textContent, element, tier: currentTier }, 'sidebar');
           setHasChanges(true);
         }
+        break;
+        
+      case 'move-up':
+        if (element.previousElementSibling && !element.previousElementSibling.hasAttribute('data-editor-control')) {
+          element.parentNode.insertBefore(element, element.previousElementSibling);
+          success('Moved up');
+          setHasChanges(true);
+        }
+        break;
+        
+      case 'move-down':
+        if (element.nextElementSibling && !element.nextElementSibling.hasAttribute('data-editor-control')) {
+          element.parentNode.insertBefore(element.nextElementSibling, element);
+          success('Moved down');
+          setHasChanges(true);
+        }
+        break;
+        
+      case 'move-left':
+        if (element.previousElementSibling && !element.previousElementSibling.hasAttribute('data-editor-control')) {
+          element.parentNode.insertBefore(element, element.previousElementSibling);
+          success('Moved left');
+          setHasChanges(true);
+        }
+        break;
+        
+      case 'move-right':
+        if (element.nextElementSibling && !element.nextElementSibling.hasAttribute('data-editor-control')) {
+          element.parentNode.insertBefore(element.nextElementSibling, element);
+          success('Moved right');
+          setHasChanges(true);
+        }
+        break;
+        
+      case 'add-new-item':
+        const newItem = document.createElement(type === 'sidebar' ? 'a' : 'button');
+        newItem.textContent = 'New Item';
+        newItem.className = type === 'sidebar' ? 'flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700' : 'px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded';
+        newItem.setAttribute('data-element-type', type);
+        newItem.classList.add(`editable-${type}`);
+        element.parentNode.insertBefore(newItem, element.nextSibling);
+        success(`New ${type} item added`);
+        setHasChanges(true);
+        break;
+        
+      case 'toggle-enabled':
+        if (element.classList.contains('disabled') || element.style.opacity === '0.5') {
+          element.classList.remove('disabled');
+          element.style.opacity = '1';
+          element.style.pointerEvents = 'auto';
+          success('Item enabled');
+        } else {
+          element.classList.add('disabled');
+          element.style.opacity = '0.5';
+          element.style.pointerEvents = 'none';
+          warning('Item disabled');
+        }
+        setHasChanges(true);
         break;
         
       case 'move-to-sidebar':
