@@ -13,6 +13,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
   const [showTools, setShowTools] = useState(true);
   const [currentTier, setCurrentTier] = useState('free');
   const [removedItems, setRemovedItems] = useState({ widgets: [], sidebar: [], toolbar: [] });
+  const [showRemovedPanel, setShowRemovedPanel] = useState(false);
   const [gridVisible, setGridVisible] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
   const [savedThemes, setSavedThemes] = useState([]);
