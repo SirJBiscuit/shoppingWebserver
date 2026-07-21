@@ -46,7 +46,7 @@ router.get('/lists', async (req, res) => {
        WHERE sl.user_id = $1 AND (sl.status = 'active' OR sl.status IS NULL)
        GROUP BY sl.id
        ORDER BY sl.created_at DESC`,
-      [req.user.userId]
+      [req.user.id]
     );
 
     res.json(result.rows);
@@ -68,7 +68,7 @@ router.get('/lists/history/completed', async (req, res) => {
        GROUP BY sl.id
        ORDER BY sl.completed_at DESC
        LIMIT 50`,
-      [req.user.userId]
+      [req.user.id]
     );
 
     res.json(result.rows);
@@ -629,7 +629,7 @@ router.get('/templates', async (req, res) => {
        WHERE t.user_id = $1
        GROUP BY t.id
        ORDER BY t.created_at DESC`,
-      [req.user.userId]
+      [req.user.id]
     );
     res.json(result.rows);
   } catch (error) {
