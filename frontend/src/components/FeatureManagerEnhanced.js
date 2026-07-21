@@ -159,28 +159,41 @@ const FeatureManagerEnhanced = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => updateFeature(feature.id, { is_enabled: !feature.is_enabled })}
-                      className={`p-2 rounded-lg ${
-                        feature.is_enabled
-                          ? 'bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-900 dark:text-green-400'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400'
-                      }`}
-                      title={feature.is_enabled ? 'Disable' : 'Enable'}
-                    >
-                      {feature.is_enabled ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                    </button>
+                  <div className="flex items-center space-x-4">
+                    {/* Animated Toggle Switch */}
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                        {feature.is_enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                      <button
+                        onClick={() => updateFeature(feature.id, { is_enabled: !feature.is_enabled })}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                          feature.is_enabled
+                            ? 'bg-green-500'
+                            : 'bg-gray-300 dark:bg-gray-600'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                            feature.is_enabled ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
 
-                    <select
-                      value={feature.min_tier}
-                      onChange={(e) => updateFeature(feature.id, { min_tier: e.target.value })}
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                    >
-                      <option value="guest">Guest</option>
-                      <option value="free">Free</option>
-                      <option value="premium">Premium</option>
-                    </select>
+                    {/* Tier Selector */}
+                    <div className="flex flex-col">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">Min Tier</span>
+                      <select
+                        value={feature.min_tier}
+                        onChange={(e) => updateFeature(feature.id, { min_tier: e.target.value })}
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      >
+                        <option value="guest">Guest</option>
+                        <option value="free">Free</option>
+                        <option value="premium">Premium</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>
