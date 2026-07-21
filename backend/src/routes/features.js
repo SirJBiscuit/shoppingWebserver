@@ -130,30 +130,42 @@ router.get('/admin/all', auth, isAdmin, async (req, res) => {
 router.put('/admin/feature/:id', auth, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      feature_name,
-      description,
-      is_enabled,
-      free_tier_enabled,
-      premium_tier_enabled,
-      requires_premium,
-      display_order,
-    } = req.body;
+    const { feature_name, description, is_enabled, min_tier } = req.body;
+
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (feature_name !== undefined) {
+      updates.push(`feature_name = $${paramCount++}`);
+      values.push(feature_name);
+    }
+    if (description !== undefined) {
+      updates.push(`description = $${paramCount++}`);
+      values.push(description);
+    }
+    if (is_enabled !== undefined) {
+      updates.push(`is_enabled = $${paramCount++}`);
+      values.push(is_enabled);
+    }
+    if (min_tier !== undefined) {
+      updates.push(`min_tier = $${paramCount++}`);
+      values.push(min_tier);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(id);
 
     const result = await db.query(
       `UPDATE feature_flags 
-       SET feature_name = $1,
-           description = $2,
-           is_enabled = $3,
-           free_tier_enabled = $4,
-           premium_tier_enabled = $5,
-           requires_premium = $6,
-           display_order = $7,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $8
+       SET ${updates.join(', ')}
+       WHERE id = $${paramCount}
        RETURNING *`,
-      [feature_name, description, is_enabled, free_tier_enabled, 
-       premium_tier_enabled, requires_premium, display_order, id]
+      values
     );
 
     if (result.rows.length === 0) {
