@@ -320,4 +320,60 @@ router.put('/admin/widget/:id', auth, isAdmin, async (req, res) => {
   }
 });
 
+// Admin: Get dashboard layouts for all tiers
+router.get('/admin/layouts', auth, isAdmin, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT tier_name, widget_id, position, enabled, settings
+       FROM dashboard_layouts
+       ORDER BY tier_name, position`
+    );
+    
+    // Group by tier
+    const layouts = {
+      guest: [],
+      free: [],
+      premium: [],
+      admin: []
+    };
+    
+    result.rows.forEach(row => {
+      if (layouts[row.tier_name]) {
+        layouts[row.tier_name].push(row);
+      }
+    });
+    
+    res.json({ layouts });
+  } catch (error) {
+    console.error('Error fetching layouts:', error);
+    res.status(500).json({ error: 'Failed to fetch layouts' });
+  }
+});
+
+// Admin: Save dashboard layouts
+router.post('/admin/layouts', auth, isAdmin, async (req, res) => {
+  try {
+    const { layouts } = req.body;
+    
+    // Clear existing layouts
+    await db.query('DELETE FROM dashboard_layouts');
+    
+    // Insert new layouts
+    for (const [tier, widgets] of Object.entries(layouts)) {
+      for (const widget of widgets) {
+        await db.query(
+          `INSERT INTO dashboard_layouts (tier_name, widget_id, position, enabled, settings)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [tier, widget.id, widget.position, widget.enabled, JSON.stringify(widget.settings || {})]
+        );
+      }
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving layouts:', error);
+    res.status(500).json({ error: 'Failed to save layouts' });
+  }
+});
+
 module.exports = router;

@@ -4,7 +4,7 @@ import {
   Settings, RefreshCw, Download, Server, Database, 
   GitBranch, Package, ShoppingCart, ChefHat, LogOut,
   CheckCircle, XCircle, AlertCircle, Terminal, Play, Flag,
-  Crown, Users
+  Crown, Users, Layout
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -12,6 +12,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import FeatureManagerEnhanced from '../components/FeatureManagerEnhanced';
 import UserManagement from '../components/UserManagement';
+import DashboardEditor from '../components/DashboardEditor';
 
 const AdminNew = () => {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ const AdminNew = () => {
   const [checking, setChecking] = useState(false);
   const [logs, setLogs] = useState('');
   const [selectedService, setSelectedService] = useState('backend');
+  const [showDashboardEditor, setShowDashboardEditor] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'system') {

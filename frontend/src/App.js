@@ -6,6 +6,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { CartAnimationProvider } from './contexts/CartAnimationContext';
 import FlyingItemAnimation from './components/FlyingItemAnimation';
 import MobileBottomNav from './components/MobileBottomNav';
+import AdminToolbar from './components/AdminToolbar';
 
 // Lazy load pages for better performance
 const Login = lazy(() => import('./pages/Login'));
@@ -100,6 +101,7 @@ function App() {
       <ThemeProvider>
         <CartAnimationProvider>
           <Router>
+            <AdminToolbar />
             <AnimatedRoutes />
             <FlyingItemAnimation />
             <MobileBottomNav />
