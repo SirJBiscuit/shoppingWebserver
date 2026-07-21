@@ -205,6 +205,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
   };
 
   const handleDeleteWidget = (widget) => {
+    // eslint-disable-next-line no-restricted-globals
     if (confirm('Delete this widget?')) {
       widget.style.opacity = '0';
       widget.style.transform = 'scale(0.8)';
@@ -274,6 +275,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
   };
 
   const handleClose = () => {
+    // eslint-disable-next-line no-restricted-globals
     if (confirm('Discard changes?')) {
       onClose();
     }
