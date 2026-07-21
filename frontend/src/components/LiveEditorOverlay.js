@@ -18,11 +18,26 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [gridVisible, setGridVisible] = useState(true);
   const [zoom, setZoom] = useState(100);
+  const [toolsPanelPos, setToolsPanelPos] = useState({ x: window.innerWidth - 340, y: 80 });
+  const [toolsPanelSize, setToolsPanelSize] = useState({ width: 320, height: 600 });
+  const [isDraggingPanel, setIsDraggingPanel] = useState(false);
+  const [isResizingPanel, setIsResizingPanel] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [existingWidgets, setExistingWidgets] = useState([]);
   const overlayRef = useRef(null);
+  const toolsPanelRef = useRef(null);
+  const draggedElementRef = useRef(null);
+  const resizeStartRef = useRef({ x: 0, y: 0, width: 0, height: 0 });
 
   useEffect(() => {
+    // Load existing widgets from dashboard
+    loadExistingWidgets();
+    
     // Add wiggle animation to all editable elements
     document.body.classList.add('editor-active');
+    
+    // Disable all interactive elements
+    disableInteractions();
     
     // Inject editor styles
     const style = document.createElement('style');
@@ -127,6 +142,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
       document.body.classList.remove('editor-active');
       const styleEl = document.getElementById('live-editor-styles');
       if (styleEl) styleEl.remove();
+      enableInteractions();
     };
   }, []);
 
@@ -281,6 +297,94 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     }
   };
 
+  // Load existing widgets from the page
+  const loadExistingWidgets = () => {
+    const widgets = [];
+    document.querySelectorAll('[data-widget], .card, .widget').forEach((el, idx) => {
+      const name = el.querySelector('h2, h3, h4')?.textContent || `Widget ${idx + 1}`;
+      widgets.push({
+        id: `existing-${idx}`,
+        name,
+        element: el,
+        type: el.className.includes('card') ? 'card' : 'widget'
+      });
+    });
+    setExistingWidgets(widgets);
+  };
+
+  // Disable all interactive elements while in edit mode
+  const disableInteractions = () => {
+    const interactives = document.querySelectorAll('button:not([data-editor-control]), a:not([data-editor-control]), input, select, textarea');
+    interactives.forEach(el => {
+      el.setAttribute('data-original-pointer-events', el.style.pointerEvents || '');
+      el.style.pointerEvents = 'none';
+      el.style.opacity = '0.7';
+    });
+  };
+
+  // Re-enable interactions when exiting
+  const enableInteractions = () => {
+    const interactives = document.querySelectorAll('[data-original-pointer-events]');
+    interactives.forEach(el => {
+      el.style.pointerEvents = el.getAttribute('data-original-pointer-events');
+      el.style.opacity = '';
+      el.removeAttribute('data-original-pointer-events');
+    });
+  };
+
+  // Tools panel dragging
+  const handlePanelMouseDown = (e) => {
+    if (e.target.closest('.panel-resize-handle')) return;
+    setIsDraggingPanel(true);
+    setDragOffset({
+      x: e.clientX - toolsPanelPos.x,
+      y: e.clientY - toolsPanelPos.y
+    });
+  };
+
+  const handlePanelResize = (e) => {
+    setIsResizingPanel(true);
+    resizeStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      width: toolsPanelSize.width,
+      height: toolsPanelSize.height
+    };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (isDraggingPanel) {
+        setToolsPanelPos({
+          x: e.clientX - dragOffset.x,
+          y: e.clientY - dragOffset.y
+        });
+      }
+      if (isResizingPanel) {
+        const deltaX = e.clientX - resizeStartRef.current.x;
+        const deltaY = e.clientY - resizeStartRef.current.y;
+        setToolsPanelSize({
+          width: Math.max(280, resizeStartRef.current.width + deltaX),
+          height: Math.max(400, resizeStartRef.current.height + deltaY)
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingPanel(false);
+      setIsResizingPanel(false);
+    };
+
+    if (isDraggingPanel || isResizingPanel) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDraggingPanel, isResizingPanel, dragOffset]);
+
   return (
     <>
       {/* Grid Overlay */}
@@ -309,21 +413,21 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
           </div>
           
           <div className="flex items-center space-x-2">
-            <button onClick={() => setGridVisible(!gridVisible)} className="p-2 hover:bg-white/20 rounded" title="Toggle Grid">
+            <button onClick={() => setGridVisible(!gridVisible)} className="p-2 hover:bg-white/20 rounded" title="Toggle Grid" data-editor-control>
               <Grid className="w-4 h-4" />
             </button>
-            <button className="p-2 hover:bg-white/20 rounded" title="Undo">
+            <button className="p-2 hover:bg-white/20 rounded" title="Undo" data-editor-control>
               <Undo className="w-4 h-4" />
             </button>
-            <button className="p-2 hover:bg-white/20 rounded" title="Redo">
+            <button className="p-2 hover:bg-white/20 rounded" title="Redo" data-editor-control>
               <Redo className="w-4 h-4" />
             </button>
             <div className="border-l border-white/30 h-6 mx-2" />
-            <button onClick={handleSave} className="px-4 py-1.5 bg-green-500 hover:bg-green-600 rounded flex items-center space-x-2">
+            <button onClick={handleSave} className="px-4 py-1.5 bg-green-500 hover:bg-green-600 rounded flex items-center space-x-2" data-editor-control>
               <Save className="w-4 h-4" />
               <span>Save</span>
             </button>
-            <button onClick={handleClose} className="px-4 py-1.5 bg-red-500 hover:bg-red-600 rounded flex items-center space-x-2">
+            <button onClick={handleClose} className="px-4 py-1.5 bg-red-500 hover:bg-red-600 rounded flex items-center space-x-2" data-editor-control>
               <X className="w-4 h-4" />
               <span>Exit</span>
             </button>
@@ -333,29 +437,77 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
 
       {/* Floating Tools Panel */}
       {showTools && (
-        <div className="fixed right-4 top-20 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border-2 border-blue-500 z-[9999] w-80 max-h-[80vh] overflow-y-auto">
-          <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 flex items-center justify-between rounded-t-lg">
+        <div 
+          ref={toolsPanelRef}
+          className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-2xl border-2 border-blue-500 z-[9999] overflow-hidden"
+          style={{
+            left: `${toolsPanelPos.x}px`,
+            top: `${toolsPanelPos.y}px`,
+            width: `${toolsPanelSize.width}px`,
+            height: `${toolsPanelSize.height}px`,
+            cursor: isDraggingPanel ? 'grabbing' : 'default'
+          }}
+        >
+          <div 
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 flex items-center justify-between rounded-t-lg cursor-grab active:cursor-grabbing"
+            onMouseDown={handlePanelMouseDown}
+            data-editor-control
+          >
             <h3 className="font-semibold flex items-center">
               <Sliders className="w-4 h-4 mr-2" />
               Editor Tools
             </h3>
-            <button onClick={() => setShowTools(false)} className="hover:bg-white/20 rounded p-1">
+            <button onClick={() => setShowTools(false)} className="hover:bg-white/20 rounded p-1" data-editor-control>
               <Minimize2 className="w-4 h-4" />
             </button>
           </div>
+          
+          {/* Resize Handle */}
+          <div 
+            className="panel-resize-handle absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize bg-blue-500 rounded-tl"
+            onMouseDown={handlePanelResize}
+            data-editor-control
+          />
 
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-4 overflow-y-auto" style={{ height: `${toolsPanelSize.height - 60}px` }}>
+            {/* Existing Widgets */}
+            <div>
+              <h4 className="font-semibold text-sm mb-2 flex items-center">
+                <RotateCw className="w-4 h-4 mr-2" />
+                Restore Widgets
+              </h4>
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {existingWidgets.map(widget => (
+                  <button
+                    key={widget.id}
+                    onClick={() => {
+                      if (widget.element.style.display === 'none') {
+                        widget.element.style.display = '';
+                        widget.element.style.opacity = '1';
+                      }
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs border border-gray-300 dark:border-gray-600 rounded hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center justify-between"
+                    data-editor-control
+                  >
+                    <span>{widget.name}</span>
+                    <Plus className="w-3 h-3" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Widget Library */}
             <div>
               <h4 className="font-semibold text-sm mb-2 flex items-center">
                 <Plus className="w-4 h-4 mr-2" />
-                Add Widgets
+                Add New Widgets
               </h4>
               <div className="grid grid-cols-2 gap-2">
                 {['Stats', 'Chart', 'List', 'Calendar', 'Notes', 'Weather'].map(widget => (
                   <button
                     key={widget}
                     className="p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm"
+                    data-editor-control
                   >
                     {widget}
                   </button>
@@ -388,19 +540,78 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
                 Animations
               </h4>
               <div className="space-y-1">
-                {['None', 'Pulse', 'Bounce', 'Spin', 'Wiggle', 'Fade'].map(anim => (
+                {[
+                  { name: 'None', value: '' },
+                  { name: 'Pulse', value: 'pulse 2s ease-in-out infinite' },
+                  { name: 'Bounce', value: 'bounce 1s ease-in-out infinite' },
+                  { name: 'Spin', value: 'spin 3s linear infinite' },
+                  { name: 'Wiggle', value: 'wiggle 0.5s ease-in-out infinite' },
+                  { name: 'Fade In/Out', value: 'fade 3s ease-in-out infinite' },
+                  { name: 'Slide In', value: 'slideIn 1s ease-out' },
+                  { name: 'Scale Up', value: 'scaleUp 0.3s ease-out' },
+                  { name: 'Glow', value: 'glow 2s ease-in-out infinite' }
+                ].map(anim => (
                   <button
-                    key={anim}
+                    key={anim.name}
                     onClick={() => {
                       if (selectedElement) {
-                        selectedElement.style.animation = anim === 'None' ? '' : `${anim.toLowerCase()} 2s infinite`;
+                        selectedElement.style.animation = anim.value;
                       }
                     }}
                     className="w-full px-3 py-2 text-left text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                    data-editor-control
                   >
-                    {anim}
+                    {anim.name}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Settings */}
+            <div>
+              <h4 className="font-semibold text-sm mb-2 flex items-center">
+                <Settings className="w-4 h-4 mr-2" />
+                Widget Settings
+              </h4>
+              <div className="space-y-2">
+                <label className="flex items-center justify-between text-sm">
+                  <span>Opacity</span>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="100" 
+                    defaultValue="100"
+                    onChange={(e) => selectedElement && (selectedElement.style.opacity = e.target.value / 100)}
+                    className="w-32"
+                    data-editor-control
+                  />
+                </label>
+                <label className="flex items-center justify-between text-sm">
+                  <span>Border Radius</span>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="50" 
+                    defaultValue="8"
+                    onChange={(e) => selectedElement && (selectedElement.style.borderRadius = `${e.target.value}px`)}
+                    className="w-32"
+                    data-editor-control
+                  />
+                </label>
+                <label className="flex items-center justify-between text-sm">
+                  <span>Shadow</span>
+                  <select 
+                    onChange={(e) => selectedElement && (selectedElement.style.boxShadow = e.target.value)}
+                    className="text-xs border rounded px-2 py-1 dark:bg-gray-700"
+                    data-editor-control
+                  >
+                    <option value="">None</option>
+                    <option value="0 1px 3px rgba(0,0,0,0.1)">Small</option>
+                    <option value="0 4px 6px rgba(0,0,0,0.1)">Medium</option>
+                    <option value="0 10px 15px rgba(0,0,0,0.1)">Large</option>
+                    <option value="0 20px 25px rgba(0,0,0,0.15)">XL</option>
+                  </select>
+                </label>
               </div>
             </div>
 
