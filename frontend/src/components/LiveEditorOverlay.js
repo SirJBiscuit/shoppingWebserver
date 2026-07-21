@@ -44,17 +44,23 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
       }
       
       .editor-active .editable-widget {
-        outline: 2px dashed rgba(59, 130, 246, 0.3);
+        outline: 2px dashed rgba(59, 130, 246, 0.5) !important;
         outline-offset: 4px;
-        cursor: move;
+        cursor: grab !important;
         position: relative;
+        user-select: none;
       }
       
       .editor-active .editable-widget:hover {
-        outline: 2px solid rgba(59, 130, 246, 0.8);
+        outline: 3px solid rgba(59, 130, 246, 1) !important;
         outline-offset: 4px;
-        box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.5) !important;
         animation: subtle-wiggle 0.5s ease-in-out;
+        transform: scale(1.02);
+      }
+      
+      .editor-active .editable-widget:active {
+        cursor: grabbing !important;
       }
       
       .editor-active .editable-widget.selected {
@@ -64,29 +70,41 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
       }
       
       .editor-active .editable-sidebar {
-        outline: 2px dashed rgba(168, 85, 247, 0.3);
+        outline: 2px dashed rgba(168, 85, 247, 0.5) !important;
         outline-offset: 2px;
-        cursor: move !important;
+        cursor: grab !important;
         position: relative;
+        user-select: none;
       }
       
       .editor-active .editable-sidebar:hover {
-        outline: 2px solid rgba(168, 85, 247, 0.8);
-        background: rgba(168, 85, 247, 0.1) !important;
+        outline: 3px solid rgba(168, 85, 247, 1) !important;
+        background: rgba(168, 85, 247, 0.15) !important;
         animation: subtle-wiggle 0.5s ease-in-out;
+        transform: translateX(5px);
+      }
+      
+      .editor-active .editable-sidebar:active {
+        cursor: grabbing !important;
       }
       
       .editor-active .editable-toolbar {
-        outline: 2px dashed rgba(34, 197, 94, 0.3);
+        outline: 2px dashed rgba(34, 197, 94, 0.5) !important;
         outline-offset: 2px;
-        cursor: move !important;
+        cursor: grab !important;
         position: relative;
+        user-select: none;
       }
       
       .editor-active .editable-toolbar:hover {
-        outline: 2px solid rgba(34, 197, 94, 0.8);
-        background: rgba(34, 197, 94, 0.1) !important;
+        outline: 3px solid rgba(34, 197, 94, 1) !important;
+        background: rgba(34, 197, 94, 0.15) !important;
         animation: subtle-wiggle 0.5s ease-in-out;
+        transform: translateY(-2px);
+      }
+      
+      .editor-active .editable-toolbar:active {
+        cursor: grabbing !important;
       }
       
       @keyframes subtle-wiggle {
@@ -290,21 +308,21 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
           return;
         }
         
-        // For sidebar/toolbar, allow drag on the element itself
+        // Don't drag if clicking on input fields
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+          return;
+        }
+        
+        // For sidebar/toolbar items, prevent default link/button behavior
         if (type === 'sidebar' || type === 'toolbar') {
           e.preventDefault();
-          startDrag(e, element);
-          return;
+          e.stopPropagation();
         }
         
-        // For widgets, only drag if not clicking on interactive content
-        if (type === 'widget' && e.target.closest('a, button') !== element) {
-          return;
-        }
-        
+        // Start drag for all types
         startDrag(e, element);
       };
-      element.addEventListener('mousedown', handleMouseDown, true);
+      element.addEventListener('mousedown', handleMouseDown, { capture: true });
       
       // Right-click context menu (for all types)
       const handleContextMenu = (e) => {
@@ -316,20 +334,37 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     };
 
     // Auto-detect and setup widgets
-    document.querySelectorAll('[data-widget], .card, .widget, .dashboard-widget').forEach(el => {
-      if (!el.hasAttribute('data-editor-control')) setupElement(el, 'widget');
+    const widgets = document.querySelectorAll('[data-widget], .card, .widget, .dashboard-widget');
+    console.log(`LiveEditor: Found ${widgets.length} widgets`);
+    widgets.forEach(el => {
+      if (!el.hasAttribute('data-editor-control')) {
+        setupElement(el, 'widget');
+        console.log('Setup widget:', el);
+      }
     });
 
     // Auto-detect and setup sidebar items
-    document.querySelectorAll('nav a, nav button, .sidebar-item').forEach(el => {
-      if (!el.hasAttribute('data-editor-control')) setupElement(el, 'sidebar');
+    const sidebarItems = document.querySelectorAll('nav a, nav button, .sidebar-item');
+    console.log(`LiveEditor: Found ${sidebarItems.length} sidebar items`);
+    sidebarItems.forEach(el => {
+      if (!el.hasAttribute('data-editor-control')) {
+        setupElement(el, 'sidebar');
+        console.log('Setup sidebar item:', el);
+      }
     });
 
     // Auto-detect and setup toolbar items
-    document.querySelectorAll('header button, header a, .toolbar-item').forEach(el => {
-      if (!el.hasAttribute('data-editor-control')) setupElement(el, 'toolbar');
+    const toolbarItems = document.querySelectorAll('header button, header a, .toolbar-item');
+    console.log(`LiveEditor: Found ${toolbarItems.length} toolbar items`);
+    toolbarItems.forEach(el => {
+      if (!el.hasAttribute('data-editor-control')) {
+        setupElement(el, 'toolbar');
+        console.log('Setup toolbar item:', el);
+      }
     });
-  }, []);
+    
+    info(`LiveEditor ready: ${widgets.length} widgets, ${sidebarItems.length} sidebar items, ${toolbarItems.length} toolbar items`);
+  }, [info]);
 
   // Grid snap helper
   const snapToGrid = (value, gridSize = 20) => {
