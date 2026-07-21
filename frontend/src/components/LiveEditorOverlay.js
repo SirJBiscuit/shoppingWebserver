@@ -6,7 +6,7 @@ import {
   Maximize2, Minimize2, RotateCw, ZoomIn, ZoomOut, CheckCircle, Info
 } from 'lucide-react';
 import api from '../services/api';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../hooks/useToast';
 
 const LiveEditorOverlay = ({ onClose, onSave }) => {
   const { success, error, info, warning } = useToast();
