@@ -12,9 +12,9 @@ const authenticateToken = (req, res, next) => {
     if (err) {
       return res.status(403).json({ error: 'Invalid or expired token' });
     }
-    // Normalize userId to id for consistency
+    // Normalize userId to id for consistency (support both old and new token formats)
     req.user = {
-      id: user.userId,
+      id: user.userId || user.id,
       username: user.username,
       isAdmin: user.isAdmin || false
     };
