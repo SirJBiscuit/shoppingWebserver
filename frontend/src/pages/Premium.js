@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
 import PageTransition from '../components/PageTransition';
 import { useToast } from '../hooks/useToast';
-import axios from 'axios';
+import api from '../services/api';
 
 const Premium = () => {
   const navigate = useNavigate();
@@ -29,7 +29,7 @@ const Premium = () => {
 
   const fetchSubscriptionStatus = async () => {
     try {
-      const response = await axios.get('/api/subscription/status');
+      const response = await api.get('/subscription/status');
       setSubscriptionStatus(response.data);
     } catch (err) {
       console.error('Error fetching subscription:', err);
@@ -39,7 +39,7 @@ const Premium = () => {
   const handleSubscribe = async (tier) => {
     setLoading(true);
     try {
-      const response = await axios.post('/api/subscription/create-checkout-session', { tier });
+      const response = await api.post('/subscription/create-checkout-session', { tier });
       window.location.href = response.data.url;
     } catch (err) {
       console.error('Error creating checkout:', err);
@@ -51,7 +51,7 @@ const Premium = () => {
   const handleManageSubscription = async () => {
     setLoading(true);
     try {
-      const response = await axios.post('/api/subscription/create-portal-session');
+      const response = await api.post('/subscription/create-portal-session');
       window.location.href = response.data.url;
     } catch (err) {
       console.error('Error opening portal:', err);
