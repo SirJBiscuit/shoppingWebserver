@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Layout, Settings, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import DashboardEditor from './DashboardEditor';
+import LiveEditorOverlay from './LiveEditorOverlay';
 
 const AdminToolbar = () => {
   const { user } = useAuth();
@@ -56,9 +56,15 @@ const AdminToolbar = () => {
       {/* Add padding to page content so it doesn't go under the toolbar */}
       <div className="h-10" />
 
-      {/* Dashboard Editor Modal */}
+      {/* Live Editor Overlay */}
       {showEditor && (
-        <DashboardEditor onClose={() => setShowEditor(false)} />
+        <LiveEditorOverlay 
+          onClose={() => setShowEditor(false)}
+          onSave={() => {
+            setShowEditor(false);
+            window.location.reload();
+          }}
+        />
       )}
     </>
   );
