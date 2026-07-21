@@ -24,6 +24,11 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
   const [isResizingPanel, setIsResizingPanel] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [existingWidgets, setExistingWidgets] = useState([]);
+  const [currentTier, setCurrentTier] = useState('free');
+  const [removedItems, setRemovedItems] = useState({ widgets: [], sidebar: [], toolbar: [] });
+  const [showRemovedPanel, setShowRemovedPanel] = useState(false);
+  const [toolbarItems, setToolbarItems] = useState([]);
+  const [sidebarItems, setSidebarItems] = useState([]);
   const overlayRef = useRef(null);
   const toolsPanelRef = useRef(null);
   const draggedElementRef = useRef(null);
@@ -109,17 +114,82 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         background: #EF4444;
         color: white;
         border-radius: 50%;
-        display: flex;
+        display: none;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         opacity: 0;
         transition: opacity 0.2s;
+        z-index: 10000;
       }
       
-      .editable-widget:hover .delete-button,
-      .editable-widget.selected .delete-button {
+      .editor-active .editable-widget .delete-button {
+        display: flex;
+      }
+      
+      .editor-active .editable-widget:hover .delete-button,
+      .editor-active .editable-widget.selected .delete-button {
         opacity: 1;
+      }
+      
+      /* Animation triggers */
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      
+      @keyframes scaleIn {
+        from {
+          opacity: 0;
+          transform: scale(0.9);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+      
+      @keyframes slideInLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+      
+      @keyframes slideInRight {
+        from {
+          opacity: 0;
+          transform: translateX(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+      
+      .anim-on-load {
+        animation: fadeInUp 0.6s ease-out;
+      }
+      
+      .anim-on-hover:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+      }
+      
+      .anim-on-click:active {
+        transform: scale(0.98);
+        transition: transform 0.1s ease;
       }
       
       .editor-grid {
@@ -222,11 +292,22 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
 
   const handleDeleteWidget = (widget) => {
     // eslint-disable-next-line no-restricted-globals
-    if (confirm('Delete this widget?')) {
+    if (confirm('Remove this widget? You can restore it later.')) {
+      const widgetData = {
+        id: widget.dataset.widgetId,
+        name: widget.querySelector('h2, h3, h4')?.textContent || 'Widget',
+        element: widget,
+        tier: currentTier
+      };
+      
       widget.style.opacity = '0';
       widget.style.transform = 'scale(0.8)';
-      setTimeout(() => widget.remove(), 200);
+      setTimeout(() => {
+        widget.style.display = 'none';
+        trackRemovedItem(widgetData, 'widgets');
+      }, 200);
       setSelectedElement(null);
+      setHasChanges(true);
     }
   };
 
@@ -239,21 +320,45 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
       case 'edit-text':
         element.contentEditable = 'true';
         element.focus();
+        element.style.outline = '2px solid #3B82F6';
+        element.style.outlineOffset = '2px';
+        
+        // Auto-save on blur (no apply button needed)
+        const handleBlur = () => {
+          element.contentEditable = 'false';
+          element.style.outline = '';
+          element.style.outlineOffset = '';
+          element.removeEventListener('blur', handleBlur);
+          setHasChanges(true);
+        };
+        element.addEventListener('blur', handleBlur);
+        
+        // Also save on Enter key
+        const handleKeyDown = (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            element.blur();
+          }
+        };
+        element.addEventListener('keydown', handleKeyDown);
         break;
       case 'duplicate':
         const clone = element.cloneNode(true);
         clone.style.marginTop = '20px';
         element.parentNode.insertBefore(clone, element.nextSibling);
+        setHasChanges(true);
         break;
       case 'change-color':
         const color = prompt('Enter color (hex or name):');
         if (color) {
           element.style.backgroundColor = color;
           setCustomColors(prev => ({ ...prev, [element.dataset.widgetId]: color }));
+          setHasChanges(true);
         }
         break;
       case 'add-animation':
         element.style.animation = 'pulse 2s infinite';
+        setHasChanges(true);
         break;
       case 'remove':
         handleDeleteWidget(element);
@@ -306,10 +411,89 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         id: `existing-${idx}`,
         name,
         element: el,
-        type: el.className.includes('card') ? 'card' : 'widget'
+        type: el.className.includes('card') ? 'card' : 'widget',
+        tier: currentTier
       });
     });
     setExistingWidgets(widgets);
+    
+    // Load sidebar items
+    const sidebar = [];
+    document.querySelectorAll('nav a, nav button, .sidebar-item').forEach((el, idx) => {
+      sidebar.push({
+        id: `sidebar-${idx}`,
+        name: el.textContent.trim(),
+        element: el,
+        icon: el.querySelector('svg')?.outerHTML || '',
+        tier: currentTier
+      });
+    });
+    setSidebarItems(sidebar);
+    
+    // Load toolbar items
+    const toolbar = [];
+    document.querySelectorAll('header button, header a').forEach((el, idx) => {
+      if (!el.hasAttribute('data-editor-control')) {
+        toolbar.push({
+          id: `toolbar-${idx}`,
+          name: el.getAttribute('title') || el.textContent.trim(),
+          element: el,
+          tier: currentTier
+        });
+      }
+    });
+    setToolbarItems(toolbar);
+  };
+
+  // Track removed item
+  const trackRemovedItem = (item, type) => {
+    setRemovedItems(prev => ({
+      ...prev,
+      [type]: [...prev[type], { ...item, tier: currentTier }]
+    }));
+  };
+
+  // Restore removed item
+  const restoreItem = (item, type) => {
+    if (item.element) {
+      item.element.style.display = '';
+      item.element.style.opacity = '1';
+    }
+    setRemovedItems(prev => ({
+      ...prev,
+      [type]: prev[type].filter(i => i.id !== item.id)
+    }));
+    setHasChanges(true);
+  };
+
+  // Move sidebar item to toolbar
+  const moveToToolbar = (sidebarItem) => {
+    const toolbar = document.querySelector('header .flex');
+    if (toolbar && sidebarItem.element) {
+      const clone = sidebarItem.element.cloneNode(true);
+      clone.classList.add('moved-to-toolbar');
+      toolbar.appendChild(clone);
+      sidebarItem.element.style.display = 'none';
+      trackRemovedItem(sidebarItem, 'sidebar');
+      setHasChanges(true);
+    }
+  };
+
+  // Add separator
+  const addSeparator = (location) => {
+    const separator = document.createElement('div');
+    separator.className = 'separator';
+    separator.style.cssText = 'width: 1px; height: 24px; background: rgba(0,0,0,0.1); margin: 0 8px;';
+    separator.setAttribute('data-separator', 'true');
+    
+    if (location === 'toolbar') {
+      const toolbar = document.querySelector('header .flex');
+      if (toolbar) toolbar.appendChild(separator);
+    } else if (location === 'sidebar') {
+      const sidebar = document.querySelector('nav');
+      if (sidebar) sidebar.appendChild(separator);
+    }
+    setHasChanges(true);
   };
 
   // Disable all interactive elements while in edit mode
@@ -400,15 +584,40 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
               <button
                 onClick={() => setEditMode('widgets')}
                 className={`px-3 py-1 rounded ${editMode === 'widgets' ? 'bg-white text-blue-600' : 'bg-blue-700'}`}
+                data-editor-control
               >
                 Widgets
               </button>
               <button
                 onClick={() => setEditMode('sidebar')}
                 className={`px-3 py-1 rounded ${editMode === 'sidebar' ? 'bg-white text-purple-600' : 'bg-purple-700'}`}
+                data-editor-control
               >
                 Sidebar
               </button>
+              <button
+                onClick={() => setEditMode('toolbar')}
+                className={`px-3 py-1 rounded ${editMode === 'toolbar' ? 'bg-white text-green-600' : 'bg-green-700'}`}
+                data-editor-control
+              >
+                Toolbar
+              </button>
+            </div>
+            
+            {/* Tier Selector */}
+            <div className="flex items-center space-x-2 ml-4 border-l border-white/30 pl-4">
+              <span className="text-sm text-white/80">Editing:</span>
+              <select
+                value={currentTier}
+                onChange={(e) => setCurrentTier(e.target.value)}
+                className="px-3 py-1 rounded bg-white/20 text-white border border-white/30 text-sm"
+                data-editor-control
+              >
+                <option value="guest">Guest Tier</option>
+                <option value="free">Free Tier</option>
+                <option value="premium">Premium Tier</option>
+                <option value="admin">Admin View</option>
+              </select>
             </div>
           </div>
           
@@ -470,12 +679,165 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
           />
 
           <div className="p-4 space-y-4 overflow-y-auto" style={{ height: `${toolsPanelSize.height - 60}px` }}>
-            {/* Existing Widgets */}
+            {/* Tier Info Banner */}
+            <div className="bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900 p-3 rounded-lg">
+              <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                Editing: {currentTier.charAt(0).toUpperCase() + currentTier.slice(1)} Tier
+              </p>
+              <p className="text-xs text-blue-700 dark:text-blue-200 mt-1">
+                Changes apply only to this tier
+              </p>
+            </div>
+
+            {/* Removed Items Manager */}
             <div>
-              <h4 className="font-semibold text-sm mb-2 flex items-center">
-                <RotateCw className="w-4 h-4 mr-2" />
-                Restore Widgets
-              </h4>
+              <button
+                onClick={() => setShowRemovedPanel(!showRemovedPanel)}
+                className="w-full flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30"
+                data-editor-control
+              >
+                <span className="flex items-center text-sm font-semibold text-red-900 dark:text-red-100">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Removed Items ({removedItems.widgets.length + removedItems.sidebar.length + removedItems.toolbar.length})
+                </span>
+                <span className="text-xs text-red-600 dark:text-red-300">
+                  {showRemovedPanel ? 'Hide' : 'Show'}
+                </span>
+              </button>
+              
+              {showRemovedPanel && (
+                <div className="mt-2 space-y-2 p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">
+                  {removedItems.widgets.filter(w => w.tier === currentTier).length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Widgets:</p>
+                      {removedItems.widgets.filter(w => w.tier === currentTier).map(widget => (
+                        <button
+                          key={widget.id}
+                          onClick={() => restoreItem(widget, 'widgets')}
+                          className="w-full px-2 py-1 text-xs text-left bg-white dark:bg-gray-800 border rounded hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center justify-between"
+                          data-editor-control
+                        >
+                          <span>{widget.name}</span>
+                          <RotateCw className="w-3 h-3" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {removedItems.sidebar.filter(s => s.tier === currentTier).length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Sidebar:</p>
+                      {removedItems.sidebar.filter(s => s.tier === currentTier).map(item => (
+                        <button
+                          key={item.id}
+                          onClick={() => restoreItem(item, 'sidebar')}
+                          className="w-full px-2 py-1 text-xs text-left bg-white dark:bg-gray-800 border rounded hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center justify-between"
+                          data-editor-control
+                        >
+                          <span>{item.name}</span>
+                          <RotateCw className="w-3 h-3" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {(removedItems.widgets.filter(w => w.tier === currentTier).length === 0 && 
+                    removedItems.sidebar.filter(s => s.tier === currentTier).length === 0) && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+                      No removed items for this tier
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Toolbar Customization */}
+            {editMode === 'toolbar' && (
+              <div>
+                <h4 className="font-semibold text-sm mb-2 flex items-center">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Toolbar Items
+                </h4>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => addSeparator('toolbar')}
+                    className="w-full px-3 py-2 text-sm bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                    data-editor-control
+                  >
+                    + Add Separator
+                  </button>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {toolbarItems.filter(t => t.tier === currentTier).map(item => (
+                      <div key={item.id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 border rounded text-xs">
+                        <span>{item.name}</span>
+                        <button
+                          onClick={() => {
+                            item.element.style.display = 'none';
+                            trackRemovedItem(item, 'toolbar');
+                          }}
+                          className="text-red-500 hover:text-red-700"
+                          data-editor-control
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sidebar Customization */}
+            {editMode === 'sidebar' && (
+              <div>
+                <h4 className="font-semibold text-sm mb-2 flex items-center">
+                  <SidebarIcon className="w-4 h-4 mr-2" />
+                  Sidebar Items
+                </h4>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => addSeparator('sidebar')}
+                    className="w-full px-3 py-2 text-sm bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded hover:bg-purple-100 dark:hover:bg-purple-900/30"
+                    data-editor-control
+                  >
+                    + Add Separator
+                  </button>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {sidebarItems.filter(s => s.tier === currentTier).map(item => (
+                      <div key={item.id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 border rounded text-xs">
+                        <span>{item.name}</span>
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => moveToToolbar(item)}
+                            className="text-blue-500 hover:text-blue-700"
+                            data-editor-control
+                            title="Move to Toolbar"
+                          >
+                            <Move className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              item.element.style.display = 'none';
+                              trackRemovedItem(item, 'sidebar');
+                            }}
+                            className="text-red-500 hover:text-red-700"
+                            data-editor-control
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Existing Widgets */}
+            {editMode === 'widgets' && (
+              <div>
+                <h4 className="font-semibold text-sm mb-2 flex items-center">
+                  <RotateCw className="w-4 h-4 mr-2" />
+                  Restore Widgets
+                </h4>
               <div className="space-y-1 max-h-40 overflow-y-auto">
                 {existingWidgets.map(widget => (
                   <button
@@ -494,9 +856,11 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
                   </button>
                 ))}
               </div>
-            </div>
+              </div>
+            )}
 
             {/* Widget Library */}
+            {editMode === 'widgets' && (
             <div>
               <h4 className="font-semibold text-sm mb-2 flex items-center">
                 <Plus className="w-4 h-4 mr-2" />
@@ -514,8 +878,10 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
                 ))}
               </div>
             </div>
+            )}
 
             {/* Color Picker */}
+            {editMode === 'widgets' && (
             <div>
               <h4 className="font-semibold text-sm mb-2 flex items-center">
                 <Palette className="w-4 h-4 mr-2" />
@@ -532,24 +898,50 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
                 ))}
               </div>
             </div>
+            )}
 
             {/* Animations */}
+            {editMode === 'widgets' && (
             <div>
               <h4 className="font-semibold text-sm mb-2 flex items-center">
                 <Wand2 className="w-4 h-4 mr-2" />
                 Animations
               </h4>
+              
+              {/* Animation Trigger */}
+              <div className="mb-3">
+                <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">
+                  Trigger:
+                </label>
+                <select 
+                  className="w-full text-xs border rounded px-2 py-1 dark:bg-gray-700"
+                  data-editor-control
+                  onChange={(e) => {
+                    if (!selectedElement) return;
+                    selectedElement.classList.remove('anim-on-load', 'anim-on-hover', 'anim-on-click');
+                    if (e.target.value) {
+                      selectedElement.classList.add(e.target.value);
+                    }
+                  }}
+                >
+                  <option value="">Continuous</option>
+                  <option value="anim-on-load">On Page Load</option>
+                  <option value="anim-on-hover">On Hover</option>
+                  <option value="anim-on-click">On Click</option>
+                </select>
+              </div>
+
               <div className="space-y-1">
                 {[
-                  { name: 'None', value: '' },
-                  { name: 'Pulse', value: 'pulse 2s ease-in-out infinite' },
-                  { name: 'Bounce', value: 'bounce 1s ease-in-out infinite' },
-                  { name: 'Spin', value: 'spin 3s linear infinite' },
-                  { name: 'Wiggle', value: 'wiggle 0.5s ease-in-out infinite' },
-                  { name: 'Fade In/Out', value: 'fade 3s ease-in-out infinite' },
-                  { name: 'Slide In', value: 'slideIn 1s ease-out' },
-                  { name: 'Scale Up', value: 'scaleUp 0.3s ease-out' },
-                  { name: 'Glow', value: 'glow 2s ease-in-out infinite' }
+                  { name: 'None', value: '', desc: 'Remove animation' },
+                  { name: 'Pulse', value: 'pulse 2s ease-in-out infinite', desc: 'Gentle pulsing' },
+                  { name: 'Bounce', value: 'bounce 1s ease-in-out infinite', desc: 'Bouncing motion' },
+                  { name: 'Spin', value: 'spin 3s linear infinite', desc: 'Rotating 360°' },
+                  { name: 'Wiggle', value: 'wiggle 0.5s ease-in-out infinite', desc: 'Shake effect' },
+                  { name: 'Fade In Up', value: 'fadeInUp 0.6s ease-out', desc: 'Fade in from below' },
+                  { name: 'Scale In', value: 'scaleIn 0.5s ease-out', desc: 'Grow from center' },
+                  { name: 'Slide In Left', value: 'slideInLeft 0.6s ease-out', desc: 'Slide from left' },
+                  { name: 'Slide In Right', value: 'slideInRight 0.6s ease-out', desc: 'Slide from right' }
                 ].map(anim => (
                   <button
                     key={anim.name}
@@ -560,14 +952,20 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
                     }}
                     className="w-full px-3 py-2 text-left text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20"
                     data-editor-control
+                    title={anim.desc}
                   >
-                    {anim.name}
+                    <div className="flex justify-between items-center">
+                      <span>{anim.name}</span>
+                      <span className="text-xs text-gray-400">{anim.desc}</span>
+                    </div>
                   </button>
                 ))}
               </div>
             </div>
+            )}
 
             {/* Settings */}
+            {editMode === 'widgets' && (
             <div>
               <h4 className="font-semibold text-sm mb-2 flex items-center">
                 <Settings className="w-4 h-4 mr-2" />
@@ -614,28 +1012,31 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
                 </label>
               </div>
             </div>
+            )}
 
             {/* Quick Actions */}
+            {editMode === 'widgets' && (
             <div>
               <h4 className="font-semibold text-sm mb-2 flex items-center">
                 <Settings className="w-4 h-4 mr-2" />
                 Quick Actions
               </h4>
               <div className="space-y-2">
-                <button className="w-full btn-secondary text-sm justify-start">
+                <button className="w-full btn-secondary text-sm justify-start" data-editor-control>
                   <Type className="w-4 h-4 mr-2" />
                   Edit Text
                 </button>
-                <button className="w-full btn-secondary text-sm justify-start">
+                <button className="w-full btn-secondary text-sm justify-start" data-editor-control>
                   <Image className="w-4 h-4 mr-2" />
                   Change Icon
                 </button>
-                <button className="w-full btn-secondary text-sm justify-start">
+                <button className="w-full btn-secondary text-sm justify-start" data-editor-control>
                   <Copy className="w-4 h-4 mr-2" />
                   Duplicate
                 </button>
               </div>
             </div>
+            )}
           </div>
         </div>
       )}
