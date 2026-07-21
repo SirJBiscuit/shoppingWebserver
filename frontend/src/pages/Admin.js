@@ -11,6 +11,7 @@ import api from '../services/api';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import FeatureManager from '../components/FeatureManager';
+import UserManagement from '../components/UserManagement';
 
 const AdminNew = () => {
   const navigate = useNavigate();
@@ -384,11 +385,7 @@ const AdminNew = () => {
             {/* User Management Tab */}
             {activeTab === 'users' && (
               <div className="card">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center mb-6">
-                  <Users className="w-6 h-6 mr-2 text-primary-600" />
-                  User Management
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">User management features coming soon...</p>
+                <UserManagement />
               </div>
             )}
 
