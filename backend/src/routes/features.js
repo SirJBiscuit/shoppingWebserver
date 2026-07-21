@@ -211,7 +211,7 @@ router.put('/admin/limit/:id', auth, isAdmin, async (req, res) => {
 // Admin: Toggle feature on/off quickly
 router.post('/admin/toggle/:id', auth, isAdmin, async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id} = req.params;
 
     const result = await db.query(
       `UPDATE feature_flags 
@@ -230,6 +230,81 @@ router.post('/admin/toggle/:id', auth, isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error toggling feature:', error);
     res.status(500).json({ error: 'Failed to toggle feature' });
+  }
+});
+
+// Admin: Get all tier limits
+router.get('/admin/limits/all', auth, isAdmin, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT * FROM tier_limits ORDER BY tier_name, limit_key'
+    );
+    res.json({ limits: result.rows });
+  } catch (error) {
+    console.error('Error fetching all limits:', error);
+    res.status(500).json({ error: 'Failed to fetch limits' });
+  }
+});
+
+// Admin: Get all widgets
+router.get('/admin/widgets', auth, isAdmin, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT * FROM dashboard_widgets ORDER BY default_position'
+    );
+    res.json({ widgets: result.rows });
+  } catch (error) {
+    console.error('Error fetching widgets:', error);
+    res.status(500).json({ error: 'Failed to fetch widgets' });
+  }
+});
+
+// Admin: Update widget
+router.put('/admin/widget/:id', auth, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { default_enabled, default_position, min_tier } = req.body;
+
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (default_enabled !== undefined) {
+      updates.push(`default_enabled = $${paramCount++}`);
+      values.push(default_enabled);
+    }
+    if (default_position !== undefined) {
+      updates.push(`default_position = $${paramCount++}`);
+      values.push(default_position);
+    }
+    if (min_tier !== undefined) {
+      updates.push(`min_tier = $${paramCount++}`);
+      values.push(min_tier);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(id);
+
+    const result = await db.query(
+      `UPDATE dashboard_widgets 
+       SET ${updates.join(', ')}
+       WHERE id = $${paramCount}
+       RETURNING *`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Widget not found' });
+    }
+
+    res.json({ widget: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating widget:', error);
+    res.status(500).json({ error: 'Failed to update widget' });
   }
 });
 
