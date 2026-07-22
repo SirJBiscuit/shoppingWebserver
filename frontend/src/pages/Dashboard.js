@@ -242,6 +242,29 @@ const Dashboard = () => {
       setItems(response.data.items);
     } catch (error) {
       console.error('Error loading items:', error);
+      
+      // If list doesn't exist (404), switch to first available list
+      if (error.response?.status === 404) {
+        warning('Shopping list not found, loading available lists...');
+        try {
+          const listsResponse = await shoppingAPI.getLists();
+          if (listsResponse.data && listsResponse.data.length > 0) {
+            const firstList = listsResponse.data[0];
+            setActiveList(firstList);
+            setItems(firstList.items || []);
+            success(`Switched to list: ${firstList.name}`);
+          } else {
+            // No lists exist, create a new one
+            const newList = await shoppingAPI.createList({ name: 'My Shopping List' });
+            setLists([newList.data]);
+            setActiveList(newList.data);
+            setItems([]);
+            success('Created new shopping list');
+          }
+        } catch (err) {
+          error('Failed to load shopping lists');
+        }
+      }
     }
   };
 
