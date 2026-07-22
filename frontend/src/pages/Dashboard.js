@@ -50,6 +50,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { triggerFlyingAnimation } = useCartAnimation();
   const addButtonRef = useRef(null);
+  const isRecoveringFromError = useRef(false);
   const { toasts, hideToast, success, error, warning, info } = useToast();
   
   // Disable scroll sounds (too annoying)
@@ -162,6 +163,13 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (activeList) {
+      // If we just recovered from an error, don't try to load again (items already set)
+      if (isRecoveringFromError.current) {
+        isRecoveringFromError.current = false;
+        localStorage.setItem('lastActiveListId', activeList.id.toString());
+        return;
+      }
+      
       loadListItems(activeList.id);
       // Remember last used list
       localStorage.setItem('lastActiveListId', activeList.id.toString());
@@ -251,6 +259,7 @@ const Dashboard = () => {
             const listsResponse = await shoppingAPI.getLists();
             if (listsResponse.data && listsResponse.data.length > 0) {
               const firstList = listsResponse.data[0];
+              isRecoveringFromError.current = true; // Prevent useEffect from loading again
               setActiveList(firstList);
               setItems(firstList.items || []);
               warning(`List not found. Switched to: ${firstList.name}`);
@@ -258,6 +267,7 @@ const Dashboard = () => {
               // No lists exist, create a new one
               const newList = await shoppingAPI.createList({ name: 'My Shopping List' });
               setLists([newList.data]);
+              isRecoveringFromError.current = true; // Prevent useEffect from loading again
               setActiveList(newList.data);
               setItems([]);
               info('Created new shopping list');

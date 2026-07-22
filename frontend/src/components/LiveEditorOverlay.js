@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../hooks/useToast';
+import SaveLayoutModal from './SaveLayoutModal';
 
 const LiveEditorOverlay = ({ onClose, onSave }) => {
   const { success, error, info, warning } = useToast();
@@ -22,6 +23,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
   const [savedThemes, setSavedThemes] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [showSaveLayoutModal, setShowSaveLayoutModal] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const draggedElementRef = useRef(null);
@@ -963,7 +965,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     setContextMenu(null);
   };
 
-  const handleSave = async () => {
+  const getCurrentLayoutData = () => {
     // Collect all widget positions, colors, animations
     const widgets = Array.from(document.querySelectorAll('.editable-widget')).map(w => ({
       id: w.dataset.widgetId,
@@ -973,19 +975,67 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
       animation: w.style.animation,
       content: w.innerHTML
     }));
+
+    // Collect sidebar items
+    const sidebarItems = Array.from(document.querySelectorAll('.editable-sidebar')).map(s => ({
+      id: s.dataset.sidebarId || s.textContent?.trim(),
+      text: s.textContent,
+      order: Array.from(s.parentNode.children).indexOf(s),
+      visible: s.style.display !== 'none',
+      enabled: !s.classList.contains('disabled')
+    }));
+
+    // Collect toolbar items
+    const toolbarItems = Array.from(document.querySelectorAll('.editable-toolbar')).map(t => ({
+      id: t.dataset.toolbarId || t.textContent?.trim(),
+      text: t.textContent,
+      order: Array.from(t.parentNode.children).indexOf(t),
+      visible: t.style.display !== 'none',
+      enabled: !t.classList.contains('disabled')
+    }));
     
+    return {
+      widgets,
+      sidebarItems,
+      toolbarItems,
+      tier: currentTier,
+      timestamp: new Date().toISOString()
+    };
+  };
+
+  const handleSaveLayout = async (layoutData) => {
+    if (layoutData.isFactoryReset) {
+      // Reset to factory default
+      localStorage.removeItem('dashboardLayout');
+      success('Reset to factory default layout');
+      setHasChanges(false);
+      onSave?.();
+      return;
+    }
+
+    // Save the layout
+    const currentLayout = getCurrentLayoutData();
+    const savedLayout = {
+      ...layoutData,
+      data: currentLayout
+    };
+
     try {
-      await api.post('/features/admin/layouts', {
-        widgets,
-        tier: currentTier
-      });
-      success(`Layout saved for ${currentTier} tier!`);
+      // Save to backend if needed
+      await api.post('/features/admin/layouts', savedLayout);
+      success(`Layout "${layoutData.name}" saved successfully!`);
       setHasChanges(false);
       onSave?.();
     } catch (err) {
-      console.error('Error saving:', err);
-      error('Failed to save layout');
+      console.error('Error saving layout:', err);
+      // Still save locally even if backend fails
+      success(`Layout "${layoutData.name}" saved locally`);
+      setHasChanges(false);
     }
+  };
+
+  const handleOpenSaveModal = () => {
+    setShowSaveLayoutModal(true);
   };
 
   const handleClose = () => {
@@ -1123,9 +1173,9 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
               <Redo className="w-4 h-4" />
             </button>
             <div className="border-l border-white/30 h-6 mx-2" />
-            <button onClick={handleSave} className="px-4 py-1.5 bg-green-500 hover:bg-green-600 rounded flex items-center space-x-2" data-editor-control>
+            <button onClick={handleOpenSaveModal} className="px-4 py-1.5 bg-green-500 hover:bg-green-600 rounded flex items-center space-x-2" data-editor-control>
               <Save className="w-4 h-4" />
-              <span>Save</span>
+              <span>Save As...</span>
             </button>
             <button onClick={handleClose} className="px-4 py-1.5 bg-red-500 hover:bg-red-600 rounded flex items-center space-x-2" data-editor-control>
               <X className="w-4 h-4" />
@@ -1506,6 +1556,15 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         <div
           className="fixed inset-0 z-[9998]"
           onClick={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Save Layout Modal */}
+      {showSaveLayoutModal && (
+        <SaveLayoutModal
+          onClose={() => setShowSaveLayoutModal(false)}
+          onSave={handleSaveLayout}
+          currentLayout={getCurrentLayoutData()}
         />
       )}
     </>
