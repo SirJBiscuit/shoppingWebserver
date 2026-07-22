@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   ShoppingCart, ChefHat, Package, Calendar, BarChart3, 
   Settings, Shield, History, Search, Mic, Scan, Share2,
-  Menu, X, LogOut, Bell, Moon, Sun, Crown, Store, Sparkles
+  Menu, X, Bell, Moon, Sun, Crown, Store, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -13,7 +13,7 @@ import ClearCacheButton from './ClearCacheButton';
 const Sidebar = ({ onAction }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -197,13 +197,6 @@ const Sidebar = ({ onAction }) => {
           >
             {isDark ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-indigo-500" />}
             <span className="font-medium text-sm">{isDark ? 'Light Mode' : 'Dark Mode'}</span>
-          </button>
-          <button
-            onClick={logout}
-            className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
-          >
-            <LogOut className="w-5 h-5" />
-            <span className="font-medium text-sm">Logout</span>
           </button>
         </div>
       </motion.aside>

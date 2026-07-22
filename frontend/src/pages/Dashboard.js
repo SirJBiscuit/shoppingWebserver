@@ -983,9 +983,17 @@ const Dashboard = () => {
 
         {/* Main Content */}
         <div className="flex-1 min-w-0">
-          {/* Simple Top Bar for Notifications */}
+          {/* Simple Top Bar for Notifications and Logout */}
           <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-end space-x-4">
             <NotificationCenter />
+            <button
+              onClick={logout}
+              className="flex items-center space-x-2 px-3 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
+              title="Logout"
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="hidden sm:inline font-medium text-sm">Logout</span>
+            </button>
           </div>
 
           <main className="p-4 lg:p-8">
