@@ -256,13 +256,27 @@ const Dashboard = () => {
         // If list doesn't exist (404), switch to first available list (only once)
         if (error.response?.status === 404) {
           try {
+            // Clear the bad list ID from localStorage
+            localStorage.removeItem('lastActiveListId');
+            
             const listsResponse = await shoppingAPI.getLists();
             if (listsResponse.data && listsResponse.data.length > 0) {
               const firstList = listsResponse.data[0];
-              isRecoveringFromError.current = true; // Prevent useEffect from loading again
-              setActiveList(firstList);
-              setItems(firstList.items || []);
-              warning(`List not found. Switched to: ${firstList.name}`);
+              
+              // Load the actual items for this list
+              try {
+                const listDetailsResponse = await shoppingAPI.getList(firstList.id);
+                isRecoveringFromError.current = true; // Prevent useEffect from loading again
+                setActiveList(firstList);
+                setItems(listDetailsResponse.data.items || []);
+                warning(`List not found. Switched to: ${firstList.name}`);
+              } catch (loadErr) {
+                // If we can't load this list either, just set empty items
+                isRecoveringFromError.current = true;
+                setActiveList(firstList);
+                setItems([]);
+                warning(`Switched to: ${firstList.name}`);
+              }
             } else {
               // No lists exist, create a new one
               const newList = await shoppingAPI.createList({ name: 'My Shopping List' });
@@ -274,6 +288,7 @@ const Dashboard = () => {
             }
           } catch (err) {
             // Silent fail to prevent spam
+            console.error('Error during 404 recovery:', err);
             setItems([]);
           }
         }
