@@ -370,9 +370,9 @@ const Dashboard = () => {
 
     try {
       const response = await shoppingAPI.createList(listData);
-      setActiveList(response.data);
       await loadLists();
-      await loadListItems(response.data.id);
+      setActiveList(response.data);
+      // Don't call loadListItems here - the useEffect will handle it
     } catch (error) {
       console.error('Error creating list:', error);
     }
@@ -402,7 +402,7 @@ const Dashboard = () => {
       if (wasActiveList && response.data.length > 0) {
         const newActiveList = response.data[0];
         setActiveList(newActiveList);
-        await loadListItems(newActiveList.id);
+        // Don't call loadListItems here - the useEffect will handle it
       } else if (response.data.length === 0) {
         // If no lists left, create a new one
         await createNewList();
@@ -429,9 +429,9 @@ const Dashboard = () => {
   const restoreList = async (listId) => {
     try {
       const response = await shoppingAPI.restoreList(listId);
-      setActiveList(response.data);
       await loadLists();
-      await loadListItems(response.data.id);
+      setActiveList(response.data);
+      // Don't call loadListItems here - the useEffect will handle it
       setShowRecovery(false);
       success('Shopping list restored successfully!');
     } catch (error) {
@@ -1013,7 +1013,7 @@ const Dashboard = () => {
                         onChange={(e) => {
                           const list = lists.find(l => l.id === parseInt(e.target.value));
                           setActiveList(list);
-                          if (list) loadListItems(list.id);
+                          // Don't call loadListItems here - the useEffect will handle it
                         }}
                         className="input-field text-sm flex-1 max-w-xs"
                       >
