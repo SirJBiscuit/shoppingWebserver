@@ -376,11 +376,12 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
       }
     });
 
-    // Auto-detect and setup sidebar items
-    const sidebarItems = document.querySelectorAll('nav a, nav button, .sidebar-item');
+    // Auto-detect and setup sidebar items - use more specific selectors
+    const sidebarItems = document.querySelectorAll('nav a, nav button, nav [role="button"], .sidebar-item, aside a, aside button');
     console.log(`LiveEditor: Found ${sidebarItems.length} sidebar items`);
     sidebarItems.forEach(el => {
-      if (!el.hasAttribute('data-editor-control')) {
+      // Skip if it's a child of an already editable element or is an editor control
+      if (!el.hasAttribute('data-editor-control') && !el.closest('[data-editor-control]')) {
         setupElement(el, 'sidebar');
         console.log('Setup sidebar item:', el);
       }
@@ -533,7 +534,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     element.classList.add('selected');
     
-    // Get element position
+    // Get element position and size
     const rect = element.getBoundingClientRect();
     
     // Calculate offset from mouse position to element's top-left corner
@@ -541,14 +542,26 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
     const offsetX = e.clientX - rect.left;
     const offsetY = e.clientY - rect.top;
     
+    // Store original size to maintain it during drag
+    const originalWidth = element.offsetWidth;
+    const originalHeight = element.offsetHeight;
+    
     setDragStart({
       mouseX: e.clientX,
       mouseY: e.clientY,
       elementLeft: element.offsetLeft,
       elementTop: element.offsetTop,
       offsetX: offsetX,  // Where on the element the mouse grabbed
-      offsetY: offsetY
+      offsetY: offsetY,
+      originalWidth: originalWidth,  // Preserve size
+      originalHeight: originalHeight
     });
+    
+    // Set explicit size to prevent collapse during position:absolute
+    if (elementType === 'widget') {
+      element.style.width = `${originalWidth}px`;
+      element.style.height = `${originalHeight}px`;
+    }
     
     element.style.cursor = 'grabbing';
     element.classList.add('dragging');
