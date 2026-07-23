@@ -21,7 +21,7 @@ router.get('/', authenticateToken, async (req, res) => {
       FROM recipes r
       WHERE r.user_id = $1 OR r.is_public = true
       ORDER BY r.created_at DESC
-    `, [req.user.userId]);
+    `, [req.user.id]);
     
     res.json(result.rows);
   } catch (error) {
@@ -35,7 +35,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const recipeResult = await db.query(`
       SELECT * FROM recipes WHERE id = $1 AND (user_id = $2 OR is_public = true)
-    `, [req.params.id, req.user.userId]);
+    `, [req.params.id, req.user.id]);
     
     if (recipeResult.rows.length === 0) {
       return res.status(404).json({ error: 'Recipe not found' });
@@ -64,7 +64,7 @@ router.post('/', authenticateToken, async (req, res) => {
       INSERT INTO recipes (user_id, name, description, servings, prep_time, cook_time, instructions, image_url)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
-    `, [req.user.userId, name, description, servings, prep_time, cook_time, instructions, image_url]);
+    `, [req.user.id, name, description, servings, prep_time, cook_time, instructions, image_url]);
     
     const recipe = recipeResult.rows[0];
     
@@ -104,7 +104,7 @@ router.patch('/:id', authenticateToken, async (req, res) => {
           updated_at = CURRENT_TIMESTAMP
       WHERE id = $9 AND user_id = $10
       RETURNING *
-    `, [name, description, servings, prep_time, cook_time, instructions, image_url, is_favorite, req.params.id, req.user.userId]);
+    `, [name, description, servings, prep_time, cook_time, instructions, image_url, is_favorite, req.params.id, req.user.id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Recipe not found' });
@@ -122,7 +122,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(`
       DELETE FROM recipes WHERE id = $1 AND user_id = $2 RETURNING id
-    `, [req.params.id, req.user.userId]);
+    `, [req.params.id, req.user.id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Recipe not found' });
@@ -141,7 +141,7 @@ router.get('/can-make/check', authenticateToken, async (req, res) => {
     // Get user's pantry items
     const pantryResult = await db.query(`
       SELECT LOWER(item_name) as item_name FROM pantry_inventory WHERE user_id = $1
-    `, [req.user.userId]);
+    `, [req.user.id]);
     
     const pantryItems = new Set(pantryResult.rows.map(r => r.item_name));
     
@@ -158,7 +158,7 @@ router.get('/can-make/check', authenticateToken, async (req, res) => {
       LEFT JOIN recipe_ingredients ri ON r.id = ri.recipe_id
       WHERE r.user_id = $1 OR r.is_public = true
       GROUP BY r.id
-    `, [req.user.userId]);
+    `, [req.user.id]);
     
     // Check which recipes can be made
     const canMake = [];
@@ -199,7 +199,7 @@ router.post('/:id/to-shopping-list', authenticateToken, async (req, res) => {
     // Get user's pantry
     const pantryResult = await db.query(`
       SELECT LOWER(item_name) as item_name, quantity FROM pantry_inventory WHERE user_id = $1
-    `, [req.user.userId]);
+    `, [req.user.id]);
     
     const pantryMap = new Map(pantryResult.rows.map(r => [r.item_name, r.quantity]));
     
@@ -208,7 +208,7 @@ router.post('/:id/to-shopping-list', authenticateToken, async (req, res) => {
     if (!shoppingListId) {
       const listResult = await db.query(`
         INSERT INTO shopping_lists (user_id, name) VALUES ($1, $2) RETURNING id
-      `, [req.user.userId, 'Recipe Shopping List']);
+      `, [req.user.id, 'Recipe Shopping List']);
       shoppingListId = listResult.rows[0].id;
     }
     
@@ -367,7 +367,7 @@ router.post('/import', authenticateToken, async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `, [
-      req.user.userId,
+      req.user.id,
       recipeData.name,
       recipeData.description,
       recipeData.servings,
@@ -438,7 +438,7 @@ router.post('/import/foodnetwork', authenticateToken, async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `, [
-      req.user.userId,
+      req.user.id,
       recipeData.name,
       recipeData.description,
       recipeData.servings,

@@ -153,7 +153,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
         background: #EF4444;
         color: white;
         border-radius: 50%;
-        display: none;
+        display: none !important;
         align-items: center;
         justify-content: center;
         cursor: pointer;
@@ -163,7 +163,7 @@ const LiveEditorOverlay = ({ onClose, onSave }) => {
       }
       
       .editor-active .editable-widget .delete-button {
-        display: flex;
+        display: flex !important;
       }
       
       .editor-active .editable-widget:hover .delete-button,
