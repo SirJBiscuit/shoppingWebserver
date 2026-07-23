@@ -5,6 +5,7 @@ import inventoryAPI from '../services/inventoryAPI';
 import { shoppingAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../hooks/useToast';
+import { enrichItemsWithExpirationStatus } from '../utils/expirationHelper';
 import Sidebar from '../components/Sidebar';
 import PageTransition from '../components/PageTransition';
 import Toast from '../components/Toast';
@@ -99,7 +100,9 @@ const PantryNew = () => {
       }
 
       const data = await inventoryAPI.getItems(filterParams);
-      setItems(data);
+      // Enrich items with expiration status
+      const enrichedItems = enrichItemsWithExpirationStatus(data);
+      setItems(enrichedItems);
     } catch (error) {
       console.error('Failed to load items:', error);
       showError('Failed to load items');
@@ -118,7 +121,8 @@ const PantryNew = () => {
   const loadExpiringSoon = async () => {
     try {
       const data = await inventoryAPI.getExpiringSoon(7);
-      setExpiringSoon(data);
+      const enrichedItems = enrichItemsWithExpirationStatus(data);
+      setExpiringSoon(enrichedItems);
     } catch (error) {
       console.error('Failed to load expiring items:', error);
     }

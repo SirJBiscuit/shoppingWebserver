@@ -14,6 +14,7 @@ const Register = lazy(() => import('./pages/Register'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Recipes = lazy(() => import('./pages/Recipes'));
 const PantryEnhanced = lazy(() => import('./pages/PantryEnhanced'));
+const PantryNew = lazy(() => import('./pages/PantryNew'));
 const MealPlan = lazy(() => import('./pages/MealPlan'));
 const Statistics = lazy(() => import('./pages/Statistics'));
 const RecipeDiscover = lazy(() => import('./pages/RecipeDiscover'));
@@ -77,6 +78,7 @@ const AnimatedRoutes = () => {
         <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/recipes" element={<PrivateRoute><Recipes /></PrivateRoute>} />
         <Route path="/pantry" element={<PrivateRoute><PantryEnhanced /></PrivateRoute>} />
+        <Route path="/pantry-new" element={<PrivateRoute><PantryNew /></PrivateRoute>} />
         <Route path="/meal-plan" element={<PrivateRoute><MealPlan /></PrivateRoute>} />
         <Route path="/stats" element={<PrivateRoute><Statistics /></PrivateRoute>} />
         <Route path="/discover" element={<PrivateRoute><RecipeDiscover /></PrivateRoute>} />
