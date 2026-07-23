@@ -130,7 +130,7 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    loadLists();
+    loadLists(true); // Force set active list on initial load
     loadSuggestions();
     loadItemPreferences();
     loadInventory();
@@ -210,31 +210,34 @@ const Dashboard = () => {
     }
   }, [newItemName, newItemCategory, newItemIcon, newItemPrice]);
 
-  const loadLists = async () => {
+  const loadLists = async (forceSetActive = false) => {
     try {
       const response = await shoppingAPI.getLists();
       setLists(response.data);
       
-      // Try to restore last used list from localStorage
-      const lastListId = localStorage.getItem('lastActiveListId');
-      let listToActivate = null;
-      
-      if (lastListId) {
-        listToActivate = response.data.find(l => l.id.toString() === lastListId && l.status === 'active');
-      }
-      
-      // Fallback to first active list if last list not found
-      if (!listToActivate) {
-        const activeLists = response.data.filter(l => l.status === 'active');
-        if (activeLists.length > 0) {
-          listToActivate = activeLists[0];
+      // Only set activeList if we don't have one yet OR if forced (initial load)
+      if (!activeList || forceSetActive) {
+        // Try to restore last used list from localStorage
+        const lastListId = localStorage.getItem('lastActiveListId');
+        let listToActivate = null;
+        
+        if (lastListId) {
+          listToActivate = response.data.find(l => l.id.toString() === lastListId && l.status === 'active');
         }
-      }
-      
-      if (listToActivate) {
-        setActiveList(listToActivate);
-      } else if (response.data.length === 0) {
-        await createNewList();
+        
+        // Fallback to first active list if last list not found
+        if (!listToActivate) {
+          const activeLists = response.data.filter(l => l.status === 'active');
+          if (activeLists.length > 0) {
+            listToActivate = activeLists[0];
+          }
+        }
+        
+        if (listToActivate) {
+          setActiveList(listToActivate);
+        } else if (response.data.length === 0) {
+          await createNewList();
+        }
       }
       
       setLoading(false);
@@ -246,8 +249,12 @@ const Dashboard = () => {
 
   const loadListItems = async (listId, skipErrorHandling = false) => {
     try {
+      console.log(`Loading items for list ID: ${listId}`);
       const response = await shoppingAPI.getList(listId);
-      setItems(response.data.items);
+      console.log('List response:', response.data);
+      const itemsArray = response.data.items || [];
+      console.log(`Setting ${itemsArray.length} items`);
+      setItems(itemsArray);
     } catch (error) {
       // Only log error once, don't spam console
       if (!skipErrorHandling) {
