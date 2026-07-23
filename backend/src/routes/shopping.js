@@ -86,7 +86,7 @@ router.post('/lists/:id/restore', async (req, res) => {
     // Get the old list details
     const oldListResult = await db.query(
       'SELECT * FROM shopping_lists WHERE id = $1 AND user_id = $2',
-      [oldListId, req.user.userId]
+      [oldListId, req.user.id]
     );
     
     if (oldListResult.rows.length === 0) {
@@ -100,7 +100,7 @@ router.post('/lists/:id/restore', async (req, res) => {
       `INSERT INTO shopping_lists (user_id, name, status)
        VALUES ($1, $2, 'active')
        RETURNING *`,
-      [req.user.userId, `${oldList.name} (Restored)`]
+      [req.user.id, `${oldList.name} (Restored)`]
     );
     
     const newList = newListResult.rows[0];
@@ -188,7 +188,7 @@ router.post('/lists', async (req, res) => {
       `INSERT INTO shopping_lists (user_id, profile_id, name, store_name, list_type, notes) 
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
       [
-        req.user.userId, 
+        req.user.id, 
         profileId || null, 
         name || 'Shopping List',
         store_name || null,
@@ -218,7 +218,7 @@ router.post('/lists/:id/items',
     try {
       const listCheck = await db.query(
         'SELECT id FROM shopping_lists WHERE id = $1 AND user_id = $2',
-        [listId, req.user.userId]
+        [listId, req.user.id]
       );
 
       if (listCheck.rows.length === 0) {
@@ -227,7 +227,7 @@ router.post('/lists/:id/items',
 
       const itemResult = await db.query(
         'SELECT id FROM items WHERE user_id = $1 AND LOWER(name) = LOWER($2)',
-        [req.user.userId, itemName]
+        [req.user.id, itemName]
       );
 
       let itemId = null;
@@ -236,7 +236,7 @@ router.post('/lists/:id/items',
       } else {
         const newItem = await db.query(
           'INSERT INTO items (user_id, name, category, typical_quantity, typical_unit) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-          [req.user.userId, itemName, category, quantity, unit]
+          [req.user.id, itemName, category, quantity, unit]
         );
         itemId = newItem.rows[0].id;
       }
@@ -250,7 +250,7 @@ router.post('/lists/:id/items',
 
       // Update item preferences
       try {
-        await updateItemPreferences(req.user.userId, {
+        await updateItemPreferences(req.user.id, {
           item_name: itemName,
           item_icon: icon,
           category: category,
@@ -327,7 +327,7 @@ router.patch('/lists/:listId/items/:itemId', async (req, res) => {
       return res.status(400).json({ error: 'No updates provided' });
     }
 
-    values.push(itemId, listId, req.user.userId);
+    values.push(itemId, listId, req.user.id);
 
     const result = await db.query(
       `UPDATE shopping_list_items sli
@@ -350,7 +350,7 @@ router.patch('/lists/:listId/items/:itemId', async (req, res) => {
     console.log('Updated item from DB:', updatedItem);
     console.log('Icon in DB after update:', updatedItem.item_icon);
     try {
-      await updateItemPreferences(req.user.userId, {
+      await updateItemPreferences(req.user.id, {
         item_name: updatedItem.item_name,
         item_icon: updatedItem.item_icon,
         category: updatedItem.category,
@@ -382,7 +382,7 @@ router.delete('/lists/:listId/items/:itemId', async (req, res) => {
        AND sl.id = sli.shopping_list_id
        AND sl.user_id = $3
        RETURNING sli.id`,
-      [itemId, listId, req.user.userId]
+      [itemId, listId, req.user.id]
     );
 
     if (result.rows.length === 0) {
@@ -425,7 +425,7 @@ router.put('/lists/:id', async (req, res) => {
     }
     
     values.push(listId);
-    values.push(req.user.userId);
+    values.push(req.user.id);
 
     const query = `UPDATE shopping_lists 
                    SET ${updates.join(', ')}
@@ -446,7 +446,7 @@ router.put('/lists/:id', async (req, res) => {
                                SET name = $1
                                WHERE id = $2 AND user_id = $3
                                RETURNING *`;
-        result = await db.query(fallbackQuery, [name, listId, req.user.userId]);
+        result = await db.query(fallbackQuery, [name, listId, req.user.id]);
       } else {
         throw dbError;
       }
@@ -475,7 +475,7 @@ router.delete('/lists/:id', async (req, res) => {
       `DELETE FROM shopping_lists 
        WHERE id = $1 AND user_id = $2
        RETURNING id`,
-      [listId, req.user.userId]
+      [listId, req.user.id]
     );
 
     if (result.rows.length === 0) {
@@ -500,7 +500,7 @@ router.post('/lists/:id/complete', async (req, res) => {
 
       const listResult = await client.query(
         'SELECT * FROM shopping_lists WHERE id = $1 AND user_id = $2',
-        [listId, req.user.userId]
+        [listId, req.user.id]
       );
 
       if (listResult.rows.length === 0) {
@@ -517,13 +517,13 @@ router.post('/lists/:id/complete', async (req, res) => {
         await client.query(
           `INSERT INTO purchase_history (user_id, item_id, item_name, quantity, unit, price)
            VALUES ($1, $2, $3, $4, $5, $6)`,
-          [req.user.userId, item.item_id, item.item_name, item.quantity, item.unit, item.price]
+          [req.user.id, item.item_id, item.item_name, item.quantity, item.unit, item.price]
         );
 
         if (item.item_id) {
           const statsResult = await client.query(
             'SELECT * FROM item_statistics WHERE user_id = $1 AND item_id = $2',
-            [req.user.userId, item.item_id]
+            [req.user.id, item.item_id]
           );
 
           if (statsResult.rows.length > 0) {
@@ -544,14 +544,14 @@ router.post('/lists/:id/complete', async (req, res) => {
                    preferred_unit = $3,
                    last_purchase_date = CURRENT_TIMESTAMP
                WHERE user_id = $4 AND item_id = $5`,
-              [newAvgDays, item.quantity, item.unit, req.user.userId, item.item_id]
+              [newAvgDays, item.quantity, item.unit, req.user.id, item.item_id]
             );
           } else {
             await client.query(
               `INSERT INTO item_statistics 
                (user_id, item_id, total_purchases, preferred_quantity, preferred_unit, last_purchase_date)
                VALUES ($1, $2, 1, $3, $4, CURRENT_TIMESTAMP)`,
-              [req.user.userId, item.item_id, item.quantity, item.unit]
+              [req.user.id, item.item_id, item.quantity, item.unit]
             );
           }
 
@@ -563,7 +563,7 @@ router.post('/lists/:id/complete', async (req, res) => {
              VALUES ($1, $2, $3, $4, 100, CURRENT_TIMESTAMP, $5)
              ON CONFLICT (user_id, profile_id, item_id) 
              DO UPDATE SET current_quantity = $3, percentage_left = 100, last_purchased = CURRENT_TIMESTAMP, last_updated = CURRENT_TIMESTAMP, storage_location = $5`,
-            [req.user.userId, item.item_id, item.quantity, item.unit, storageLocation]
+            [req.user.id, item.item_id, item.quantity, item.unit, storageLocation]
           );
         }
       }
@@ -596,7 +596,7 @@ router.post('/lists/:listId/items/:itemId/check', async (req, res) => {
   const { checkOffOrder } = req.body;
 
   try {
-    await recordItemCheckOff(req.user.userId, listId, itemId, checkOffOrder);
+    await recordItemCheckOff(req.user.id, listId, itemId, checkOffOrder);
     res.json({ success: true });
   } catch (error) {
     console.error('Error recording check-off:', error);
@@ -609,7 +609,7 @@ router.get('/personalized-sort', async (req, res) => {
   const { storeId } = req.query;
 
   try {
-    const sortOrder = await getPersonalizedSortOrder(req.user.userId, storeId || null);
+    const sortOrder = await getPersonalizedSortOrder(req.user.id, storeId || null);
     res.json(sortOrder);
   } catch (error) {
     console.error('Error getting personalized sort:', error);
@@ -653,7 +653,7 @@ router.post('/templates', async (req, res) => {
     // Create template
     const templateResult = await client.query(
       'INSERT INTO shopping_templates (user_id, name) VALUES ($1, $2) RETURNING *',
-      [req.user.userId, name]
+      [req.user.id, name]
     );
     const template = templateResult.rows[0];
 
@@ -689,7 +689,7 @@ router.put('/templates/:id', async (req, res) => {
   try {
     const result = await db.query(
       'UPDATE shopping_templates SET name = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
-      [name, id, req.user.userId]
+      [name, id, req.user.id]
     );
 
     if (result.rows.length === 0) {
@@ -710,7 +710,7 @@ router.delete('/templates/:id', async (req, res) => {
   try {
     const result = await db.query(
       'DELETE FROM shopping_templates WHERE id = $1 AND user_id = $2 RETURNING id',
-      [id, req.user.userId]
+      [id, req.user.id]
     );
 
     if (result.rows.length === 0) {
@@ -734,7 +734,7 @@ router.get('/templates/:id/items', async (req, res) => {
        JOIN shopping_templates t ON ti.template_id = t.id
        WHERE t.id = $1 AND t.user_id = $2
        ORDER BY ti.created_at`,
-      [id, req.user.userId]
+      [id, req.user.id]
     );
     res.json(result.rows);
   } catch (error) {
