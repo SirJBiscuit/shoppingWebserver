@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3007/api';
+// Use relative path for production, falls back to localhost for local dev
+const API_URL = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3007/api';
 
 // Create axios instance with auth token
 const getAuthHeader = () => {
