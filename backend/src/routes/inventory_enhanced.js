@@ -232,7 +232,10 @@ router.get('/', authenticateToken, async (req, res) => {
     res.json(items);
   } catch (error) {
     console.error('Error fetching inventory:', error);
-    res.status(500).json({ error: 'Failed to fetch inventory' });
+    console.error('Query:', query);
+    console.error('Params:', params);
+    console.error('Stack:', error.stack);
+    res.status(500).json({ error: 'Failed to fetch inventory', details: error.message });
   }
 });
 
