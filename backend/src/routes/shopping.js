@@ -139,7 +139,7 @@ router.get('/lists/:id', async (req, res) => {
   try {
     const listResult = await db.query(
       'SELECT * FROM shopping_lists WHERE id = $1 AND user_id = $2',
-      [req.params.id, req.user.userId]
+      [req.params.id, req.user.id]
     );
 
     if (listResult.rows.length === 0) {
