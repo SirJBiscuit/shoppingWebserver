@@ -130,6 +130,13 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
+    // Clear any potentially bad list ID from localStorage on mount
+    const lastListId = localStorage.getItem('lastActiveListId');
+    if (lastListId) {
+      console.log('Found cached list ID:', lastListId);
+      // We'll validate it when loadLists runs
+    }
+    
     loadLists(true); // Force set active list on initial load
     loadSuggestions();
     loadItemPreferences();
@@ -162,9 +169,12 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    if (activeList) {
+    if (activeList && activeList.id) {
+      console.log('Active list changed to:', activeList.name, 'ID:', activeList.id);
+      
       // If we just recovered from an error, don't try to load again (items already set)
       if (isRecoveringFromError.current) {
+        console.log('Skipping load - recovering from error');
         isRecoveringFromError.current = false;
         localStorage.setItem('lastActiveListId', activeList.id.toString());
         return;
@@ -173,6 +183,8 @@ const Dashboard = () => {
       loadListItems(activeList.id);
       // Remember last used list
       localStorage.setItem('lastActiveListId', activeList.id.toString());
+    } else if (activeList) {
+      console.error('Active list has no ID:', activeList);
     }
   }, [activeList]);
 
@@ -213,6 +225,7 @@ const Dashboard = () => {
   const loadLists = async (forceSetActive = false) => {
     try {
       const response = await shoppingAPI.getLists();
+      console.log('Loaded lists:', response.data.map(l => ({ id: l.id, name: l.name, status: l.status })));
       setLists(response.data);
       
       // Only set activeList if we don't have one yet OR if forced (initial load)
@@ -223,6 +236,10 @@ const Dashboard = () => {
         
         if (lastListId) {
           listToActivate = response.data.find(l => l.id.toString() === lastListId && l.status === 'active');
+          if (!listToActivate) {
+            console.warn(`Cached list ID ${lastListId} not found in available lists, clearing cache`);
+            localStorage.removeItem('lastActiveListId');
+          }
         }
         
         // Fallback to first active list if last list not found
@@ -230,12 +247,14 @@ const Dashboard = () => {
           const activeLists = response.data.filter(l => l.status === 'active');
           if (activeLists.length > 0) {
             listToActivate = activeLists[0];
+            console.log('Using first active list:', listToActivate.name);
           }
         }
         
         if (listToActivate) {
           setActiveList(listToActivate);
         } else if (response.data.length === 0) {
+          console.log('No lists found, creating new one');
           await createNewList();
         }
       }
