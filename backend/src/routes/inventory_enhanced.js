@@ -170,9 +170,13 @@ router.get('/', authenticateToken, async (req, res) => {
     let query = `
       SELECT 
         i.*,
+        it.name as item_name,
+        it.preferred_icon as item_icon,
+        it.preferred_category as category,
         csl.name as custom_location_name,
         csl.icon as custom_location_icon
       FROM inventory i
+      LEFT JOIN items it ON i.item_id = it.id
       LEFT JOIN custom_storage_locations csl ON i.custom_location_id = csl.id
       WHERE i.user_id = $1
     `;
@@ -200,7 +204,7 @@ router.get('/', authenticateToken, async (req, res) => {
     }
     
     if (search) {
-      query += ` AND LOWER(i.item_name) LIKE LOWER($${paramCount})`;
+      query += ` AND LOWER(it.name) LIKE LOWER($${paramCount})`;
       params.push(`%${search}%`);
       paramCount++;
     }
@@ -212,14 +216,14 @@ router.get('/', authenticateToken, async (req, res) => {
     
     // Sorting
     const sortColumn = {
-      'name': 'i.item_name',
+      'name': 'it.name',
       'expiry': 'i.estimated_expiry_date',
       'date_added': 'i.last_purchased',
-      'category': 'i.category'
+      'category': 'it.preferred_category'
     }[sort_by] || 'i.sort_order';
     
     const sortDir = sort_order === 'desc' ? 'DESC' : 'ASC';
-    query += ` ORDER BY ${sortColumn} ${sortDir}, i.item_name ASC`;
+    query += ` ORDER BY ${sortColumn} ${sortDir}, it.name ASC`;
     
     const result = await db.query(query, params);
     
@@ -245,9 +249,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
     const result = await db.query(`
       SELECT 
         i.*,
+        it.name as item_name,
+        it.preferred_icon as item_icon,
+        it.preferred_category as category,
         csl.name as custom_location_name,
         csl.icon as custom_location_icon
       FROM inventory i
+      LEFT JOIN items it ON i.item_id = it.id
       LEFT JOIN custom_storage_locations csl ON i.custom_location_id = csl.id
       WHERE i.id = $1 AND i.user_id = $2
     `, [req.params.id, req.user.id]);
@@ -291,6 +299,24 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Item name is required' });
     }
     
+    // Find or create item in items table
+    let itemResult = await db.query(`
+      SELECT id FROM items WHERE user_id = $1 AND LOWER(name) = LOWER($2)
+    `, [req.user.id, item_name]);
+    
+    let item_id;
+    if (itemResult.rows.length === 0) {
+      // Create new item
+      const newItem = await db.query(`
+        INSERT INTO items (user_id, name, preferred_category, preferred_icon)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id
+      `, [req.user.id, item_name, category, image_url || '📦']);
+      item_id = newItem.rows[0].id;
+    } else {
+      item_id = itemResult.rows[0].id;
+    }
+    
     // Calculate expiration if not manually set
     let estimatedExpiryDate = manual_expiry_date;
     let expiryConfidence = 100; // Manual = 100% confidence
@@ -310,19 +336,18 @@ router.post('/', authenticateToken, async (req, res) => {
     
     const result = await db.query(`
       INSERT INTO inventory (
-        user_id, item_name, storage_location, custom_location_id,
-        category, current_quantity, unit, bought_date, opened_date,
+        user_id, item_id, storage_location, custom_location_id,
+        current_quantity, unit, bought_date, opened_date,
         is_opened, manual_expiry_date, estimated_expiry_date,
         expiry_confidence, barcode, image_url, price, store, notes
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
       RETURNING *
     `, [
       req.user.id,
-      item_name,
+      item_id,
       storage_location || 'pantry',
       custom_location_id || null,
-      category,
       quantity || 1,
       unit,
       bought_date || new Date(),
@@ -338,13 +363,29 @@ router.post('/', authenticateToken, async (req, res) => {
       notes
     ]);
     
-    const item = result.rows[0];
+    // Get full item with joined data
+    const fullItem = await db.query(`
+      SELECT 
+        i.*,
+        it.name as item_name,
+        it.preferred_icon as item_icon,
+        it.preferred_category as category,
+        csl.name as custom_location_name,
+        csl.icon as custom_location_icon
+      FROM inventory i
+      LEFT JOIN items it ON i.item_id = it.id
+      LEFT JOIN custom_storage_locations csl ON i.custom_location_id = csl.id
+      WHERE i.id = $1
+    `, [result.rows[0].id]);
+    
+    const item = fullItem.rows[0];
     item.expirationStatus = getExpirationStatus(item.estimated_expiry_date);
     
     res.status(201).json(item);
   } catch (error) {
     console.error('Error adding item:', error);
-    res.status(500).json({ error: 'Failed to add item' });
+    console.error('Stack:', error.stack);
+    res.status(500).json({ error: 'Failed to add item', details: error.message });
   }
 });
 
