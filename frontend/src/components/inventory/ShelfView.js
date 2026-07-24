@@ -29,16 +29,16 @@ const ShelfView = ({ items, location, onEdit, onDelete, onQuickAction, cardSize 
   const currentStyle = shelfStyles[location] || shelfStyles.pantry;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {Object.keys(shelves).map((shelfName, shelfIndex) => (
         <div key={shelfName} className="relative">
           {/* Shelf Label */}
-          <div className="mb-3 flex items-center gap-2">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-white">
+          <div className="mb-2 sm:mb-3 flex items-center gap-2">
+            <h3 className="text-sm sm:text-base md:text-lg font-bold text-gray-800 dark:text-white truncate">
               {shelfName}
             </h3>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              ({shelves[shelfName].length} items)
+            <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
+              ({shelves[shelfName].length})
             </span>
           </div>
 
@@ -46,10 +46,10 @@ const ShelfView = ({ items, location, onEdit, onDelete, onQuickAction, cardSize 
           <div className="relative">
             {/* Items on Shelf */}
             <div className={`
-              grid gap-4 pb-6 px-4 pt-4
-              ${cardSize === 'small' ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-6' : ''}
-              ${cardSize === 'medium' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' : ''}
-              ${cardSize === 'large' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : ''}
+              grid gap-2 sm:gap-3 md:gap-4 pb-4 sm:pb-6 px-3 sm:px-4 pt-3 sm:pt-4
+              ${cardSize === 'small' ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8' : ''}
+              ${cardSize === 'medium' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5' : ''}
+              ${cardSize === 'large' ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : ''}
             `}>
               {shelves[shelfName].map(item => (
                 <div
@@ -72,7 +72,7 @@ const ShelfView = ({ items, location, onEdit, onDelete, onQuickAction, cardSize 
 
             {/* Shelf Board */}
             <div 
-              className="h-3 rounded-sm shadow-lg relative overflow-hidden"
+              className="h-2 sm:h-3 rounded-sm shadow-lg relative overflow-hidden"
               style={{
                 background: currentStyle.background,
                 boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3), inset 0 -2px 4px rgba(0, 0, 0, 0.2)'
@@ -107,12 +107,12 @@ const ShelfView = ({ items, location, onEdit, onDelete, onQuickAction, cardSize 
             </div>
 
             {/* Shelf Support Brackets */}
-            <div className="absolute bottom-0 left-0 w-8 h-12 bg-gray-400 dark:bg-gray-600 rounded-b-lg"
+            <div className="absolute bottom-0 left-0 w-4 sm:w-6 md:w-8 h-8 sm:h-10 md:h-12 bg-gray-400 dark:bg-gray-600 rounded-b-lg"
               style={{
                 boxShadow: '2px 2px 4px rgba(0, 0, 0, 0.3)'
               }}
             />
-            <div className="absolute bottom-0 right-0 w-8 h-12 bg-gray-400 dark:bg-gray-600 rounded-b-lg"
+            <div className="absolute bottom-0 right-0 w-4 sm:w-6 md:w-8 h-8 sm:h-10 md:h-12 bg-gray-400 dark:bg-gray-600 rounded-b-lg"
               style={{
                 boxShadow: '-2px 2px 4px rgba(0, 0, 0, 0.3)'
               }}
@@ -123,8 +123,8 @@ const ShelfView = ({ items, location, onEdit, onDelete, onQuickAction, cardSize 
 
       {/* Empty State */}
       {Object.keys(shelves).length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 dark:text-gray-400 text-lg">
+        <div className="text-center py-8 sm:py-12">
+          <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base md:text-lg">
             No items on the shelves yet. Add some items to get started!
           </p>
         </div>

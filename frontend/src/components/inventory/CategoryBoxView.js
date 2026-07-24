@@ -47,7 +47,7 @@ const CategoryBoxView = ({ items, onEdit, onDelete, onQuickAction, cardSize }) =
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Expand/Collapse All */}
       <div className="flex gap-2 justify-end">
         <button
@@ -78,34 +78,34 @@ const CategoryBoxView = ({ items, onEdit, onDelete, onQuickAction, cardSize }) =
             {/* Category Header */}
             <button
               onClick={() => toggleCategory(category)}
-              className="w-full px-6 py-4 flex items-center justify-between hover:opacity-80 transition-opacity"
+              className="w-full px-3 sm:px-4 md:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 hover:opacity-80 transition-opacity"
             >
-              <div className="flex items-center gap-3">
-                {isExpanded ? <ChevronDown size={24} /> : <ChevronRight size={24} />}
-                <h3 className={`text-xl font-bold ${colors.text}`}>
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                {isExpanded ? <ChevronDown size={20} className="sm:w-6 sm:h-6 flex-shrink-0" /> : <ChevronRight size={20} className="sm:w-6 sm:h-6 flex-shrink-0" />}
+                <h3 className={`text-base sm:text-lg md:text-xl font-bold ${colors.text} truncate`}>
                   {category}
                 </h3>
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${colors.text} bg-white dark:bg-gray-800`}>
-                  {categoryItems.length} items
+                <span className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-semibold ${colors.text} bg-white dark:bg-gray-800 flex-shrink-0`}>
+                  {categoryItems.length}
                 </span>
               </div>
               
               {/* Category Stats */}
-              <div className="flex gap-4 text-sm">
+              <div className="flex gap-2 sm:gap-4 text-xs sm:text-sm pl-7 sm:pl-0">
                 <span className={colors.text}>
-                  Total: ${categoryItems.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0).toFixed(2)}
+                  ${categoryItems.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0).toFixed(2)}
                 </span>
               </div>
             </button>
 
             {/* Category Items */}
             {isExpanded && (
-              <div className="px-6 pb-6">
+              <div className="px-3 sm:px-4 md:px-6 pb-4 sm:pb-6">
                 <div className={`
-                  grid gap-4
-                  ${cardSize === 'small' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' : ''}
-                  ${cardSize === 'medium' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : ''}
-                  ${cardSize === 'large' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-2' : ''}
+                  grid gap-2 sm:gap-3 md:gap-4
+                  ${cardSize === 'small' ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6' : ''}
+                  ${cardSize === 'medium' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5' : ''}
+                  ${cardSize === 'large' ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : ''}
                 `}>
                   {categoryItems.map(item => (
                     <InventoryCard
@@ -126,7 +126,7 @@ const CategoryBoxView = ({ items, onEdit, onDelete, onQuickAction, cardSize }) =
 
       {/* Empty State */}
       {Object.keys(categorizedItems).length === 0 && (
-        <div className="text-center py-12">
+        <div className="text-center py-8 sm:py-12">
           <p className="text-gray-500 dark:text-gray-400 text-lg">
             No items to display. Add some items to get started!
           </p>

@@ -4,6 +4,7 @@ import {
   XCircle, Package, DollarSign, Calendar, MapPin, Image as ImageIcon
 } from 'lucide-react';
 import ExpirationBadge from './ExpirationBadge';
+import StorageIndicator from './StorageIndicator';
 
 /**
  * InventoryCard - Beautiful card for displaying inventory items
@@ -17,6 +18,7 @@ const InventoryCard = ({
   onStillGood, 
   onWentBad,
   onMarkOpened,
+  onAdjustQuantity,
   size = 'medium' // small, medium, large
 }) => {
   const [showActions, setShowActions] = useState(false);
@@ -208,12 +210,21 @@ const InventoryCard = ({
           {item_name}
         </h3>
 
-        {/* Quantity */}
-        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 mb-3">
-          <Package size={styles.iconSize} />
-          <span className={`${styles.text} font-semibold`}>
-            {formatQuantity(current_quantity)} {unit}
-          </span>
+        {/* Quantity with Visual Indicator */}
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+            <Package size={styles.iconSize} />
+            <span className={`${styles.text} font-semibold`}>
+              {formatQuantity(current_quantity)} {unit}
+            </span>
+          </div>
+          
+          {/* Visual Storage Indicator */}
+          <StorageIndicator 
+            item={item}
+            onAdjustQuantity={onAdjustQuantity}
+            size={size === 'small' ? 'small' : size === 'large' ? 'large' : 'medium'}
+          />
         </div>
 
         {/* Location */}

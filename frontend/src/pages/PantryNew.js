@@ -20,6 +20,7 @@ import ViewModeSelector from '../components/inventory/ViewModeSelector';
 import ShelfView from '../components/inventory/ShelfView';
 import CategoryBoxView from '../components/inventory/CategoryBoxView';
 import ListView from '../components/inventory/ListView';
+import VisualInventoryMap from '../components/inventory/VisualInventoryMap';
 
 /**
  * PantryNew - Complete rewrite of Pantry page with Kitchen Inventory features
@@ -48,7 +49,7 @@ const PantryNew = () => {
   const [sortOrder, setSortOrder] = useState('asc');
   const [searchTerm, setSearchTerm] = useState('');
   const [showStats, setShowStats] = useState(true);
-  const [viewMode, setViewMode] = useState('grid'); // grid, shelf, list, category
+  const [viewMode, setViewMode] = useState('map'); // map, grid, shelf, list, category
   const [cardSize, setCardSize] = useState('medium'); // small, medium, large
 
   // Load data on mount
@@ -182,24 +183,27 @@ const PantryNew = () => {
   const handleAddToShoppingList = async (item) => {
     try {
       // Get user's active shopping list
-      const lists = await shoppingAPI.getLists();
-      const activeList = lists.data.find(list => list.status === 'active');
+      const listsResponse = await shoppingAPI.getLists();
+      const lists = listsResponse.data || listsResponse;
+      const activeList = Array.isArray(lists) ? lists.find(list => list.status === 'active') : null;
       
       if (!activeList) {
-        showError('No active shopping list found');
+        showError('No active shopping list found. Create one first!');
         return;
       }
 
       await shoppingAPI.addItem(activeList.id, {
         item_name: item.item_name,
-        quantity: item.current_quantity || 1,
-        category: item.category
+        quantity: 1,
+        category: item.category,
+        unit: item.unit
       });
 
-      success(`Added "${item.item_name}" to shopping list`);
+      success(`✓ Added "${item.item_name}" to shopping list`);
     } catch (error) {
       console.error('Failed to add to shopping list:', error);
-      showError('Failed to add to shopping list');
+      const errorMsg = error.response?.data?.error || error.message || 'Unknown error';
+      showError(`Failed to add to shopping list: ${errorMsg}`);
     }
   };
 
@@ -237,6 +241,30 @@ const PantryNew = () => {
     } catch (error) {
       console.error('Failed to mark as opened:', error);
       showError('Failed to mark as opened');
+    }
+  };
+
+  const handleAdjustQuantity = async (item, newQuantity) => {
+    try {
+      await inventoryAPI.updateItem(item.id, {
+        current_quantity: newQuantity
+      });
+      
+      // Optimistic update
+      setItems(prevItems =>
+        prevItems.map(i =>
+          i.id === item.id ? { ...i, current_quantity: newQuantity } : i
+        )
+      );
+      
+      if (newQuantity === 0) {
+        success(`${item.item_name} is now empty`);
+      }
+    } catch (error) {
+      console.error('Failed to adjust quantity:', error);
+      showError('Failed to adjust quantity');
+      // Reload to revert optimistic update
+      loadAll();
     }
   };
 
@@ -390,31 +418,32 @@ const PantryNew = () => {
         <Sidebar />
         
         <div className="flex-1 overflow-auto">
-          <div className="max-w-[1800px] mx-auto p-6">
+          <div className="max-w-[1800px] mx-auto p-3 sm:p-4 md:p-6">
             {/* Header */}
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 md:mb-6">
+              <div className="flex-1 min-w-0">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-1 md:mb-2">
                   Kitchen Inventory
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400">
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 hidden sm:block">
                   Manage your pantry, fridge, and freezer items with smart expiration tracking
                 </p>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
                 <button
                   onClick={() => setShowStats(!showStats)}
-                  className="px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors flex items-center gap-2"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 md:px-6 py-2 md:py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 text-sm md:text-base"
                 >
-                  <BarChart3 size={20} />
-                  <span>{showStats ? 'Hide' : 'Show'} Stats</span>
+                  <BarChart3 size={18} className="sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">{showStats ? 'Hide' : 'Show'} Stats</span>
+                  <span className="sm:hidden">Stats</span>
                 </button>
                 <button
                   onClick={handleAddItem}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-lg"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 md:px-6 py-2 md:py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-lg text-sm md:text-base"
                 >
-                  <Plus size={20} />
+                  <Plus size={18} className="sm:w-5 sm:h-5" />
                   <span>Add Item</span>
                 </button>
               </div>
@@ -460,45 +489,55 @@ const PantryNew = () => {
 
             {/* Clear Buttons */}
             {items.length > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 mb-6">
-                <div className="flex flex-wrap gap-3 items-center justify-between">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 sm:p-4 mb-4 md:mb-6">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-start sm:items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Trash2 size={18} className="text-gray-600 dark:text-gray-400" />
-                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <Trash2 size={16} className="text-gray-600 dark:text-gray-400 sm:w-[18px] sm:h-[18px]" />
+                    <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">
                       Quick Clear:
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 sm:gap-2 w-full sm:w-auto">
                     <button
                       onClick={() => handleClearLocation('pantry')}
-                      className="px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors text-sm font-medium flex items-center gap-2"
+                      className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors text-xs sm:text-sm font-medium flex items-center justify-center gap-1 sm:gap-2"
                       disabled={!items.some(item => item.storage_location === 'pantry')}
                     >
                       <span>🥫</span>
-                      Clear Pantry ({items.filter(item => item.storage_location === 'pantry').length})
+                      <span className="hidden sm:inline">Clear</span>
+                      <span className="sm:hidden">Pantry</span>
+                      <span className="hidden md:inline">Pantry</span>
+                      <span className="text-[10px] sm:text-xs">({items.filter(item => item.storage_location === 'pantry').length})</span>
                     </button>
                     <button
                       onClick={() => handleClearLocation('fridge')}
-                      className="px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors text-sm font-medium flex items-center gap-2"
+                      className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors text-xs sm:text-sm font-medium flex items-center justify-center gap-1 sm:gap-2"
                       disabled={!items.some(item => item.storage_location === 'fridge')}
                     >
                       <span>🧊</span>
-                      Clear Fridge ({items.filter(item => item.storage_location === 'fridge').length})
+                      <span className="hidden sm:inline">Clear</span>
+                      <span className="sm:hidden">Fridge</span>
+                      <span className="hidden md:inline">Fridge</span>
+                      <span className="text-[10px] sm:text-xs">({items.filter(item => item.storage_location === 'fridge').length})</span>
                     </button>
                     <button
                       onClick={() => handleClearLocation('freezer')}
-                      className="px-4 py-2 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300 rounded-lg hover:bg-cyan-200 dark:hover:bg-cyan-900/50 transition-colors text-sm font-medium flex items-center gap-2"
+                      className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300 rounded-lg hover:bg-cyan-200 dark:hover:bg-cyan-900/50 transition-colors text-xs sm:text-sm font-medium flex items-center justify-center gap-1 sm:gap-2"
                       disabled={!items.some(item => item.storage_location === 'freezer')}
                     >
                       <span>❄️</span>
-                      Clear Freezer ({items.filter(item => item.storage_location === 'freezer').length})
+                      <span className="hidden sm:inline">Clear</span>
+                      <span className="sm:hidden">Freezer</span>
+                      <span className="hidden md:inline">Freezer</span>
+                      <span className="text-[10px] sm:text-xs">({items.filter(item => item.storage_location === 'freezer').length})</span>
                     </button>
                     <button
                       onClick={handleClearAll}
-                      className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors text-sm font-medium flex items-center gap-2 border-2 border-red-300 dark:border-red-700"
+                      className="col-span-2 sm:col-span-1 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors text-xs sm:text-sm font-medium flex items-center justify-center gap-1 sm:gap-2 border-2 border-red-300 dark:border-red-700"
                     >
-                      <Trash2 size={16} />
-                      Clear All ({items.length})
+                      <Trash2 size={14} className="sm:w-4 sm:h-4" />
+                      <span>Clear All</span>
+                      <span className="text-[10px] sm:text-xs">({items.length})</span>
                     </button>
                   </div>
                 </div>
@@ -530,6 +569,15 @@ const PantryNew = () => {
               </div>
             ) : (
               <>
+                {/* Visual Map View */}
+                {viewMode === 'map' && (
+                  <VisualInventoryMap
+                    items={items}
+                    onEdit={handleEditItem}
+                    onAdjustQuantity={handleAdjustQuantity}
+                  />
+                )}
+
                 {/* Grid View */}
                 {viewMode === 'grid' && (
                   <div className={`
@@ -548,6 +596,7 @@ const PantryNew = () => {
                         onStillGood={handleStillGood}
                         onWentBad={handleWentBad}
                         onMarkOpened={handleMarkOpened}
+                        onAdjustQuantity={handleAdjustQuantity}
                         size={cardSize}
                       />
                     ))}

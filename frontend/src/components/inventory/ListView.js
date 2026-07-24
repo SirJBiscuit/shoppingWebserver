@@ -13,9 +13,9 @@ const ListView = ({ items, onEdit, onDelete, onQuickAction }) => {
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-      {/* Table Header */}
-      <div className="bg-gray-50 dark:bg-gray-700 px-6 py-3 border-b border-gray-200 dark:border-gray-600">
-        <div className="grid grid-cols-12 gap-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
+      {/* Table Header - Hidden on mobile */}
+      <div className="hidden lg:block bg-gray-50 dark:bg-gray-700 px-4 md:px-6 py-3 border-b border-gray-200 dark:border-gray-600">
+        <div className="grid grid-cols-12 gap-2 md:gap-4 text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300">
           <div className="col-span-3">Item</div>
           <div className="col-span-2">Category</div>
           <div className="col-span-1 text-center">Qty</div>
@@ -31,27 +31,27 @@ const ListView = ({ items, onEdit, onDelete, onQuickAction }) => {
         {items.map(item => (
           <div
             key={item.id}
-            className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+            className="px-3 sm:px-4 md:px-6 py-3 md:py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
           >
-            <div className="grid grid-cols-12 gap-4 items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 md:gap-4 items-start lg:items-center">
               {/* Item Name & Icon */}
-              <div className="col-span-3 flex items-center gap-3">
-                <div className="text-3xl flex-shrink-0">
+              <div className="lg:col-span-3 flex items-center gap-2 sm:gap-3">
+                <div className="text-2xl sm:text-3xl flex-shrink-0">
                   {item.image_url ? (
                     <img 
                       src={item.image_url} 
                       alt={item.item_name}
-                      className="w-10 h-10 rounded-lg object-cover"
+                      className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg object-cover"
                     />
                   ) : (
                     <span>{item.item_icon || '📦'}</span>
                   )}
                 </div>
-                <div className="min-w-0">
-                  <h4 className="font-semibold text-gray-900 dark:text-white truncate">
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white truncate">
                     {item.item_name}
                   </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                  <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate lg:hidden">
                     {item.storage_location === 'pantry' && '🥫 Pantry'}
                     {item.storage_location === 'fridge' && '🧊 Fridge'}
                     {item.storage_location === 'freezer' && '❄️ Freezer'}
