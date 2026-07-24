@@ -16,7 +16,8 @@ const InventoryCard = ({
   onAddToList, 
   onStillGood, 
   onWentBad,
-  onMarkOpened 
+  onMarkOpened,
+  size = 'medium' // small, medium, large
 }) => {
   const [showActions, setShowActions] = useState(false);
 
@@ -37,14 +38,54 @@ const InventoryCard = ({
     store,
     notes,
     image_url,
+    item_icon,
     expirationStatus
   } = item;
+
+  // Format quantity as integer if whole number
+  const formatQuantity = (quantity) => {
+    const num = parseFloat(quantity);
+    return Number.isInteger(num) ? num.toString() : num.toFixed(1);
+  };
 
   // Format date
   const formatDate = (date) => {
     if (!date) return null;
     return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
+
+  // Size-based styles
+  const sizeStyles = {
+    small: {
+      card: 'max-w-[150px]',
+      image: 'h-24',
+      icon: 'text-4xl',
+      title: 'text-sm',
+      text: 'text-xs',
+      button: 'p-1.5',
+      iconSize: 14
+    },
+    medium: {
+      card: 'max-w-[250px]',
+      image: 'h-40',
+      icon: 'text-6xl',
+      title: 'text-lg',
+      text: 'text-sm',
+      button: 'p-2',
+      iconSize: 18
+    },
+    large: {
+      card: 'max-w-[350px]',
+      image: 'h-56',
+      icon: 'text-8xl',
+      title: 'text-xl',
+      text: 'text-base',
+      button: 'p-3',
+      iconSize: 20
+    }
+  };
+
+  const styles = sizeStyles[size];
 
   // Get location display
   const getLocationDisplay = () => {
@@ -67,9 +108,9 @@ const InventoryCard = ({
   const location = getLocationDisplay();
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border-2 border-gray-100 dark:border-gray-700">
+    <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border-2 border-gray-100 dark:border-gray-700 w-full ${styles.card}`}>
       {/* Image or Icon */}
-      <div className="relative h-40 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
+      <div className={`relative ${styles.image} bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center`}>
         {image_url ? (
           <img 
             src={image_url} 
@@ -77,9 +118,8 @@ const InventoryCard = ({
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="text-6xl">
-            {category === 'Dairy & Eggs' && '🥛'}
-            {category === 'Meat & Seafood' && '🥩'}
+          <div className={styles.icon}>
+            {item_icon || (category === 'Dairy & Eggs' && '🥛') || (category === 'Meat & Seafood' && '🥩') || '📦'}
             {category === 'Produce' && '🥬'}
             {category === 'Bakery & Bread' && '🍞'}
             {category === 'Frozen Foods' && '❄️'}
@@ -170,9 +210,9 @@ const InventoryCard = ({
 
         {/* Quantity */}
         <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 mb-3">
-          <Package size={18} />
-          <span className="text-lg font-semibold">
-            {current_quantity} {unit}
+          <Package size={styles.iconSize} />
+          <span className={`${styles.text} font-semibold`}>
+            {formatQuantity(current_quantity)} {unit}
           </span>
         </div>
 
