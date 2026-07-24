@@ -697,6 +697,106 @@ router.post('/reorder', authenticateToken, async (req, res) => {
   }
 });
 
+// Clear items by storage location
+router.delete('/clear/:location', authenticateToken, async (req, res) => {
+  try {
+    const { location } = req.params;
+    
+    // Get items before deleting (for history)
+    const itemsResult = await db.query(`
+      SELECT * FROM inventory 
+      WHERE user_id = $1 AND storage_location = $2
+    `, [req.user.id, location]);
+    
+    // Add to history
+    for (const item of itemsResult.rows) {
+      await db.query(`
+        INSERT INTO inventory_history (
+          user_id, item_name, storage_location, custom_location_id,
+          category, quantity, unit, bought_date, opened_date,
+          expiry_date, removed_date, removal_reason, price, store
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_DATE, 'bulk_delete', $11, $12)
+      `, [
+        req.user.id,
+        item.item_name,
+        item.storage_location,
+        item.custom_location_id,
+        item.category,
+        item.current_quantity,
+        item.unit,
+        item.bought_date,
+        item.opened_date,
+        item.estimated_expiry_date,
+        item.price,
+        item.store
+      ]);
+    }
+    
+    // Delete items
+    const result = await db.query(`
+      DELETE FROM inventory 
+      WHERE user_id = $1 AND storage_location = $2
+    `, [req.user.id, location]);
+    
+    res.json({ 
+      message: `Cleared ${result.rowCount} items from ${location}`,
+      deletedCount: result.rowCount
+    });
+  } catch (error) {
+    console.error('Error clearing location:', error);
+    res.status(500).json({ error: 'Failed to clear location' });
+  }
+});
+
+// Clear all inventory items
+router.delete('/clear-all', authenticateToken, async (req, res) => {
+  try {
+    // Get all items before deleting (for history)
+    const itemsResult = await db.query(`
+      SELECT * FROM inventory WHERE user_id = $1
+    `, [req.user.id]);
+    
+    // Add to history
+    for (const item of itemsResult.rows) {
+      await db.query(`
+        INSERT INTO inventory_history (
+          user_id, item_name, storage_location, custom_location_id,
+          category, quantity, unit, bought_date, opened_date,
+          expiry_date, removed_date, removal_reason, price, store
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_DATE, 'bulk_delete_all', $11, $12)
+      `, [
+        req.user.id,
+        item.item_name,
+        item.storage_location,
+        item.custom_location_id,
+        item.category,
+        item.current_quantity,
+        item.unit,
+        item.bought_date,
+        item.opened_date,
+        item.estimated_expiry_date,
+        item.price,
+        item.store
+      ]);
+    }
+    
+    // Delete all items
+    const result = await db.query(`
+      DELETE FROM inventory WHERE user_id = $1
+    `, [req.user.id]);
+    
+    res.json({ 
+      message: `Cleared all ${result.rowCount} items from inventory`,
+      deletedCount: result.rowCount
+    });
+  } catch (error) {
+    console.error('Error clearing all:', error);
+    res.status(500).json({ error: 'Failed to clear all items' });
+  }
+});
+
 // ============================================
 // EXPIRATION & ANALYTICS
 // ============================================

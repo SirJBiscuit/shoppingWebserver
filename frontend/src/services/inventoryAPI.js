@@ -148,6 +148,22 @@ const inventoryAPI = {
     return response.data;
   },
 
+  // Bulk delete items by location
+  clearByLocation: async (storage_location) => {
+    const response = await axios.delete(`${API_URL}/inventory/clear/${storage_location}`, {
+      headers: getAuthHeader()
+    });
+    return response.data;
+  },
+
+  // Clear all inventory items
+  clearAll: async () => {
+    const response = await axios.delete(`${API_URL}/inventory/clear-all`, {
+      headers: getAuthHeader()
+    });
+    return response.data;
+  },
+
   // ============================================
   // ANALYTICS
   // ============================================

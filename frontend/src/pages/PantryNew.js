@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, BarChart3, Download } from 'lucide-react';
+import { Plus, BarChart3, Download, Trash2 } from 'lucide-react';
 import inventoryAPI from '../services/inventoryAPI';
 import { shoppingAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -301,6 +301,43 @@ const PantryNew = () => {
     setSortOrder(newSortOrder);
   };
 
+  // ============================================
+  // CLEAR ACTIONS
+  // ============================================
+
+  const handleClearLocation = async (location) => {
+    const locationName = location === 'pantry' ? 'Pantry' : location === 'fridge' ? 'Fridge' : 'Freezer';
+    const itemCount = items.filter(item => item.storage_location === location).length;
+    
+    if (!window.confirm(`Are you sure you want to clear all ${itemCount} items from ${locationName}? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const result = await inventoryAPI.clearByLocation(location);
+      success(result.message || `Cleared ${locationName}`);
+      loadAll();
+    } catch (error) {
+      console.error('Failed to clear location:', error);
+      showError('Failed to clear location');
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!window.confirm(`Are you sure you want to clear ALL ${items.length} items from your inventory? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const result = await inventoryAPI.clearAll();
+      success(result.message || 'Cleared all inventory');
+      loadAll();
+    } catch (error) {
+      console.error('Failed to clear all:', error);
+      showError('Failed to clear all items');
+    }
+  };
+
   // Calculate item counts per location
   const getItemCounts = () => {
     const counts = { total: items.length };
@@ -420,6 +457,53 @@ const PantryNew = () => {
               cardSize={cardSize}
               setCardSize={setCardSize}
             />
+
+            {/* Clear Buttons */}
+            {items.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 mb-6">
+                <div className="flex flex-wrap gap-3 items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Trash2 size={18} className="text-gray-600 dark:text-gray-400" />
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      Quick Clear:
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => handleClearLocation('pantry')}
+                      className="px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors text-sm font-medium flex items-center gap-2"
+                      disabled={!items.some(item => item.storage_location === 'pantry')}
+                    >
+                      <span>🥫</span>
+                      Clear Pantry ({items.filter(item => item.storage_location === 'pantry').length})
+                    </button>
+                    <button
+                      onClick={() => handleClearLocation('fridge')}
+                      className="px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors text-sm font-medium flex items-center gap-2"
+                      disabled={!items.some(item => item.storage_location === 'fridge')}
+                    >
+                      <span>🧊</span>
+                      Clear Fridge ({items.filter(item => item.storage_location === 'fridge').length})
+                    </button>
+                    <button
+                      onClick={() => handleClearLocation('freezer')}
+                      className="px-4 py-2 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300 rounded-lg hover:bg-cyan-200 dark:hover:bg-cyan-900/50 transition-colors text-sm font-medium flex items-center gap-2"
+                      disabled={!items.some(item => item.storage_location === 'freezer')}
+                    >
+                      <span>❄️</span>
+                      Clear Freezer ({items.filter(item => item.storage_location === 'freezer').length})
+                    </button>
+                    <button
+                      onClick={handleClearAll}
+                      className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors text-sm font-medium flex items-center gap-2 border-2 border-red-300 dark:border-red-700"
+                    >
+                      <Trash2 size={16} />
+                      Clear All ({items.length})
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Items Display */}
             {items.length === 0 ? (
