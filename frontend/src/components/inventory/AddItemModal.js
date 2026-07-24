@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, DollarSign, MapPin, Package, Image as ImageIcon, Camera } from 'lucide-react';
+import { X, Calendar, DollarSign, MapPin, Package, Image as ImageIcon, Trash2, Lightbulb } from 'lucide-react';
+import { detectLocation, getCategorySuggestions } from '../../utils/smartLocationDetector';
 
 /**
  * AddItemModal - Modal for adding/editing inventory items
@@ -23,13 +24,43 @@ const AddItemModal = ({
     bought_date: new Date().toISOString().split('T')[0],
     opened_date: null,
     is_opened: false,
-    manual_expiry_date: null,
+    manual_expiry_date: '',
+    auto_expiry: true,
     barcode: '',
     image_url: '',
+    icon: '📦',
     price: '',
     store: '',
     notes: ''
   });
+
+  const [showIconPicker, setShowIconPicker] = useState(false);
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const [locationSuggestion, setLocationSuggestion] = useState(null);
+
+  // Common food icons
+  const foodIcons = [
+    '🥛', '🧀', '🥚', '🍞', '🥖', '🥐', '🥯', '🥞', '🧇',
+    '🥓', '🥩', '🍗', '🍖', '🌭', '🍔', '🍟', '🍕', '🌮',
+    '🌯', '🥙', '🥗', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱',
+    '🥟', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢',
+    '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮',
+    '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥜', '🍯',
+    '🥛', '☕', '🍵', '🧃', '🧉', '🥤', '🍶', '🍺', '🍻',
+    '🍷', '🥂', '🍸', '🍹', '🧊', '🥄', '🍴', '🥢', '🥡',
+    '🍎', '🍏', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐',
+    '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆',
+    '🥑', '🥦', '🥬', '🥒', '🌶️', '🫑', '🌽', '🥕', '🫒',
+    '🧄', '🧅', '🥔', '🍠', '🥐', '🥨', '🥖', '🍞', '🥯',
+    '🥫', '🧂', '🧈', '🥛', '🍯', '🧃', '🧊', '📦', '🎁'
+  ];
+
+  // Common units
+  const commonUnits = [
+    'piece', 'pieces', 'lb', 'lbs', 'oz', 'kg', 'g',
+    'gallon', 'quart', 'pint', 'cup', 'tbsp', 'tsp',
+    'can', 'jar', 'box', 'bag', 'bottle', 'carton', 'pack'
+  ];
 
   const [errors, setErrors] = useState({});
 
@@ -58,10 +89,34 @@ const AddItemModal = ({
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    const newValue = type === 'checkbox' ? checked : value;
+    
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: newValue
     }));
+
+    // Auto-detect location when item name or category changes
+    if (name === 'item_name' || name === 'category') {
+      const itemName = name === 'item_name' ? newValue : formData.item_name;
+      const category = name === 'category' ? newValue : formData.category;
+      
+      if (itemName && itemName.length > 2) {
+        const suggestion = detectLocation(itemName, category);
+        setLocationSuggestion(suggestion);
+      }
+    }
+  };
+
+  // Apply suggested location
+  const applySuggestion = () => {
+    if (locationSuggestion) {
+      setFormData(prev => ({
+        ...prev,
+        storage_location: locationSuggestion.location
+      }));
+      setLocationSuggestion(null);
+    }
   };
 
   const validate = () => {
@@ -162,6 +217,32 @@ const AddItemModal = ({
                   </option>
                 ))}
               </select>
+              
+              {/* Smart Location Suggestion */}
+              {locationSuggestion && locationSuggestion.location !== formData.storage_location && (
+                <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Lightbulb size={16} className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-blue-800 dark:text-blue-300 font-medium">
+                        Suggested: {locationSuggestion.location === 'fridge' && '🧊 Fridge'}
+                        {locationSuggestion.location === 'freezer' && '❄️ Freezer'}
+                        {locationSuggestion.location === 'pantry' && '🥫 Pantry'}
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        {locationSuggestion.confidence}% confidence
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={applySuggestion}
+                      className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Category */}

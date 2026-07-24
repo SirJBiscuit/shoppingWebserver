@@ -16,6 +16,10 @@ import InventoryCard from '../components/inventory/InventoryCard';
 import AddItemModal from '../components/inventory/AddItemModal';
 import InventoryFilters from '../components/inventory/InventoryFilters';
 import InventoryStats from '../components/inventory/InventoryStats';
+import ViewModeSelector from '../components/inventory/ViewModeSelector';
+import ShelfView from '../components/inventory/ShelfView';
+import CategoryBoxView from '../components/inventory/CategoryBoxView';
+import ListView from '../components/inventory/ListView';
 
 /**
  * PantryNew - Complete rewrite of Pantry page with Kitchen Inventory features
@@ -44,6 +48,8 @@ const PantryNew = () => {
   const [sortOrder, setSortOrder] = useState('asc');
   const [searchTerm, setSearchTerm] = useState('');
   const [showStats, setShowStats] = useState(true);
+  const [viewMode, setViewMode] = useState('grid'); // grid, shelf, list, category
+  const [cardSize, setCardSize] = useState('medium'); // small, medium, large
 
   // Load data on mount
   useEffect(() => {
@@ -407,7 +413,15 @@ const PantryNew = () => {
               sortOrder={sortOrder}
             />
 
-            {/* Items Grid */}
+            {/* View Mode Selector */}
+            <ViewModeSelector
+              viewMode={viewMode}
+              setViewMode={setViewMode}
+              cardSize={cardSize}
+              setCardSize={setCardSize}
+            />
+
+            {/* Items Display */}
             {items.length === 0 ? (
               <div className="text-center py-16">
                 <div className="text-6xl mb-4">📦</div>
@@ -431,20 +445,79 @@ const PantryNew = () => {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {items.map((item) => (
-                  <InventoryCard
-                    key={item.id}
-                    item={item}
+              <>
+                {/* Grid View */}
+                {viewMode === 'grid' && (
+                  <div className={`
+                    grid gap-6
+                    ${cardSize === 'small' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6' : ''}
+                    ${cardSize === 'medium' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : ''}
+                    ${cardSize === 'large' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : ''}
+                  `}>
+                    {items.map((item) => (
+                      <InventoryCard
+                        key={item.id}
+                        item={item}
+                        onEdit={handleEditItem}
+                        onDelete={handleDeleteItem}
+                        onAddToList={handleAddToShoppingList}
+                        onStillGood={handleStillGood}
+                        onWentBad={handleWentBad}
+                        onMarkOpened={handleMarkOpened}
+                        size={cardSize}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Shelf View */}
+                {viewMode === 'shelf' && (
+                  <ShelfView
+                    items={items}
+                    location={activeLocation || 'pantry'}
                     onEdit={handleEditItem}
                     onDelete={handleDeleteItem}
-                    onAddToList={handleAddToShoppingList}
-                    onStillGood={handleStillGood}
-                    onWentBad={handleWentBad}
-                    onMarkOpened={handleMarkOpened}
+                    onQuickAction={(item, action) => {
+                      if (action === 'addToList') handleAddToShoppingList(item);
+                      if (action === 'stillGood') handleStillGood(item.id);
+                      if (action === 'wentBad') handleWentBad(item.id);
+                      if (action === 'markOpened') handleMarkOpened(item.id);
+                    }}
+                    cardSize={cardSize}
                   />
-                ))}
-              </div>
+                )}
+
+                {/* List View */}
+                {viewMode === 'list' && (
+                  <ListView
+                    items={items}
+                    onEdit={handleEditItem}
+                    onDelete={handleDeleteItem}
+                    onQuickAction={(item, action) => {
+                      if (action === 'addToList') handleAddToShoppingList(item);
+                      if (action === 'stillGood') handleStillGood(item.id);
+                      if (action === 'wentBad') handleWentBad(item.id);
+                      if (action === 'markOpened') handleMarkOpened(item.id);
+                    }}
+                  />
+                )}
+
+                {/* Category Box View */}
+                {viewMode === 'category' && (
+                  <CategoryBoxView
+                    items={items}
+                    onEdit={handleEditItem}
+                    onDelete={handleDeleteItem}
+                    onQuickAction={(item, action) => {
+                      if (action === 'addToList') handleAddToShoppingList(item);
+                      if (action === 'stillGood') handleStillGood(item.id);
+                      if (action === 'wentBad') handleWentBad(item.id);
+                      if (action === 'markOpened') handleMarkOpened(item.id);
+                    }}
+                    cardSize={cardSize}
+                  />
+                )}
+              </>
             )}
           </div>
         </div>
