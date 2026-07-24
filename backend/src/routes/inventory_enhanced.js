@@ -172,7 +172,7 @@ router.get('/', authenticateToken, async (req, res) => {
         i.*,
         it.name as item_name,
         it.preferred_icon as item_icon,
-        it.preferred_category as category,
+        it.category,
         csl.name as custom_location_name,
         csl.icon as custom_location_icon
       FROM inventory i
@@ -219,7 +219,7 @@ router.get('/', authenticateToken, async (req, res) => {
       'name': 'it.name',
       'expiry': 'i.estimated_expiry_date',
       'date_added': 'i.last_purchased',
-      'category': 'it.preferred_category'
+      'category': 'it.category'
     }[sort_by] || 'i.sort_order';
     
     const sortDir = sort_order === 'desc' ? 'DESC' : 'ASC';
@@ -251,7 +251,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
         i.*,
         it.name as item_name,
         it.preferred_icon as item_icon,
-        it.preferred_category as category,
+        it.category,
         csl.name as custom_location_name,
         csl.icon as custom_location_icon
       FROM inventory i
@@ -308,7 +308,7 @@ router.post('/', authenticateToken, async (req, res) => {
     if (itemResult.rows.length === 0) {
       // Create new item
       const newItem = await db.query(`
-        INSERT INTO items (user_id, name, preferred_category, preferred_icon)
+        INSERT INTO items (user_id, name, category, preferred_icon)
         VALUES ($1, $2, $3, $4)
         RETURNING id
       `, [req.user.id, item_name, category, image_url || '📦']);
@@ -369,7 +369,7 @@ router.post('/', authenticateToken, async (req, res) => {
         i.*,
         it.name as item_name,
         it.preferred_icon as item_icon,
-        it.preferred_category as category,
+        it.category,
         csl.name as custom_location_name,
         csl.icon as custom_location_icon
       FROM inventory i
