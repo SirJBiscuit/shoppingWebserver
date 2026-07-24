@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import ExpirationBadge from './ExpirationBadge';
 import StorageIndicator from './StorageIndicator';
+import DateBadge from './DateBadge';
 
 /**
  * InventoryCard - Beautiful card for displaying inventory items
@@ -240,29 +241,60 @@ const InventoryCard = ({
           </div>
         )}
 
-        {/* Details Grid */}
-        <div className="grid grid-cols-2 gap-3 text-sm text-gray-600 dark:text-gray-400 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-          {/* Bought Date */}
+        {/* Visual Date Badges */}
+        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+          {/* Bought Date Badge */}
           {bought_date && (
-            <div className="flex items-center gap-2">
-              <Calendar size={16} />
-              <span>Bought {formatDate(bought_date)}</span>
-            </div>
+            <DateBadge 
+              type="bought" 
+              date={bought_date} 
+              size={size === 'small' ? 'small' : size === 'large' ? 'medium' : 'small'}
+            />
           )}
 
+          {/* Expiration Date Badge */}
+          {estimated_expiry_date && (
+            <DateBadge 
+              type="expiry" 
+              date={estimated_expiry_date}
+              size={size === 'small' ? 'small' : size === 'large' ? 'medium' : 'small'}
+            />
+          )}
+
+          {/* Buy Next Badge (calculated as 3 days before expiry) */}
+          {estimated_expiry_date && (() => {
+            const expiryDate = new Date(estimated_expiry_date);
+            const now = new Date();
+            const daysUntilExpiry = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+            const buyNextDays = daysUntilExpiry - 3; // Buy 3 days before expiry
+            
+            if (buyNextDays <= 7) { // Only show if within 7 days
+              return (
+                <DateBadge 
+                  type="buyNext" 
+                  daysUntil={buyNextDays}
+                  size={size === 'small' ? 'small' : size === 'large' ? 'medium' : 'small'}
+                />
+              );
+            }
+          })()}
+        </div>
+
+        {/* Additional Details */}
+        <div className="flex flex-wrap gap-3 text-xs text-gray-600 dark:text-gray-400 mt-2">
           {/* Price */}
           {price && (
-            <div className="flex items-center gap-2">
-              <DollarSign size={16} />
+            <div className="flex items-center gap-1">
+              <DollarSign size={12} />
               <span>${parseFloat(price).toFixed(2)}</span>
             </div>
           )}
 
           {/* Store */}
           {store && (
-            <div className="flex items-center gap-2 col-span-2">
-              <MapPin size={16} />
-              <span className="truncate">{store}</span>
+            <div className="flex items-center gap-1">
+              <MapPin size={12} />
+              <span className="truncate max-w-[120px]">{store}</span>
             </div>
           )}
         </div>

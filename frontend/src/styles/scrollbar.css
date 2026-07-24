@@ -1,0 +1,165 @@
+/* 3D Animated Scrollbar Styles */
+
+/* Custom scrollbar for webkit browsers (Chrome, Safari, Edge) */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: linear-gradient(to right, #f1f5f9, #e2e8f0);
+  border-radius: 10px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background: linear-gradient(to right, #1e293b, #0f172a);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  box-shadow: 
+    0 2px 6px rgba(59, 130, 246, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.3),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 
+    0 4px 12px rgba(59, 130, 246, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.4),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+  transform: scale(1.05);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  box-shadow: 
+    0 2px 6px rgba(59, 130, 246, 0.4),
+    inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Thin scrollbar variant */
+.custom-scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar-thin::-webkit-scrollbar-track {
+  background: linear-gradient(to right, #f8fafc, #f1f5f9);
+  border-radius: 6px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.dark .custom-scrollbar-thin::-webkit-scrollbar-track {
+  background: linear-gradient(to right, #1e293b, #0f172a);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.custom-scrollbar-thin::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+  border-radius: 6px;
+  box-shadow: 
+    0 1px 3px rgba(59, 130, 246, 0.2),
+    inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  transition: all 0.2s ease;
+}
+
+.custom-scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: 
+    0 2px 6px rgba(59, 130, 246, 0.4),
+    inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+/* Purple variant */
+.custom-scrollbar-purple::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #a855f7, #9333ea);
+  box-shadow: 
+    0 2px 6px rgba(168, 85, 247, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.3),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.custom-scrollbar-purple::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #9333ea, #7e22ce);
+  box-shadow: 
+    0 4px 12px rgba(168, 85, 247, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.4),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Green variant */
+.custom-scrollbar-green::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #10b981, #059669);
+  box-shadow: 
+    0 2px 6px rgba(16, 185, 129, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.3),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.custom-scrollbar-green::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  box-shadow: 
+    0 4px 12px rgba(16, 185, 129, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.4),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Orange variant */
+.custom-scrollbar-orange::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  box-shadow: 
+    0 2px 6px rgba(249, 115, 22, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.3),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.custom-scrollbar-orange::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #ea580c, #c2410c);
+  box-shadow: 
+    0 4px 12px rgba(249, 115, 22, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.4),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Animated glow effect */
+@keyframes scrollbar-glow {
+  0%, 100% {
+    box-shadow: 
+      0 2px 6px rgba(59, 130, 246, 0.3),
+      inset 0 1px 2px rgba(255, 255, 255, 0.3),
+      inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 4px 12px rgba(59, 130, 246, 0.6),
+      inset 0 1px 2px rgba(255, 255, 255, 0.4),
+      inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+  }
+}
+
+.custom-scrollbar-animated::-webkit-scrollbar-thumb {
+  animation: scrollbar-glow 2s ease-in-out infinite;
+}
+
+/* Firefox scrollbar support */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #3b82f6 #e2e8f0;
+}
+
+.dark .custom-scrollbar {
+  scrollbar-color: #3b82f6 #1e293b;
+}
+
+/* Smooth scrolling */
+.custom-scrollbar {
+  scroll-behavior: smooth;
+}

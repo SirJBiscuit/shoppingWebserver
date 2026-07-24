@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, DollarSign, MapPin, Package, Image as ImageIcon, Trash2, Lightbulb } from 'lucide-react';
+import { X, Calendar, DollarSign, MapPin, Package, Image as ImageIcon, Trash2, Lightbulb, Smile } from 'lucide-react';
 import { detectLocation, getCategorySuggestions } from '../../utils/smartLocationDetector';
+import IconPicker from './IconPicker';
 
 /**
  * AddItemModal - Modal for adding/editing inventory items
@@ -31,7 +32,8 @@ const AddItemModal = ({
     icon: '📦',
     price: '',
     store: '',
-    notes: ''
+    notes: '',
+    user_shelf_life_estimate: null
   });
 
   const [showIconPicker, setShowIconPicker] = useState(false);
@@ -193,6 +195,26 @@ const AddItemModal = ({
             {errors.item_name && (
               <p className="mt-1 text-sm text-red-600">{errors.item_name}</p>
             )}
+          </div>
+
+          {/* Icon Selector */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Item Icon
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowIconPicker(true)}
+              className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-500 transition-colors flex items-center justify-between dark:bg-gray-700"
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-4xl">{formData.icon}</div>
+                <span className="text-gray-700 dark:text-gray-300">
+                  {formData.icon === '📦' ? 'Choose an icon' : 'Change icon'}
+                </span>
+              </div>
+              <Smile size={20} className="text-gray-400" />
+            </button>
           </div>
 
           {/* Storage Location & Category Row */}
@@ -367,6 +389,29 @@ const AddItemModal = ({
             </p>
           </div>
 
+          {/* User Shelf Life Estimate */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+              <Lightbulb size={16} className="text-blue-600 dark:text-blue-400" />
+              How long do you think this will last? (Help us learn!)
+            </label>
+            <div className="flex gap-3 items-center">
+              <input
+                type="number"
+                name="user_shelf_life_estimate"
+                value={formData.user_shelf_life_estimate || ''}
+                onChange={handleChange}
+                min="1"
+                placeholder="7"
+                className="w-24 px-4 py-2 border-2 border-blue-300 dark:border-blue-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">days</span>
+            </div>
+            <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+              💡 Your estimate helps our system learn and improve predictions for everyone!
+            </p>
+          </div>
+
           {/* Is Opened Checkbox */}
           <div className="flex items-center gap-3">
             <input
@@ -431,6 +476,14 @@ const AddItemModal = ({
           </div>
         </form>
       </div>
+
+      {/* Icon Picker Modal */}
+      <IconPicker
+        isOpen={showIconPicker}
+        onClose={() => setShowIconPicker(false)}
+        onSelect={(emoji) => setFormData(prev => ({ ...prev, icon: emoji }))}
+        currentIcon={formData.icon}
+      />
     </div>
   );
 };
