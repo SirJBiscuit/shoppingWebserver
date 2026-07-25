@@ -25,7 +25,9 @@ const AddItemModal = ({
     bought_date: new Date().toISOString().split('T')[0],
     opened_date: null,
     is_opened: false,
+    sell_by_date: '',
     manual_expiry_date: '',
+    calculated_expiry: null,
     auto_expiry: true,
     barcode: '',
     image_url: '',
@@ -138,7 +140,7 @@ const AddItemModal = ({
     }
   }, [item]);
 
-  const handleChange = (e) => {
+  const handleChange = async (e) => {
     const { name, value, type, checked } = e.target;
     let newValue = type === 'checkbox' ? checked : value;
     
@@ -153,6 +155,35 @@ const AddItemModal = ({
         icon: detected.icon || prev.icon
       }));
       return;
+    }
+    
+    // Calculate expiry from sell-by date
+    if (name === 'sell_by_date' && value) {
+      try {
+        const response = await fetch('/api/inventory/calculate-expiry-from-sellby', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            sellByDate: value,
+            category: formData.category,
+            storageLocation: formData.storage_location
+          })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setFormData(prev => ({
+            ...prev,
+            sell_by_date: value,
+            calculated_expiry: data.estimatedExpiryDate,
+            manual_expiry_date: data.estimatedExpiryDate
+          }));
+          return;
+        }
+      } catch (error) {
+        console.error('Error calculating expiry:', error);
+      }
     }
     
     setFormData(prev => ({
@@ -327,10 +358,38 @@ const AddItemModal = ({
             </div>
           </div>
 
-          {/* Expiration Date (Optional) */}
+          {/* Sell-By Date (Smart Calculation) */}
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border-2 border-purple-200 dark:border-purple-800 rounded-lg p-4">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+              <Lightbulb size={16} className="text-purple-600 dark:text-purple-400" />
+              Sell-By Date (Smart Calculation)
+            </label>
+            <input
+              type="date"
+              name="sell_by_date"
+              value={formData.sell_by_date || ''}
+              onChange={handleChange}
+              className="w-full px-4 py-3 border-2 border-purple-300 dark:border-purple-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+            />
+            {formData.calculated_expiry && (
+              <div className="mt-2 p-2 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded text-sm">
+                <span className="text-green-800 dark:text-green-200 font-semibold">
+                  ✓ Calculated Expiration: {new Date(formData.calculated_expiry).toLocaleDateString()}
+                </span>
+                <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                  Based on {formData.category} in {formData.storage_location}
+                </p>
+              </div>
+            )}
+            <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+              💡 Enter the sell-by date from the package, and we'll calculate the actual expiration!
+            </p>
+          </div>
+
+          {/* Expiration Date (Optional Override) */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Expiration Date (Optional)
+              Expiration Date (Manual Override)
             </label>
             <input
               type="date"
@@ -338,9 +397,12 @@ const AddItemModal = ({
               value={formData.manual_expiry_date || ''}
               onChange={handleChange}
               className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              disabled={formData.calculated_expiry && !formData.manual_expiry_date}
             />
             <p className="mt-1 text-sm text-gray-500">
-              Leave blank to auto-calculate based on item type and storage location
+              {formData.calculated_expiry 
+                ? 'Using calculated expiration. Clear to enter manually.' 
+                : 'Leave blank to auto-calculate based on item type and storage location'}
             </p>
           </div>
 

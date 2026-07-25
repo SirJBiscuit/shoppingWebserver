@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy } from 'lucide-react';
 import { motion } from 'framer-motion';
 import EditItemModal from './EditItemModal';
 import ItemTooltip from './ItemTooltip';
+import SmartSuggestionTooltip from './SmartSuggestionTooltip';
 import { detectIcon, detectCategory } from '../utils/categoryDetector';
 import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts';
 
@@ -143,11 +144,40 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
   const [aisleNumber, setAisleNumber] = useState('');
   const [aisleName, setAisleName] = useState('');
   const [checkAnimKey, setCheckAnimKey] = useState(0);
+  const [inventoryCheck, setInventoryCheck] = useState(null);
+  const [showSuggestion, setShowSuggestion] = useState(true);
   const itemRef = useRef(null);
   
   // Get aisle information if store is specified
   const category = item.category_name || item.category || 'Other';
   const aisle = storeName ? getAisleForCategory(storeName, category) : null;
+  
+  // Check if item exists in inventory
+  useEffect(() => {
+    const checkInventory = async () => {
+      try {
+        const response = await fetch('/api/inventory/check-inventory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ itemName: item.item_name })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.hasItem) {
+            setInventoryCheck(data);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking inventory:', error);
+      }
+    };
+    
+    if (!item.is_checked) {
+      checkInventory();
+    }
+  }, [item.item_name, item.is_checked]);
   
   const saveAisle = async () => {
     if (!aisleNumber.trim()) return;
@@ -164,6 +194,21 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
     }
   };
   
+  const handleSuggestionAction = async (action) => {
+    switch (action) {
+      case 'remove':
+        // Remove item from shopping list
+        await onDelete(item);
+        break;
+      case 'keep':
+        // Keep item, hide suggestion
+        setShowSuggestion(false);
+        break;
+      default:
+        break;
+    }
+  };
+  
   const handleCheck = () => {
     // Trigger animation from this item's position when checking
     if (!item.is_checked && triggerAnimation && itemRef.current) {
@@ -175,6 +220,24 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
   };
 
   return (
+    <div className="space-y-2">
+      {/* Smart Suggestion Tooltip */}
+      {inventoryCheck && showSuggestion && !item.is_checked && (
+        <SmartSuggestionTooltip
+          type="already-have"
+          item={{ name: item.item_name }}
+          inventoryData={{
+            location: inventoryCheck.location,
+            quantity: inventoryCheck.quantity,
+            unit: inventoryCheck.unit,
+            expiresIn: inventoryCheck.expiresIn
+          }}
+          onAction={handleSuggestionAction}
+          onDismiss={() => setShowSuggestion(false)}
+        />
+      )}
+      
+      {/* Item Card */}
               <div
                 ref={itemRef}
                 id={`item-${item.id}`}
@@ -338,6 +401,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   </button>
                 </div>
               </div>
+    </div>
   );
 };
 

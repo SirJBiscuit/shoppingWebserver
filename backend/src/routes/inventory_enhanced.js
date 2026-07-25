@@ -243,6 +243,115 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// ============================================
+// CLEAR ROUTES (must come before /:id routes)
+// ============================================
+
+// Clear all inventory items
+router.delete('/clear-all', authenticateToken, async (req, res) => {
+  try {
+    // Get all items before deleting (for history) - join with items table to get name
+    const itemsResult = await db.query(`
+      SELECT i.*, it.name as item_name
+      FROM inventory i
+      LEFT JOIN items it ON i.item_id = it.id
+      WHERE i.user_id = $1
+    `, [req.user.id]);
+    
+    // Add to history
+    for (const item of itemsResult.rows) {
+      await db.query(`
+        INSERT INTO inventory_history (
+          user_id, item_name, storage_location, custom_location_id,
+          category, quantity, unit, bought_date, opened_date,
+          expiry_date, removed_date, removal_reason, price, store
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_DATE, 'bulk_delete_all', $11, $12)
+      `, [
+        req.user.id,
+        item.item_name,
+        item.storage_location,
+        item.custom_location_id,
+        item.category,
+        item.current_quantity,
+        item.unit,
+        item.bought_date,
+        item.opened_date,
+        item.estimated_expiry_date,
+        item.price,
+        item.store
+      ]);
+    }
+    
+    // Delete all items
+    const result = await db.query(`
+      DELETE FROM inventory WHERE user_id = $1
+    `, [req.user.id]);
+    
+    res.json({ 
+      message: `Cleared all ${result.rowCount} items from inventory`,
+      deletedCount: result.rowCount
+    });
+  } catch (error) {
+    console.error('Error clearing all:', error);
+    res.status(500).json({ error: 'Failed to clear all items' });
+  }
+});
+
+// Clear items by storage location
+router.delete('/clear/:location', authenticateToken, async (req, res) => {
+  try {
+    const { location } = req.params;
+    
+    // Get items before deleting (for history) - join with items table to get name
+    const itemsResult = await db.query(`
+      SELECT i.*, it.name as item_name
+      FROM inventory i
+      LEFT JOIN items it ON i.item_id = it.id
+      WHERE i.user_id = $1 AND i.storage_location = $2
+    `, [req.user.id, location]);
+    
+    // Add to history
+    for (const item of itemsResult.rows) {
+      await db.query(`
+        INSERT INTO inventory_history (
+          user_id, item_name, storage_location, custom_location_id,
+          category, quantity, unit, bought_date, opened_date,
+          expiry_date, removed_date, removal_reason, price, store
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_DATE, 'bulk_delete', $11, $12)
+      `, [
+        req.user.id,
+        item.item_name,
+        item.storage_location,
+        item.custom_location_id,
+        item.category,
+        item.current_quantity,
+        item.unit,
+        item.bought_date,
+        item.opened_date,
+        item.estimated_expiry_date,
+        item.price,
+        item.store
+      ]);
+    }
+    
+    // Delete items
+    const result = await db.query(`
+      DELETE FROM inventory 
+      WHERE user_id = $1 AND storage_location = $2
+    `, [req.user.id, location]);
+    
+    res.json({ 
+      message: `Cleared ${result.rowCount} items from ${location}`,
+      deletedCount: result.rowCount
+    });
+  } catch (error) {
+    console.error('Error clearing location:', error);
+    res.status(500).json({ error: 'Failed to clear location' });
+  }
+});
+
 // Get single inventory item
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
@@ -697,111 +806,6 @@ router.post('/reorder', authenticateToken, async (req, res) => {
   }
 });
 
-// Clear items by storage location
-router.delete('/clear/:location', authenticateToken, async (req, res) => {
-  try {
-    const { location } = req.params;
-    
-    // Get items before deleting (for history) - join with items table to get name
-    const itemsResult = await db.query(`
-      SELECT i.*, it.name as item_name
-      FROM inventory i
-      LEFT JOIN items it ON i.item_id = it.id
-      WHERE i.user_id = $1 AND i.storage_location = $2
-    `, [req.user.id, location]);
-    
-    // Add to history
-    for (const item of itemsResult.rows) {
-      await db.query(`
-        INSERT INTO inventory_history (
-          user_id, item_name, storage_location, custom_location_id,
-          category, quantity, unit, bought_date, opened_date,
-          expiry_date, removed_date, removal_reason, price, store
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_DATE, 'bulk_delete', $11, $12)
-      `, [
-        req.user.id,
-        item.item_name,
-        item.storage_location,
-        item.custom_location_id,
-        item.category,
-        item.current_quantity,
-        item.unit,
-        item.bought_date,
-        item.opened_date,
-        item.estimated_expiry_date,
-        item.price,
-        item.store
-      ]);
-    }
-    
-    // Delete items
-    const result = await db.query(`
-      DELETE FROM inventory 
-      WHERE user_id = $1 AND storage_location = $2
-    `, [req.user.id, location]);
-    
-    res.json({ 
-      message: `Cleared ${result.rowCount} items from ${location}`,
-      deletedCount: result.rowCount
-    });
-  } catch (error) {
-    console.error('Error clearing location:', error);
-    res.status(500).json({ error: 'Failed to clear location' });
-  }
-});
-
-// Clear all inventory items
-router.delete('/clear-all', authenticateToken, async (req, res) => {
-  try {
-    // Get all items before deleting (for history) - join with items table to get name
-    const itemsResult = await db.query(`
-      SELECT i.*, it.name as item_name
-      FROM inventory i
-      LEFT JOIN items it ON i.item_id = it.id
-      WHERE i.user_id = $1
-    `, [req.user.id]);
-    
-    // Add to history
-    for (const item of itemsResult.rows) {
-      await db.query(`
-        INSERT INTO inventory_history (
-          user_id, item_name, storage_location, custom_location_id,
-          category, quantity, unit, bought_date, opened_date,
-          expiry_date, removed_date, removal_reason, price, store
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_DATE, 'bulk_delete_all', $11, $12)
-      `, [
-        req.user.id,
-        item.item_name,
-        item.storage_location,
-        item.custom_location_id,
-        item.category,
-        item.current_quantity,
-        item.unit,
-        item.bought_date,
-        item.opened_date,
-        item.estimated_expiry_date,
-        item.price,
-        item.store
-      ]);
-    }
-    
-    // Delete all items
-    const result = await db.query(`
-      DELETE FROM inventory WHERE user_id = $1
-    `, [req.user.id]);
-    
-    res.json({ 
-      message: `Cleared all ${result.rowCount} items from inventory`,
-      deletedCount: result.rowCount
-    });
-  } catch (error) {
-    console.error('Error clearing all:', error);
-    res.status(500).json({ error: 'Failed to clear all items' });
-  }
-});
-
 // ============================================
 // EXPIRATION & ANALYTICS
 // ============================================
@@ -876,6 +880,78 @@ router.get('/history', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching history:', error);
     res.status(500).json({ error: 'Failed to fetch history' });
+  }
+});
+
+// ============================================
+// SMART SUGGESTIONS
+// ============================================
+
+const smartSuggestions = require('../services/smartSuggestionsService');
+
+// Check if item exists in inventory (for shopping list)
+router.post('/check-inventory', authenticateToken, async (req, res) => {
+  try {
+    const { itemName } = req.body;
+    const result = await smartSuggestions.checkInventoryForItem(req.user.id, itemName);
+    res.json(result || { hasItem: false });
+  } catch (error) {
+    console.error('Error checking inventory:', error);
+    res.status(500).json({ error: 'Failed to check inventory' });
+  }
+});
+
+// Get smart reorder suggestion
+router.get('/smart-suggestion/:itemName', authenticateToken, async (req, res) => {
+  try {
+    const { itemName } = req.params;
+    const result = await smartSuggestions.getSmartReorderSuggestion(req.user.id, itemName);
+    res.json(result || { hasSuggestion: false });
+  } catch (error) {
+    console.error('Error getting smart suggestion:', error);
+    res.status(500).json({ error: 'Failed to get suggestion' });
+  }
+});
+
+// Check if item is low stock
+router.get('/low-stock/:id', authenticateToken, async (req, res) => {
+  try {
+    const result = await smartSuggestions.checkLowStock(req.user.id, req.params.id);
+    res.json(result || { isLow: false });
+  } catch (error) {
+    console.error('Error checking low stock:', error);
+    res.status(500).json({ error: 'Failed to check stock' });
+  }
+});
+
+// Get expiring items suggestions
+router.get('/expiring-suggestions', authenticateToken, async (req, res) => {
+  try {
+    const { days } = req.query;
+    const result = await smartSuggestions.getExpiringItemsSuggestions(
+      req.user.id, 
+      parseInt(days) || 3
+    );
+    res.json(result);
+  } catch (error) {
+    console.error('Error getting expiring suggestions:', error);
+    res.status(500).json({ error: 'Failed to get suggestions' });
+  }
+});
+
+// Calculate expiration from sell-by date
+router.post('/calculate-expiry-from-sellby', authenticateToken, async (req, res) => {
+  try {
+    const { sellByDate, category, storageLocation } = req.body;
+    const result = smartSuggestions.calculateExpirationFromSellBy(
+      sellByDate,
+      category,
+      storageLocation || 'pantry'
+    );
+    res.json(result);
+  } catch (error) {
+    console.error('Error calculating expiry:', error);
+    res.status(500).json({ error: 'Failed to calculate expiry' });
   }
 });
 

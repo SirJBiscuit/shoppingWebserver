@@ -564,18 +564,9 @@ const PantryNew = () => {
                 <p className="text-gray-600 dark:text-gray-400 mb-6">
                   {searchTerm || Object.keys(filters).length > 0
                     ? 'Try adjusting your filters or search term'
-                    : 'Add your first item to get started'
+                    : 'Click the "+ Add Item" button above to get started'
                   }
                 </p>
-                {!searchTerm && Object.keys(filters).length === 0 && (
-                  <button
-                    onClick={handleAddItem}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
-                  >
-                    <Plus size={20} />
-                    <span>Add First Item</span>
-                  </button>
-                )}
               </div>
             ) : (
               <>
