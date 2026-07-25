@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar, DollarSign, MapPin, Package, Image as ImageIcon, Trash2, Lightbulb, Smile } from 'lucide-react';
 import { detectLocation, getCategorySuggestions } from '../../utils/smartLocationDetector';
 import IconPicker from './IconPicker';
+import DateInput from '../DateInput';
 
 /**
  * AddItemModal - Modal for adding/editing inventory items
@@ -364,11 +365,11 @@ const AddItemModal = ({
               <Lightbulb size={16} className="text-purple-600 dark:text-purple-400" />
               Sell-By Date (Smart Calculation)
             </label>
-            <input
-              type="date"
+            <DateInput
               name="sell_by_date"
               value={formData.sell_by_date || ''}
               onChange={handleChange}
+              placeholder="MM/DD/YYYY"
               className="w-full px-4 py-3 border-2 border-purple-300 dark:border-purple-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
             />
             {formData.calculated_expiry && (
@@ -391,11 +392,11 @@ const AddItemModal = ({
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Expiration Date (Manual Override)
             </label>
-            <input
-              type="date"
+            <DateInput
               name="manual_expiry_date"
               value={formData.manual_expiry_date || ''}
               onChange={handleChange}
+              placeholder="MM/DD/YYYY"
               className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
               disabled={formData.calculated_expiry && !formData.manual_expiry_date}
             />
