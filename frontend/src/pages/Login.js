@@ -68,9 +68,10 @@ const Login = () => {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="input-field"
+              className="input-field text-base"
+              style={{ fontSize: '16px' }}
               required
-              autoFocus
+              autoComplete="username"
             />
           </div>
           
@@ -82,8 +83,10 @@ const Login = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="input-field"
+              className="input-field text-base"
+              style={{ fontSize: '16px' }}
               required
+              autoComplete="current-password"
             />
           </div>
           
