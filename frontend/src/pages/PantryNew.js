@@ -9,6 +9,7 @@ import { enrichItemsWithExpirationStatus } from '../utils/expirationHelper';
 import Sidebar from '../components/Sidebar';
 import PageTransition from '../components/PageTransition';
 import Toast from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
 
 // New Inventory Components
 import StorageLocationTabs from '../components/inventory/StorageLocationTabs';
@@ -48,6 +49,7 @@ const PantryNew = () => {
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
   const [searchTerm, setSearchTerm] = useState('');
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
   const [showStats, setShowStats] = useState(true);
   const [viewMode, setViewMode] = useState('map'); // map, grid, shelf, list, category
   const [cardSize, setCardSize] = useState('medium'); // small, medium, large
@@ -337,33 +339,41 @@ const PantryNew = () => {
     const locationName = location === 'pantry' ? 'Pantry' : location === 'fridge' ? 'Fridge' : 'Freezer';
     const itemCount = items.filter(item => item.storage_location === location).length;
     
-    if (!window.confirm(`Are you sure you want to clear all ${itemCount} items from ${locationName}? This cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      const result = await inventoryAPI.clearByLocation(location);
-      success(result.message || `Cleared ${locationName}`);
-      loadAll();
-    } catch (error) {
-      console.error('Failed to clear location:', error);
-      showError('Failed to clear location');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: `Clear ${locationName}?`,
+      message: `Are you sure you want to clear all ${itemCount} items from ${locationName}? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          setConfirmModal({ isOpen: false });
+          const result = await inventoryAPI.clearByLocation(location);
+          success(result.message || `Cleared ${locationName}`);
+          loadAll();
+        } catch (error) {
+          console.error('Failed to clear location:', error);
+          showError('Failed to clear location');
+        }
+      }
+    });
   };
 
   const handleClearAll = async () => {
-    if (!window.confirm(`Are you sure you want to clear ALL ${items.length} items from your inventory? This cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      const result = await inventoryAPI.clearAll();
-      success(result.message || 'Cleared all inventory');
-      loadAll();
-    } catch (error) {
-      console.error('Failed to clear all:', error);
-      showError('Failed to clear all items');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Clear All Inventory?',
+      message: `Are you sure you want to clear ALL ${items.length} items from your inventory? This action cannot be undone and will permanently delete all items from Pantry, Fridge, and Freezer.`,
+      onConfirm: async () => {
+        try {
+          setConfirmModal({ isOpen: false });
+          const result = await inventoryAPI.clearAll();
+          success(result.message || 'Cleared all inventory');
+          loadAll();
+        } catch (error) {
+          console.error('Failed to clear all:', error);
+          showError('Failed to clear all items');
+        }
+      }
+    });
   };
 
   // Calculate item counts per location
@@ -679,6 +689,18 @@ const PantryNew = () => {
             onClose={() => hideToast(toast.id)}
           />
         ))}
+
+        {/* Confirm Modal */}
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmText="Yes, Delete"
+          cancelText="Cancel"
+          type="danger"
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal({ isOpen: false })}
+        />
       </div>
     </PageTransition>
   );

@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useFeatureFlags } from '../context/FeatureFlagContext';
 import ClearCacheButton from './ClearCacheButton';
 
 const Sidebar = ({ onAction }) => {
@@ -15,22 +16,23 @@ const Sidebar = ({ onAction }) => {
   const location = useLocation();
   const { user } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { hasFeature } = useFeatureFlags();
   const [isOpen, setIsOpen] = useState(false);
 
   const mainNavItems = [
-    { path: '/', icon: ShoppingCart, label: 'Dashboard', color: 'text-blue-600' },
-    { path: '/recipes', icon: ChefHat, label: 'Recipe Book', color: 'text-orange-600' },
-    { path: '/pantry-new', icon: Package, label: 'Kitchen Inventory', color: 'text-green-600' },
-    { path: '/meal-plan', icon: Calendar, label: 'Meal Planner', color: 'text-purple-600' },
-    { path: '/stats', icon: BarChart3, label: 'Statistics', color: 'text-pink-600' },
-    { path: '/discover', icon: Search, label: 'Recipe Discovery', color: 'text-teal-600' },
-    { path: '/history', icon: History, label: 'Activity History', color: 'text-indigo-600' },
+    { path: '/', icon: ShoppingCart, label: 'Dashboard', color: 'text-blue-600', feature: 'shopping_lists' },
+    { path: '/recipes', icon: ChefHat, label: 'Recipe Book', color: 'text-orange-600', feature: 'recipes' },
+    { path: '/pantry-new', icon: Package, label: 'Kitchen Inventory', color: 'text-green-600', feature: 'pantry' },
+    { path: '/meal-plan', icon: Calendar, label: 'Meal Planner', color: 'text-purple-600', feature: 'meal_planner' },
+    { path: '/stats', icon: BarChart3, label: 'Statistics', color: 'text-pink-600', feature: 'statistics' },
+    { path: '/discover', icon: Search, label: 'Recipe Discovery', color: 'text-teal-600', feature: 'recipe_discovery' },
+    { path: '/history', icon: History, label: 'Activity History', color: 'text-indigo-600', feature: 'activity_history' },
   ];
 
   const toolItems = [
-    { action: 'voice', icon: Mic, label: 'Voice Input', color: 'text-red-600' },
-    { action: 'scan', icon: Scan, label: 'Barcode Scanner', color: 'text-yellow-600' },
-    { action: 'share', icon: Share2, label: 'Share List', color: 'text-cyan-600' },
+    { action: 'voice', icon: Mic, label: 'Voice Input', color: 'text-red-600', feature: 'voice_input' },
+    { action: 'scan', icon: Scan, label: 'Barcode Scanner', color: 'text-yellow-600', feature: 'barcode_scanner' },
+    { action: 'share', icon: Share2, label: 'Share List', color: 'text-cyan-600', feature: 'sharing' },
   ];
 
   const settingsItems = [
@@ -116,7 +118,9 @@ const Sidebar = ({ onAction }) => {
             <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
               Main Menu
             </h3>
-            {mainNavItems.map((item) => (
+            {mainNavItems
+              .filter(item => !item.feature || hasFeature(item.feature))
+              .map((item) => (
               <button
                 key={item.path}
                 onClick={() => handleNavClick(item.path)}
@@ -137,7 +141,9 @@ const Sidebar = ({ onAction }) => {
             <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
               Quick Tools
             </h3>
-            {toolItems.map((item) => (
+            {toolItems
+              .filter(item => !item.feature || hasFeature(item.feature))
+              .map((item) => (
               <button
                 key={item.action}
                 onClick={() => handleToolClick(item.action)}

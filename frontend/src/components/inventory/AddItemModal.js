@@ -20,7 +20,7 @@ const AddItemModal = ({
     storage_location: 'pantry',
     custom_location_id: null,
     category: '',
-    quantity: 1,
+    quantity: '1',
     unit: '',
     bought_date: new Date().toISOString().split('T')[0],
     opened_date: null,
@@ -66,6 +66,55 @@ const AddItemModal = ({
 
   const [errors, setErrors] = useState({});
 
+  // Auto-detect item information from name
+  const detectItemInfo = (itemName) => {
+    const name = itemName.toLowerCase();
+    let category = '';
+    let unit = '';
+    let icon = '📦';
+
+    // Category detection
+    if (name.match(/milk|cheese|yogurt|butter|cream/)) {
+      category = 'Dairy & Eggs';
+      icon = '🥛';
+      unit = 'gallon';
+    } else if (name.match(/bread|bagel|muffin|roll|bun/)) {
+      category = 'Bakery & Bread';
+      icon = '🍞';
+      unit = 'loaf';
+    } else if (name.match(/chicken|beef|pork|fish|meat|steak/)) {
+      category = 'Meat & Seafood';
+      icon = '🍗';
+      unit = 'lb';
+    } else if (name.match(/apple|banana|orange|grape|berry|fruit/)) {
+      category = 'Produce';
+      icon = '🍎';
+      unit = 'lb';
+    } else if (name.match(/lettuce|carrot|broccoli|tomato|vegetable|potato/)) {
+      category = 'Produce';
+      icon = '🥕';
+      unit = 'lb';
+    } else if (name.match(/pasta|rice|cereal|oat|grain/)) {
+      category = 'Grains & Pasta';
+      icon = '🍝';
+      unit = 'box';
+    } else if (name.match(/soda|juice|water|drink|beverage/)) {
+      category = 'Beverages';
+      icon = '🥤';
+      unit = 'bottle';
+    } else if (name.match(/chip|cookie|candy|snack/)) {
+      category = 'Snacks & Sweets';
+      icon = '🍪';
+      unit = 'bag';
+    } else if (name.match(/sauce|ketchup|mustard|mayo|dressing/)) {
+      category = 'Condiments & Sauces';
+      icon = '🧂';
+      unit = 'bottle';
+    }
+
+    return { category, unit, icon };
+  };
+
   // Populate form when editing
   useEffect(() => {
     if (item) {
@@ -91,7 +140,20 @@ const AddItemModal = ({
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    const newValue = type === 'checkbox' ? checked : value;
+    let newValue = type === 'checkbox' ? checked : value;
+    
+    // Auto-detect category, unit, and store when item name changes
+    if (name === 'item_name' && value) {
+      const detected = detectItemInfo(value);
+      setFormData(prev => ({
+        ...prev,
+        item_name: value,
+        category: detected.category || prev.category,
+        unit: detected.unit || prev.unit,
+        icon: detected.icon || prev.icon
+      }));
+      return;
+    }
     
     setFormData(prev => ({
       ...prev,
@@ -159,76 +221,76 @@ const AddItemModal = ({
 
   const units = ['', 'lbs', 'oz', 'kg', 'g', 'cups', 'tbsp', 'tsp', 'ml', 'L', 'count', 'pieces'];
 
+  // Format quantity for display (integer if whole number)
+  const formatQuantity = (qty) => {
+    const num = parseFloat(qty);
+    return num % 1 === 0 ? Math.floor(num).toString() : qty;
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full my-8">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full my-8">
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {item ? 'Edit Item' : 'Add Item to Inventory'}
+        <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            {item ? 'Edit Item' : 'Add Item'}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
-            <X size={24} />
+            <X size={20} />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Item Name */}
+        <form onSubmit={handleSubmit} className="p-4 space-y-3">
+          {/* Item Name with Icon */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               Item Name *
             </label>
-            <input
-              type="text"
-              name="item_name"
-              value={formData.item_name}
-              onChange={handleChange}
-              placeholder="e.g., Milk, Eggs, Bread"
-              className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${
-                errors.item_name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-              }`}
-            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowIconPicker(true)}
+                className="flex-shrink-0 w-12 h-12 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-500 transition-colors flex items-center justify-center dark:bg-gray-700 text-2xl"
+              >
+                {formData.icon}
+              </button>
+              <input
+                type="text"
+                name="item_name"
+                value={formData.item_name}
+                onChange={handleChange}
+                placeholder="e.g., Milk, Eggs, Bread"
+                className={`flex-1 px-3 py-2 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${
+                  errors.item_name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                }`}
+              />
+            </div>
             {errors.item_name && (
-              <p className="mt-1 text-sm text-red-600">{errors.item_name}</p>
+              <p className="mt-1 text-xs text-red-600">{errors.item_name}</p>
+            )}
+            {formData.category && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Auto-detected: {formData.category} {formData.unit && `• ${formData.unit}`}
+              </p>
             )}
           </div>
 
-          {/* Icon Selector */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Item Icon
-            </label>
-            <button
-              type="button"
-              onClick={() => setShowIconPicker(true)}
-              className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-500 transition-colors flex items-center justify-between dark:bg-gray-700"
-            >
-              <div className="flex items-center gap-3">
-                <div className="text-4xl">{formData.icon}</div>
-                <span className="text-gray-700 dark:text-gray-300">
-                  {formData.icon === '📦' ? 'Choose an icon' : 'Change icon'}
-                </span>
-              </div>
-              <Smile size={20} className="text-gray-400" />
-            </button>
-          </div>
-
-          {/* Storage Location & Category Row */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Storage Location & Quantity Row */}
+          <div className="grid grid-cols-2 gap-3">
             {/* Storage Location */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Storage Location
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Location
               </label>
               <select
                 name="storage_location"
                 value={formData.storage_location}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
               >
                 <option value="pantry">🥫 Pantry</option>
                 <option value="fridge">🧊 Fridge</option>
@@ -239,137 +301,30 @@ const AddItemModal = ({
                   </option>
                 ))}
               </select>
-              
-              {/* Smart Location Suggestion */}
-              {locationSuggestion && locationSuggestion.location !== formData.storage_location && (
-                <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <Lightbulb size={16} className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-blue-800 dark:text-blue-300 font-medium">
-                        Suggested: {locationSuggestion.location === 'fridge' && '🧊 Fridge'}
-                        {locationSuggestion.location === 'freezer' && '❄️ Freezer'}
-                        {locationSuggestion.location === 'pantry' && '🥫 Pantry'}
-                      </p>
-                      <p className="text-xs text-blue-600 dark:text-blue-400">
-                        {locationSuggestion.confidence}% confidence
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={applySuggestion}
-                      className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0"
-                    >
-                      Apply
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* Category */}
+            {/* Quantity */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Category
-              </label>
-              <select
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="">Select category...</option>
-                {defaultCategories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Quantity & Unit Row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Quantity *
               </label>
               <input
-                type="number"
+                type="text"
                 name="quantity"
-                value={formData.quantity}
-                onChange={handleChange}
-                min="0"
-                step="0.1"
-                className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${
+                value={formatQuantity(formData.quantity)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow integers and decimals
+                  if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                    setFormData(prev => ({ ...prev, quantity: value }));
+                  }
+                }}
+                placeholder="1"
+                className={`w-full px-3 py-2 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${
                   errors.quantity ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                 }`}
               />
             </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Unit
-              </label>
-              <select
-                name="unit"
-                value={formData.unit}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                {units.map(unit => (
-                  <option key={unit} value={unit}>{unit || 'Select unit...'}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Bought Date & Price Row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                <Calendar size={16} />
-                Bought Date
-              </label>
-              <input
-                type="date"
-                name="bought_date"
-                value={formData.bought_date}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                <DollarSign size={16} />
-                Price
-              </label>
-              <input
-                type="number"
-                name="price"
-                value={formData.price}
-                onChange={handleChange}
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-          </div>
-
-          {/* Store */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-              <MapPin size={16} />
-              Store
-            </label>
-            <input
-              type="text"
-              name="store"
-              value={formData.store}
-              onChange={handleChange}
-              placeholder="e.g., Walmart, Target, Kroger"
-              className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-            />
           </div>
 
           {/* Expiration Date (Optional) */}

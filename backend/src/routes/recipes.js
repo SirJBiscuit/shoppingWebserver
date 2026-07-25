@@ -9,21 +9,67 @@ const {
   searchAllRecipes,
   getSupportedSites
 } = require('../utils/recipeScraper');
+const {
+  compareRecipeWithInventory,
+  getMissingIngredients,
+  deductIngredientsFromInventory,
+  findMakeableRecipes
+} = require('../services/recipeInventoryService');
 
 const router = express.Router();
 
-// Get all recipes for user
+// Get all recipes for user with filters
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const result = await db.query(`
+    const { category, cuisine, difficulty, search, favorite, canMake } = req.query;
+    
+    let query = `
       SELECT r.*, 
         (SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id) as ingredient_count
       FROM recipes r
-      WHERE r.user_id = $1 OR r.is_public = true
-      ORDER BY r.created_at DESC
-    `, [req.user.id]);
+      WHERE (r.user_id = $1 OR r.is_public = true)
+    `;
+    const params = [req.user.id];
+    let paramCount = 2;
+
+    // Add filters
+    if (category) {
+      query += ` AND r.category = $${paramCount}`;
+      params.push(category);
+      paramCount++;
+    }
+    if (cuisine) {
+      query += ` AND r.cuisine = $${paramCount}`;
+      params.push(cuisine);
+      paramCount++;
+    }
+    if (difficulty) {
+      query += ` AND r.difficulty = $${paramCount}`;
+      params.push(difficulty);
+      paramCount++;
+    }
+    if (favorite === 'true') {
+      query += ` AND r.is_favorite = true`;
+    }
+    if (search) {
+      query += ` AND (r.name ILIKE $${paramCount} OR r.description ILIKE $${paramCount})`;
+      params.push(`%${search}%`);
+      paramCount++;
+    }
+
+    query += ` ORDER BY r.created_at DESC`;
     
-    res.json(result.rows);
+    const result = await db.query(query, params);
+    let recipes = result.rows;
+
+    // If canMake filter is enabled, check inventory
+    if (canMake === 'true') {
+      const makeableRecipes = await findMakeableRecipes(req.user.id, 100);
+      const makeableIds = new Set(makeableRecipes.map(r => r.id));
+      recipes = recipes.filter(r => makeableIds.has(r.id));
+    }
+    
+    res.json(recipes);
   } catch (error) {
     console.error('Get recipes error:', error);
     res.status(500).json({ error: 'Failed to fetch recipes' });
@@ -485,6 +531,118 @@ router.post('/import/foodnetwork', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Recipe import error:', error);
     res.status(500).json({ error: 'Failed to import recipe: ' + error.message });
+  }
+});
+
+// ============================================
+// RECIPE-INVENTORY INTEGRATION ENDPOINTS
+// ============================================
+
+// Compare recipe with inventory
+router.get('/:id/inventory-comparison', authenticateToken, async (req, res) => {
+  try {
+    const comparison = await compareRecipeWithInventory(req.params.id, req.user.id);
+    res.json(comparison);
+  } catch (error) {
+    console.error('Recipe inventory comparison error:', error);
+    res.status(500).json({ error: 'Failed to compare recipe with inventory' });
+  }
+});
+
+// Get missing ingredients for shopping list
+router.get('/:id/missing-ingredients', authenticateToken, async (req, res) => {
+  try {
+    const missing = await getMissingIngredients(req.params.id, req.user.id);
+    res.json(missing);
+  } catch (error) {
+    console.error('Get missing ingredients error:', error);
+    res.status(500).json({ error: 'Failed to get missing ingredients' });
+  }
+});
+
+// Find recipes user can make with current inventory
+router.get('/can-make/list', authenticateToken, async (req, res) => {
+  try {
+    const { minMatch = 100 } = req.query;
+    const recipes = await findMakeableRecipes(req.user.id, parseInt(minMatch));
+    res.json(recipes);
+  } catch (error) {
+    console.error('Find makeable recipes error:', error);
+    res.status(500).json({ error: 'Failed to find makeable recipes' });
+  }
+});
+
+// Mark recipe as cooked and optionally deduct from inventory
+router.post('/:id/mark-cooked', authenticateToken, async (req, res) => {
+  try {
+    const { servings_made, rating, notes, deduct_inventory = false } = req.body;
+    
+    // Record cooking history
+    const historyResult = await db.query(`
+      INSERT INTO recipe_cooking_history 
+        (user_id, recipe_id, servings_made, rating, notes, deducted_from_inventory)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [req.user.id, req.params.id, servings_made, rating, notes, deduct_inventory]);
+
+    let deductionResult = null;
+    if (deduct_inventory) {
+      deductionResult = await deductIngredientsFromInventory(
+        req.params.id, 
+        req.user.id, 
+        servings_made
+      );
+    }
+
+    res.json({
+      history: historyResult.rows[0],
+      deduction: deductionResult,
+      message: 'Recipe marked as cooked'
+    });
+  } catch (error) {
+    console.error('Mark recipe cooked error:', error);
+    res.status(500).json({ error: 'Failed to mark recipe as cooked' });
+  }
+});
+
+// Get recipe categories
+router.get('/meta/categories', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT * FROM recipe_categories ORDER BY display_order ASC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get categories error:', error);
+    res.status(500).json({ error: 'Failed to get categories' });
+  }
+});
+
+// Get recipe cuisines
+router.get('/meta/cuisines', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT * FROM recipe_cuisines ORDER BY display_order ASC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get cuisines error:', error);
+    res.status(500).json({ error: 'Failed to get cuisines' });
+  }
+});
+
+// Get recipe cooking history
+router.get('/:id/history', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT * FROM recipe_cooking_history 
+      WHERE recipe_id = $1 AND user_id = $2
+      ORDER BY cooked_at DESC
+    `, [req.params.id, req.user.id]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get recipe history error:', error);
+    res.status(500).json({ error: 'Failed to get recipe history' });
   }
 });
 

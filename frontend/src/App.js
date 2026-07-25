@@ -5,7 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { CartAnimationProvider } from './contexts/CartAnimationContext';
 import FlyingItemAnimation from './components/FlyingItemAnimation';
-import MobileBottomNav from './components/MobileBottomNav';
+// import MobileBottomNav from './components/MobileBottomNav'; // Disabled for now
 import AdminToolbar from './components/AdminToolbar';
 
 // Lazy load pages for better performance
@@ -13,6 +13,7 @@ const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Recipes = lazy(() => import('./pages/Recipes'));
+const RecipesNew = lazy(() => import('./pages/RecipesNew'));
 const PantryEnhanced = lazy(() => import('./pages/PantryEnhanced'));
 const PantryNew = lazy(() => import('./pages/PantryNew'));
 const MealPlan = lazy(() => import('./pages/MealPlan'));
@@ -76,7 +77,8 @@ const AnimatedRoutes = () => {
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-        <Route path="/recipes" element={<PrivateRoute><Recipes /></PrivateRoute>} />
+        <Route path="/recipes" element={<PrivateRoute><RecipesNew /></PrivateRoute>} />
+        <Route path="/recipes-old" element={<PrivateRoute><Recipes /></PrivateRoute>} />
         <Route path="/pantry" element={<PrivateRoute><PantryEnhanced /></PrivateRoute>} />
         <Route path="/pantry-new" element={<PrivateRoute><PantryNew /></PrivateRoute>} />
         <Route path="/meal-plan" element={<PrivateRoute><MealPlan /></PrivateRoute>} />
@@ -106,7 +108,7 @@ function App() {
             <AdminToolbar />
             <AnimatedRoutes />
             <FlyingItemAnimation />
-            <MobileBottomNav />
+            {/* <MobileBottomNav /> */} {/* Disabled for now */}
           </Router>
         </CartAnimationProvider>
       </ThemeProvider>
