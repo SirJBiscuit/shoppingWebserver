@@ -702,10 +702,12 @@ router.delete('/clear/:location', authenticateToken, async (req, res) => {
   try {
     const { location } = req.params;
     
-    // Get items before deleting (for history)
+    // Get items before deleting (for history) - join with items table to get name
     const itemsResult = await db.query(`
-      SELECT * FROM inventory 
-      WHERE user_id = $1 AND storage_location = $2
+      SELECT i.*, it.name as item_name
+      FROM inventory i
+      LEFT JOIN items it ON i.item_id = it.id
+      WHERE i.user_id = $1 AND i.storage_location = $2
     `, [req.user.id, location]);
     
     // Add to history
@@ -752,9 +754,12 @@ router.delete('/clear/:location', authenticateToken, async (req, res) => {
 // Clear all inventory items
 router.delete('/clear-all', authenticateToken, async (req, res) => {
   try {
-    // Get all items before deleting (for history)
+    // Get all items before deleting (for history) - join with items table to get name
     const itemsResult = await db.query(`
-      SELECT * FROM inventory WHERE user_id = $1
+      SELECT i.*, it.name as item_name
+      FROM inventory i
+      LEFT JOIN items it ON i.item_id = it.id
+      WHERE i.user_id = $1
     `, [req.user.id]);
     
     // Add to history
