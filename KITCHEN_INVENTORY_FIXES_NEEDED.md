@@ -122,29 +122,59 @@ Backend might expect:
 
 ## 🚀 **Next Steps**
 
-1. **Check backend logs** to see actual error messages
-2. **Verify database schema** matches what routes expect
-3. **Fix backend routes** based on actual errors
-4. **Test each endpoint** individually
-5. **Deploy fixes** once working
+1. ✅ **Created migration 029** to add missing columns
+2. **Run migration on server** to fix database schema
+3. **Restart backend** to clear any cached errors
+4. **Test endpoints** to verify fixes
 
 ---
 
-## 📋 **Current Deployment Commands**
+## 📋 **Deployment Commands**
 
 ```bash
-# 1. Commit fixes
+# 1. Commit all fixes
 git add .
-git commit -m "fix: Kitchen inventory backend errors and feature flags URL"
+git commit -m "fix: Kitchen inventory - add delete button, fix feature flags, add missing DB columns
 
-# 2. Push
+- Fixed double /api in FeatureFlagContext URLs
+- Added delete button to InventoryCard footer  
+- Added edit functionality for recipe ingredients
+- Created migration 029 to add missing inventory columns
+- Added comprehensive debugging documentation"
+
+# 2. Push to remote
 git push origin main
 
-# 3. Update server
+# 3. SSH to server and update
 cd /opt/cloudmc-shop
 ./update-server.sh
+
+# 4. Run the new migration
+psql -U postgres -d shopdb -f backend/migrations/029_fix_inventory_columns.sql
+
+# 5. Restart backend (if needed)
+# The update script should handle this, but if not:
+# Kill the backend process and restart it
 ```
 
 ---
 
-**Status:** Frontend UI is complete and working. Backend endpoints need debugging based on actual error logs.
+## 🔧 **What Migration 029 Does**
+
+Adds missing columns to `inventory` table:
+- `estimated_expiry_date` - For expiration tracking
+- `is_opened` - Track if item is opened
+- `price` - Item price
+- `current_quantity` - Current amount
+- `storage_location` - Where item is stored
+- `custom_location_id` - Link to custom locations
+- `user_id` - Owner of the item
+
+Also creates:
+- `inventory_history` table (if missing)
+- Indexes for better performance
+- Safe to run multiple times (uses IF NOT EXISTS)
+
+---
+
+**Status:** Frontend UI complete. Migration created to fix backend database schema issues.
