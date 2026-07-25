@@ -4,6 +4,7 @@ import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { CartAnimationProvider } from './contexts/CartAnimationContext';
+import { FeatureFlagProvider } from './context/FeatureFlagContext';
 import FlyingItemAnimation from './components/FlyingItemAnimation';
 // import MobileBottomNav from './components/MobileBottomNav'; // Disabled for now
 import AdminToolbar from './components/AdminToolbar';
@@ -102,16 +103,18 @@ const AnimatedRoutes = () => {
 function App() {
   return (
     <AuthProvider>
-      <ThemeProvider>
-        <CartAnimationProvider>
-          <Router>
-            <AdminToolbar />
-            <AnimatedRoutes />
-            <FlyingItemAnimation />
-            {/* <MobileBottomNav /> */} {/* Disabled for now */}
-          </Router>
-        </CartAnimationProvider>
-      </ThemeProvider>
+      <FeatureFlagProvider>
+        <ThemeProvider>
+          <CartAnimationProvider>
+            <Router>
+              <AdminToolbar />
+              <AnimatedRoutes />
+              <FlyingItemAnimation />
+              {/* <MobileBottomNav /> */} {/* Disabled for now */}
+            </Router>
+          </CartAnimationProvider>
+        </ThemeProvider>
+      </FeatureFlagProvider>
     </AuthProvider>
   );
 }

@@ -24,8 +24,20 @@ export const FeatureFlagProvider = ({ children }) => {
         api.get('/api/features/limits')
       ]);
 
-      setFeatures(flagsResponse.data || {});
-      setLimits(limitsResponse.data || {});
+      // Parse features response - convert array to object with enabled status
+      const featuresData = flagsResponse.data?.features || [];
+      const featuresObj = {};
+      featuresData.forEach(feature => {
+        featuresObj[feature.key] = {
+          enabled: feature.isAvailable,
+          name: feature.name,
+          category: feature.category,
+          minTier: feature.minTier
+        };
+      });
+
+      setFeatures(featuresObj);
+      setLimits(limitsResponse.data?.limits || {});
     } catch (error) {
       console.error('Failed to load feature flags:', error);
       // Set default features if API fails
