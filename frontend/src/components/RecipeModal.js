@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Upload, Image as ImageIcon, Sparkles, Link as LinkIcon } from 'lucide-react';
-import { imagesAPI, recipesAPI } from '../services/api';
+import { imagesAPI } from '../services/api';
+import recipesAPI from '../services/recipesAPI';
 
 const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
   const [formData, setFormData] = useState({
@@ -89,8 +90,7 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
 
     setImportingFromUrl(true);
     try {
-      const response = await recipesAPI.importRecipe(importUrl);
-      const importedRecipe = response.data;
+      const importedRecipe = await recipesAPI.importFromUrl(importUrl);
 
       // Auto-fill all fields
       setFormData({
