@@ -20,8 +20,8 @@ export const FeatureFlagProvider = ({ children }) => {
     try {
       // Fetch feature flags and limits from backend
       const [flagsResponse, limitsResponse] = await Promise.all([
-        api.get('/api/features/flags'),
-        api.get('/api/features/limits')
+        api.get('/features/flags'),
+        api.get('/features/limits')
       ]);
 
       // Parse features response - convert array to object with enabled status

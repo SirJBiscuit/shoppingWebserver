@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Upload, Image as ImageIcon, Sparkles, Link as LinkIcon } from 'lucide-react';
+import { X, Plus, Trash2, Upload, Image as ImageIcon, Sparkles, Link as LinkIcon, Edit2 } from 'lucide-react';
 import { imagesAPI } from '../services/api';
 import recipesAPI from '../services/recipesAPI';
 
@@ -25,6 +25,7 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
   const [autoDetecting, setAutoDetecting] = useState(false);
   const [importingFromUrl, setImportingFromUrl] = useState(false);
   const [importUrl, setImportUrl] = useState('');
+  const [editingIndex, setEditingIndex] = useState(null);
 
   useEffect(() => {
     if (recipe) {
@@ -172,19 +173,44 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
 
   const handleAddIngredient = () => {
     if (newIngredient.item_name && newIngredient.amount) {
-      setIngredients([...ingredients, { ...newIngredient }]);
+      if (editingIndex !== null) {
+        // Update existing ingredient
+        const updatedIngredients = [...ingredients];
+        updatedIngredients[editingIndex] = { ...newIngredient };
+        setIngredients(updatedIngredients);
+        setEditingIndex(null);
+      } else {
+        // Add new ingredient
+        setIngredients([...ingredients, { ...newIngredient }]);
+        
+        // Auto-detect image if not set and this is the first ingredient
+        if (!formData.image_url && formData.name && ingredients.length === 0) {
+          handleAutoDetectImage();
+        }
+      }
+      
       setNewIngredient({
         item_name: '',
         amount: '',
         is_optional: false,
         notes: ''
       });
-      
-      // Auto-detect image if not set and this is the first ingredient
-      if (!formData.image_url && formData.name && ingredients.length === 0) {
-        handleAutoDetectImage();
-      }
     }
+  };
+
+  const handleEditIngredient = (index) => {
+    setNewIngredient({ ...ingredients[index] });
+    setEditingIndex(index);
+  };
+
+  const handleCancelEdit = () => {
+    setNewIngredient({
+      item_name: '',
+      amount: '',
+      is_optional: false,
+      notes: ''
+    });
+    setEditingIndex(null);
   };
 
   const handleRemoveIngredient = (index) => {
@@ -427,13 +453,24 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 italic">Note: {ing.notes}</p>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveIngredient(index)}
-                      className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEditIngredient(index)}
+                        className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        title="Edit ingredient"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveIngredient(index)}
+                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title="Remove ingredient"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -460,10 +497,19 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
                   type="button"
                   onClick={handleAddIngredient}
                   className="btn-primary col-span-2 flex items-center justify-center"
-                  title="Add ingredient"
+                  title={editingIndex !== null ? "Update ingredient" : "Add ingredient"}
                 >
-                  <Plus className="w-5 h-5 mr-1" />
-                  Add
+                  {editingIndex !== null ? (
+                    <>
+                      <Edit2 className="w-5 h-5 mr-1" />
+                      Update
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-5 h-5 mr-1" />
+                      Add
+                    </>
+                  )}
                 </button>
               </div>
               
@@ -473,7 +519,7 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
                   placeholder="Notes (e.g., 'chopped', 'room temperature')"
                   value={newIngredient.notes}
                   onChange={(e) => setNewIngredient({ ...newIngredient, notes: e.target.value })}
-                  className="input-field col-span-10"
+                  className="input-field col-span-8"
                 />
                 <label className="col-span-2 flex items-center text-sm text-gray-600 dark:text-gray-400">
                   <input
@@ -484,6 +530,15 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
                   />
                   Optional
                 </label>
+                {editingIndex !== null && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="col-span-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                )}
               </div>
               
               <p className="text-xs text-gray-500 dark:text-gray-400">

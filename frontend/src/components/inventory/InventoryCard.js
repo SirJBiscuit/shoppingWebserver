@@ -314,16 +314,27 @@ const InventoryCard = ({
         <button
           onClick={() => onStillGood(item)}
           className="flex-1 py-3 bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800 text-green-700 dark:text-green-200 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+          title="Mark as still good (extends expiration)"
         >
           <CheckCircle size={18} />
-          <span>Still Good</span>
+          <span className="hidden sm:inline">Still Good</span>
+          <span className="sm:hidden">✓</span>
         </button>
         <button
           onClick={() => onWentBad(item)}
           className="flex-1 py-3 bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 text-red-700 dark:text-red-200 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+          title="Mark as went bad (learns expiration time)"
         >
           <XCircle size={18} />
-          <span>Went Bad</span>
+          <span className="hidden sm:inline">Went Bad</span>
+          <span className="sm:hidden">✗</span>
+        </button>
+        <button
+          onClick={() => onDelete(item)}
+          className="py-3 px-4 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+          title="Delete item"
+        >
+          <Trash2 size={18} />
         </button>
       </div>
     </div>
