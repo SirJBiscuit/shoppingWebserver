@@ -3,6 +3,7 @@ import { X, Calendar, DollarSign, MapPin, Package, Image as ImageIcon, Trash2, L
 import { detectLocation, getCategorySuggestions } from '../../utils/smartLocationDetector';
 import IconPicker from './IconPicker';
 import DateInput from '../DateInput';
+import { useDeviceType, getTouchSizes } from '../../hooks/useDeviceType';
 
 /**
  * AddItemModal - Modal for adding/editing inventory items
@@ -42,6 +43,12 @@ const AddItemModal = ({
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [locationSuggestion, setLocationSuggestion] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [saveError, setSaveError] = useState(null);
+  
+  // Device detection for touch-optimized UI
+  const deviceInfo = useDeviceType();
+  const touchSizes = getTouchSizes(deviceInfo);
 
   // Common food icons
   const foodIcons = [
@@ -66,8 +73,6 @@ const AddItemModal = ({
     'gallon', 'quart', 'pint', 'cup', 'tbsp', 'tsp',
     'can', 'jar', 'box', 'bag', 'bottle', 'carton', 'pack'
   ];
-
-  const [errors, setErrors] = useState({});
 
   // Auto-detect item information from name
   const detectItemInfo = (itemName) => {
@@ -380,6 +385,16 @@ const AddItemModal = ({
                 <p className="text-xs text-green-700 dark:text-green-300 mt-1">
                   Based on {formData.category} in {formData.storage_location}
                 </p>
+                {(() => {
+                  const sellByDate = new Date(formData.sell_by_date);
+                  const expiryDate = new Date(formData.calculated_expiry);
+                  const daysToExpiry = Math.ceil((expiryDate - sellByDate) / (1000 * 60 * 60 * 24));
+                  return (
+                    <p className="text-xs text-green-700 dark:text-green-300 mt-1 font-semibold">
+                      📅 Estimated shelf life: ~{daysToExpiry} days after sell-by date
+                    </p>
+                  );
+                })()}
               </div>
             )}
             <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">

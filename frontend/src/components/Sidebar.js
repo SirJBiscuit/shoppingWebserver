@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   ShoppingCart, ChefHat, Package, Calendar, BarChart3, 
@@ -18,6 +18,31 @@ const Sidebar = ({ onAction }) => {
   const { isDark, toggleTheme } = useTheme();
   const { hasFeature } = useFeatureFlags();
   const [isOpen, setIsOpen] = useState(false);
+  const [expiringCount, setExpiringCount] = useState(0);
+
+  // Fetch expiring items count
+  useEffect(() => {
+    const fetchExpiringCount = async () => {
+      try {
+        const response = await fetch('/api/inventory/expiring-suggestions?days=3', {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setExpiringCount(data.length);
+        }
+      } catch (error) {
+        console.error('Error fetching expiring count:', error);
+      }
+    };
+
+    if (user) {
+      fetchExpiringCount();
+      // Refresh every 5 minutes
+      const interval = setInterval(fetchExpiringCount, 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   const mainNavItems = [
     { path: '/', icon: ShoppingCart, label: 'Dashboard', color: 'text-blue-600', feature: 'shopping_lists' },
@@ -124,7 +149,7 @@ const Sidebar = ({ onAction }) => {
               <button
                 key={item.path}
                 onClick={() => handleNavClick(item.path)}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative ${
                   isActive(item.path)
                     ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 shadow-sm'
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -132,6 +157,12 @@ const Sidebar = ({ onAction }) => {
               >
                 <item.icon className={`w-5 h-5 ${isActive(item.path) ? item.color : ''}`} />
                 <span className="font-medium text-sm">{item.label}</span>
+                {/* Expiring Soon Badge for Kitchen Inventory */}
+                {item.path === '/pantry-new' && expiringCount > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse">
+                    {expiringCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>

@@ -145,6 +145,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
   const [aisleName, setAisleName] = useState('');
   const [checkAnimKey, setCheckAnimKey] = useState(0);
   const [inventoryCheck, setInventoryCheck] = useState(null);
+  const [smartSuggestion, setSmartSuggestion] = useState(null);
   const [showSuggestion, setShowSuggestion] = useState(true);
   const itemRef = useRef(null);
   
@@ -152,21 +153,34 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
   const category = item.category_name || item.category || 'Other';
   const aisle = storeName ? getAisleForCategory(storeName, category) : null;
   
-  // Check if item exists in inventory
+  // Check if item exists in inventory and get smart suggestions
   useEffect(() => {
-    const checkInventory = async () => {
+    const checkInventoryAndSuggestions = async () => {
       try {
-        const response = await fetch('/api/inventory/check-inventory', {
+        // Check inventory
+        const inventoryResponse = await fetch('/api/inventory/check-inventory', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ itemName: item.item_name })
         });
         
-        if (response.ok) {
-          const data = await response.json();
+        if (inventoryResponse.ok) {
+          const data = await inventoryResponse.json();
           if (data.hasItem) {
             setInventoryCheck(data);
+          }
+        }
+
+        // Get smart reorder suggestion
+        const suggestionResponse = await fetch(`/api/inventory/smart-suggestion/${encodeURIComponent(item.item_name)}`, {
+          credentials: 'include'
+        });
+        
+        if (suggestionResponse.ok) {
+          const data = await suggestionResponse.json();
+          if (data.hasSuggestion && data.purchaseCount >= 2) {
+            setSmartSuggestion(data);
           }
         }
       } catch (error) {
@@ -175,7 +189,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
     };
     
     if (!item.is_checked) {
-      checkInventory();
+      checkInventoryAndSuggestions();
     }
   }, [item.item_name, item.is_checked]);
   
@@ -221,7 +235,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
 
   return (
     <div className="space-y-2">
-      {/* Smart Suggestion Tooltip */}
+      {/* Already Have It Tooltip */}
       {inventoryCheck && showSuggestion && !item.is_checked && (
         <SmartSuggestionTooltip
           type="already-have"
@@ -233,6 +247,27 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
             expiresIn: inventoryCheck.expiresIn
           }}
           onAction={handleSuggestionAction}
+          onDismiss={() => setShowSuggestion(false)}
+        />
+      )}
+
+      {/* Smart Reorder Suggestion Tooltip */}
+      {!inventoryCheck && smartSuggestion && showSuggestion && !item.is_checked && (
+        <SmartSuggestionTooltip
+          type="smart-reorder"
+          item={{ name: item.item_name }}
+          inventoryData={{
+            avgDays: smartSuggestion.avgDays,
+            suggestedAmount: smartSuggestion.suggestedAmount,
+            unit: smartSuggestion.unit
+          }}
+          onAction={(action, amount) => {
+            if (action === 'add-suggested') {
+              // Update item quantity
+              console.log(`Suggested adding ${amount} ${smartSuggestion.unit}`);
+            }
+            setShowSuggestion(false);
+          }}
           onDismiss={() => setShowSuggestion(false)}
         />
       )}
@@ -277,14 +312,26 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   <div className="flex-1">
                     <ItemTooltip item={item}>
                       <p
-                        className={`font-medium flex items-center ${
+                        className={`font-medium flex items-center flex-wrap gap-2 ${
                           item.is_checked ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'
                         }`}
                       >
-                        {item.item_name}
+                        <span>{item.item_name}</span>
                         {item.count > 1 && (
-                          <span className="ml-2 px-2 py-0.5 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 text-xs font-bold rounded-full">
+                          <span className="px-2 py-0.5 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 text-xs font-bold rounded-full">
                             x{item.count}
+                          </span>
+                        )}
+                        {/* Pantry Status Badge */}
+                        {inventoryCheck && !item.is_checked && (
+                          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full flex items-center gap-1 ${
+                            inventoryCheck.isExpired
+                              ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                              : inventoryCheck.isExpiringSoon
+                              ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'
+                              : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                          }`}>
+                            {inventoryCheck.isExpired ? '🔴 Expired' : inventoryCheck.isExpiringSoon ? '🟠 Expiring Soon' : '🟢 In Stock'}
                           </span>
                         )}
                       </p>
