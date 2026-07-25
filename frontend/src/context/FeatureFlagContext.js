@@ -13,7 +13,14 @@ export const FeatureFlagProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadFeatures();
+    // Only load features if user is logged in
+    const token = localStorage.getItem('token');
+    if (token) {
+      loadFeatures();
+    } else {
+      // Set defaults for logged out users
+      setLoading(false);
+    }
   }, []);
 
   const loadFeatures = async () => {
