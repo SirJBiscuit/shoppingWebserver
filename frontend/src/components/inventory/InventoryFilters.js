@@ -54,7 +54,7 @@ const InventoryFilters = ({
       {/* Search and Quick Filters Row */}
       <div className="flex flex-wrap gap-3">
         {/* Search Bar */}
-        <div className="flex-1 min-w-[300px] relative">
+        <div className="flex-1 min-w-[300px] max-w-md relative">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input
             type="text"

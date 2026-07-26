@@ -120,10 +120,20 @@ const PantryNew = () => {
 
   const loadStats = async () => {
     try {
-      const data = await inventoryAPI.getStats();
-      setStats(data);
+      const response = await inventoryAPI.getStats();
+      console.log('Stats response:', response);
+      setStats(response.data || response);
     } catch (error) {
       console.error('Failed to load stats:', error);
+      // Set empty stats to prevent loading state
+      setStats({
+        total_items: 0,
+        expiring_soon: 0,
+        expired: 0,
+        opened_items: 0,
+        storage_locations_used: 0,
+        total_value: 0
+      });
     }
   };
 
@@ -499,7 +509,7 @@ const PantryNew = () => {
 
             {/* Clear Buttons */}
             {items.length > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 sm:p-4 mb-4 md:mb-6">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 sm:p-4 mb-4 md:mb-6 max-w-4xl">
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-start sm:items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Trash2 size={16} className="text-gray-600 dark:text-gray-400 sm:w-[18px] sm:h-[18px]" />
