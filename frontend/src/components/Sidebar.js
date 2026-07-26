@@ -62,10 +62,10 @@ const Sidebar = ({ onAction }) => {
   ];
 
   const settingsItems = [
-    { action: 'stores', icon: Store, label: 'Manage Stores', color: 'text-blue-600' },
-    { path: '/admin/customize', icon: Sparkles, label: 'ACH Customization', color: 'text-purple-600', special: true },
+    { action: 'stores', icon: Store, label: 'Manage Stores', color: 'text-blue-600', feature: 'store_management' },
+    { path: '/admin/customize', icon: Sparkles, label: 'ACH Customization', color: 'text-purple-600', special: true, feature: 'ach_customization' },
     { path: '/settings', icon: Settings, label: 'Settings', color: 'text-gray-600' },
-    { path: '/admin', icon: Shield, label: 'Admin', color: 'text-red-600' },
+    { path: '/admin', icon: Shield, label: 'Admin', color: 'text-red-600', adminOnly: true },
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -192,7 +192,15 @@ const Sidebar = ({ onAction }) => {
             <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
               System
             </h3>
-            {settingsItems.map((item) => (
+            {settingsItems
+              .filter(item => {
+                // Filter by admin status
+                if (item.adminOnly && !user?.is_admin) return false;
+                // Filter by feature flag
+                if (item.feature && !hasFeature(item.feature)) return false;
+                return true;
+              })
+              .map((item) => (
               <button
                 key={item.path || item.action}
                 onClick={() => item.action ? onAction?.(item.action) : handleNavClick(item.path)}
