@@ -76,8 +76,18 @@ export const FeatureFlagProvider = ({ children }) => {
    * @returns {boolean} - True if feature is enabled
    */
   const hasFeature = (featureKey) => {
-    if (!features[featureKey]) return true; // Default to enabled if not found
+    if (!features[featureKey]) {
+      console.warn(`Feature '${featureKey}' not found in feature flags`);
+      return false; // Default to disabled if not found
+    }
     return features[featureKey].enabled === true;
+  };
+
+  /**
+   * Refresh feature flags from server
+   */
+  const refreshFeatures = async () => {
+    await loadFeatures();
   };
 
   /**
@@ -115,7 +125,8 @@ export const FeatureFlagProvider = ({ children }) => {
     hasFeature,
     hasReachedLimit,
     getLimit,
-    refresh
+    refresh,
+    refreshFeatures
   };
 
   return (
