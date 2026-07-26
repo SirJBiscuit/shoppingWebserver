@@ -7,8 +7,6 @@ import StorageIndicator from './StorageIndicator';
  * Shows items organized by their physical location with visual indicators
  */
 const VisualInventoryMap = ({ items, onEdit, onAdjustQuantity }) => {
-  const [expandedLocations, setExpandedLocations] = useState(new Set(['pantry', 'fridge', 'freezer']));
-
   // Group items by location (default + custom)
   const groupItemsByLocation = () => {
     const defaultGroups = {
@@ -46,6 +44,35 @@ const VisualInventoryMap = ({ items, onEdit, onAdjustQuantity }) => {
   };
 
   const { default: itemsByLocation, custom: customLocations } = groupItemsByLocation();
+  
+  // Auto-expand all locations that have items
+  const getInitialExpandedLocations = () => {
+    const expanded = new Set();
+    
+    // Add default locations with items
+    Object.entries(itemsByLocation).forEach(([location, items]) => {
+      if (items.length > 0) {
+        expanded.add(location);
+      }
+    });
+    
+    // Add custom locations with items
+    Object.keys(customLocations).forEach(key => {
+      if (customLocations[key].items.length > 0) {
+        expanded.add(key);
+      }
+    });
+    
+    return expanded;
+  };
+  
+  const [expandedLocations, setExpandedLocations] = useState(getInitialExpandedLocations());
+  
+  // Debug logging
+  console.log('Visual Map - Total items:', items.length);
+  console.log('Visual Map - Default locations:', itemsByLocation);
+  console.log('Visual Map - Custom locations:', customLocations);
+  console.log('Visual Map - Expanded locations:', expandedLocations);
 
   const toggleLocation = (location) => {
     setExpandedLocations(prev => {

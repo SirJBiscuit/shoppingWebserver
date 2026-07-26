@@ -153,10 +153,10 @@ const InventoryCard = ({
           </div>
         )}
 
-        {/* Expiration Badge - Below Menu */}
+        {/* Expiration Badge - Bottom Right */}
         {expirationStatus && (
-          <div className="absolute top-14 right-3 z-10">
-            <ExpirationBadge expirationStatus={expirationStatus} size="md" />
+          <div className="absolute bottom-3 right-3 z-10">
+            <ExpirationBadge expirationStatus={expirationStatus} size="sm" />
           </div>
         )}
 
