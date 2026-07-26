@@ -61,12 +61,17 @@ const Sidebar = ({ onAction }) => {
     { action: 'share', icon: Share2, label: 'Share List', color: 'text-cyan-600', feature: 'sharing' },
   ];
 
+  // Build settings items dynamically
   const settingsItems = [
     { action: 'stores', icon: Store, label: 'Manage Stores', color: 'text-blue-600', feature: 'store_management' },
     { path: '/admin/customize', icon: Sparkles, label: 'ACH Customization', color: 'text-purple-600', special: true, feature: 'ach_customization' },
     { path: '/settings', icon: Settings, label: 'Settings', color: 'text-gray-600' },
-    ...(user?.is_admin ? [{ path: '/admin', icon: Shield, label: 'Admin', color: 'text-red-600' }] : []),
   ];
+  
+  // Add admin panel for admin users
+  if (user?.is_admin) {
+    settingsItems.push({ path: '/admin', icon: Shield, label: 'Admin', color: 'text-red-600' });
+  }
 
   const isActive = (path) => location.pathname === path;
 
