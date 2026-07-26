@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
-import FeatureManagerEnhanced from '../components/FeatureManagerEnhanced';
+import FeatureManagementVisual from '../components/admin/FeatureManagementVisual';
 import UserManagement from '../components/UserManagement';
 import DashboardEditor from '../components/DashboardEditor';
 
@@ -380,7 +380,7 @@ const AdminNew = () => {
             {/* Feature Management Tab */}
             {activeTab === 'features' && (
               <div className="card">
-                <FeatureManagerEnhanced />
+                <FeatureManagementVisual />
               </div>
             )}
 
