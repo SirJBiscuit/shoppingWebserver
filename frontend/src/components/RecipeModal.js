@@ -19,6 +19,7 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
     item_name: '',
     amount: '',
     is_optional: false,
+    is_pantry_staple: false,
     notes: ''
   });
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -193,6 +194,7 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
         item_name: '',
         amount: '',
         is_optional: false,
+        is_pantry_staple: false,
         notes: ''
       });
     }
@@ -208,6 +210,7 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
       item_name: '',
       amount: '',
       is_optional: false,
+      is_pantry_staple: false,
       notes: ''
     });
     setEditingIndex(null);
@@ -217,14 +220,52 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
     setIngredients(ingredients.filter((_, i) => i !== index));
   };
 
+  const parseAmount = (amount) => {
+    // Parse "2 cups", "1/2 tsp", "3", etc. into quantity and unit
+    if (!amount) return { quantity: null, unit: '' };
+    
+    const trimmed = amount.trim();
+    const match = trimmed.match(/^([\d./]+)\s*(.*)$/);
+    
+    if (match) {
+      let quantity = match[1];
+      // Handle fractions like 1/2
+      if (quantity.includes('/')) {
+        const [num, den] = quantity.split('/');
+        quantity = parseFloat(num) / parseFloat(den);
+      } else {
+        quantity = parseFloat(quantity);
+      }
+      const unit = match[2] || '';
+      return { quantity, unit };
+    }
+    
+    // If no number found, treat whole thing as unit
+    return { quantity: 1, unit: trimmed };
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Parse ingredients to backend format
+    const parsedIngredients = ingredients.map(ing => {
+      const { quantity, unit } = parseAmount(ing.amount);
+      return {
+        item_name: ing.item_name,
+        quantity,
+        unit,
+        is_optional: ing.is_optional || false,
+        is_pantry_staple: ing.is_pantry_staple || false,
+        notes: ing.notes || ''
+      };
+    });
+    
     onSave({
       ...formData,
       servings: parseInt(formData.servings) || null,
       prep_time: parseInt(formData.prep_time) || null,
       cook_time: parseInt(formData.cook_time) || null,
-      ingredients
+      ingredients: parsedIngredients
     });
     onClose();
   };
@@ -446,6 +487,9 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
                       <span className="font-medium text-gray-900 dark:text-white">
                         {ing.amount} {ing.item_name}
                       </span>
+                      {ing.is_pantry_staple && (
+                        <span className="ml-2 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded">🏠 Pantry Staple</span>
+                      )}
                       {ing.is_optional && (
                         <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">(optional)</span>
                       )}
@@ -519,9 +563,9 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
                   placeholder="Notes (e.g., 'chopped', 'room temperature')"
                   value={newIngredient.notes}
                   onChange={(e) => setNewIngredient({ ...newIngredient, notes: e.target.value })}
-                  className="input-field col-span-8"
+                  className="input-field col-span-6"
                 />
-                <label className="col-span-2 flex items-center text-sm text-gray-600 dark:text-gray-400">
+                <label className="col-span-3 flex items-center text-sm text-gray-600 dark:text-gray-400">
                   <input
                     type="checkbox"
                     checked={newIngredient.is_optional}
@@ -529,6 +573,15 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
                     className="mr-2"
                   />
                   Optional
+                </label>
+                <label className="col-span-3 flex items-center text-sm text-gray-600 dark:text-gray-400" title="Common pantry items you always have (flour, salt, oil, etc.)">
+                  <input
+                    type="checkbox"
+                    checked={newIngredient.is_pantry_staple}
+                    onChange={(e) => setNewIngredient({ ...newIngredient, is_pantry_staple: e.target.checked })}
+                    className="mr-2"
+                  />
+                  🏠 Pantry Staple
                 </label>
                 {editingIndex !== null && (
                   <button

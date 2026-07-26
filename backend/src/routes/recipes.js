@@ -119,9 +119,9 @@ router.post('/', authenticateToken, async (req, res) => {
       for (let i = 0; i < ingredients.length; i++) {
         const ing = ingredients[i];
         await db.query(`
-          INSERT INTO recipe_ingredients (recipe_id, item_name, quantity, unit, is_optional, notes, sort_order)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-        `, [recipe.id, ing.item_name, ing.quantity, ing.unit, ing.is_optional || false, ing.notes, i]);
+          INSERT INTO recipe_ingredients (recipe_id, item_name, quantity, unit, is_optional, is_pantry_staple, notes, sort_order)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [recipe.id, ing.item_name, ing.quantity, ing.unit, ing.is_optional || false, ing.is_pantry_staple || false, ing.notes, i]);
       }
     }
     
