@@ -259,6 +259,7 @@ const RecipesNew = () => {
                     onToggleFavorite={handleToggleFavorite}
                     onAddToList={handleAddToShoppingList}
                     onCheckInventory={handleCheckInventory}
+                    onDelete={openDeleteConfirm}
                     showInventoryStatus={filters.canMake}
                   />
                 ))}

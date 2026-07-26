@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, Users, Heart, ChefHat, ShoppingCart, Eye } from 'lucide-react';
+import { Clock, Users, Heart, ChefHat, ShoppingCart, Eye, Trash2 } from 'lucide-react';
 import RecipeCategoryBadge, { DifficultyBadge, CanMakeBadge } from './RecipeCategoryBadge';
 
 /**
@@ -12,6 +12,7 @@ const RecipeCard = ({
   onToggleFavorite,
   onAddToList,
   onCheckInventory,
+  onDelete,
   showInventoryStatus = false 
 }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -185,6 +186,18 @@ const RecipeCard = ({
               title="Add to Shopping List"
             >
               <ShoppingCart size={16} />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(recipe);
+              }}
+              className="px-3 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+              title="Delete Recipe"
+            >
+              <Trash2 size={16} />
             </button>
           )}
         </div>
