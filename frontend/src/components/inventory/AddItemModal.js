@@ -45,6 +45,9 @@ const AddItemModal = ({
   const [locationSuggestion, setLocationSuggestion] = useState(null);
   const [errors, setErrors] = useState({});
   const [saveError, setSaveError] = useState(null);
+  const [quickAddMode, setQuickAddMode] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const itemNameInputRef = useRef(null);
   
   // Device detection for touch-optimized UI
   const deviceInfo = useDeviceType();
@@ -163,6 +166,16 @@ const AddItemModal = ({
       return;
     }
     
+    // Auto-fill opened_date when is_opened is checked
+    if (name === 'is_opened' && checked) {
+      setFormData(prev => ({
+        ...prev,
+        is_opened: true,
+        opened_date: prev.opened_date || new Date().toISOString().split('T')[0]
+      }));
+      return;
+    }
+    
     // Calculate expiry from sell-by date
     if (name === 'sell_by_date' && value) {
       try {
@@ -258,6 +271,44 @@ const AddItemModal = ({
       
       setSaveError(null);
       await onSave(apiData);
+      
+      // Quick-add mode: reset form and keep modal open
+      if (quickAddMode && !item) {
+        setJustSaved(true);
+        setTimeout(() => setJustSaved(false), 2000);
+        
+        // Reset form but keep storage location
+        const currentLocation = formData.storage_location;
+        setFormData({
+          item_name: '',
+          storage_location: currentLocation,
+          custom_location_id: null,
+          category: '',
+          quantity: '1',
+          unit: '',
+          bought_date: new Date().toISOString().split('T')[0],
+          opened_date: null,
+          is_opened: false,
+          sell_by_date: '',
+          manual_expiry_date: '',
+          calculated_expiry: null,
+          auto_expiry: true,
+          barcode: '',
+          image_url: '',
+          icon: '📦',
+          price: '',
+          store: '',
+          notes: '',
+          user_shelf_life_estimate: null
+        });
+        
+        // Focus back on item name input
+        setTimeout(() => {
+          if (itemNameInputRef.current) {
+            itemNameInputRef.current.focus();
+          }
+        }, 100);
+      }
     } catch (error) {
       console.error('Submit error:', error);
       setSaveError(error.message || 'Failed to save item');
@@ -306,6 +357,35 @@ const AddItemModal = ({
           </button>
         </div>
 
+        {/* Quick Add Mode Toggle */}
+        {!item && (
+          <div className="px-4 pt-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={quickAddMode}
+                onChange={(e) => setQuickAddMode(e.target.checked)}
+                className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <div>
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  ⚡ Quick Add Mode
+                </span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Keep modal open to add multiple items rapidly
+                </p>
+              </div>
+            </label>
+            {justSaved && (
+              <div className="mt-2 p-2 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded text-sm animate-pulse">
+                <span className="text-green-800 dark:text-green-200 font-semibold">
+                  ✓ Item added! Add another...
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-4 space-y-3">
           {/* Item Name with Icon */}
@@ -322,11 +402,13 @@ const AddItemModal = ({
                 {formData.icon}
               </button>
               <input
+                ref={itemNameInputRef}
                 type="text"
                 name="item_name"
                 value={formData.item_name}
                 onChange={handleChange}
                 placeholder="e.g., Milk, Eggs, Bread"
+                autoFocus
                 className={`flex-1 px-3 py-2 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${
                   errors.item_name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                 }`}
@@ -403,6 +485,24 @@ const AddItemModal = ({
               placeholder="MM/DD/YYYY"
               className="w-full px-4 py-3 border-2 border-purple-300 dark:border-purple-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
             />
+            
+            {/* Estimated Shelf Life - Always visible when sell_by_date is set */}
+            {formData.sell_by_date && formData.calculated_expiry && (() => {
+              const sellByDate = new Date(formData.sell_by_date);
+              const expiryDate = new Date(formData.calculated_expiry);
+              const daysToExpiry = Math.ceil((expiryDate - sellByDate) / (1000 * 60 * 60 * 24));
+              return (
+                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-lg">
+                  <p className="text-blue-800 dark:text-blue-200 font-bold text-lg flex items-center gap-2">
+                    📅 Estimated shelf life: ~{daysToExpiry} days
+                  </p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                    After sell-by date • Based on {formData.category || 'item type'} in {formData.storage_location}
+                  </p>
+                </div>
+              );
+            })()}
+
             {formData.calculated_expiry && (
               <div className="mt-2 p-2 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded text-sm">
                 <span className="text-green-800 dark:text-green-200 font-semibold">
@@ -411,16 +511,6 @@ const AddItemModal = ({
                 <p className="text-xs text-green-700 dark:text-green-300 mt-1">
                   Based on {formData.category} in {formData.storage_location}
                 </p>
-                {(() => {
-                  const sellByDate = new Date(formData.sell_by_date);
-                  const expiryDate = new Date(formData.calculated_expiry);
-                  const daysToExpiry = Math.ceil((expiryDate - sellByDate) / (1000 * 60 * 60 * 24));
-                  return (
-                    <p className="text-xs text-green-700 dark:text-green-300 mt-1 font-semibold">
-                      📅 Estimated shelf life: ~{daysToExpiry} days after sell-by date
-                    </p>
-                  );
-                })()}
               </div>
             )}
             <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
@@ -490,15 +580,18 @@ const AddItemModal = ({
           {formData.is_opened && (
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Opened Date
+                Opened Date (auto-filled to today)
               </label>
-              <input
-                type="date"
+              <DateInput
                 name="opened_date"
                 value={formData.opened_date || ''}
                 onChange={handleChange}
+                placeholder="MM/DD/YYYY"
                 className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
               />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Defaults to today, but you can change it if needed
+              </p>
             </div>
           )}
 
