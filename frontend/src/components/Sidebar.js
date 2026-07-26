@@ -65,7 +65,7 @@ const Sidebar = ({ onAction }) => {
     { action: 'stores', icon: Store, label: 'Manage Stores', color: 'text-blue-600', feature: 'store_management' },
     { path: '/admin/customize', icon: Sparkles, label: 'ACH Customization', color: 'text-purple-600', special: true, feature: 'ach_customization' },
     { path: '/settings', icon: Settings, label: 'Settings', color: 'text-gray-600' },
-    { path: '/admin', icon: Shield, label: 'Admin', color: 'text-red-600', adminOnly: true },
+    ...(user?.is_admin ? [{ path: '/admin', icon: Shield, label: 'Admin', color: 'text-red-600' }] : []),
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -193,13 +193,7 @@ const Sidebar = ({ onAction }) => {
               System
             </h3>
             {settingsItems
-              .filter(item => {
-                // Filter by admin status
-                if (item.adminOnly && !user?.is_admin) return false;
-                // Filter by feature flag
-                if (item.feature && !hasFeature(item.feature)) return false;
-                return true;
-              })
+              .filter(item => !item.feature || hasFeature(item.feature))
               .map((item) => (
               <button
                 key={item.path || item.action}
