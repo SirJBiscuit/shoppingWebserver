@@ -114,7 +114,7 @@ const InventoryCard = ({
     <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border-2 border-gray-100 dark:border-gray-700 w-full ${styles.card}`}>
       {/* Image or Icon */}
       <div className={`relative ${styles.image} bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center`}>
-        {image_url ? (
+        {image_url && image_url.startsWith('http') ? (
           <img 
             src={image_url} 
             alt={item_name}
@@ -122,11 +122,18 @@ const InventoryCard = ({
           />
         ) : (
           <div className={styles.icon}>
-            {item_icon || (category === 'Dairy & Eggs' && '🥛') || (category === 'Meat & Seafood' && '🥩') || '📦'}
-            {category === 'Produce' && '🥬'}
-            {category === 'Bakery & Bread' && '🍞'}
-            {category === 'Frozen Foods' && '❄️'}
-            {!category && '📦'}
+            {/* Use item_icon from database, or image_url if it's an emoji, or fallback to category icon */}
+            {item_icon || image_url || 
+              (category === 'Dairy & Eggs' && '🥛') || 
+              (category === 'Meat & Seafood' && '🥩') || 
+              (category === 'Produce' && '🥬') ||
+              (category === 'Bakery & Bread' && '🍞') ||
+              (category === 'Frozen Foods' && '❄️') ||
+              (category === 'Grains & Pasta' && '🍝') ||
+              (category === 'Snacks & Sweets' && '🍪') ||
+              (category === 'Beverages' && '🥤') ||
+              (category === 'Condiments & Sauces' && '🧂') ||
+              '📦'}
           </div>
         )}
         
