@@ -138,17 +138,25 @@ const InventoryCard = ({
           </div>
         )}
         
-        {/* Expiration Badge - Top Right */}
-        {expirationStatus && (
-          <div className="absolute top-3 right-3">
-            <ExpirationBadge expirationStatus={expirationStatus} size="md" />
-          </div>
-        )}
+        {/* Actions Menu - Top Right Corner */}
+        <button
+          onClick={() => setShowActions(!showActions)}
+          className="absolute top-3 right-3 bg-white dark:bg-gray-800 p-2 rounded-full shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-20"
+        >
+          <MoreVertical size={20} />
+        </button>
 
         {/* Opened Badge - Top Left */}
         {is_opened && (
-          <div className="absolute top-3 left-3 bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
+          <div className="absolute top-3 left-3 bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg z-10">
             Opened
+          </div>
+        )}
+
+        {/* Expiration Badge - Below Menu */}
+        {expirationStatus && (
+          <div className="absolute top-14 right-3 z-10">
+            <ExpirationBadge expirationStatus={expirationStatus} size="md" />
           </div>
         )}
 
@@ -164,17 +172,9 @@ const InventoryCard = ({
           );
         })()}
 
-        {/* Actions Menu - Top Right Corner */}
-        <button
-          onClick={() => setShowActions(!showActions)}
-          className="absolute top-3 left-3 bg-white dark:bg-gray-800 p-2 rounded-full shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-        >
-          <MoreVertical size={20} />
-        </button>
-
         {/* Actions Dropdown */}
         {showActions && (
-          <div className="absolute top-14 left-3 bg-white dark:bg-gray-800 rounded-lg shadow-2xl py-2 z-10 min-w-[200px] border border-gray-200 dark:border-gray-700">
+          <div className="absolute top-14 right-3 bg-white dark:bg-gray-800 rounded-lg shadow-2xl py-2 z-30 min-w-[200px] border border-gray-200 dark:border-gray-700">
             <button
               onClick={() => { onEdit(item); setShowActions(false); }}
               className="w-full px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 text-left"

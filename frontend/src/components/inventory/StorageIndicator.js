@@ -71,7 +71,7 @@ const StorageIndicator = ({ item, onAdjustQuantity, size = 'medium' }) => {
       <button
         onClick={() => handleAdjust(-1)}
         className="w-8 h-8 flex items-center justify-center bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-800/40 transition-colors border-2 border-red-300 dark:border-red-700"
-        title="Decrease quantity"
+        title={storageType === 'liquid' ? 'Used some (decrease quantity)' : 'Remove one (decrease quantity)'}
       >
         <Minus size={16} />
       </button>
@@ -142,7 +142,7 @@ const StorageIndicator = ({ item, onAdjustQuantity, size = 'medium' }) => {
       <button
         onClick={() => handleAdjust(1)}
         className="w-8 h-8 flex items-center justify-center bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-800/40 transition-colors border-2 border-green-300 dark:border-green-700"
-        title="Increase quantity"
+        title={storageType === 'liquid' ? 'Refilled (increase quantity)' : 'Add one (increase quantity)'}
       >
         <Plus size={16} />
       </button>
