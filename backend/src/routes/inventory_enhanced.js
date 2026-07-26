@@ -455,7 +455,7 @@ router.post('/', authenticateToken, async (req, res) => {
     `, [
       req.user.id,
       item_id,
-      storage_location || 'pantry',
+      custom_location_id ? null : (storage_location || 'pantry'),
       custom_location_id || null,
       quantity || 1,
       unit,

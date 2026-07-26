@@ -257,7 +257,7 @@ const AddItemModal = ({
       // Format data for backend API
       const apiData = {
         item_name: formData.item_name.trim(),
-        storage_location: formData.storage_location || 'pantry',
+        storage_location: formData.custom_location_id ? null : (formData.storage_location || 'pantry'),
         custom_location_id: formData.custom_location_id || null,
         category: formData.category || '',
         quantity: parseFloat(formData.quantity) || 1,
@@ -272,6 +272,8 @@ const AddItemModal = ({
         store: formData.store || '',
         notes: formData.notes || ''
       };
+      
+      console.log('Saving item with data:', apiData);
       
       setSaveError(null);
       await onSave(apiData);
