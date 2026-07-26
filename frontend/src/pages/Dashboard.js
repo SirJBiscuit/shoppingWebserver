@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCartAnimation } from '../contexts/CartAnimationContext';
 import { shoppingAPI, itemsAPI, suggestionsAPI, inventoryAPI, pantryAPI, categoriesAPI } from '../services/api';
+import stagingAPI from '../services/stagingAPI';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
   AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight
@@ -880,6 +881,15 @@ const Dashboard = () => {
       
       // Complete the shopping trip
       await shoppingAPI.completeList(activeList.id);
+      
+      // Move checked items to staging area
+      try {
+        await stagingAPI.moveFromShoppingList(activeList.id);
+        console.log('Items moved to staging area');
+      } catch (stagingError) {
+        console.error('Error moving to staging:', stagingError);
+        // Don't fail the whole operation if staging fails
+      }
       
       // Award XP for completing trip
       const tripData = {
