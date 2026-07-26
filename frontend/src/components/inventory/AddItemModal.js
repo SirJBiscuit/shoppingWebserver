@@ -4,6 +4,7 @@ import { detectLocation, getCategorySuggestions } from '../../utils/smartLocatio
 import IconPicker from './IconPicker';
 import DateInput from '../DateInput';
 import { useDeviceType, getTouchSizes } from '../../hooks/useDeviceType';
+import { classifyIngredient } from '../../utils/ingredientClassifier';
 
 /**
  * AddItemModal - Modal for adding/editing inventory items
@@ -153,15 +154,18 @@ const AddItemModal = ({
     const { name, value, type, checked } = e.target;
     let newValue = type === 'checkbox' ? checked : value;
     
-    // Auto-detect category, unit, and store when item name changes
+    // Auto-detect category, unit, storage location, and more when item name changes
     if (name === 'item_name' && value) {
       const detected = detectItemInfo(value);
+      const classification = classifyIngredient(value, detected.category || formData.category);
+      
       setFormData(prev => ({
         ...prev,
         item_name: value,
         category: detected.category || prev.category,
         unit: detected.unit || prev.unit,
-        icon: detected.icon || prev.icon
+        icon: detected.icon || prev.icon,
+        storage_location: classification.storageLocation || prev.storage_location
       }));
       return;
     }
@@ -422,6 +426,19 @@ const AddItemModal = ({
                 Auto-detected: {formData.category} {formData.unit && `• ${formData.unit}`}
               </p>
             )}
+            {formData.item_name && (() => {
+              const classification = classifyIngredient(formData.item_name, formData.category);
+              const indicator = classification.indicator;
+              return (
+                <div className={`mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 ${indicator.color} ${indicator.border}`}>
+                  <span className="text-lg">{indicator.icon}</span>
+                  <div className="text-xs font-semibold">
+                    <div>{indicator.label}</div>
+                    <div className="opacity-75">→ {classification.storageLocation.charAt(0).toUpperCase() + classification.storageLocation.slice(1)}</div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Storage Location & Quantity Row */}

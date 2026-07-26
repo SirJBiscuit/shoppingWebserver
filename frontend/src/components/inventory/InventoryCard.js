@@ -6,6 +6,7 @@ import {
 import ExpirationBadge from './ExpirationBadge';
 import StorageIndicator from './StorageIndicator';
 import DateBadge from './DateBadge';
+import { classifyIngredient } from '../../utils/ingredientClassifier';
 
 /**
  * InventoryCard - Beautiful card for displaying inventory items
@@ -150,6 +151,18 @@ const InventoryCard = ({
             Opened
           </div>
         )}
+
+        {/* Storage Type Badge - Bottom Left */}
+        {(() => {
+          const classification = classifyIngredient(item_name, category);
+          const indicator = classification.indicator;
+          return (
+            <div className={`absolute bottom-3 left-3 px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 ${indicator.color} ${indicator.border} border-2`}>
+              <span>{indicator.icon}</span>
+              <span>{indicator.label}</span>
+            </div>
+          );
+        })()}
 
         {/* Actions Menu - Top Right Corner */}
         <button
