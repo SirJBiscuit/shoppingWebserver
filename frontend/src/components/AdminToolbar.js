@@ -1,19 +1,25 @@
 import React, { useState } from 'react';
 import { Layout, Settings, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useFeatureFlags } from '../context/FeatureFlagContext';
 import LiveEditorOverlay from './LiveEditorOverlay';
 
 const AdminToolbar = () => {
   const { user } = useAuth();
+  const { hasFeature } = useFeatureFlags();
   const [showEditor, setShowEditor] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
   // Only show for admin users
   if (!user?.isAdmin) return null;
+  
+  // Check if dashboard editor feature is enabled
+  const dashboardEditorEnabled = hasFeature('dashboard_editor');
 
   return (
     <>
-      {/* Floating Admin Toolbar */}
+      {/* Floating Admin Toolbar - Hide when editor is open */}
+      {!showEditor && (
       <div className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
         isMinimized ? 'translate-y-0' : 'translate-y-0'
       }`}>
@@ -26,7 +32,7 @@ const AdminToolbar = () => {
                   <span className="text-white font-semibold text-sm">Admin Mode</span>
                 </div>
                 
-                {!isMinimized && (
+                {!isMinimized && dashboardEditorEnabled && (
                   <button
                     onClick={() => setShowEditor(true)}
                     className="flex items-center space-x-2 px-4 py-1.5 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg transition-all hover:scale-105 backdrop-blur-sm"
@@ -51,10 +57,10 @@ const AdminToolbar = () => {
             </div>
           </div>
         </div>
+        {/* Add padding to page content so it doesn't go under the toolbar */}
+        <div className="h-10" />
       </div>
-
-      {/* Add padding to page content so it doesn't go under the toolbar */}
-      <div className="h-10" />
+      )}
 
       {/* Live Editor Overlay */}
       {showEditor && (

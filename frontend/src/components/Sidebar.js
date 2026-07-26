@@ -87,8 +87,9 @@ const Sidebar = ({ onAction }) => {
       path: '/admin', 
       icon: Shield, 
       label: 'Admin', 
-      color: 'text-red-600',
-      isAdmin: true // Special flag to bypass feature filtering
+      color: 'text-orange-600',
+      isAdmin: true, // Special flag to bypass feature filtering
+      adminSpecial: true // Flag for special orange styling
     });
   } else {
     console.log('❌ User is not admin, skipping admin button');
@@ -227,7 +228,11 @@ const Sidebar = ({ onAction }) => {
                 key={item.path || item.action}
                 onClick={() => item.action ? onAction?.(item.action) : handleNavClick(item.path)}
                 className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-                  item.special
+                  item.adminSpecial
+                    ? isActive(item.path)
+                      ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg'
+                      : 'bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 shadow-md'
+                    : item.special
                     ? isActive(item.path)
                       ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
                       : 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 shadow-md'
@@ -236,8 +241,13 @@ const Sidebar = ({ onAction }) => {
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
               >
-                <item.icon className={`w-5 h-5 ${item.special ? 'text-white' : isActive(item.path) ? item.color : ''}`} />
+                <item.icon className={`w-5 h-5 ${item.special || item.adminSpecial ? 'text-white' : isActive(item.path) ? item.color : ''}`} />
                 <span className="font-medium text-sm">{item.label}</span>
+                {item.adminSpecial && (
+                  <span className="ml-auto bg-white text-orange-600 text-xs px-2 py-0.5 rounded-full font-bold">
+                    ADMIN
+                  </span>
+                )}
                 {item.special && (
                   <span className="ml-auto bg-white text-purple-600 text-xs px-2 py-0.5 rounded-full font-bold">
                     NEW

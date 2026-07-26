@@ -3,7 +3,7 @@ import {
   Eye, EyeOff, GripVertical, Save, RotateCcw, Smartphone, 
   ShoppingCart, Package, ChefHat, Calendar, BarChart3, Search, 
   History, Mic, Scan, Share2, Store, Sparkles, Settings, Shield,
-  AlertCircle, CheckCircle
+  AlertCircle, CheckCircle, X
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import api from '../../services/api';
@@ -32,6 +32,7 @@ const FeatureManagementVisual = () => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
   const [previewMode, setPreviewMode] = useState('sidebar');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadFeatures();
@@ -123,6 +124,18 @@ const FeatureManagementVisual = () => {
     setMessage({ text, type });
     setTimeout(() => setMessage(null), 3000);
   };
+
+  // Filter features based on search query
+  const filteredFeatures = features.filter(feature => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      feature.feature_name.toLowerCase().includes(query) ||
+      feature.feature_key.toLowerCase().includes(query) ||
+      feature.category.toLowerCase().includes(query) ||
+      feature.description?.toLowerCase().includes(query)
+    );
+  });
 
   const renderSidebarPreview = () => {
     // Get features by key
@@ -240,9 +253,12 @@ const FeatureManagementVisual = () => {
             <Settings className="w-5 h-5" />
             <span className="text-sm">Settings</span>
           </div>
-          <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-red-600">
-            <Shield className="w-5 h-5" />
+          <div className="flex items-center space-x-3 px-3 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md">
+            <Shield className="w-5 h-5 text-white" />
             <span className="text-sm">Admin</span>
+            <span className="ml-auto bg-white text-orange-600 text-xs px-2 py-0.5 rounded-full font-bold">
+              ADMIN
+            </span>
           </div>
         </div>
       </div>
@@ -308,9 +324,37 @@ const FeatureManagementVisual = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Feature List with Drag & Drop */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Features (Drag to Reorder)
-          </h3>
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+              Features (Drag to Reorder)
+            </h3>
+            
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search features..."
+                className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            
+            {searchQuery && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                Found {filteredFeatures.length} of {features.length} features
+              </p>
+            )}
+          </div>
           
           <DragDropContext onDragEnd={handleDragEnd}>
             <Droppable droppableId="features">
@@ -318,9 +362,13 @@ const FeatureManagementVisual = () => {
                 <div
                   {...provided.droppableProps}
                   ref={provided.innerRef}
-                  className="space-y-2"
+                  className="space-y-2 max-h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-primary-500 scrollbar-track-gray-200 dark:scrollbar-track-gray-700 hover:scrollbar-thumb-primary-600"
+                  style={{
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: 'rgb(99 102 241) rgb(229 231 235)'
+                  }}
                 >
-                  {features.map((feature, index) => {
+                  {filteredFeatures.map((feature, index) => {
                     const Icon = ICON_MAP[feature.feature_key] || Package;
                     return (
                       <Draggable
