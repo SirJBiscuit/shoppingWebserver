@@ -782,6 +782,35 @@ router.post('/:id/opened', authenticateToken, async (req, res) => {
   }
 });
 
+// Update fill level for seasonings
+router.patch('/:id/fill-level', authenticateToken, async (req, res) => {
+  try {
+    const { fill_level } = req.body;
+    
+    // Validate fill level
+    const validLevels = ['full', 'half', 'low', 'empty'];
+    if (!validLevels.includes(fill_level)) {
+      return res.status(400).json({ error: 'Invalid fill level. Must be: full, half, low, or empty' });
+    }
+    
+    const result = await db.query(`
+      UPDATE inventory
+      SET fill_level = $1
+      WHERE id = $2 AND user_id = $3
+      RETURNING *
+    `, [fill_level, req.params.id, req.user.id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating fill level:', error);
+    res.status(500).json({ error: 'Failed to update fill level' });
+  }
+});
+
 // Reorder items (custom sort)
 router.post('/reorder', authenticateToken, async (req, res) => {
   try {

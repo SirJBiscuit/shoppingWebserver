@@ -139,6 +139,15 @@ const inventoryAPI = {
     return response.data;
   },
 
+  // Update fill level for seasonings
+  updateFillLevel: async (id, fillLevel) => {
+    const response = await axios.patch(`${API_URL}/inventory/${id}/fill-level`, 
+      { fill_level: fillLevel },
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  },
+
   // Reorder items (custom sort)
   reorderItems: async (items) => {
     const response = await axios.post(`${API_URL}/inventory/reorder`, 

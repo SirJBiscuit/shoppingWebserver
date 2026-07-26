@@ -24,7 +24,7 @@ const recipesAPI = {
     if (filters.canMake) params.append('canMake', 'true');
 
     const queryString = params.toString();
-    const url = queryString ? `/api/recipes?${queryString}` : '/api/recipes';
+    const url = queryString ? `/recipes?${queryString}` : '/recipes';
     const response = await api.get(url);
     return response.data;
   },
@@ -33,7 +33,7 @@ const recipesAPI = {
    * Get single recipe with ingredients
    */
   getById: async (id) => {
-    const response = await api.get(`/api/recipes/${id}`);
+    const response = await api.get(`/recipes/${id}`);
     return response.data;
   },
 
@@ -41,7 +41,7 @@ const recipesAPI = {
    * Create new recipe
    */
   create: async (recipeData) => {
-    const response = await api.post('/api/recipes', recipeData);
+    const response = await api.post('/recipes', recipeData);
     return response.data;
   },
 
@@ -49,7 +49,7 @@ const recipesAPI = {
    * Update existing recipe
    */
   update: async (id, recipeData) => {
-    const response = await api.patch(`/api/recipes/${id}`, recipeData);
+    const response = await api.patch(`/recipes/${id}`, recipeData);
     return response.data;
   },
 
@@ -57,7 +57,7 @@ const recipesAPI = {
    * Delete recipe
    */
   delete: async (id) => {
-    const response = await api.delete(`/api/recipes/${id}`);
+    const response = await api.delete(`/recipes/${id}`);
     return response.data;
   },
 
@@ -65,7 +65,7 @@ const recipesAPI = {
    * Toggle favorite status
    */
   toggleFavorite: async (id, isFavorite) => {
-    const response = await api.patch(`/api/recipes/${id}`, { is_favorite: isFavorite });
+    const response = await api.patch(`/recipes/${id}`, { is_favorite: isFavorite });
     return response.data;
   },
 
@@ -78,7 +78,7 @@ const recipesAPI = {
    * Returns matched, insufficient, and missing ingredients
    */
   getInventoryComparison: async (recipeId) => {
-    const response = await api.get(`/api/recipes/${recipeId}/inventory-comparison`);
+    const response = await api.get(`/recipes/${recipeId}/inventory-comparison`);
     return response.data;
   },
 
@@ -86,7 +86,7 @@ const recipesAPI = {
    * Get missing ingredients for shopping list
    */
   getMissingIngredients: async (recipeId) => {
-    const response = await api.get(`/api/recipes/${recipeId}/missing-ingredients`);
+    const response = await api.get(`/recipes/${recipeId}/missing-ingredients`);
     return response.data;
   },
 
@@ -95,7 +95,7 @@ const recipesAPI = {
    * @param {number} minMatch - Minimum match percentage (default 100)
    */
   getMakeableRecipes: async (minMatch = 100) => {
-    const response = await api.get(`/api/recipes/can-make/list?minMatch=${minMatch}`);
+    const response = await api.get(`/recipes/can-make/list?minMatch=${minMatch}`);
     return response.data;
   },
 
@@ -105,7 +105,7 @@ const recipesAPI = {
    * @param {object} data - { servings_made, rating, notes, deduct_inventory }
    */
   markCooked: async (recipeId, data) => {
-    const response = await api.post(`/api/recipes/${recipeId}/mark-cooked`, data);
+    const response = await api.post(`/recipes/${recipeId}/mark-cooked`, data);
     return response.data;
   },
 
@@ -113,7 +113,7 @@ const recipesAPI = {
    * Get cooking history for a recipe
    */
   getCookingHistory: async (recipeId) => {
-    const response = await api.get(`/api/recipes/${recipeId}/history`);
+    const response = await api.get(`/recipes/${recipeId}/history`);
     return response.data;
   },
 
@@ -125,7 +125,7 @@ const recipesAPI = {
    * Get all recipe categories
    */
   getCategories: async () => {
-    const response = await api.get('/api/recipes/meta/categories');
+    const response = await api.get('/recipes/meta/categories');
     return response.data;
   },
 
@@ -133,7 +133,7 @@ const recipesAPI = {
    * Get all recipe cuisines
    */
   getCuisines: async () => {
-    const response = await api.get('/api/recipes/meta/cuisines');
+    const response = await api.get('/recipes/meta/cuisines');
     return response.data;
   },
 
@@ -145,7 +145,7 @@ const recipesAPI = {
    * Import recipe from URL
    */
   importFromUrl: async (url) => {
-    const response = await api.post('/api/recipes/import', { url });
+    const response = await api.post('/recipes/import', { url });
     return response.data;
   },
 
@@ -153,7 +153,7 @@ const recipesAPI = {
    * Search recipes from external sites
    */
   searchExternal: async (query) => {
-    const response = await api.get(`/api/recipes/search?q=${encodeURIComponent(query)}`);
+    const response = await api.get(`/recipes/search?q=${encodeURIComponent(query)}`);
     return response.data;
   },
 
@@ -161,7 +161,7 @@ const recipesAPI = {
    * Get supported recipe sites
    */
   getSupportedSites: async () => {
-    const response = await api.get('/api/recipes/supported-sites');
+    const response = await api.get('/recipes/supported-sites');
     return response.data;
   },
 
@@ -175,7 +175,7 @@ const recipesAPI = {
    * @param {number} listId - Optional, creates new list if not provided
    */
   addToShoppingList: async (recipeId, listId = null) => {
-    const response = await api.post(`/api/recipes/${recipeId}/to-shopping-list`, { list_id: listId });
+    const response = await api.post(`/recipes/${recipeId}/to-shopping-list`, { list_id: listId });
     return response.data;
   },
 
@@ -183,7 +183,7 @@ const recipesAPI = {
    * Get recipes associated with a shopping list
    */
   getShoppingListRecipes: async (listId) => {
-    const response = await api.get(`/api/recipes/shopping-list/${listId}/recipes`);
+    const response = await api.get(`/recipes/shopping-list/${listId}/recipes`);
     return response.data;
   }
 };
