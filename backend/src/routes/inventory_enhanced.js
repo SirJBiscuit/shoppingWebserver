@@ -848,8 +848,13 @@ router.get('/expiring-soon', authenticateToken, async (req, res) => {
     const result = await db.query(`
       SELECT 
         i.*,
-        csl.name as custom_location_name
+        it.name as item_name,
+        it.preferred_icon as item_icon,
+        it.category,
+        csl.name as custom_location_name,
+        csl.icon as custom_location_icon
       FROM inventory i
+      LEFT JOIN items it ON i.item_id = it.id
       LEFT JOIN custom_storage_locations csl ON i.custom_location_id = csl.id
       WHERE i.user_id = $1
         AND i.estimated_expiry_date <= CURRENT_DATE + INTERVAL '${daysAhead} days'
@@ -879,8 +884,8 @@ router.get('/stats', authenticateToken, async (req, res) => {
                    AND estimated_expiry_date >= CURRENT_DATE THEN 1 END) as expiring_soon,
         COUNT(CASE WHEN estimated_expiry_date < CURRENT_DATE THEN 1 END) as expired,
         COUNT(CASE WHEN is_opened = true THEN 1 END) as opened_items,
-        COUNT(DISTINCT storage_location) as storage_locations_used,
-        SUM(price * current_quantity) as total_value
+        (COUNT(DISTINCT storage_location) + COUNT(DISTINCT custom_location_id)) as storage_locations_used,
+        COALESCE(SUM(price * current_quantity), 0) as total_value
       FROM inventory
       WHERE user_id = $1
     `, [req.user.id]);

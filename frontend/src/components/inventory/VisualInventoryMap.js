@@ -26,10 +26,10 @@ const VisualInventoryMap = ({ items, onEdit, onAdjustQuantity }) => {
             id: item.custom_location_id,
             name: item.custom_location_name || 'Custom Location',
             icon: item.custom_location_icon || '📦',
-            color: item.custom_location_color || 'from-gray-100 to-gray-200 dark:from-gray-900/30 dark:to-gray-800/30',
-            borderColor: 'border-gray-300 dark:border-gray-700',
-            textColor: 'text-gray-800 dark:text-gray-300',
-            bgColor: 'bg-gray-50 dark:bg-gray-900/20',
+            color: 'from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/30',
+            borderColor: 'border-purple-400 dark:border-purple-600',
+            textColor: 'text-purple-900 dark:text-purple-200',
+            bgColor: 'bg-purple-50 dark:bg-purple-900/20',
             items: []
           };
         }
