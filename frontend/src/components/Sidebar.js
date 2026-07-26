@@ -70,8 +70,17 @@ const Sidebar = ({ onAction }) => {
   
   // Add admin panel for admin users
   if (user?.is_admin) {
-    settingsItems.push({ path: '/admin', icon: Shield, label: 'Admin', color: 'text-red-600' });
+    console.log('Adding admin button for user:', user);
+    settingsItems.push({ 
+      path: '/admin', 
+      icon: Shield, 
+      label: 'Admin', 
+      color: 'text-red-600',
+      isAdmin: true // Special flag to bypass feature filtering
+    });
   }
+  
+  console.log('Settings items:', settingsItems);
 
   const isActive = (path) => location.pathname === path;
 
@@ -198,7 +207,7 @@ const Sidebar = ({ onAction }) => {
               System
             </h3>
             {settingsItems
-              .filter(item => !item.feature || hasFeature(item.feature))
+              .filter(item => item.isAdmin || !item.feature || hasFeature(item.feature))
               .map((item) => (
               <button
                 key={item.path || item.action}
