@@ -232,10 +232,36 @@ const AddItemModal = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-    onSave(formData);
+    
+    try {
+      // Format data for backend API
+      const apiData = {
+        item_name: formData.item_name.trim(),
+        storage_location: formData.storage_location || 'pantry',
+        custom_location_id: formData.custom_location_id || null,
+        category: formData.category || '',
+        quantity: parseFloat(formData.quantity) || 1,
+        unit: formData.unit || '',
+        bought_date: formData.bought_date || new Date().toISOString().split('T')[0],
+        opened_date: formData.opened_date || null,
+        is_opened: formData.is_opened || false,
+        manual_expiry_date: formData.manual_expiry_date || formData.calculated_expiry || null,
+        barcode: formData.barcode || '',
+        image_url: formData.icon || '📦',
+        price: formData.price ? parseFloat(formData.price) : null,
+        store: formData.store || '',
+        notes: formData.notes || ''
+      };
+      
+      setSaveError(null);
+      await onSave(apiData);
+    } catch (error) {
+      console.error('Submit error:', error);
+      setSaveError(error.message || 'Failed to save item');
+    }
   };
 
   if (!isOpen) return null;
@@ -491,18 +517,27 @@ const AddItemModal = ({
             />
           </div>
 
-          {/* Buttons */}
-          <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+          {/* Error Display */}
+          {saveError && (
+            <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-lg p-4">
+              <p className="text-red-700 dark:text-red-300 font-semibold">
+                ❌ {saveError}
+              </p>
+            </div>
+          )}
+
+          {/* Buttons - Touch Optimized */}
+          <div className={`flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700 ${touchSizes.spacing}`}>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              className={`flex-1 ${touchSizes.buttonSize} bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors ${touchSizes.fontSize}`}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              className={`flex-1 ${touchSizes.buttonSize} bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors ${touchSizes.fontSize}`}
             >
               {item ? 'Save Changes' : 'Add to Inventory'}
             </button>
