@@ -125,15 +125,31 @@ const FeatureManagementVisual = () => {
   };
 
   const renderSidebarPreview = () => {
-    const mainNav = features.filter(f => 
-      ['shopping_lists', 'pantry', 'recipes', 'meal_planner', 'statistics', 'recipe_discovery', 'activity_history'].includes(f.feature_key)
-    );
-    const tools = features.filter(f => 
-      ['voice_input', 'barcode_scanner', 'sharing'].includes(f.feature_key)
-    );
-    const settings = features.filter(f => 
-      ['store_management', 'ach_customization'].includes(f.feature_key)
-    );
+    // Get features by key
+    const getFeature = (key) => features.find(f => f.feature_key === key);
+    
+    // Exact sidebar structure from Sidebar.js
+    const mainNavItems = [
+      { feature: getFeature('shopping_lists'), label: 'Dashboard', icon: ShoppingCart },
+      { feature: getFeature('pantry'), label: 'After Shop', icon: Package, badge: '🛒' },
+      { feature: getFeature('pantry'), label: 'Kitchen Inventory', icon: Package },
+      { feature: getFeature('recipes'), label: 'Recipe Book', icon: ChefHat },
+      { feature: getFeature('meal_planner'), label: 'Meal Planner', icon: Calendar },
+      { feature: getFeature('statistics'), label: 'Statistics', icon: BarChart3 },
+      { feature: getFeature('recipe_discovery'), label: 'Recipe Discovery', icon: Search },
+      { feature: getFeature('activity_history'), label: 'Activity History', icon: History },
+    ].filter(item => item.feature);
+    
+    const toolItems = [
+      { feature: getFeature('voice_input'), label: 'Voice Input', icon: Mic },
+      { feature: getFeature('barcode_scanner'), label: 'Barcode Scanner', icon: Scan },
+      { feature: getFeature('sharing'), label: 'Share List', icon: Share2 },
+    ].filter(item => item.feature);
+    
+    const settingsItems = [
+      { feature: getFeature('store_management'), label: 'Manage Stores', icon: Store },
+      { feature: getFeature('ach_customization'), label: 'ACH Customization', icon: Sparkles, special: true },
+    ].filter(item => item.feature);
 
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 w-72">
@@ -141,20 +157,23 @@ const FeatureManagementVisual = () => {
           <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
             Main Menu
           </h3>
-          {mainNav.map(feature => {
-            const Icon = ICON_MAP[feature.feature_key] || Package;
+          {mainNavItems.map((item, index) => {
+            const Icon = item.icon;
             return (
               <div
-                key={feature.id}
+                key={`main-${index}`}
                 className={`flex items-center space-x-3 px-3 py-2 rounded-lg mb-1 ${
-                  feature.is_enabled
+                  item.feature.is_enabled
                     ? 'text-gray-700 dark:text-gray-300 opacity-100'
                     : 'text-gray-400 dark:text-gray-600 opacity-50 line-through'
                 }`}
               >
                 <Icon className="w-5 h-5" />
-                <span className="text-sm">{feature.feature_name}</span>
-                {!feature.is_enabled && (
+                <span className="text-sm">{item.label}</span>
+                {item.badge && item.feature.is_enabled && (
+                  <span className="ml-auto text-xs">{item.badge}</span>
+                )}
+                {!item.feature.is_enabled && (
                   <EyeOff className="w-4 h-4 ml-auto text-red-500" />
                 )}
               </div>
@@ -166,20 +185,20 @@ const FeatureManagementVisual = () => {
           <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
             Quick Tools
           </h3>
-          {tools.map(feature => {
-            const Icon = ICON_MAP[feature.feature_key] || Package;
+          {toolItems.map((item, index) => {
+            const Icon = item.icon;
             return (
               <div
-                key={feature.id}
+                key={`tool-${index}`}
                 className={`flex items-center space-x-3 px-3 py-2 rounded-lg mb-1 ${
-                  feature.is_enabled
+                  item.feature.is_enabled
                     ? 'text-gray-700 dark:text-gray-300 opacity-100'
                     : 'text-gray-400 dark:text-gray-600 opacity-50 line-through'
                 }`}
               >
                 <Icon className="w-5 h-5" />
-                <span className="text-sm">{feature.feature_name}</span>
-                {!feature.is_enabled && (
+                <span className="text-sm">{item.label}</span>
+                {!item.feature.is_enabled && (
                   <EyeOff className="w-4 h-4 ml-auto text-red-500" />
                 )}
               </div>
@@ -191,20 +210,27 @@ const FeatureManagementVisual = () => {
           <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
             System
           </h3>
-          {settings.map(feature => {
-            const Icon = ICON_MAP[feature.feature_key] || Settings;
+          {settingsItems.map((item, index) => {
+            const Icon = item.icon;
             return (
               <div
-                key={feature.id}
+                key={`setting-${index}`}
                 className={`flex items-center space-x-3 px-3 py-2 rounded-lg mb-1 ${
-                  feature.is_enabled
+                  item.special && item.feature.is_enabled
+                    ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white'
+                    : item.feature.is_enabled
                     ? 'text-gray-700 dark:text-gray-300 opacity-100'
                     : 'text-gray-400 dark:text-gray-600 opacity-50 line-through'
                 }`}
               >
-                <Icon className="w-5 h-5" />
-                <span className="text-sm">{feature.feature_name}</span>
-                {!feature.is_enabled && (
+                <Icon className={`w-5 h-5 ${item.special && item.feature.is_enabled ? 'text-white' : ''}`} />
+                <span className="text-sm">{item.label}</span>
+                {item.special && item.feature.is_enabled && (
+                  <span className="ml-auto bg-white text-purple-600 text-xs px-2 py-0.5 rounded-full font-bold">
+                    NEW
+                  </span>
+                )}
+                {!item.feature.is_enabled && (
                   <EyeOff className="w-4 h-4 ml-auto text-red-500" />
                 )}
               </div>
