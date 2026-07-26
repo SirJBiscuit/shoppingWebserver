@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Calendar, DollarSign, MapPin, Package, Image as ImageIcon, Trash2, Lightbulb, Smile } from 'lucide-react';
 import { detectLocation, getCategorySuggestions } from '../../utils/smartLocationDetector';
 import IconPicker from './IconPicker';
