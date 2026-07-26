@@ -20,6 +20,15 @@ const Sidebar = ({ onAction }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [expiringCount, setExpiringCount] = useState(0);
 
+  // Debug: Log user object
+  useEffect(() => {
+    console.log('Sidebar - User from context:', user);
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      console.log('Sidebar - User from localStorage:', JSON.parse(storedUser));
+    }
+  }, [user]);
+
   // Fetch expiring items count
   useEffect(() => {
     const fetchExpiringCount = async () => {
@@ -69,8 +78,11 @@ const Sidebar = ({ onAction }) => {
   ];
   
   // Add admin panel for admin users
-  if (user?.is_admin) {
-    console.log('Adding admin button for user:', user);
+  const isUserAdmin = user?.is_admin === true || user?.isAdmin === true;
+  console.log('Is user admin?', isUserAdmin, 'User object:', user);
+  
+  if (isUserAdmin) {
+    console.log('✅ Adding admin button to sidebar');
     settingsItems.push({ 
       path: '/admin', 
       icon: Shield, 
@@ -78,9 +90,11 @@ const Sidebar = ({ onAction }) => {
       color: 'text-red-600',
       isAdmin: true // Special flag to bypass feature filtering
     });
+  } else {
+    console.log('❌ User is not admin, skipping admin button');
   }
   
-  console.log('Settings items:', settingsItems);
+  console.log('Final settings items:', settingsItems.map(i => i.label));
 
   const isActive = (path) => location.pathname === path;
 
