@@ -46,7 +46,7 @@ const Sidebar = ({ onAction }) => {
 
   const mainNavItems = [
     { path: '/', icon: ShoppingCart, label: 'Dashboard', color: 'text-blue-600', feature: 'shopping_lists' },
-    { path: '/staging', icon: Package, label: 'Staging Area', color: 'text-yellow-600', feature: 'pantry', badge: '🛒' },
+    { path: '/staging', icon: Package, label: 'After Shop', color: 'text-yellow-600', feature: 'pantry', badge: '🛒' },
     { path: '/pantry-new', icon: Package, label: 'Kitchen Inventory', color: 'text-green-600', feature: 'pantry' },
     { path: '/recipes', icon: ChefHat, label: 'Recipe Book', color: 'text-orange-600', feature: 'recipes' },
     { path: '/meal-plan', icon: Calendar, label: 'Meal Planner', color: 'text-purple-600', feature: 'meal_planner' },

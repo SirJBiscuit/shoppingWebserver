@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Package, CheckCircle, XCircle, AlertTriangle, ArrowRight, Trash2 } from 'lucide-react';
+import { Package, CheckCircle, XCircle, AlertTriangle, ArrowRight, Trash2, Info } from 'lucide-react';
 import stagingAPI from '../services/stagingAPI';
+import inventoryAPI from '../services/inventoryAPI';
 import StagingItemCard from '../components/staging/StagingItemCard';
 import RotationPanel from '../components/staging/RotationPanel';
+import Sidebar from '../components/Sidebar';
 
 /**
- * StagingArea - Floor Space for newly purchased items
+ * StagingArea - After Shop
  * Shows items waiting to be put away with smart rotation suggestions
  */
 const StagingArea = () => {
@@ -14,9 +16,11 @@ const StagingArea = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('grouped'); // 'grouped' or 'comparison'
+  const [pantryItems, setPantryItems] = useState([]);
 
   useEffect(() => {
     loadStagingItems();
+    loadPantryPreview();
   }, []);
 
   const loadStagingItems = async () => {
@@ -28,6 +32,17 @@ const StagingArea = () => {
       console.error('Error loading staging items:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPantryPreview = async () => {
+    try {
+      const response = await inventoryAPI.getItems();
+      // Get recent items, limit to 20
+      const recentItems = response.data.items?.slice(0, 20) || [];
+      setPantryItems(recentItems);
+    } catch (error) {
+      console.error('Error loading pantry preview:', error);
     }
   };
 
@@ -102,7 +117,7 @@ const StagingArea = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-xl text-gray-600 dark:text-gray-400">Loading staging area...</div>
+        <div className="text-xl text-gray-600 dark:text-gray-400">Loading...</div>
       </div>
     );
   }
@@ -110,14 +125,48 @@ const StagingArea = () => {
   const { grouped, total } = stagingItems;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
-      {/* Header */}
-      <div className="max-w-7xl mx-auto mb-6">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Sidebar */}
+      <Sidebar />
+      
+      {/* Main Content */}
+      <div className="flex-1 p-4 ml-64">
+        {/* Instructions Banner */}
+        <div className="max-w-7xl mx-auto mb-6">
+          <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+            <div className="flex items-start gap-4">
+              <Info size={32} className="flex-shrink-0 mt-1" />
+              <div>
+                <h2 className="text-2xl font-bold mb-3">How to Use After Shop</h2>
+                <ol className="space-y-2 text-sm opacity-90">
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold">1.</span>
+                    <span>Complete a shopping trip - items automatically appear here</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold">2.</span>
+                    <span>Click on an item to see smart suggestions (use old items first, discard expired)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold">3.</span>
+                    <span>Review rotation recommendations to prevent food waste</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold">4.</span>
+                    <span>Put away items to Kitchen Inventory when ready</span>
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Header */}
+        <div className="max-w-7xl mx-auto mb-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-              <Package size={32} className="text-blue-600" />
-              Staging Area
+              🛒 After Shop
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1">
               {total} item{total !== 1 ? 's' : ''} waiting to be put away
@@ -139,17 +188,17 @@ const StagingArea = () => {
       {total === 0 ? (
         <div className="max-w-7xl mx-auto">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center">
-            <Package size={64} className="mx-auto text-gray-400 mb-4" />
+            <div className="text-6xl mb-4">🛒</div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              No Items in Staging
+              Nothing Here Yet
             </h2>
             <p className="text-gray-600 dark:text-gray-400">
-              Complete a shopping list to move items here for organized put-away
+              Complete a shopping trip to move items here for organized put-away
             </p>
           </div>
         </div>
       ) : (
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Left: Staging Items */}
           <div className="lg:col-span-2 space-y-6">
             {/* Fridge Items */}
@@ -216,7 +265,7 @@ const StagingArea = () => {
             )}
           </div>
 
-          {/* Right: Rotation Panel */}
+          {/* Middle: Rotation Panel */}
           <div className="lg:col-span-1">
             <div className="sticky top-4">
               {selectedItem ? (
@@ -243,8 +292,57 @@ const StagingArea = () => {
               )}
             </div>
           </div>
+
+          {/* Far Right: Pantry Preview */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-4">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+                <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-4 text-white">
+                  <h3 className="font-bold text-lg flex items-center gap-2">
+                    🏠 Current Pantry
+                  </h3>
+                  <p className="text-xs opacity-90 mt-1">What you already have</p>
+                </div>
+                
+                <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
+                  {pantryItems.length === 0 ? (
+                    <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+                      <Package size={32} className="mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No items in pantry yet</p>
+                    </div>
+                  ) : (
+                    <div className="p-4 space-y-2">
+                      {pantryItems.map((item, index) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-all animate-fade-in"
+                          style={{ animationDelay: `${index * 50}ms` }}
+                        >
+                          <div className="text-2xl">{item.image_url || item.item_icon || '📦'}</div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">
+                              {item.item_name}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {item.current_quantity} {item.unit}
+                            </p>
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {item.storage_location === 'fridge' && '🧊'}
+                            {item.storage_location === 'freezer' && '❄️'}
+                            {item.storage_location === 'pantry' && '🥫'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
+      </div>
     </div>
   );
 };
