@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   ShoppingCart, ChefHat, Package, Calendar, BarChart3, 
   Settings, Shield, History, Search, Mic, Scan, Share2,
-  Menu, X, Bell, Moon, Sun, Crown, Store, Sparkles
+  Menu, X, Bell, Moon, Sun, Crown, Store, Sparkles, Home
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -56,7 +56,7 @@ const Sidebar = ({ onAction }) => {
   const mainNavItems = [
     { path: '/', icon: ShoppingCart, label: 'Dashboard', color: 'text-blue-600', feature: 'shopping_lists' },
     { path: '/staging', icon: Package, label: 'After Shop', color: 'text-yellow-600', feature: 'pantry', badge: '🛒' },
-    { path: '/pantry-new', icon: Package, label: 'Kitchen Inventory', color: 'text-green-600', feature: 'pantry' },
+    { path: '/pantry-new', icon: Home, label: 'Home Inventory', color: 'text-green-600', feature: 'pantry' },
     { path: '/recipes', icon: ChefHat, label: 'Recipe Book', color: 'text-orange-600', feature: 'recipes' },
     { path: '/meal-plan', icon: Calendar, label: 'Meal Planner', color: 'text-purple-600', feature: 'meal_planner' },
     { path: '/stats', icon: BarChart3, label: 'Statistics', color: 'text-pink-600', feature: 'statistics' },
@@ -187,7 +187,7 @@ const Sidebar = ({ onAction }) => {
               >
                 <item.icon className={`w-5 h-5 ${isActive(item.path) ? item.color : ''}`} />
                 <span className="font-medium text-sm">{item.label}</span>
-                {/* Expiring Soon Badge for Kitchen Inventory */}
+                {/* Expiring Soon Badge for Home Inventory */}
                 {item.path === '/pantry-new' && expiringCount > 0 && (
                   <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse">
                     {expiringCount}

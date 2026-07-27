@@ -24,8 +24,8 @@ import ListView from '../components/inventory/ListView';
 import VisualInventoryMap from '../components/inventory/VisualInventoryMap';
 
 /**
- * PantryNew - Complete rewrite of Pantry page with Kitchen Inventory features
- * - Custom storage locations
+ * PantryNew - Complete rewrite of Pantry page with Home Inventory features
+ * - Custom storage locations for kitchen, bathroom, pet supplies, and more
  * - Smart expiration tracking
  * - Tablet-optimized UI
  * - Advanced filters and search
@@ -443,10 +443,10 @@ const PantryNew = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 md:mb-6">
               <div className="flex-1 min-w-0">
                 <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-1 md:mb-2">
-                  Kitchen Inventory
+                  Home Inventory
                 </h1>
                 <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 hidden sm:block">
-                  Manage your pantry, fridge, and freezer items with smart expiration tracking
+                  Manage all your household items - kitchen, bathroom, pet supplies, and more
                 </p>
               </div>
 
