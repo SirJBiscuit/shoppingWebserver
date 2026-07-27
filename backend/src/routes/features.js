@@ -130,7 +130,7 @@ router.get('/admin/all', auth, isAdmin, async (req, res) => {
 router.put('/admin/feature/:id', auth, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { feature_name, description, is_enabled, min_tier } = req.body;
+    const { feature_name, description, is_enabled, min_tier, display_order } = req.body;
 
     const updates = [];
     const values = [];
@@ -151,6 +151,10 @@ router.put('/admin/feature/:id', auth, isAdmin, async (req, res) => {
     if (min_tier !== undefined) {
       updates.push(`min_tier = $${paramCount++}`);
       values.push(min_tier);
+    }
+    if (display_order !== undefined) {
+      updates.push(`display_order = $${paramCount++}`);
+      values.push(display_order);
     }
 
     if (updates.length === 0) {

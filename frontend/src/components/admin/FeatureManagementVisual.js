@@ -3,9 +3,10 @@ import {
   Eye, EyeOff, GripVertical, Save, RotateCcw, Smartphone, 
   ShoppingCart, Package, ChefHat, Calendar, BarChart3, Search, 
   History, Mic, Scan, Share2, Store, Sparkles, Settings, Shield,
-  AlertCircle, CheckCircle, X
+  AlertCircle, CheckCircle, X, ArrowLeft
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useFeatureFlags } from '../../context/FeatureFlagContext';
 
@@ -26,6 +27,7 @@ const ICON_MAP = {
 };
 
 const FeatureManagementVisual = () => {
+  const navigate = useNavigate();
   const { refreshFeatures } = useFeatureFlags();
   const [features, setFeatures] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -284,13 +286,22 @@ const FeatureManagementVisual = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Visual Feature Management
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Drag to reorder, toggle to enable/disable, and see live preview
-          </p>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/admin')}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            title="Back to Admin Dashboard"
+          >
+            <ArrowLeft className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+          </button>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Visual Feature Management
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Drag to reorder, toggle to enable/disable, and see live preview
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <button
