@@ -17,6 +17,7 @@ const Recipes = lazy(() => import('./pages/Recipes'));
 const RecipesNew = lazy(() => import('./pages/RecipesNew'));
 const PantryEnhanced = lazy(() => import('./pages/PantryEnhanced'));
 const PantryNew = lazy(() => import('./pages/PantryNew'));
+const PantryNewV2 = lazy(() => import('./pages/PantryNewV2'));
 const StagingArea = lazy(() => import('./pages/StagingArea'));
 const MealPlan = lazy(() => import('./pages/MealPlan'));
 const Statistics = lazy(() => import('./pages/Statistics'));
@@ -82,7 +83,8 @@ const AnimatedRoutes = () => {
         <Route path="/recipes" element={<PrivateRoute><RecipesNew /></PrivateRoute>} />
         <Route path="/recipes-old" element={<PrivateRoute><Recipes /></PrivateRoute>} />
         <Route path="/pantry" element={<PrivateRoute><PantryEnhanced /></PrivateRoute>} />
-        <Route path="/pantry-new" element={<PrivateRoute><PantryNew /></PrivateRoute>} />
+        <Route path="/pantry-new" element={<PrivateRoute><PantryNewV2 /></PrivateRoute>} />
+        <Route path="/pantry-old" element={<PrivateRoute><PantryNew /></PrivateRoute>} />
         <Route path="/staging" element={<PrivateRoute><StagingArea /></PrivateRoute>} />
         <Route path="/meal-plan" element={<PrivateRoute><MealPlan /></PrivateRoute>} />
         <Route path="/stats" element={<PrivateRoute><Statistics /></PrivateRoute>} />
