@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Upload, Image as ImageIcon, Sparkles, Link as LinkIcon, Edit2 } from 'lucide-react';
 import { imagesAPI } from '../services/api';
 import recipesAPI from '../services/recipesAPI';
+import CustomCheckbox from './ui/CustomCheckbox';
 
 const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
   const [formData, setFormData] = useState({
@@ -565,24 +566,20 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
                   onChange={(e) => setNewIngredient({ ...newIngredient, notes: e.target.value })}
                   className="input-field col-span-6"
                 />
-                <label className="col-span-3 flex items-center text-sm text-gray-600 dark:text-gray-400">
-                  <input
-                    type="checkbox"
+                <div className="col-span-3 flex items-center">
+                  <CustomCheckbox
                     checked={newIngredient.is_optional}
                     onChange={(e) => setNewIngredient({ ...newIngredient, is_optional: e.target.checked })}
-                    className="mr-2"
+                    label="Optional"
                   />
-                  Optional
-                </label>
-                <label className="col-span-3 flex items-center text-sm text-gray-600 dark:text-gray-400" title="Common pantry items you always have (flour, salt, oil, etc.)">
-                  <input
-                    type="checkbox"
+                </div>
+                <div className="col-span-3 flex items-center" title="Common pantry items you always have (flour, salt, oil, etc.)">
+                  <CustomCheckbox
                     checked={newIngredient.is_pantry_staple}
                     onChange={(e) => setNewIngredient({ ...newIngredient, is_pantry_staple: e.target.checked })}
-                    className="mr-2"
+                    label="🏠 Pantry Staple"
                   />
-                  🏠 Pantry Staple
-                </label>
+                </div>
                 {editingIndex !== null && (
                   <button
                     type="button"

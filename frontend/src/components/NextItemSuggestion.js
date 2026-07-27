@@ -1,6 +1,7 @@
 import React from 'react';
 import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, ArrowDown, Edit2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { formatQuantityPlain } from '../utils/formatQuantity';
 
 const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit }) => {
   if (!nextItem) return null;
@@ -9,18 +10,18 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-300 dark:border-green-700 rounded-xl p-4 shadow-lg relative"
+      className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-300 dark:border-green-700 rounded-xl p-4 pr-14 shadow-lg relative"
     >
-      {/* Hide button - absolute top-right */}
+      {/* Hide button - absolute top-right, outside action buttons area */}
       <button
         onClick={onHide}
-        className="absolute top-2 right-2 p-1.5 hover:bg-green-200 dark:hover:bg-green-800 rounded-lg transition-colors"
+        className="absolute top-3 right-3 p-1.5 hover:bg-green-200 dark:hover:bg-green-800 rounded-lg transition-colors z-10"
         title="Hide 'Looking for Next' feature - You can re-enable it later"
       >
         <EyeOff className="w-5 h-5 text-green-700 dark:text-green-300" />
       </button>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pr-2">
         <div className="flex items-center space-x-3 flex-1">
           <div className="bg-green-500 text-white rounded-full p-2">
             <ArrowRight className="w-5 h-5" />
@@ -49,7 +50,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
         <div className="flex items-center gap-2 ml-4">
           {nextItem.quantity && (
             <div className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-bold">
-              ×{nextItem.quantity}
+              x{formatQuantityPlain(nextItem.quantity)}
             </div>
           )}
           {/* Item Checkbox - synced with actual item */}
@@ -57,8 +58,16 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             key={`${nextItem.id}-${nextItem.is_checked}`}
             onClick={onCheck}
             whileTap={{ scale: 0.9 }}
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ duration: 0.3 }}
+            animate={nextItem.is_checked ? {
+              scale: [1, 1.3, 1],
+              rotate: [0, 10, -10, 0],
+              boxShadow: [
+                '0 0 0 0 rgba(34, 197, 94, 0)',
+                '0 0 0 10px rgba(34, 197, 94, 0.3)',
+                '0 0 0 20px rgba(34, 197, 94, 0)'
+              ]
+            } : { scale: 1 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
             className={`w-12 h-12 rounded-lg border-2 flex items-center justify-center transition-all transform hover:scale-110 shadow-lg ${
               nextItem.is_checked
                 ? 'bg-green-500 border-green-600 text-white'
@@ -66,7 +75,15 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             }`}
             title={nextItem.is_checked ? "✓ Item found!" : "☐ Mark as found"}
           >
-            {nextItem.is_checked && <Check className="w-6 h-6" />}
+            {nextItem.is_checked && (
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 200, damping: 15 }}
+              >
+                <Check className="w-6 h-6" />
+              </motion.div>
+            )}
           </motion.button>
           <button
             onClick={onJumpToItem}

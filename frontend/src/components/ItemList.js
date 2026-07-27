@@ -6,6 +6,7 @@ import ItemTooltip from './ItemTooltip';
 import SmartSuggestionTooltip from './SmartSuggestionTooltip';
 import { detectIcon, detectCategory } from '../utils/categoryDetector';
 import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts';
+import { formatQuantityPlain } from '../utils/formatQuantity';
 
 const ItemList = ({ items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null }) => {
   const [editingItem, setEditingItem] = useState(null);
@@ -319,7 +320,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                         <span>{item.item_name}</span>
                         {item.count > 1 && (
                           <span className="px-2 py-0.5 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 text-xs font-bold rounded-full">
-                            x{item.count}
+                            x{formatQuantityPlain(item.count)}
                           </span>
                         )}
                         {/* Pantry Status Badge */}
@@ -338,7 +339,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                     </ItemTooltip>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {Math.floor(item.totalQuantity)} {item.unit}
+                        {formatQuantityPlain(item.totalQuantity)} {item.unit}
                       </span>
                       {item.totalPrice > 0 && (
                         <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-bold">

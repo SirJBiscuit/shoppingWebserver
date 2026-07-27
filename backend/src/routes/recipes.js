@@ -135,7 +135,7 @@ router.post('/', authenticateToken, async (req, res) => {
 // Update recipe
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
-    const { name, description, servings, prep_time, cook_time, instructions, image_url, is_favorite } = req.body;
+    const { name, description, servings, prep_time, cook_time, instructions, image_url, is_favorite, ingredients } = req.body;
     
     const result = await db.query(`
       UPDATE recipes 
@@ -154,6 +154,28 @@ router.patch('/:id', authenticateToken, async (req, res) => {
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Recipe not found' });
+    }
+    
+    // Update ingredients if provided
+    if (ingredients && Array.isArray(ingredients)) {
+      // Delete existing ingredients
+      await db.query('DELETE FROM recipe_ingredients WHERE recipe_id = $1', [req.params.id]);
+      
+      // Insert new ingredients
+      for (const ingredient of ingredients) {
+        await db.query(`
+          INSERT INTO recipe_ingredients (recipe_id, item_name, quantity, unit, is_optional, is_pantry_staple, notes)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [
+          req.params.id,
+          ingredient.item_name,
+          ingredient.quantity || 1,
+          ingredient.unit || '',
+          ingredient.is_optional || false,
+          ingredient.is_pantry_staple || false,
+          ingredient.notes || ''
+        ]);
+      }
     }
     
     res.json(result.rows[0]);
