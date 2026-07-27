@@ -13,6 +13,9 @@ import ConfirmModal from '../components/ConfirmModal';
 import LocationNavigator from '../components/inventory/LocationNavigator';
 import FilterPanel from '../components/inventory/FilterPanel';
 import EnhancedGridView from '../components/inventory/EnhancedGridView';
+import EnhancedListView from '../components/inventory/EnhancedListView';
+import CategoryView from '../components/inventory/CategoryView';
+import VisualInventoryMap from '../components/inventory/VisualInventoryMap';
 import AddItemModal from '../components/inventory/AddItemModal';
 import InventoryStats from '../components/inventory/InventoryStats';
 
@@ -424,13 +427,44 @@ const PantryNewV2 = () => {
 
               {/* Center Panel - Item Display */}
               <div className="lg:col-span-6">
-                <EnhancedGridView
-                  items={filteredItems}
-                  onEdit={handleEditItem}
-                  onDelete={handleDeleteItem}
-                  onToggleFavorite={handleToggleFavorite}
-                  onQuickAction={handleQuickAction}
-                />
+                {viewMode === 'grid' && (
+                  <EnhancedGridView
+                    items={filteredItems}
+                    onEdit={handleEditItem}
+                    onDelete={handleDeleteItem}
+                    onToggleFavorite={handleToggleFavorite}
+                    onQuickAction={handleQuickAction}
+                  />
+                )}
+                
+                {viewMode === 'list' && (
+                  <EnhancedListView
+                    items={filteredItems}
+                    onEdit={handleEditItem}
+                    onDelete={handleDeleteItem}
+                    onToggleFavorite={handleToggleFavorite}
+                    onQuickAction={handleQuickAction}
+                  />
+                )}
+                
+                {viewMode === 'category' && (
+                  <CategoryView
+                    items={filteredItems}
+                    onEdit={handleEditItem}
+                    onDelete={handleDeleteItem}
+                    onToggleFavorite={handleToggleFavorite}
+                  />
+                )}
+                
+                {viewMode === 'map' && (
+                  <VisualInventoryMap
+                    items={filteredItems}
+                    location={activeLocation?.name || 'All Locations'}
+                    onEdit={handleEditItem}
+                    onDelete={handleDeleteItem}
+                    onQuickAction={handleQuickAction}
+                  />
+                )}
               </div>
 
               {/* Right Panel - Filter Panel */}
