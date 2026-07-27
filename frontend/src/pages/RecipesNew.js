@@ -306,7 +306,7 @@ const RecipesNew = () => {
 
         <ConfirmModal
           isOpen={confirmModal.isOpen}
-          onClose={() => setConfirmModal({ isOpen: false, recipe: null })}
+          onCancel={() => setConfirmModal({ isOpen: false, recipe: null })}
           onConfirm={handleDeleteRecipe}
           title="Delete Recipe?"
           message={`Are you sure you want to delete "${confirmModal.recipe?.name}"? This action cannot be undone.`}
