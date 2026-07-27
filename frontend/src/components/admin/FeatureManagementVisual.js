@@ -33,6 +33,7 @@ const FeatureManagementVisual = () => {
   const [message, setMessage] = useState(null);
   const [previewMode, setPreviewMode] = useState('sidebar');
   const [searchQuery, setSearchQuery] = useState('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
     loadFeatures();
@@ -63,16 +64,20 @@ const FeatureManagementVisual = () => {
 
   const toggleFeature = async (featureId, currentStatus) => {
     try {
+      // Find the feature to get its current display_order
+      const feature = features.find(f => f.id === featureId);
+      
       await api.put(`/features/admin/feature/${featureId}`, {
-        is_enabled: !currentStatus
+        is_enabled: !currentStatus,
+        display_order: feature.display_order // Preserve display_order
       });
       
-      // Update local state
+      // Update local state only (don't reload to preserve unsaved order)
       setFeatures(features.map(f => 
         f.id === featureId ? { ...f, is_enabled: !currentStatus } : f
       ));
       
-      // Refresh feature flags context
+      // Refresh feature flags context (for sidebar/UI updates)
       await refreshFeatures();
       
       showMessage('Feature updated successfully!', 'success');
@@ -96,6 +101,7 @@ const FeatureManagementVisual = () => {
     }));
 
     setFeatures(updatedItems);
+    setHasUnsavedChanges(true); // Mark as having unsaved changes
   };
 
   const saveOrder = async () => {
@@ -111,6 +117,7 @@ const FeatureManagementVisual = () => {
         )
       );
       
+      setHasUnsavedChanges(false); // Clear unsaved changes flag
       showMessage('Order saved successfully!', 'success');
     } catch (error) {
       console.error('Error saving order:', error);
@@ -296,10 +303,14 @@ const FeatureManagementVisual = () => {
           <button
             onClick={saveOrder}
             disabled={saving}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+            className={`px-4 py-2 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 ${
+              hasUnsavedChanges 
+                ? 'bg-orange-600 hover:bg-orange-700 animate-pulse' 
+                : 'bg-primary-600 hover:bg-primary-700'
+            }`}
           >
             <Save className="w-4 h-4" />
-            {saving ? 'Saving...' : 'Save Order'}
+            {saving ? 'Saving...' : hasUnsavedChanges ? 'Save Order (Unsaved Changes)' : 'Save Order'}
           </button>
         </div>
       </div>
