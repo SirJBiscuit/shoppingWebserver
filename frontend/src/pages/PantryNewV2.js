@@ -40,6 +40,7 @@ const PantryNewV2 = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid');
   const [activeFilter, setActiveFilter] = useState('all');
+  const [activeCategory, setActiveCategory] = useState('all');
   const [showStats, setShowStats] = useState(false);
   
   // Modal State
@@ -129,6 +130,13 @@ const PantryNewV2 = () => {
       filtered = filtered.filter(item =>
         item.item_name?.toLowerCase().includes(search) ||
         item.notes?.toLowerCase().includes(search)
+      );
+    }
+
+    // Filter by category
+    if (activeCategory && activeCategory !== 'all') {
+      filtered = filtered.filter(item => 
+        (item.item_category || 'food') === activeCategory
       );
     }
 
@@ -304,15 +312,21 @@ const PantryNewV2 = () => {
   const handleClearLocation = (location) => {
     if (!location) {
       // Clear all
+      const totalItems = items.length;
+      if (totalItems === 0) {
+        showError('No items to clear');
+        return;
+      }
+      
       setConfirmModal({
         isOpen: true,
         title: 'Clear All Items?',
-        message: `Are you sure you want to delete ALL ${items.length} items? This action cannot be undone.`,
+        message: `Are you sure you want to delete ALL ${totalItems} items? This action cannot be undone.`,
         onConfirm: async () => {
           try {
+            setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null });
             await Promise.all(items.map(item => inventoryAPI.deleteItem(item.id)));
             success('All items cleared!');
-            setConfirmModal({ isOpen: false });
             await loadItems();
             await loadStats();
           } catch (error) {
@@ -324,15 +338,20 @@ const PantryNewV2 = () => {
     } else {
       // Clear specific location
       const locationItems = items.filter(item => item.custom_location_id === location.id);
+      if (locationItems.length === 0) {
+        showError(`No items in ${location.name}`);
+        return;
+      }
+      
       setConfirmModal({
         isOpen: true,
         title: `Clear ${location.name}?`,
         message: `Are you sure you want to delete all ${locationItems.length} items from ${location.name}? This action cannot be undone.`,
         onConfirm: async () => {
           try {
+            setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null });
             await Promise.all(locationItems.map(item => inventoryAPI.deleteItem(item.id)));
             success(`${location.name} cleared!`);
-            setConfirmModal({ isOpen: false });
             await loadItems();
             await loadStats();
           } catch (error) {
@@ -473,6 +492,8 @@ const PantryNewV2 = () => {
                   activeFilter={activeFilter}
                   onFilterChange={setActiveFilter}
                   counts={filterCounts}
+                  activeCategory={activeCategory}
+                  onCategoryChange={setActiveCategory}
                 />
               </div>
             </div>
@@ -508,8 +529,12 @@ const PantryNewV2 = () => {
         {/* Confirm Modal */}
         <ConfirmModal
           isOpen={confirmModal.isOpen}
-          onCancel={() => setConfirmModal({ isOpen: false })}
-          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null })}
+          onConfirm={() => {
+            if (confirmModal.onConfirm) {
+              confirmModal.onConfirm();
+            }
+          }}
           title={confirmModal.title}
           message={confirmModal.message}
           confirmText="Delete"

@@ -10,12 +10,26 @@ import { AlertCircle, TrendingDown, AlertTriangle, Star, Package, BarChart3, Arr
  * - Favorites
  * - All items
  * - Analytics view
+ * - Category filter dropdown
  */
 const FilterPanel = ({ 
   activeFilter,
   onFilterChange,
-  counts = {}
+  counts = {},
+  activeCategory = 'all',
+  onCategoryChange
 }) => {
+  const categories = [
+    { id: 'all', label: 'All Categories', icon: '📦' },
+    { id: 'food', label: 'Food', icon: '🍎' },
+    { id: 'household', label: 'Household', icon: '🏠' },
+    { id: 'pet', label: 'Pet Supplies', icon: '🐾' },
+    { id: 'medical', label: 'Medical', icon: '💊' },
+    { id: 'cleaning', label: 'Cleaning', icon: '🧹' },
+    { id: 'tools', label: 'Tools', icon: '🔧' },
+    { id: 'beauty', label: 'Beauty', icon: '💄' },
+    { id: 'other', label: 'Other', icon: '📦' }
+  ];
   const filters = [
     {
       id: 'expiring',
@@ -91,6 +105,26 @@ const FilterPanel = ({
         <ArrowUpCircle className="w-5 h-5 text-primary-600" />
         Quick Filters
       </h3>
+      
+      {/* Category Filter Dropdown */}
+      {onCategoryChange && (
+        <div className="mb-4">
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            Category
+          </label>
+          <select
+            value={activeCategory}
+            onChange={(e) => onCategoryChange(e.target.value)}
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500 transition-colors"
+          >
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.icon} {category.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       
       <div className="space-y-2">
         {filters.map((filter) => {
