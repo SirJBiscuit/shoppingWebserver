@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, BarChart3 } from 'lucide-react';
+import { Plus, BarChart3, GripVertical } from 'lucide-react';
 import inventoryAPI from '../services/inventoryAPI';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../hooks/useToast';
@@ -13,6 +13,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import LocationNavigator from '../components/inventory/LocationNavigator';
 import FilterPanel from '../components/inventory/FilterPanel';
 import EnhancedGridView from '../components/inventory/EnhancedGridView';
+import DraggableGridView from '../components/inventory/DraggableGridView';
 import EnhancedListView from '../components/inventory/EnhancedListView';
 import CategoryView from '../components/inventory/CategoryView';
 import VisualInventoryMap from '../components/inventory/VisualInventoryMap';
@@ -42,6 +43,7 @@ const PantryNewV2 = () => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [activeCategory, setActiveCategory] = useState('all');
   const [showStats, setShowStats] = useState(false);
+  const [dragMode, setDragMode] = useState(false);
   
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -305,6 +307,22 @@ const PantryNewV2 = () => {
     }
   };
 
+  const handleReorder = async (itemIds) => {
+    try {
+      // Update sort_order for each item
+      await Promise.all(
+        itemIds.map((id, index) => 
+          inventoryAPI.updateItem(id, { sort_order: index })
+        )
+      );
+      success('Items reordered!');
+      await loadItems();
+    } catch (error) {
+      console.error('Failed to reorder items:', error);
+      showError('Failed to reorder items');
+    }
+  };
+
   // ============================================
   // CLEAR ACTIONS
   // ============================================
@@ -403,6 +421,19 @@ const PantryNewV2 = () => {
               </div>
 
               <div className="flex gap-3">
+                {viewMode === 'grid' && (
+                  <button
+                    onClick={() => setDragMode(!dragMode)}
+                    className={`px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
+                      dragMode 
+                        ? 'bg-green-600 text-white hover:bg-green-700' 
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    <GripVertical className="w-5 h-5" />
+                    <span className="hidden md:inline">{dragMode ? 'Drag Mode ON' : 'Drag Mode'}</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setShowStats(!showStats)}
                   className="px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors flex items-center gap-2"
@@ -446,13 +477,24 @@ const PantryNewV2 = () => {
 
               {/* Center Panel - Item Display */}
               <div className="lg:col-span-6">
-                {viewMode === 'grid' && (
+                {viewMode === 'grid' && !dragMode && (
                   <EnhancedGridView
                     items={filteredItems}
                     onEdit={handleEditItem}
                     onDelete={handleDeleteItem}
                     onToggleFavorite={handleToggleFavorite}
                     onQuickAction={handleQuickAction}
+                  />
+                )}
+                
+                {viewMode === 'grid' && dragMode && (
+                  <DraggableGridView
+                    items={filteredItems}
+                    onEdit={handleEditItem}
+                    onDelete={handleDeleteItem}
+                    onToggleFavorite={handleToggleFavorite}
+                    onQuickAction={handleQuickAction}
+                    onReorder={handleReorder}
                   />
                 )}
                 
