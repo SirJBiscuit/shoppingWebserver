@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit2, Trash2, Star, AlertCircle, CheckCircle, Clock, Package } from 'lucide-react';
+import { Edit2, Trash2, Star, AlertCircle, CheckCircle, Clock, Package, Square, CheckSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 /**
@@ -10,13 +10,17 @@ import { motion } from 'framer-motion';
  * - Category badges
  * - Favorite toggle
  * - Responsive grid layout
+ * - Selection checkboxes for bulk actions
  */
 const EnhancedGridView = ({ 
   items = [], 
   onEdit, 
   onDelete, 
   onToggleFavorite,
-  onQuickAction 
+  onQuickAction,
+  selectionMode = false,
+  selectedItems = [],
+  onToggleSelection
 }) => {
   
   // Get expiration status color
@@ -81,6 +85,18 @@ const EnhancedGridView = ({
             {/* Header with Status */}
             <div className={`${status.bg} ${status.text} px-4 py-2 flex items-center justify-between`}>
               <div className="flex items-center gap-2">
+                {selectionMode && (
+                  <button
+                    onClick={() => onToggleSelection(item.id)}
+                    className="hover:scale-110 transition-transform"
+                  >
+                    {selectedItems.includes(item.id) ? (
+                      <CheckSquare className="w-5 h-5" />
+                    ) : (
+                      <Square className="w-5 h-5" />
+                    )}
+                  </button>
+                )}
                 <span className="text-lg">{status.icon}</span>
                 <span className="font-bold text-sm">{status.label}</span>
               </div>

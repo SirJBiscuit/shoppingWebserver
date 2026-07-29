@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, BarChart3, GripVertical } from 'lucide-react';
+import { Plus, BarChart3, GripVertical, CheckSquare } from 'lucide-react';
 import inventoryAPI from '../services/inventoryAPI';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../hooks/useToast';
@@ -19,6 +19,7 @@ import CategoryView from '../components/inventory/CategoryView';
 import VisualInventoryMap from '../components/inventory/VisualInventoryMap';
 import AddItemModal from '../components/inventory/AddItemModal';
 import InventoryStats from '../components/inventory/InventoryStats';
+import BulkActionBar from '../components/inventory/BulkActionBar';
 
 /**
  * PantryNewV2 - Home Inventory with new 3-panel layout
@@ -44,6 +45,8 @@ const PantryNewV2 = () => {
   const [activeCategory, setActiveCategory] = useState('all');
   const [showStats, setShowStats] = useState(false);
   const [dragMode, setDragMode] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState([]);
   
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -324,6 +327,89 @@ const PantryNewV2 = () => {
   };
 
   // ============================================
+  // BULK ACTIONS
+  // ============================================
+
+  const handleToggleSelection = (itemId) => {
+    setSelectedItems(prev => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedItems(filteredItems.map(item => item.id));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedItems([]);
+    setSelectionMode(false);
+  };
+
+  const handleBulkDelete = () => {
+    const count = selectedItems.length;
+    setConfirmModal({
+      isOpen: true,
+      title: `Delete ${count} Items?`,
+      message: `Are you sure you want to delete ${count} selected items? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null });
+          await Promise.all(selectedItems.map(id => inventoryAPI.deleteItem(id)));
+          success(`${count} items deleted!`);
+          setSelectedItems([]);
+          setSelectionMode(false);
+          await loadItems();
+          await loadStats();
+        } catch (error) {
+          console.error('Failed to delete items:', error);
+          showError('Failed to delete items');
+        }
+      }
+    });
+  };
+
+  const handleBulkFavorite = async () => {
+    try {
+      await Promise.all(
+        selectedItems.map(id => 
+          inventoryAPI.updateItem(id, { is_favorite: true })
+        )
+      );
+      success(`${selectedItems.length} items added to favorites!`);
+      setSelectedItems([]);
+      setSelectionMode(false);
+      await loadItems();
+    } catch (error) {
+      console.error('Failed to favorite items:', error);
+      showError('Failed to favorite items');
+    }
+  };
+
+  const handleBulkUnfavorite = async () => {
+    try {
+      await Promise.all(
+        selectedItems.map(id => 
+          inventoryAPI.updateItem(id, { is_favorite: false })
+        )
+      );
+      success(`${selectedItems.length} items removed from favorites!`);
+      setSelectedItems([]);
+      setSelectionMode(false);
+      await loadItems();
+    } catch (error) {
+      console.error('Failed to unfavorite items:', error);
+      showError('Failed to unfavorite items');
+    }
+  };
+
+  const handleBulkCategoryChange = () => {
+    // TODO: Show modal to select new category
+    showError('Category change coming soon!');
+  };
+
+  // ============================================
   // CLEAR ACTIONS
   // ============================================
 
@@ -421,7 +507,23 @@ const PantryNewV2 = () => {
               </div>
 
               <div className="flex gap-3">
-                {viewMode === 'grid' && (
+                {viewMode === 'grid' && !dragMode && (
+                  <button
+                    onClick={() => {
+                      setSelectionMode(!selectionMode);
+                      if (selectionMode) setSelectedItems([]);
+                    }}
+                    className={`px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
+                      selectionMode 
+                        ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    <CheckSquare className="w-5 h-5" />
+                    <span className="hidden md:inline">{selectionMode ? 'Select Mode ON' : 'Select'}</span>
+                  </button>
+                )}
+                {viewMode === 'grid' && !selectionMode && (
                   <button
                     onClick={() => setDragMode(!dragMode)}
                     className={`px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
@@ -484,6 +586,9 @@ const PantryNewV2 = () => {
                     onDelete={handleDeleteItem}
                     onToggleFavorite={handleToggleFavorite}
                     onQuickAction={handleQuickAction}
+                    selectionMode={selectionMode}
+                    selectedItems={selectedItems}
+                    onToggleSelection={handleToggleSelection}
                   />
                 )}
                 
@@ -582,6 +687,17 @@ const PantryNewV2 = () => {
           confirmText="Delete"
           cancelText="Cancel"
           type="danger"
+        />
+
+        {/* Bulk Action Bar */}
+        <BulkActionBar
+          selectedCount={selectedItems.length}
+          onBulkDelete={handleBulkDelete}
+          onBulkFavorite={handleBulkFavorite}
+          onBulkUnfavorite={handleBulkUnfavorite}
+          onBulkCategoryChange={handleBulkCategoryChange}
+          onClearSelection={handleClearSelection}
+          onSelectAll={handleSelectAll}
         />
       </div>
     </PageTransition>
