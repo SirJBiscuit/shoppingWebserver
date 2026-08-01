@@ -7,6 +7,7 @@ import Sidebar from '../components/Sidebar';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import RecipeModal from '../components/RecipeModal';
+import RecipeCardSlider from '../components/recipes/RecipeCardSlider';
 
 const Recipes = () => {
   const navigate = useNavigate();
@@ -118,21 +119,39 @@ const Recipes = () => {
                 <ChefHat className="w-8 h-8 text-primary-600 mr-3" />
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Recipes</h1>
               </div>
-              <button
-                onClick={() => navigate('/discover')}
-                className="btn-secondary flex items-center"
-              >
-                <Sparkles className="w-5 h-5 mr-2" />
-                AI Recipe Generator
-              </button>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="btn-primary flex items-center"
-              >
-                <Plus className="w-5 h-5 mr-2" />
-                Create Recipe
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => navigate('/discover')}
+                  className="btn-secondary flex items-center"
+                >
+                  <Sparkles className="w-5 h-5 mr-2" />
+                  AI Recipe Generator
+                </button>
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="btn-primary flex items-center"
+                >
+                  <Plus className="w-5 h-5 mr-2" />
+                  Create Recipe
+                </button>
+              </div>
             </div>
+
+            {/* Recipe Card Slider - 3D Horizontal Carousel */}
+            {recipes.length > 0 && (
+              <div className="mb-12">
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                  <ChefHat className="w-6 h-6 text-primary-600" />
+                  Recipe Collection
+                </h2>
+                <RecipeCardSlider
+                  recipes={recipes}
+                  onAddRecipe={() => setShowCreateModal(true)}
+                  onDeleteRecipe={handleDeleteRecipe}
+                  onToggleFavorite={handleToggleFavorite}
+                />
+              </div>
+            )}
 
             {/* What Can I Make Section */}
             {canMake.can_make.length > 0 && (
