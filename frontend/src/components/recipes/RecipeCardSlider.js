@@ -23,6 +23,46 @@ const RecipeCardSlider = ({
   const [zoomedRecipe, setZoomedRecipe] = useState(null);
   const scrollContainerRef = useRef(null);
 
+  // Create placeholder cards if no recipes exist
+  const placeholderRecipes = [
+    {
+      id: 'placeholder-1',
+      recipe_name: 'Your First Recipe',
+      category: 'breakfast',
+      difficulty: 'easy',
+      prep_time: 15,
+      cook_time: 20,
+      servings: 4,
+      description: 'Click the + card to add your first recipe!',
+      is_placeholder: true
+    },
+    {
+      id: 'placeholder-2',
+      recipe_name: 'Favorite Dish',
+      category: 'dinner',
+      difficulty: 'medium',
+      prep_time: 20,
+      cook_time: 30,
+      servings: 6,
+      description: 'Build your recipe collection here',
+      is_placeholder: true
+    },
+    {
+      id: 'placeholder-3',
+      recipe_name: 'Sweet Treat',
+      category: 'dessert',
+      difficulty: 'easy',
+      prep_time: 10,
+      cook_time: 25,
+      servings: 8,
+      description: 'Save all your favorite recipes',
+      is_placeholder: true
+    }
+  ];
+
+  // Use actual recipes if available, otherwise show placeholders
+  const displayRecipes = recipes.length > 0 ? recipes : placeholderRecipes;
+
   // Toggle card flip
   const handleCardFlip = (recipeId, e) => {
     e.stopPropagation();
@@ -101,15 +141,16 @@ const RecipeCardSlider = ({
         </motion.div>
 
         {/* Recipe Cards */}
-        {recipes.map((recipe, index) => {
+        {displayRecipes.map((recipe, index) => {
           const isFlipped = flippedCards.has(recipe.id);
+          const isPlaceholder = recipe.is_placeholder;
           
           return (
             <motion.div
               key={recipe.id}
               initial={{ opacity: 0, x: 50, rotateY: 0 }}
               animate={{ 
-                opacity: 1, 
+                opacity: isPlaceholder ? 0.6 : 1, 
                 x: 0,
                 rotateY: isFlipped ? 180 : 0
               }}
@@ -122,8 +163,8 @@ const RecipeCardSlider = ({
               style={{ transformStyle: 'preserve-3d' }}
             >
               <div 
-                className="relative w-full h-full cursor-pointer"
-                onClick={(e) => handleCardClick(recipe, e)}
+                className={`relative w-full h-full ${isPlaceholder ? 'cursor-default' : 'cursor-pointer'}`}
+                onClick={(e) => !isPlaceholder && handleCardClick(recipe, e)}
               >
                 {/* Front Side */}
                 <div
@@ -133,7 +174,7 @@ const RecipeCardSlider = ({
                     transform: 'rotateY(0deg)'
                   }}
                 >
-                  <div className="w-full h-full bg-gradient-to-br from-white to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-300">
+                  <div className={`w-full h-full bg-gradient-to-br from-white to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-2xl overflow-hidden transition-shadow duration-300 ${isPlaceholder ? 'border-2 border-dashed border-gray-300 dark:border-gray-600' : 'hover:shadow-3xl'}`}>
                     {/* Image */}
                     {recipe.image_url ? (
                       <div className="h-48 overflow-hidden">
@@ -155,17 +196,19 @@ const RecipeCardSlider = ({
                         <h3 className="text-2xl font-bold text-gray-900 dark:text-white line-clamp-2 flex-1">
                           {recipe.recipe_name}
                         </h3>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onToggleFavorite(recipe);
-                          }}
-                          className="ml-2 hover:scale-110 transition-transform"
-                        >
-                          <Heart 
-                            className={`w-6 h-6 ${recipe.is_favorite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
-                          />
-                        </button>
+                        {!isPlaceholder && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleFavorite(recipe);
+                            }}
+                            className="ml-2 hover:scale-110 transition-transform"
+                          >
+                            <Heart 
+                              className={`w-6 h-6 ${recipe.is_favorite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+                            />
+                          </button>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2 mb-4">
@@ -187,10 +230,15 @@ const RecipeCardSlider = ({
                       </div>
 
                       <button
-                        onClick={(e) => handleCardFlip(recipe.id, e)}
-                        className="flip-trigger w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"
+                        onClick={(e) => !isPlaceholder && handleCardFlip(recipe.id, e)}
+                        className={`flip-trigger w-full px-4 py-2 rounded-lg font-medium transition-colors ${
+                          isPlaceholder 
+                            ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed' 
+                            : 'bg-primary-600 text-white hover:bg-primary-700'
+                        }`}
+                        disabled={isPlaceholder}
                       >
-                        View Recipe →
+                        {isPlaceholder ? 'Example Recipe' : 'View Recipe →'}
                       </button>
                     </div>
                   </div>
