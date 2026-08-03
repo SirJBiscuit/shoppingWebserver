@@ -44,8 +44,15 @@ const FeatureManagementVisual = () => {
   const loadFeatures = async () => {
     try {
       setLoading(true);
+      console.log('Loading features from /features/admin/all...');
       const response = await api.get('/features/admin/all');
+      console.log('Features response:', response.data);
       const featuresData = response.data.features || [];
+      
+      if (featuresData.length === 0) {
+        console.warn('No features returned from API');
+        showMessage('No features found. Check database.', 'error');
+      }
       
       // Sort by display_order if available, otherwise by category
       const sorted = featuresData.sort((a, b) => {
@@ -58,7 +65,9 @@ const FeatureManagementVisual = () => {
       setFeatures(sorted);
     } catch (error) {
       console.error('Error loading features:', error);
-      showMessage('Failed to load features', 'error');
+      console.error('Error details:', error.response?.data || error.message);
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to load features';
+      showMessage(`Failed to load features: ${errorMsg}`, 'error');
     } finally {
       setLoading(false);
     }
