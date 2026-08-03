@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import Sidebar from '../components/Sidebar';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import FeatureManagementVisual from '../components/admin/FeatureManagementVisual';
@@ -172,8 +173,10 @@ const AdminNew = () => {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-        {/* Header */}
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <Sidebar />
+        
+        <div className="lg:ml-72">
         <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between">
@@ -197,6 +200,13 @@ const AdminNew = () => {
                   Premium
                 </button>
                 <span className="text-gray-600 dark:text-gray-300">Welcome, {user?.username}</span>
+                <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  ← Back to Dashboard
+                </button>
                 <ThemeToggle />
                 <button
                   onClick={logout}
@@ -205,6 +215,7 @@ const AdminNew = () => {
                   <LogOut className="w-5 h-5 mr-1" />
                   Logout
                 </button>
+              </div>
               </div>
             </div>
           </div>
@@ -243,6 +254,29 @@ const AdminNew = () => {
             {/* System & Updates Tab */}
             {activeTab === 'system' && (
               <div className="space-y-6">
+                {/* Admin Toolbar Control */}
+                <div className="card">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center mb-4">
+                    <Settings className="w-6 h-6 mr-2 text-primary-600" />
+                    Admin Toolbar
+                  </h2>
+                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">Admin Toolbar Visibility</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Show or hide the floating admin toolbar</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem('adminToolbarHidden');
+                        window.location.reload();
+                      }}
+                      className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                    >
+                      {localStorage.getItem('adminToolbarHidden') === 'true' ? 'Show Toolbar' : 'Toolbar Visible'}
+                    </button>
+                  </div>
+                </div>
+
                 {/* System Status */}
                 <div className="card">
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center mb-6">
@@ -436,6 +470,7 @@ const AdminNew = () => {
               </div>
             )}
           </div>
+        </div>
         </div>
       </div>
     </PageTransition>

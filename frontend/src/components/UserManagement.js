@@ -20,11 +20,15 @@ const UserManagement = () => {
 
   const fetchUsers = async () => {
     try {
+      console.log('Fetching users from /users/admin/all...');
       const response = await api.get('/users/admin/all');
-      setUsers(response.data.users);
+      console.log('Users response:', response.data);
+      setUsers(response.data.users || response.data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
-      alert('Failed to fetch users');
+      console.error('Error details:', error.response?.data || error.message);
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to fetch users';
+      alert(`Failed to fetch users: ${errorMsg}`);
     } finally {
       setLoading(false);
     }

@@ -9,9 +9,15 @@ const AdminToolbar = () => {
   const { hasFeature } = useFeatureFlags();
   const [showEditor, setShowEditor] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isHidden, setIsHidden] = useState(() => {
+    return localStorage.getItem('adminToolbarHidden') === 'true';
+  });
 
   // Only show for admin users
   if (!user?.isAdmin) return null;
+  
+  // If permanently hidden, don't render
+  if (isHidden) return null;
   
   // Check if dashboard editor feature is enabled
   const dashboardEditorEnabled = hasFeature('dashboard_editor');
@@ -43,17 +49,31 @@ const AdminToolbar = () => {
                 )}
               </div>
 
-              <button
-                onClick={() => setIsMinimized(!isMinimized)}
-                className="p-1.5 hover:bg-white hover:bg-opacity-20 rounded-lg transition-all"
-                title={isMinimized ? 'Show toolbar' : 'Minimize toolbar'}
-              >
-                {isMinimized ? (
-                  <Eye className="w-4 h-4 text-white" />
-                ) : (
-                  <EyeOff className="w-4 h-4 text-white" />
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsMinimized(!isMinimized)}
+                  className="p-1.5 hover:bg-white hover:bg-opacity-20 rounded-lg transition-all"
+                  title={isMinimized ? 'Show toolbar' : 'Minimize toolbar'}
+                >
+                  {isMinimized ? (
+                    <Eye className="w-4 h-4 text-white" />
+                  ) : (
+                    <EyeOff className="w-4 h-4 text-white" />
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm('Hide admin toolbar? You can re-enable it from Admin Settings.')) {
+                      localStorage.setItem('adminToolbarHidden', 'true');
+                      setIsHidden(true);
+                    }
+                  }}
+                  className="p-1.5 hover:bg-red-500 hover:bg-opacity-30 rounded-lg transition-all"
+                  title="Hide toolbar permanently"
+                >
+                  <span className="text-white text-lg font-bold">×</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
