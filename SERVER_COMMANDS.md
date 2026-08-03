@@ -18,14 +18,20 @@ git pull origin main
 cd backend && npm install multer && cd ..
 
 # Install frontend dependencies  
-cd frontend && npm install lucide-react && cd ..
+cd frontend && npm install lucide-react framer-motion && cd ..
 
 # Create icons directory
 mkdir -p backend/public/icons && chmod 755 backend/public/icons
 
-# Run database migration
+# Run database migrations (cosmetics + recipes + taste learning)
 docker cp backend/migrations/add_cosmetics_system.sql shop_postgres:/tmp/
 docker exec -it shop_postgres psql -U postgres -d shopping_app -f /tmp/add_cosmetics_system.sql
+
+docker cp backend/migrations/034_create_recipes_table.sql shop_postgres:/tmp/
+docker exec -it shop_postgres psql -U postgres -d shopping_app -f /tmp/034_create_recipes_table.sql
+
+docker cp backend/migrations/035_taste_preferences_system.sql shop_postgres:/tmp/
+docker exec -it shop_postgres psql -U postgres -d shopping_app -f /tmp/035_taste_preferences_system.sql
 
 # Rebuild and restart
 ./update-server.sh
@@ -38,7 +44,7 @@ docker exec -it shop_postgres psql -U postgres -d shopping_app -f /tmp/add_cosme
 Copy this entire command and paste into your server terminal:
 
 ```bash
-cd /opt/cloudmc-shop && git pull origin main && cd backend && npm install multer && cd ../frontend && npm install lucide-react && cd .. && mkdir -p backend/public/icons && chmod 755 backend/public/icons && docker cp backend/migrations/add_cosmetics_system.sql shop_postgres:/tmp/ && docker exec -it shop_postgres psql -U postgres -d shopping_app -f /tmp/add_cosmetics_system.sql && ./update-server.sh
+cd /opt/cloudmc-shop && git pull origin main && cd backend && npm install multer && cd ../frontend && npm install lucide-react framer-motion && cd .. && mkdir -p backend/public/icons && chmod 755 backend/public/icons && docker cp backend/migrations/add_cosmetics_system.sql shop_postgres:/tmp/ && docker exec -it shop_postgres psql -U postgres -d shopping_app -f /tmp/add_cosmetics_system.sql && docker cp backend/migrations/034_create_recipes_table.sql shop_postgres:/tmp/ && docker exec -it shop_postgres psql -U postgres -d shopping_app -f /tmp/034_create_recipes_table.sql && docker cp backend/migrations/035_taste_preferences_system.sql shop_postgres:/tmp/ && docker exec -it shop_postgres psql -U postgres -d shopping_app -f /tmp/035_taste_preferences_system.sql && ./update-server.sh
 ```
 
 ---
@@ -58,8 +64,14 @@ docker logs shop_frontend --tail 50
 # Test backend API
 curl http://localhost:3007/api/health
 
-# Check database tables
+# Check database tables (icons)
 docker exec -it shop_postgres psql -U postgres -d shopping_app -c "\dt" | grep icons
+
+# Check recipe tables
+docker exec -it shop_postgres psql -U postgres -d shopping_app -c "\dt" | grep recipe
+
+# Check taste preference tables
+docker exec -it shop_postgres psql -U postgres -d shopping_app -c "\dt" | grep -E "user_taste|routine|recommendation"
 ```
 
 ---
