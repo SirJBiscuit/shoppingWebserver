@@ -264,6 +264,41 @@ const Settings = () => {
                   value={settings.soundEffects}
                   onChange={(val) => setSettings({ ...settings, soundEffects: val })}
                 />
+                
+                {/* Admin Toolbar Toggle - Only show for admin users */}
+                {user?.isAdmin && (
+                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border-2 border-purple-200 dark:border-purple-700">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900 dark:text-white flex items-center">
+                        Admin Toolbar
+                        <span className="ml-2 px-2 py-0.5 bg-purple-600 text-white text-xs rounded-full">ADMIN</span>
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Show floating admin toolbar at the top</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const isHidden = localStorage.getItem('adminToolbarHidden') === 'true';
+                        if (isHidden) {
+                          localStorage.removeItem('adminToolbarHidden');
+                          alert('Admin toolbar enabled! Refreshing page...');
+                        } else {
+                          localStorage.setItem('adminToolbarHidden', 'true');
+                          alert('Admin toolbar disabled! Refreshing page...');
+                        }
+                        window.location.reload();
+                      }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        localStorage.getItem('adminToolbarHidden') !== 'true' ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          localStorage.getItem('adminToolbarHidden') !== 'true' ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                )}
               </div>
             </motion.div>
 
