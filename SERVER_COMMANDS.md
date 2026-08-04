@@ -65,22 +65,22 @@ docker logs shop_frontend --tail 50
 curl http://localhost:3007/api/health
 
 # Check database tables (icons)
-docker exec -it shop_postgres psql -U postgres -d shopping_app -c "\dt" | grep icons
+docker exec -it shop_postgres psql -U shopuser -d shopdb -c "\dt" | grep icons
 
 # Check recipe tables
-docker exec -it shop_postgres psql -U postgres -d shopping_app -c "\dt" | grep recipe
+docker exec -it shop_postgres psql -U shopuser -d shopdb -c "\dt" | grep recipe
 
 # Check taste preference tables
-docker exec -it shop_postgres psql -U postgres -d shopping_app -c "\dt" | grep -E "user_taste|routine|recommendation"
+docker exec -it shop_postgres psql -U shopuser -d shopdb -c "\dt" | grep -E "user_taste|routine|recommendation"
 
 # Check feature_flags table
-docker exec -it shop_postgres psql -U postgres -d shopping_app -c "\dt feature_flags"
+docker exec -it shop_postgres psql -U shopuser -d shopdb -c "\dt feature_flags"
 
 # Count features in database
-docker exec -it shop_postgres psql -U postgres -d shopping_app -c "SELECT COUNT(*) FROM feature_flags;"
+docker exec -it shop_postgres psql -U shopuser -d shopdb -c "SELECT COUNT(*) FROM feature_flags;"
 
 # List all features
-docker exec -it shop_postgres psql -U postgres -d shopping_app -c "SELECT feature_key, is_enabled FROM feature_flags;"
+docker exec -it shop_postgres psql -U shopuser -d shopdb -c "SELECT feature_key, is_enabled FROM feature_flags;"
 ```
 
 ---
@@ -95,7 +95,7 @@ docker restart shop_frontend shop_backend
 cd /opt/cloudmc-shop && ./update-server.sh
 
 # Check database connection
-docker exec -it shop_postgres psql -U postgres -d shopping_app
+docker exec -it shop_postgres psql -U shopuser -d shopdb
 
 # View all tables
 \dt
