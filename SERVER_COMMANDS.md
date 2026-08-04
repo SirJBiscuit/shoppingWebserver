@@ -72,6 +72,15 @@ docker exec -it shop_postgres psql -U postgres -d shopping_app -c "\dt" | grep r
 
 # Check taste preference tables
 docker exec -it shop_postgres psql -U postgres -d shopping_app -c "\dt" | grep -E "user_taste|routine|recommendation"
+
+# Check feature_flags table
+docker exec -it shop_postgres psql -U postgres -d shopping_app -c "\dt feature_flags"
+
+# Count features in database
+docker exec -it shop_postgres psql -U postgres -d shopping_app -c "SELECT COUNT(*) FROM feature_flags;"
+
+# List all features
+docker exec -it shop_postgres psql -U postgres -d shopping_app -c "SELECT feature_key, is_enabled FROM feature_flags;"
 ```
 
 ---
