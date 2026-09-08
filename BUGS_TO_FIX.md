@@ -1,53 +1,84 @@
 # 🐛 Bugs To Fix
 
-**Last Updated:** September 8, 2026
+**Last Updated:** September 8, 2026 - 1:54 PM
 
 ## ❌ Not Fixed Yet
 
-### High Priority
-- [ ] **Home Inventory - Delete Item Fails (500 Error)**
-  - **Issue:** Deleting items returns 500 error
-  - **Root Cause:** Missing `inventory_history` table on production server
-  - **Fix:** Run migration 030 (`fix-features.sh` script updated)
-  - **Status:** Fix ready, needs deployment
-  - **Test:** Delete an item in Home Inventory, check console for success
+### Critical Priority (Blocking Usage)
 
-- [ ] **Feature Flags Not Loading**
-  - **Issue:** All features show "not found" in console
-  - **Root Cause:** `feature_flags` table empty or missing
-  - **Fix:** Run `fix-features.sh` to populate table
-  - **Status:** Fix ready, needs deployment
-  - **Test:** Check console, features should load without errors
-
-- [ ] **Inventory Stats API Failing (500 Error)**
-  - **Issue:** `api/inventory/stats` returns 500 error
-  - **Root Cause:** Unknown - needs investigation after history table fix
-  - **Fix:** TBD
+- [ ] **Delete Item Still Fails After Running fix-features.sh**
+  - **Issue:** Delete still returns 500 error even after running fix script
+  - **Root Cause:** Migration may not have run correctly, or different issue
+  - **Fix:** Check server logs, verify migration ran, investigate actual error
   - **Status:** Needs investigation
-  - **Test:** Open Home Inventory, check if stats load
+  - **Test:** Delete an item, check backend logs for exact error
 
-### Medium Priority
-- [ ] **Admin Toolbar Blocking Content**
-  - **Issue:** Admin toolbar covers logout button and other UI elements
-  - **Root Cause:** Z-index conflicts
-  - **Fix:** Toggle added in Settings page to hide toolbar
-  - **Status:** Workaround implemented, needs testing
-  - **Test:** Go to Settings → Toggle Admin Toolbar off
+- [ ] **Sidebar Hidden on /settings Page**
+  - **Issue:** When navigating to /settings from sidebar, sidebar disappears and can't go back
+  - **Root Cause:** Settings page may not include Sidebar component or has CSS hiding it
+  - **Fix:** Add Sidebar to Settings.js layout
+  - **Status:** Needs fix
+  - **Test:** Click Settings in sidebar, verify sidebar stays visible
 
-- [ ] **User Management - Failed to Fetch Users (403)**
-  - **Issue:** User management page shows "failed to fetch users"
-  - **Root Cause:** User not logged in as admin account
-  - **Fix:** Log in as `guy69` (admin account)
-  - **Status:** User error, not a bug
-  - **Test:** Log out, log in as `guy69`, check User Management
+- [ ] **Admin Toolbar Covering Normal Toolbar**
+  - **Issue:** Admin mode toolbar blocks important elements in normal toolbar
+  - **Root Cause:** Z-index and positioning conflicts
+  - **Fix:** Adjust z-index, add proper spacing/margin
+  - **Status:** Needs fix
+  - **Test:** Check if normal toolbar is accessible with admin toolbar visible
 
-### Low Priority
-- [ ] **Mobile/Desktop Responsiveness Issues in Home Inventory**
-  - **Issue:** Layout problems on mobile/desktop (needs specifics)
-  - **Root Cause:** TBD - needs user to specify which screens/elements
+### High Priority
+
+- [ ] **Admin Toolbar Toggle Not Working Properly**
+  - **Issue:** Can't hide admin toolbar with toggle button
+  - **Root Cause:** localStorage toggle may not be working, or page not refreshing
+  - **Fix:** Debug toggle functionality, ensure it actually hides toolbar
+  - **Status:** Needs investigation
+  - **Test:** Toggle admin toolbar in Settings, verify it hides/shows
+
+- [ ] **Feature Flags Issues with Home Inventory**
+  - **Issue:** Feature flags causing problems with home inventory functionality
+  - **Root Cause:** Specific features not loading or misconfigured
+  - **Fix:** TBD - need to identify which flags are problematic
+  - **Status:** Needs more details
+  - **Test:** Check console for feature flag errors on home inventory page
+
+- [ ] **Feature Flags Issues with Store Location**
+  - **Issue:** Store location feature having flag-related problems
+  - **Root Cause:** TBD
   - **Fix:** TBD
   - **Status:** Needs more details
   - **Test:** TBD
+
+- [ ] **Home Inventory Icons Not Displaying**
+  - **Issue:** Item/ingredient icons don't show properly in home inventory
+  - **Root Cause:** Icon URLs missing, cosmetic_icons table empty, or image paths wrong
+  - **Fix:** Check cosmetic_icons table, verify icon URLs, check image rendering
+  - **Status:** Needs investigation
+  - **Test:** Open home inventory, verify items show icons
+
+- [ ] **Sidebar Hidden on Meal Planner Page**
+  - **Issue:** Meal planner page doesn't show sidebar
+  - **Root Cause:** Meal planner component may not include Sidebar
+  - **Fix:** Add Sidebar to meal planner layout
+  - **Status:** Needs fix
+  - **Test:** Navigate to meal planner, verify sidebar is visible
+
+### Medium Priority
+
+- [ ] **Feature Management - Drag to Reorder Doesn't Work**
+  - **Issue:** In /admin feature management, dragging features doesn't change order
+  - **Root Cause:** Drag handlers not saving order to backend, or not updating state
+  - **Fix:** Implement save on drag end, update display_order in database
+  - **Status:** Needs fix
+  - **Test:** Drag features in admin, verify order persists and updates live preview
+
+- [ ] **Feature Management - Enable/Disable Doesn't Update Sidebar**
+  - **Issue:** Toggling features on/off doesn't immediately update sidebar
+  - **Root Cause:** Sidebar not listening to feature flag changes, no real-time update
+  - **Fix:** Add feature flag context listener, refresh sidebar on changes
+  - **Status:** Needs fix
+  - **Test:** Toggle a feature in admin, verify sidebar updates without page refresh
 
 ---
 

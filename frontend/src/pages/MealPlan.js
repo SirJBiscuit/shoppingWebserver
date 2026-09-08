@@ -6,6 +6,7 @@ import { Calendar, ArrowLeft, ShoppingCart } from 'lucide-react';
 import MealPlanner from '../components/MealPlanner';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
+import Sidebar from '../components/Sidebar';
 
 const MealPlan = () => {
   const { user } = useAuth();
@@ -66,6 +67,9 @@ const MealPlan = () => {
   return (
     <PageTransition>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <Sidebar />
+        
+        <div className="lg:ml-72">
         {/* Header */}
         <header className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-800">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -135,6 +139,7 @@ const MealPlan = () => {
             />
           )}
         </main>
+        </div>
       </div>
     </PageTransition>
   );
