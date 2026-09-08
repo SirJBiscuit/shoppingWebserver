@@ -74,6 +74,29 @@ function downloadImage(url, filepath) {
   });
 }
 
+// Fetch the actual image URL from the food page
+async function getImageUrl(slug) {
+  return new Promise((resolve, reject) => {
+    https.get(`${BASE_URL}/food/${slug}`, (response) => {
+      let data = '';
+      
+      response.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      response.on('end', () => {
+        // Extract the download URL from the HTML
+        const match = data.match(/https:\/\/directus\.backend\.getwicked\.app\/assets\/[^"]+\.png/);
+        if (match) {
+          resolve(match[0]);
+        } else {
+          reject(new Error('Image URL not found in page'));
+        }
+      });
+    }).on('error', reject);
+  });
+}
+
 // Main download function
 async function downloadAllIcons() {
   console.log(`Starting download of ${foodItems.length} food icons...`);
@@ -88,12 +111,13 @@ async function downloadAllIcons() {
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
     
-    // The image URL pattern (you may need to inspect the actual site to get the correct pattern)
-    const imageUrl = `${BASE_URL}/food/${item}/image.png`;
     const filename = `${item}.png`;
     const filepath = path.join(OUTPUT_DIR, filename);
     
     try {
+      console.log(`Fetching URL for: ${itemName}...`);
+      const imageUrl = await getImageUrl(item);
+      
       console.log(`Downloading: ${itemName}...`);
       await downloadImage(imageUrl, filepath);
       
