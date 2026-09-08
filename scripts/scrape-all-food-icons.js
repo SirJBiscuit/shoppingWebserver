@@ -30,46 +30,34 @@ const OUTPUT_DIR = path.join(__dirname, '../public/food-icons');
 const ICONS_LIST_FILE = path.join(__dirname, '../public/food-icons/icons-list-complete.json');
 const BASE_URL = 'https://food.getwicked.app';
 
-// Price estimation database (average US prices)
-const PRICE_DATABASE = {
-  // Produce
-  'apple': 1.50, 'banana': 0.50, 'orange': 1.00, 'lemon': 0.75, 'lime': 0.50,
-  'tomato': 1.50, 'potato': 0.75, 'onion': 0.50, 'garlic': 0.30, 'carrot': 0.75,
-  'lettuce': 2.00, 'spinach': 3.00, 'broccoli': 2.50, 'cauliflower': 3.00,
-  'pepper': 1.50, 'cucumber': 1.00, 'zucchini': 1.50, 'squash': 2.00,
-  'avocado': 2.00, 'berries': 4.00, 'strawberry': 4.00, 'blueberry': 5.00,
-  'raspberry': 5.00, 'blackberry': 5.00, 'grape': 3.00, 'watermelon': 5.00,
-  'melon': 4.00, 'pineapple': 4.00, 'mango': 2.00, 'peach': 2.00, 'pear': 1.50,
-  
-  // Meat & Seafood
-  'beef': 8.00, 'chicken': 5.00, 'pork': 6.00, 'turkey': 6.00, 'lamb': 10.00,
-  'fish': 10.00, 'salmon': 12.00, 'tuna': 15.00, 'shrimp': 12.00, 'crab': 20.00,
-  'lobster': 30.00, 'bacon': 7.00, 'sausage': 5.00, 'steak': 12.00,
-  
-  // Dairy
-  'milk': 4.00, 'cheese': 5.00, 'butter': 4.00, 'yogurt': 5.00, 'cream': 4.00,
-  'egg': 3.00, 'eggs': 3.00,
-  
-  // Grains & Pasta
-  'bread': 3.00, 'rice': 2.00, 'pasta': 2.00, 'noodle': 2.00, 'flour': 3.00,
-  'oat': 4.00, 'cereal': 4.00, 'tortilla': 3.00,
-  
-  // Condiments & Sauces
-  'sauce': 3.00, 'vinegar': 3.00, 'oil': 5.00, 'salt': 2.00, 'pepper': 4.00,
-  'spice': 4.00, 'herb': 3.00, 'mustard': 3.00, 'ketchup': 3.00, 'mayo': 4.00,
-  
-  // Beverages
-  'coffee': 8.00, 'tea': 5.00, 'juice': 4.00, 'soda': 2.00, 'water': 1.00,
-  
-  // Canned/Packaged
-  'beans': 1.50, 'soup': 2.00, 'can': 2.00,
-  
-  // Nuts & Seeds
-  'almond': 10.00, 'walnut': 12.00, 'cashew': 10.00, 'peanut': 5.00,
-  'pecan': 12.00, 'pistachio': 15.00,
-  
-  // Default
-  'default': 3.00
+// Price estimation - will be populated from learned_prices.json if it exists
+// Otherwise uses category-based defaults
+let PRICE_DATABASE = {};
+
+// Load learned prices from file if it exists
+const LEARNED_PRICES_FILE = path.join(__dirname, '../data/learned_prices.json');
+try {
+  if (fs.existsSync(LEARNED_PRICES_FILE)) {
+    PRICE_DATABASE = JSON.parse(fs.readFileSync(LEARNED_PRICES_FILE, 'utf8'));
+    console.log(`Loaded ${Object.keys(PRICE_DATABASE).length} learned prices from database`);
+  }
+} catch (error) {
+  console.log('No learned prices found, will use category-based estimates');
+}
+
+// Category-based price ranges (fallback when no specific price is known)
+const CATEGORY_PRICE_RANGES = {
+  'Produce': { min: 0.50, max: 5.00, default: 2.00 },
+  'Meat & Seafood': { min: 5.00, max: 30.00, default: 10.00 },
+  'Dairy & Eggs': { min: 2.00, max: 8.00, default: 4.00 },
+  'Bakery & Bread': { min: 2.00, max: 6.00, default: 3.50 },
+  'Grains & Pasta': { min: 1.50, max: 5.00, default: 2.50 },
+  'Condiments & Sauces': { min: 2.00, max: 8.00, default: 4.00 },
+  'Beverages': { min: 1.00, max: 10.00, default: 4.00 },
+  'Frozen Foods': { min: 3.00, max: 10.00, default: 5.00 },
+  'Canned & Packaged': { min: 1.00, max: 5.00, default: 2.50 },
+  'Snacks & Sweets': { min: 2.00, max: 15.00, default: 5.00 },
+  'Other': { min: 1.00, max: 10.00, default: 3.00 }
 };
 
 // Create output directory
@@ -257,18 +245,25 @@ function categorizeFood(name) {
   return 'Other';
 }
 
-// Estimate price
-function estimatePrice(name) {
+// Estimate price based on learned data or category
+function estimatePrice(name, category) {
   const lower = name.toLowerCase();
   
-  // Check each keyword in price database
+  // First, check if we have a learned price for this exact item
+  if (PRICE_DATABASE[lower]) {
+    return PRICE_DATABASE[lower];
+  }
+  
+  // Second, check for partial matches in learned prices
   for (const [keyword, price] of Object.entries(PRICE_DATABASE)) {
-    if (keyword !== 'default' && lower.includes(keyword)) {
+    if (lower.includes(keyword) || keyword.includes(lower)) {
       return price;
     }
   }
   
-  return PRICE_DATABASE.default;
+  // Finally, use category-based default
+  const categoryRange = CATEGORY_PRICE_RANGES[category] || CATEGORY_PRICE_RANGES['Other'];
+  return categoryRange.default;
 }
 
 // Generate keywords
@@ -329,7 +324,7 @@ async function scrapeAllFoodIcons() {
       
       const stats = fs.statSync(filepath);
       const category = categorizeFood(itemName);
-      const estimatedPrice = estimatePrice(itemName);
+      const estimatedPrice = estimatePrice(itemName, category);
       
       iconsList.push({
         name: itemName,

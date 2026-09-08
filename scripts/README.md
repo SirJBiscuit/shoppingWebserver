@@ -10,7 +10,39 @@ npm install puppeteer sharp
 
 ## Usage
 
-### 1. Download Icons (Puppeteer Method - Recommended)
+### 1. Learn Prices from Your Database (Optional but Recommended)
+
+Before downloading icons, learn prices from your existing user data:
+
+```bash
+node scripts/learn-prices-from-db.js
+```
+
+This will:
+- Query your inventory and shopping list tables
+- Calculate average prices for each item
+- Save learned prices to `data/learned_prices.json`
+- Use this data for better price estimation
+
+**Note:** Skip this step if you don't have existing data yet. The scraper will use category-based defaults.
+
+### 2. Download All Food Icons with Auto-Categorization
+
+Download ALL food icons from the site with automatic categorization and pricing:
+
+```bash
+node scripts/scrape-all-food-icons.js
+```
+
+This will:
+- Scrape the main page to find ALL food items (100s of items)
+- Download each icon using Puppeteer
+- Auto-categorize into proper categories
+- Estimate prices using learned data or category defaults
+- Generate keywords for search
+- Save to `public/food-icons/icons-list-complete.json`
+
+### 3. Download Icons (Puppeteer Method - Recommended)
 
 Downloads all food icons using Puppeteer to render JavaScript:
 
