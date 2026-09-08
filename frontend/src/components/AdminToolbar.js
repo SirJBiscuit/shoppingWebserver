@@ -24,9 +24,9 @@ const AdminToolbar = () => {
 
   return (
     <>
-      {/* Floating Admin Toolbar - Hide when editor is open */}
+      {/* Admin Toolbar - Hide when editor is open */}
       {!showEditor && (
-      <div className={`fixed top-0 left-0 right-0 z-30 transition-all duration-300 ${
+      <div className={`sticky top-0 left-0 right-0 z-20 transition-all duration-300 ${
         isMinimized ? '-translate-y-8' : 'translate-y-0'
       }`}>
         <div className="bg-gradient-to-r from-purple-600 to-pink-600 shadow-lg">
