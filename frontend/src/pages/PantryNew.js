@@ -183,12 +183,17 @@ const PantryNew = () => {
     if (!window.confirm(`Delete "${item.item_name}"?`)) return;
 
     try {
-      await inventoryAPI.deleteItem(item.id);
+      console.log('Deleting item:', item.id, item.item_name);
+      const result = await inventoryAPI.deleteItem(item.id);
+      console.log('Delete result:', result);
       success('Item deleted');
       loadAll();
     } catch (error) {
       console.error('Failed to delete item:', error);
-      showError('Failed to delete item');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      const errorMsg = error.response?.data?.error || error.message || 'Unknown error';
+      showError(`Failed to delete item: ${errorMsg}`);
     }
   };
 
