@@ -636,7 +636,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     
     const item = itemResult.rows[0];
     
-    // Add to history
+    // Add to history (using correct column names from migration 030)
     await db.query(`
       INSERT INTO inventory_history (
         user_id, item_name, storage_location, custom_location_id,
@@ -650,11 +650,11 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       item.storage_location,
       item.custom_location_id,
       item.category,
-      item.current_quantity,
+      item.current_quantity,  // inventory table uses current_quantity
       item.unit,
       item.bought_date,
       item.opened_date,
-      item.estimated_expiry_date,
+      item.estimated_expiry_date,  // inventory table uses estimated_expiry_date
       item.price,
       item.store
     ]);
