@@ -5,24 +5,30 @@ Scripts to download and optimize 3D food icons from https://food.getwicked.app
 ## Prerequisites
 
 ```bash
-npm install sharp
+npm install puppeteer sharp
 ```
 
 ## Usage
 
-### 1. Download Icons
+### 1. Download Icons (Puppeteer Method - Recommended)
 
-Downloads all food icons from the Wicked Food Collection:
+Downloads all food icons using Puppeteer to render JavaScript:
 
 ```bash
-node scripts/download-food-icons.js
+node scripts/download-food-icons-puppeteer.js
 ```
 
 This will:
+- Launch headless Chrome browser
+- Navigate to each food page and wait for JavaScript to render
+- Extract download links from the rendered page
 - Download 400x400 PNG images to `public/food-icons/`
 - Create `public/food-icons/icons-list.json` with metadata
 - Categorize icons automatically
 - Generate search keywords
+- Show progress with file sizes
+
+**Note:** First run will download Chromium (~170MB) for Puppeteer.
 
 ### 2. Optimize Icons
 

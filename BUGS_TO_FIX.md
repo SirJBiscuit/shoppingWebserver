@@ -94,6 +94,22 @@
   - **Solution:** Added Sidebar component to MealPlan.js with proper lg:ml-72 margin
   - **Commit:** 69c624d
 
+- [x] **Auto-Price Overriding Manual Input**
+  - **Fixed:** September 8, 2026
+  - **Solution:** Added manualPriceSet flag to track user input and prevent auto-override
+  - **Commit:** ea489e3
+
+- [x] **Admin Toolbar Covering Normal Toolbar**
+  - **Fixed:** September 8, 2026
+  - **Solution:** Changed from fixed to sticky positioning, lowered z-index to 20
+  - **Commit:** 461dbd6
+
+- [x] **Home Inventory Icons Not Displaying (Partial)**
+  - **Fixed:** September 8, 2026
+  - **Solution:** Added detectIcon fallback logic in InventoryCard component
+  - **Commit:** bd49836
+  - **Note:** Full 3D icon integration pending (requires browser automation for scraping)
+
 ---
 
 ## 📝 Notes
