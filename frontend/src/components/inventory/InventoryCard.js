@@ -7,6 +7,7 @@ import ExpirationBadge from './ExpirationBadge';
 import StorageIndicator from './StorageIndicator';
 import DateBadge from './DateBadge';
 import { classifyIngredient } from '../../utils/ingredientClassifier';
+import { detectIcon } from '../../utils/iconDetector';
 
 /**
  * InventoryCard - Beautiful card for displaying inventory items
@@ -123,18 +124,20 @@ const InventoryCard = ({
           />
         ) : (
           <div className={styles.icon}>
-            {/* Use item_icon from database, or image_url if it's an emoji, or fallback to category icon */}
-            {item_icon || image_url || 
-              (category === 'Dairy & Eggs' && '🥛') || 
-              (category === 'Meat & Seafood' && '🥩') || 
-              (category === 'Produce' && '🥬') ||
-              (category === 'Bakery & Bread' && '🍞') ||
-              (category === 'Frozen Foods' && '❄️') ||
-              (category === 'Grains & Pasta' && '🍝') ||
-              (category === 'Snacks & Sweets' && '🍪') ||
-              (category === 'Beverages' && '🥤') ||
-              (category === 'Condiments & Sauces' && '🧂') ||
-              '📦'}
+            {/* Use item_icon from database, or image_url if it's an emoji, or detect from item name, or fallback to category icon */}
+            {item_icon || 
+             (image_url && !image_url.startsWith('http') ? image_url : null) || 
+             detectIcon(item_name) ||
+             (category === 'Dairy & Eggs' && '🥛') || 
+             (category === 'Meat & Seafood' && '🥩') || 
+             (category === 'Produce' && '🥬') ||
+             (category === 'Bakery & Bread' && '🍞') ||
+             (category === 'Frozen Foods' && '❄️') ||
+             (category === 'Grains & Pasta' && '🍝') ||
+             (category === 'Snacks & Sweets' && '🍪') ||
+             (category === 'Beverages' && '🥤') ||
+             (category === 'Condiments & Sauces' && '🧂') ||
+             '📦'}
           </div>
         )}
         

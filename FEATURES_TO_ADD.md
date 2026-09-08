@@ -6,6 +6,31 @@
 
 ### High Priority
 
+- [ ] **Wicked Food Icons Integration**
+  - **Description:** Integrate 3D food icons from https://food.getwicked.app (400x400 PNG images)
+  - **Details:**
+    - Scrape/download all food icons from the site (100s of items)
+    - Create image optimization pipeline to compress 400x400 → 100x100 or 200x200
+    - Store optimized images in `/public/food-icons/` directory
+    - Create mapping table: `food_icon_library` with columns: name, filename, category, keywords
+    - Update icon picker to show real food images instead of emojis
+    - Fallback to emoji if no image found
+    - Lazy load images for performance
+  - **Estimated Effort:** Medium (scraping script, image optimization, database integration)
+  - **Dependencies:** Image optimization library (sharp or similar), storage space
+  - **Notes:** 
+    - Use WebP format for better compression
+    - CDN integration for faster loading
+    - Icons are free to use per their site
+  - **Implementation Steps:**
+    1. Create scraper script to download all icons
+    2. Set up image optimization pipeline (400x400 → 200x200 WebP)
+    3. Create migration for `food_icon_library` table
+    4. Seed database with icon mappings
+    5. Update IconPicker component to show image grid
+    6. Update InventoryCard to use real images
+    7. Add search/filter in icon picker
+
 - [ ] **MDL - Massive Data List (Admin Product Database)**
   - **Description:** Admin-managed database of common products with default prices, locations, stores, sizes, and expiration data
   - **Details:**
