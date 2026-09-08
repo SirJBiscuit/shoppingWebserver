@@ -6,35 +6,6 @@
 
 ### High Priority
 
-- [ ] **AI Food Image Generation**
-  - **Description:** Generate custom 3D food images for items not in the MDL database
-  - **Details:**
-    - Use free AI image generation APIs (Stable Diffusion, DALL-E mini, or similar)
-    - Fallback options: Replicate API, Hugging Face Inference API
-    - Generate on-demand when user adds unknown item
-    - Cache generated images in MDL for future use
-    - Consistent style matching existing food icons
-    - Automatic background removal and sizing
-  - **Estimated Effort:** Medium
-  - **API Options:**
-    - **Free:** Hugging Face Inference API (Stable Diffusion)
-    - **Paid:** Replicate ($0.0002/image), OpenAI DALL-E
-    - **Self-hosted:** Run Stable Diffusion locally
-  - **Implementation:**
-    1. Create image generation service
-    2. Add "Generate Icon" button in admin/user interface
-    3. Prompt template: "3D rendered {item_name}, food photography, white background, professional lighting"
-    4. Post-process: remove background, resize to 400x400
-    5. Save to MDL and optimize automatically
-    6. Track generation costs/usage
-  - **Prompt Examples:**
-    - "3D rendered banana, food photography, white background, studio lighting, high quality"
-    - "3D rendered chicken breast raw, food photography, white background, professional"
-  - **Notes:**
-    - Start with manual generation for admin
-    - Later: automatic generation for missing items
-    - Quality control: admin approval before public use
-
 - [x] **Wicked Food Icons Integration**
   - **Description:** Integrate 3D food icons from https://food.getwicked.app (400x400 PNG images)
   - **Details:**
@@ -169,6 +140,7 @@
 
 ## 💡 Feature Ideas (Backlog)
 
+- **AI Food Image Generation** - Generate custom 3D food icons for items not in MDL using Stable Diffusion or similar
 - Voice input for adding items
 - Barcode scanner integration
 - Shopping list sharing between users
