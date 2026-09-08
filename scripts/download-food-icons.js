@@ -74,7 +74,7 @@ function downloadImage(url, filepath) {
   });
 }
 
-// Fetch the actual image URL from the food page
+// Fetch the actual image URL from the food page by scraping the download link
 async function getImageUrl(slug) {
   return new Promise((resolve, reject) => {
     https.get(`${BASE_URL}/food/${slug}`, (response) => {
@@ -85,36 +85,25 @@ async function getImageUrl(slug) {
       });
       
       response.on('end', () => {
-        // Try multiple patterns to find the image URL
-        let match = data.match(/https:\/\/directus\.backend\.getwicked\.app\/assets\/[^"'\s)]+\.png/);
+        // Look for the download link pattern: href="...?download"
+        const downloadMatch = data.match(/href="([^"]*\/assets\/[^"]*\.png\?download)"/);
         
-        if (!match) {
-          // Try without ?download parameter
-          match = data.match(/directus\.backend\.getwicked\.app\/assets\/[^"'\s)]+/);
-          if (match) {
-            let url = match[0];
-            if (!url.startsWith('http')) {
-              url = 'https://' + url;
-            }
-            // Add .png if not present
-            if (!url.endsWith('.png')) {
-              url = url.split('?')[0] + '.png';
-            }
-            resolve(url);
-            return;
-          }
+        if (downloadMatch) {
+          let url = downloadMatch[1];
+          // Remove ?download parameter for direct image access
+          url = url.replace('?download', '');
+          resolve(url);
+          return;
         }
         
-        if (match) {
-          resolve(match[0]);
-        } else {
-          // Debug: save failed HTML to file for inspection
-          if (slug === 'banana') {
-            fs.writeFileSync(path.join(OUTPUT_DIR, 'debug.html'), data);
-            console.log('Debug: Saved HTML to debug.html');
-          }
-          reject(new Error('Image URL not found in page'));
+        // Fallback: try to find any directus asset URL
+        const assetMatch = data.match(/https?:\/\/directus\.backend\.getwicked\.app\/assets\/[a-f0-9-]+\/[^"'\s)]+\.png/);
+        if (assetMatch) {
+          resolve(assetMatch[0]);
+          return;
         }
+        
+        reject(new Error('Image URL not found in page'));
       });
     }).on('error', reject);
   });
