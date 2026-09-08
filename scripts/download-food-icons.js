@@ -85,11 +85,34 @@ async function getImageUrl(slug) {
       });
       
       response.on('end', () => {
-        // Extract the download URL from the HTML
-        const match = data.match(/https:\/\/directus\.backend\.getwicked\.app\/assets\/[^"]+\.png/);
+        // Try multiple patterns to find the image URL
+        let match = data.match(/https:\/\/directus\.backend\.getwicked\.app\/assets\/[^"'\s)]+\.png/);
+        
+        if (!match) {
+          // Try without ?download parameter
+          match = data.match(/directus\.backend\.getwicked\.app\/assets\/[^"'\s)]+/);
+          if (match) {
+            let url = match[0];
+            if (!url.startsWith('http')) {
+              url = 'https://' + url;
+            }
+            // Add .png if not present
+            if (!url.endsWith('.png')) {
+              url = url.split('?')[0] + '.png';
+            }
+            resolve(url);
+            return;
+          }
+        }
+        
         if (match) {
           resolve(match[0]);
         } else {
+          // Debug: save failed HTML to file for inspection
+          if (slug === 'banana') {
+            fs.writeFileSync(path.join(OUTPUT_DIR, 'debug.html'), data);
+            console.log('Debug: Saved HTML to debug.html');
+          }
           reject(new Error('Image URL not found in page'));
         }
       });
