@@ -6,19 +6,19 @@
 
 ### Critical Priority (Blocking Usage)
 
+- [ ] **Automatic Price Override - Can't Manually Set Price**
+  - **Issue:** When typing item name (e.g., "bread"), automatic price is added and can't be changed manually
+  - **Root Cause:** Auto-suggestion overriding manual input, no way to disable auto-price
+  - **Fix:** Add toggle to disable auto-price, or allow manual override after auto-fill
+  - **Status:** Needs fix
+  - **Test:** Type "bread", try to manually change price field
+
 - [ ] **Delete Item Still Fails After Running fix-features.sh**
   - **Issue:** Delete still returns 500 error even after running fix script
   - **Root Cause:** Migration may not have run correctly, or different issue
   - **Fix:** Check server logs, verify migration ran, investigate actual error
   - **Status:** Needs investigation
   - **Test:** Delete an item, check backend logs for exact error
-
-- [ ] **Sidebar Hidden on /settings Page**
-  - **Issue:** When navigating to /settings from sidebar, sidebar disappears and can't go back
-  - **Root Cause:** Settings page may not include Sidebar component or has CSS hiding it
-  - **Fix:** Add Sidebar to Settings.js layout
-  - **Status:** Needs fix
-  - **Test:** Click Settings in sidebar, verify sidebar stays visible
 
 - [ ] **Admin Toolbar Covering Normal Toolbar**
   - **Issue:** Admin mode toolbar blocks important elements in normal toolbar
@@ -84,7 +84,15 @@
 
 ## ✅ Fixed & Verified
 
-*(Nothing here yet - move items here after testing confirms they work)*
+- [x] **Sidebar Hidden on /settings Page**
+  - **Fixed:** September 8, 2026
+  - **Solution:** Added Sidebar component to Settings.js with proper lg:ml-72 margin
+  - **Commit:** 69c624d
+
+- [x] **Sidebar Hidden on Meal Planner Page**
+  - **Fixed:** September 8, 2026
+  - **Solution:** Added Sidebar component to MealPlan.js with proper lg:ml-72 margin
+  - **Commit:** 69c624d
 
 ---
 

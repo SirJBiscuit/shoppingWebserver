@@ -6,6 +6,39 @@
 
 ### High Priority
 
+- [ ] **MDL - Massive Data List (Admin Product Database)**
+  - **Description:** Admin-managed database of common products with default prices, locations, stores, sizes, and expiration data
+  - **Details:**
+    - Admin page to view/edit/teach the system about products
+    - Fields: Product name, default price, location, store, best store, common size, expiration estimates
+    - Show price ranges (low/high), best stores automatically
+    - "Teach" button for admin to add new products or update existing
+    - Auto-suggest from MDL when users type product names
+    - Track where products are cheapest, most common sizes, typical shelf life
+  - **Estimated Effort:** Large (new database table, admin UI, integration with existing forms)
+  - **Dependencies:** Admin authentication, new migration for MDL table
+  - **Notes:** This will dramatically improve UX by providing smart defaults for common items
+  - **Database Schema:**
+    ```sql
+    CREATE TABLE product_master_data (
+      id SERIAL PRIMARY KEY,
+      product_name VARCHAR(255) UNIQUE NOT NULL,
+      category VARCHAR(100),
+      default_price_low DECIMAL(10,2),
+      default_price_high DECIMAL(10,2),
+      best_store VARCHAR(255),
+      common_stores TEXT[], -- array of stores
+      common_size VARCHAR(50),
+      common_unit VARCHAR(50),
+      typical_shelf_life_days INTEGER,
+      typical_location VARCHAR(50),
+      notes TEXT,
+      times_purchased INTEGER DEFAULT 0,
+      last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    ```
+
 - [ ] **Home Inventory Mobile Optimization**
   - **Description:** Improve responsive design for mobile devices
   - **Details:** TBD - need specifics on what needs improvement

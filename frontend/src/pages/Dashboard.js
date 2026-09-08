@@ -65,6 +65,7 @@ const Dashboard = () => {
   const [newItemQuantity, setNewItemQuantity] = useState('');
   const [newItemSize, setNewItemSize] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
+  const [manualPriceSet, setManualPriceSet] = useState(false); // Track if user manually set price
   const [newItemCategory, setNewItemCategory] = useState('');
   const [newItemIcon, setNewItemIcon] = useState('');
   const [suggestions, setSuggestions] = useState([]);
@@ -216,12 +217,12 @@ const Dashboard = () => {
       }
     }
     
-    // Only estimate price if not already set from user history
-    if (newItemName && !newItemPrice && newItemCategory) {
+    // Only estimate price if not already set from user history AND user hasn't manually set it
+    if (newItemName && !newItemPrice && newItemCategory && !manualPriceSet) {
       const estimatedPrice = estimatePrice(newItemName, newItemCategory);
       setNewItemPrice(estimatedPrice.toFixed(2));
     }
-  }, [newItemName, newItemCategory, newItemIcon, newItemPrice]);
+  }, [newItemName, newItemCategory, newItemIcon, newItemPrice, manualPriceSet]);
 
   const loadLists = async (forceSetActive = false) => {
     try {
@@ -615,6 +616,7 @@ const Dashboard = () => {
       setNewItemQuantity('');
       setNewItemSize('');
       setNewItemPrice('');
+      setManualPriceSet(false); // Reset manual price flag
       setNewItemCategory('');
       setNewItemIcon('');
       setSearchQuery('');
@@ -1401,7 +1403,10 @@ const Dashboard = () => {
                   <input
                     type="text"
                     value={newItemPrice}
-                    onChange={(e) => setNewItemPrice(e.target.value)}
+                    onChange={(e) => {
+                      setNewItemPrice(e.target.value);
+                      setManualPriceSet(true); // Mark that user manually changed price
+                    }}
                     placeholder="Price (e.g., 3.99)"
                     className="input-field"
                   />
