@@ -279,6 +279,7 @@ const PantryNewV2 = () => {
           console.error('Failed to delete item:', error);
           console.error('Error response:', error.response?.data);
           console.error('Error status:', error.response?.status);
+          console.error('Full error object:', JSON.stringify(error.response, null, 2));
           const errorMsg = error.response?.data?.error || error.message || 'Unknown error';
           showError(`Failed to delete item: ${errorMsg}`);
         }
