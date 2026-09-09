@@ -93,27 +93,96 @@ function downloadImage(url, filepath) {
 async function scrapeAllFoodItems(page) {
   console.log('Scraping main page for all food items...');
   
-  await page.goto(BASE_URL, { waitUntil: 'networkidle2', timeout: 30000 });
-  
-  // Wait for food links to load
-  await page.waitForSelector('a[href*="/food/"]', { timeout: 10000 });
-  
-  // Extract all food item slugs
-  const foodSlugs = await page.evaluate(() => {
-    const links = Array.from(document.querySelectorAll('a[href*="/food/"]'));
-    const slugs = links
-      .map(link => {
-        const match = link.href.match(/\/food\/([^/?#]+)/);
-        return match ? match[1] : null;
-      })
-      .filter(slug => slug && slug !== '');
+  try {
+    await page.goto(BASE_URL, { 
+      waitUntil: 'domcontentloaded', 
+      timeout: 60000 
+    });
     
-    // Remove duplicates
-    return [...new Set(slugs)];
-  });
-  
-  console.log(`Found ${foodSlugs.length} unique food items\n`);
-  return foodSlugs;
+    // Wait a bit for JavaScript to render
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Try to wait for links, but don't fail if timeout
+    try {
+      await page.waitForSelector('a[href*="/food/"]', { timeout: 5000 });
+    } catch (e) {
+      console.log('Timeout waiting for links, trying anyway...');
+    }
+    
+    // Extract all food item slugs
+    const foodSlugs = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll('a[href*="/food/"]'));
+      const slugs = links
+        .map(link => {
+          const match = link.href.match(/\/food\/([^/?#]+)/);
+          return match ? match[1] : null;
+        })
+        .filter(slug => slug && slug !== '');
+      
+      // Remove duplicates
+      return [...new Set(slugs)];
+    });
+    
+    if (foodSlugs.length === 0) {
+      console.log('No food links found on main page.');
+      console.log('The site structure may have changed or requires different selectors.');
+      console.log('Falling back to hardcoded list...\n');
+      
+      // Return a comprehensive hardcoded list as fallback
+      return getHardcodedFoodList();
+    }
+    
+    console.log(`Found ${foodSlugs.length} unique food items\n`);
+    return foodSlugs;
+  } catch (error) {
+    console.error('Error scraping main page:', error.message);
+    console.log('Using hardcoded food list as fallback...\n');
+    return getHardcodedFoodList();
+  }
+}
+
+// Hardcoded comprehensive food list (fallback)
+function getHardcodedFoodList() {
+  return [
+    'acai-berries', 'acerola-cherries', 'achar-indian-mango-pickle', 'acorn-squash',
+    'agave-nectar', 'alfalfa-sprouts', 'almond-butter', 'almond-milk', 'almonds',
+    'amaranth', 'amber-nameko-mushrooms', 'american-cheese-slices', 'americano-iced',
+    'amla-indian-gooseberry', 'anaheim-pepper', 'anchovies-dried', 'anchovies-fresh',
+    'angel-hair-pasta', 'apple-freeze-dried-slices', 'apple-cider-vinegar', 'applesauce',
+    'apricot', 'arbol-peppers', 'arctic-char-fillet-raw', 'aronia-berries',
+    'artichoke-heart', 'arugula', 'asiago-cheese', 'asparagus', 'avocado',
+    'baby-corn', 'bacon-bits', 'bacon-strips-raw', 'baguette', 'balsamic-vinegar',
+    'banana', 'banana-overripe', 'banana-pepper', 'barberries', 'basa-fillet-raw',
+    'basil', 'basil-dried', 'bay-leaf', 'beef-brisket-raw', 'beef-ribs-raw',
+    'beef-roast-raw', 'beef-sausage', 'beef-short-ribs-raw', 'beef-shoulder-raw',
+    'beef-sirloin-steak-raw', 'beets', 'belgian-endive', 'black-bean-garlic-sauce',
+    'black-beans-canned', 'black-beans-dry', 'black-cardamom', 'black-caviar',
+    'black-cod-sablefish-fillet-raw', 'black-gram-sabut-urad', 'black-mustard-seeds',
+    'black-olives', 'black-pepper-grinder', 'black-peppercorns', 'black-raspberry',
+    'black-rice-vinegar', 'black-tea', 'black-tea-leaves', 'black-truffle',
+    'black-eyed-peas-lobia', 'blackberry', 'blackcurrant', 'blackeye-peas-canned',
+    'blackeye-peas-dry', 'blue-corn', 'blue-corn-tortillas', 'blue-mussels',
+    'blueberries', 'blueberry-freeze-dried', 'blueberry-muffin', 'boba-drink',
+    'bocconcini-cheese', 'bok-choy', 'boletus-mushroom', 'boysenberry', 'branzino',
+    'bread-crumbs', 'bread-slice', 'breadstick', 'breakfast-sausage-patties',
+    'brie-cheese', 'brioche-bread', 'broccoli', 'brown-button-mushroom',
+    'brown-chickpeas-kala-chana', 'brown-coconut', 'brown-egg', 'brown-lentils',
+    'brown-mustard-seeds', 'brown-rice-bowl', 'brussels-sprouts', 'burrata-cheese',
+    'butter', 'butter-lettuce', 'buttermilk', 'butternut-squash', 'cabbage',
+    'caesars-mushroom', 'caffe-latte-iced', 'calamansi', 'camembert-cheese',
+    'canadian-bacon', 'candy-cap-mushrooms', 'cannellini-beans-canned',
+    'cannellini-beans-dry', 'cantaloupe', 'capers', 'caramel-sauce',
+    'carolina-reaper-pepper', 'carp-fish', 'carrot', 'cashews', 'catfish-fillet-raw',
+    'cauliflower', 'cayenne-pepper', 'cayenne-pepper-powder', 'celeriac-root',
+    'celery', 'celery-salt', 'celery-seeds', 'cellophane-glass-noodles',
+    'challah-bread', 'cheddar-cheese', 'cheese', 'cherries', 'cherry-freeze-dried',
+    'chestnut-mushrooms', 'chicken-breast-raw', 'chicken-drumstick-raw',
+    'chicken-thigh-raw', 'chicken-wings-raw', 'chickpeas-canned', 'chickpeas-dry',
+    'chili-powder', 'chinese-cabbage', 'chives', 'chocolate-chips', 'chorizo',
+    'cilantro', 'cinnamon-sticks', 'clams', 'coconut-milk', 'coconut-oil', 'cod-fillet-raw',
+    'coffee-beans', 'collard-greens', 'corn', 'cottage-cheese', 'crab-legs',
+    'cranberries', 'cream-cheese', 'cucumber', 'cumin-seeds', 'curry-powder'
+  ];
 }
 
 // Get image URL from food page
