@@ -625,9 +625,15 @@ router.patch('/:id', authenticateToken, async (req, res) => {
 // Delete inventory item
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
-    // Get item details before deleting (for history)
+    // Get item details before deleting (for history) - JOIN with items table to get name
     const itemResult = await db.query(`
-      SELECT * FROM inventory WHERE id = $1 AND user_id = $2
+      SELECT 
+        i.*,
+        it.name as item_name,
+        it.category
+      FROM inventory i
+      LEFT JOIN items it ON i.item_id = it.id
+      WHERE i.id = $1 AND i.user_id = $2
     `, [req.params.id, req.user.id]);
     
     if (itemResult.rows.length === 0) {
@@ -646,15 +652,15 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_DATE, 'deleted', $11, $12)
     `, [
       req.user.id,
-      item.item_name,
+      item.item_name || 'Unknown Item',  // From items table join
       item.storage_location,
       item.custom_location_id,
       item.category,
-      item.current_quantity,  // inventory table uses current_quantity
+      item.current_quantity || 1,  // From inventory table
       item.unit,
       item.bought_date,
       item.opened_date,
-      item.estimated_expiry_date,  // inventory table uses estimated_expiry_date
+      item.estimated_expiry_date,  // From inventory table
       item.price,
       item.store
     ]);
@@ -667,7 +673,9 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     res.json({ message: 'Item deleted successfully' });
   } catch (error) {
     console.error('Error deleting item:', error);
-    res.status(500).json({ error: 'Failed to delete item' });
+    console.error('Error details:', error.message);
+    console.error('Stack:', error.stack);
+    res.status(500).json({ error: 'Failed to delete item', details: error.message });
   }
 });
 
