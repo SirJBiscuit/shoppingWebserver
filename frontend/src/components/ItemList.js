@@ -446,6 +446,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   >
                     <Edit2 className="w-5 h-5" />
                   </button>
+                  {/* eslint-disable-next-line no-undef */}
                   {onAddNote && (
                     <button
                       onClick={() => onAddNote(item)}
