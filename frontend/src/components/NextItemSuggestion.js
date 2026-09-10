@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, Plus, Minus, Eye, FileText, AlertCircle, Store, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatQuantityPlain } from '../utils/formatQuantity';
+import { playSound } from '../utils/soundEffects';
 
 const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onMarkUnavailable, onChangeStore }) => {
   const [showGuide, setShowGuide] = useState(() => {
@@ -264,6 +265,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               key={`checkbox-${nextItem.id}`}
               onClick={() => {
                 setIsChecked(true);
+                playSound('check');
                 onCheck();
               }}
               whileTap={{ scale: 0.9 }}
