@@ -9,6 +9,7 @@ import {
 import { motion } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
+import Sidebar from '../components/Sidebar';
 
 const History = () => {
   const { user } = useAuth();
@@ -108,6 +109,9 @@ const History = () => {
   return (
     <PageTransition>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <Sidebar />
+        
+        <div className="lg:ml-72">
         {/* Header */}
         <header className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-800">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -240,6 +244,7 @@ const History = () => {
             </div>
           )}
         </main>
+        </div>
       </div>
     </PageTransition>
   );
