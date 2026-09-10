@@ -202,6 +202,7 @@ const AdminNew = () => {
     { id: 'system', name: 'System & Updates', icon: Server },
     { id: 'features', name: 'Feature Management', icon: Flag },
     { id: 'users', name: 'User Management', icon: Users },
+    { id: 'mdl', name: 'Product Database (MDL)', icon: Database },
     { id: 'sounds', name: 'Sound Management', icon: Volume2 },
     { id: 'logs', name: 'System Logs', icon: Terminal },
   ];
@@ -465,6 +466,49 @@ const AdminNew = () => {
             {activeTab === 'users' && (
               <div className="card">
                 <UserManagement />
+              </div>
+            )}
+
+            {/* MDL Product Database Tab */}
+            {activeTab === 'mdl' && (
+              <div className="card">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center mb-4">
+                  <Database className="w-6 h-6 mr-2 text-primary-600" />
+                  Product Database (MDL)
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  Manage the Master Data Library - product information, icons, categories, and pricing intelligence.
+                </p>
+                
+                <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg p-4 mb-6">
+                  <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">🚧 Coming Soon</h3>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    The MDL admin interface is being built. It will include:
+                  </p>
+                  <ul className="mt-2 space-y-1 text-sm text-blue-700 dark:text-blue-300">
+                    <li>• View and search all products in the database</li>
+                    <li>• Edit product details, categories, and icons</li>
+                    <li>• Add new products manually</li>
+                    <li>• View price history and trends</li>
+                    <li>• Manage product categories and tags</li>
+                    <li>• Import/export product data</li>
+                  </ul>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div className="text-3xl font-bold text-primary-600 dark:text-primary-400">0</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Total Products</div>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div className="text-3xl font-bold text-green-600 dark:text-green-400">0</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Categories</div>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">0</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Price Records</div>
+                  </div>
+                </div>
               </div>
             )}
 

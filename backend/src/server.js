@@ -28,6 +28,7 @@ const usersRoutes = require('./routes/users');
 const fingerprintsRoutes = require('./routes/fingerprints');
 const versionRoutes = require('./routes/version');
 const soundsRoutes = require('./routes/sounds');
+const mdlRoutes = require('./routes/mdl');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -71,6 +72,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/fingerprints', fingerprintsRoutes);
 app.use('/api/version', versionRoutes);
 app.use('/api/sounds', soundsRoutes);
+app.use('/api/mdl', mdlRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
