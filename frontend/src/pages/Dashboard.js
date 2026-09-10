@@ -1252,9 +1252,15 @@ const Dashboard = () => {
               {!addItemsMinimized && (
               <form onSubmit={addItem}>
                 <div className="mb-4">
-                  <AutocompleteInput
-                    value={newItemName}
-                    onChange={(e) => {
+                  <div className="relative">
+                    {newItemIcon && (
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-2xl pointer-events-none z-10">
+                        {newItemIcon}
+                      </div>
+                    )}
+                    <AutocompleteInput
+                      value={newItemName}
+                      onChange={(e) => {
                       const value = e.target.value;
                       setNewItemName(value);
                       setSearchQuery(value);
@@ -1327,8 +1333,9 @@ const Dashboard = () => {
                       ...searchResults.map(r => r.name)
                     ]}
                     placeholder="Type item name..."
-                    className="input-field pl-10"
+                    className={`input-field ${newItemIcon ? 'pl-12' : 'pl-4'}`}
                   />
+                  </div>
                 </div>
 
                 {searchResults.length > 0 && false && (
