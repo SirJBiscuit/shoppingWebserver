@@ -1636,6 +1636,7 @@ const Dashboard = () => {
                     onAddNote={handleAddNote}
                     onMarkUnavailable={handleMarkUnavailable}
                     onChangeStore={handleChangeStore}
+                    triggerAnimation={triggerFlyingAnimation}
                   />
                 ) : null;
               })()}

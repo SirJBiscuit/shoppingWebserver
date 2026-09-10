@@ -13,15 +13,17 @@ export const useCartAnimation = () => {
 export const CartAnimationProvider = ({ children }) => {
   const [flyingItems, setFlyingItems] = useState([]);
 
-  const triggerFlyingAnimation = (item, startElement) => {
+  const triggerFlyingAnimation = (item, startElement, targetElement = null) => {
     if (!startElement) return;
 
+    const startRect = startElement.getBoundingClientRect();
     const flyingItem = {
       id: `flying-${item.id || Date.now()}-${Math.random()}`,
       icon: item.item_icon || '📦',
       name: item.item_name || item.name,
-      startX: startElement.getBoundingClientRect().left,
-      startY: startElement.getBoundingClientRect().top,
+      startX: startRect.left,
+      startY: startRect.top,
+      targetElement: targetElement, // Optional target for reverse animation
     };
 
     setFlyingItems(prev => [...prev, flyingItem]);

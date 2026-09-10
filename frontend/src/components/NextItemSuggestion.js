@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, Plus, Minus, Eye, FileText, AlertCircle, Store, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
 
-const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onMarkUnavailable, onChangeStore }) => {
+const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onMarkUnavailable, onChangeStore, triggerAnimation }) => {
   const [showGuide, setShowGuide] = useState(() => {
     return !localStorage.getItem('lookingForNextGuideShown');
   });
   const [showHelp, setShowHelp] = useState(false);
   const [isChecked, setIsChecked] = useState(nextItem?.is_checked || false);
+  const checkboxRef = useRef(null);
   
   // Update local state when nextItem changes
   React.useEffect(() => {
@@ -262,10 +263,23 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           <div className="flex items-center gap-3">
             {/* Checkbox - Simple box with animation */}
             <motion.button
+              ref={checkboxRef}
               key={`checkbox-${nextItem.id}`}
               onClick={() => {
                 setIsChecked(true);
                 playSound('check');
+                
+                // Trigger flying animation from checkbox to item in list
+                if (triggerAnimation && checkboxRef.current && !nextItem.is_checked) {
+                  // Find the item card in the list
+                  const itemElement = document.querySelector(`[data-item-id="${nextItem.id}"]`);
+                  if (itemElement) {
+                    // Create a checkmark icon that flies from checkbox to the item
+                    const checkIcon = { item_icon: '✓', item_name: nextItem.item_name, id: nextItem.id };
+                    triggerAnimation(checkIcon, checkboxRef.current, itemElement);
+                  }
+                }
+                
                 onCheck();
               }}
               whileTap={{ scale: 0.9 }}
