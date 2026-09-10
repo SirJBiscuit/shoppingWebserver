@@ -291,15 +291,33 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                     key={checkAnimKey}
                     onClick={handleCheck}
                     whileTap={{ scale: 0.85 }}
-                    animate={{ scale: [1, 1.15, 1] }}
-                    transition={{ duration: 0.2 }}
+                    animate={item.is_checked ? { 
+                      scale: [1, 1.3, 0.95, 1.05, 1],
+                      rotate: [0, -10, 10, -5, 0]
+                    } : { scale: 1 }}
+                    transition={{ 
+                      duration: 0.5,
+                      ease: "easeOut"
+                    }}
                     className={`w-6 h-6 rounded border-2 flex items-center justify-center mr-3 transition-colors ${
                       item.is_checked
                         ? 'bg-primary-600 border-primary-600'
                         : 'border-gray-300 dark:border-gray-500 hover:border-primary-500 dark:hover:border-primary-400'
                     }`}
                   >
-                    {item.is_checked && <Check className="w-4 h-4 text-white" />}
+                    {item.is_checked && (
+                      <motion.div
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ 
+                          type: "spring",
+                          stiffness: 500,
+                          damping: 15
+                        }}
+                      >
+                        <Check className="w-4 h-4 text-white" />
+                      </motion.div>
+                    )}
                   </motion.button>
                   
                   {/* Icon */}
