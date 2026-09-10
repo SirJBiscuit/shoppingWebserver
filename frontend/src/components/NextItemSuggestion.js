@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
 
-const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onMarkUnavailable, onChangeStore, triggerAnimation }) => {
+const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onMarkUnavailable, onChangeStore, triggerCheckmarkAnimation }) => {
   const [showGuide, setShowGuide] = useState(() => {
     return !localStorage.getItem('lookingForNextGuideShown');
   });
@@ -269,14 +269,12 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 setIsChecked(true);
                 playSound('check');
                 
-                // Trigger flying animation from checkbox to item in list
-                if (triggerAnimation && checkboxRef.current && !nextItem.is_checked) {
+                // Trigger flying checkmark animation from checkbox to item in list
+                if (triggerCheckmarkAnimation && checkboxRef.current && !nextItem.is_checked) {
                   // Find the item card in the list
                   const itemElement = document.querySelector(`[data-item-id="${nextItem.id}"]`);
                   if (itemElement) {
-                    // Create a checkmark icon that flies from checkbox to the item
-                    const checkIcon = { item_icon: '✓', item_name: nextItem.item_name, id: nextItem.id };
-                    triggerAnimation(checkIcon, checkboxRef.current, itemElement);
+                    triggerCheckmarkAnimation(nextItem, checkboxRef.current, itemElement);
                   }
                 }
                 

@@ -50,7 +50,7 @@ import useScrollSound from '../hooks/useScrollSound';
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { triggerFlyingAnimation } = useCartAnimation();
+  const { triggerFlyingAnimation, triggerCheckmarkAnimation } = useCartAnimation();
   const addButtonRef = useRef(null);
   const isRecoveringFromError = useRef(false);
   const { toasts, hideToast, success, error, warning, info } = useToast();
@@ -1636,7 +1636,7 @@ const Dashboard = () => {
                     onAddNote={handleAddNote}
                     onMarkUnavailable={handleMarkUnavailable}
                     onChangeStore={handleChangeStore}
-                    triggerAnimation={triggerFlyingAnimation}
+                    triggerCheckmarkAnimation={triggerCheckmarkAnimation}
                   />
                 ) : null;
               })()}
