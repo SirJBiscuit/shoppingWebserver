@@ -14,11 +14,16 @@ import ClearCacheButton from './ClearCacheButton';
 const Sidebar = ({ onAction }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { hasFeature } = useFeatureFlags();
   const [isOpen, setIsOpen] = useState(false);
   const [expiringCount, setExpiringCount] = useState(0);
+
+  // Don't render sidebar until user data is loaded
+  if (loading) {
+    return null;
+  }
 
   // Debug: Log user object
   useEffect(() => {
