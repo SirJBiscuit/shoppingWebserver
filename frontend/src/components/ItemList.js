@@ -9,9 +9,11 @@ import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts
 import { formatQuantityPlain } from '../utils/formatQuantity';
 
 const ItemList = (props) => {
-  const { items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null, onAddNote = null } = props;
+  const { items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null } = props;
   const [editingItem, setEditingItem] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [noteItem, setNoteItem] = useState(null);
+  const [noteText, setNoteText] = useState('');
   // Group items by name to combine duplicates
   const combinedItems = items.reduce((acc, item) => {
     const key = item.item_name.toLowerCase();
@@ -136,6 +138,51 @@ const ItemList = (props) => {
         setEditingItem(null);
       }}
     />
+
+    {/* Note Modal */}
+    {noteItem && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <FileText className="w-6 h-6" />
+            Note: {noteItem.item_name}
+          </h3>
+          <textarea
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            className="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+            rows="4"
+            placeholder="e.g., Get organic, Check expiration date, etc."
+            autoFocus
+          />
+          <div className="flex gap-3 mt-4">
+            <button
+              onClick={() => {
+                if (onEdit) {
+                  noteItem.ids.forEach(id => {
+                    onEdit({ ...noteItem, id, notes: noteText });
+                  });
+                }
+                setNoteItem(null);
+                setNoteText('');
+              }}
+              className="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+            >
+              Save Note
+            </button>
+            <button
+              onClick={() => {
+                setNoteItem(null);
+                setNoteText('');
+              }}
+              className="flex-1 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-900 dark:text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 };
@@ -447,16 +494,20 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   >
                     <Edit2 className="w-5 h-5" />
                   </button>
-                  {/* eslint-disable-next-line no-undef */}
-                  {onAddNote && (
-                    <button
-                      onClick={() => onAddNote(item)} // eslint-disable-line no-undef
-                      className="text-teal-500 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
-                      title="Add note"
-                    >
-                      <FileText className="w-5 h-5" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      setNoteItem(item);
+                      setNoteText(item.notes || '');
+                    }}
+                    className={`transition-colors ${
+                      item.notes 
+                        ? 'text-teal-600 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300' 
+                        : 'text-gray-400 hover:text-teal-600 dark:hover:text-teal-400'
+                    }`}
+                    title={item.notes ? `Note: ${item.notes}` : 'Add note'}
+                  >
+                    <FileText className="w-5 h-5" />
+                  </button>
                   {onCopyMove && (
                     <button
                       onClick={() => onCopyMove(item)}

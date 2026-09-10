@@ -1661,7 +1661,6 @@ const Dashboard = () => {
                 nextItemId={getNextItem()?.id}
                 hideCategories={hideCategories}
                 storeName={activeList?.store_name}
-                onAddNote={handleAddNote}
                 onEdit={async (updatedItem) => {
                   try {
                     console.log('Updating item:', updatedItem);
