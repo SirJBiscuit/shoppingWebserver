@@ -445,7 +445,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     Grab These Too!
                   </p>
                   <p className="text-xs text-green-600 dark:text-green-400">
-                    {sameAisleItems.length} more {sameAisleItems.length === 1 ? 'item' : 'items'} in {nextItem.aisle ? `Aisle ${nextItem.aisle}` : 'this area'}
+                    {sameAisleItems.length} more {sameAisleItems.length === 1 ? 'item' : 'items'} in {nextItem.aisle ? `Aisle ${nextItem.aisle}` : (nextItem.category_name || nextItem.category || 'this area')}
                   </p>
                 </div>
               </div>

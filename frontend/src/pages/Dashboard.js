@@ -711,18 +711,36 @@ const Dashboard = () => {
     );
   };
 
-  // Get items in the same aisle as the next item
+  // Get items in the same aisle/category as the next item
   const getSameAisleItems = (nextItem) => {
-    if (!nextItem || !nextItem.aisle) return [];
+    if (!nextItem) return [];
     
     const sortedItems = getSortedItems();
-    return sortedItems
-      .filter(item => 
-        item.id !== nextItem.id && 
-        item.aisle === nextItem.aisle &&
-        !skippedItems.includes(item.id)
-      )
-      .slice(0, 5); // Show max 5 same-aisle items
+    
+    // First try to group by aisle
+    if (nextItem.aisle) {
+      return sortedItems
+        .filter(item => 
+          item.id !== nextItem.id && 
+          item.aisle === nextItem.aisle &&
+          !skippedItems.includes(item.id)
+        )
+        .slice(0, 5); // Show max 5 same-aisle items
+    }
+    
+    // If no aisle, group by category
+    const category = nextItem.category_name || nextItem.category;
+    if (category) {
+      return sortedItems
+        .filter(item => 
+          item.id !== nextItem.id && 
+          (item.category_name === category || item.category === category) &&
+          !skippedItems.includes(item.id)
+        )
+        .slice(0, 5); // Show max 5 same-category items
+    }
+    
+    return [];
   };
 
   const addItem = async (e) => {
