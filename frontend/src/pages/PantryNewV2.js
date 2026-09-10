@@ -308,6 +308,18 @@ const PantryNewV2 = () => {
     });
   };
 
+  const handleStillGood = async (item) => {
+    try {
+      await inventoryAPI.markStillGood(item.id, 3);
+      success(`Extended expiration for "${item.item_name}" by 3 days`);
+      await loadItems();
+      await loadStats();
+    } catch (error) {
+      console.error('Failed to mark as still good:', error);
+      showError('Failed to update expiration');
+    }
+  };
+
   const handleToggleFavorite = async (item) => {
     try {
       await inventoryAPI.updateItem(item.id, {
