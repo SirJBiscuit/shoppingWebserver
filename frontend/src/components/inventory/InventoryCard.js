@@ -7,7 +7,7 @@ import ExpirationBadge from './ExpirationBadge';
 import StorageIndicator from './StorageIndicator';
 import DateBadge from './DateBadge';
 import { classifyIngredient } from '../../utils/ingredientClassifier';
-import { detectIcon } from '../../utils/iconDetector';
+import { detectIcon } from '../../utils/categoryDetector';
 
 /**
  * InventoryCard - Beautiful card for displaying inventory items
