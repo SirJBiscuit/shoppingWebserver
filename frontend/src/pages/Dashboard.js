@@ -1994,6 +1994,7 @@ const Dashboard = () => {
       {editingNextItem && (
         <EditItemModal
           item={editingNextItem}
+          isOpen={true}
           onClose={() => setEditingNextItem(null)}
           onSave={async (updatedItem) => {
             try {
