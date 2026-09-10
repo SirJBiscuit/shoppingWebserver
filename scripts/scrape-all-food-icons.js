@@ -189,19 +189,42 @@ function getHardcodedFoodList() {
 async function getImageUrl(page, slug) {
   const url = `${BASE_URL}/food/${slug}`;
   
-  await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
-  await page.waitForSelector('a[href*="download"]', { timeout: 10000 });
-  
-  const downloadUrl = await page.evaluate(() => {
-    const link = document.querySelector('a[href*="download"]');
-    return link ? link.href : null;
-  });
-  
-  if (downloadUrl) {
-    return downloadUrl.replace('?download', '');
+  try {
+    await page.goto(url, { 
+      waitUntil: 'domcontentloaded', 
+      timeout: 30000 
+    });
+    
+    // Wait for page to render
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Try multiple selectors
+    const downloadUrl = await page.evaluate(() => {
+      // Try different selectors for the download link
+      let link = document.querySelector('a[href*="download"]');
+      if (!link) link = document.querySelector('a[href*="directus"]');
+      if (!link) link = document.querySelector('a[href*="assets"]');
+      if (!link) {
+        // Try to find any link with .png
+        const allLinks = Array.from(document.querySelectorAll('a'));
+        link = allLinks.find(a => a.href.includes('.png'));
+      }
+      
+      return link ? link.href : null;
+    });
+    
+    if (downloadUrl) {
+      // Remove ?download parameter if present
+      return downloadUrl.replace('?download', '');
+    }
+    
+    // If still not found, try to construct URL from slug
+    // The pattern is: https://directus.backend.getwicked.app/assets/{uuid}/{slug}.png
+    throw new Error('Download link not found on page');
+    
+  } catch (error) {
+    throw new Error(`Failed to get image URL: ${error.message}`);
   }
-  
-  throw new Error('Download link not found');
 }
 
 // Categorize food item
@@ -368,12 +391,13 @@ async function scrapeAllFoodIcons() {
   // Step 1: Get all food items
   const foodSlugs = await scrapeAllFoodItems(page);
   
-  // Step 2: Download icons and build database
-  const iconsList = [];
+  // Step 2: DOWNLOAD PHASE - Just get the images fast
+  console.log('=== PHASE 1: Downloading Images ===\n');
+  console.log('Priority: Getting all icons downloaded first\n');
+  
+  const downloadResults = [];
   let successCount = 0;
   let failCount = 0;
-  
-  console.log('Starting downloads...\n');
   
   for (let i = 0; i < foodSlugs.length; i++) {
     const slug = foodSlugs[i];
@@ -385,38 +409,82 @@ async function scrapeAllFoodIcons() {
     const filename = `${slug}.png`;
     const filepath = path.join(OUTPUT_DIR, filename);
     
-    try {
-      console.log(`[${i + 1}/${foodSlugs.length}] ${itemName}`);
-      
-      const imageUrl = await getImageUrl(page, slug);
-      await downloadImage(imageUrl, filepath);
-      
-      const stats = fs.statSync(filepath);
-      const category = categorizeFood(itemName);
-      const estimatedPrice = estimatePrice(itemName, category);
-      
-      iconsList.push({
-        name: itemName,
-        slug: slug,
-        filename: filename,
-        category: category,
-        estimatedPrice: estimatedPrice,
-        keywords: generateKeywords(itemName),
-        imageUrl: imageUrl,
-        size: stats.size
-      });
-      
+    // Skip if already downloaded
+    if (fs.existsSync(filepath)) {
+      console.log(`[${i + 1}/${foodSlugs.length}] ${itemName} - ✓ Already exists`);
+      downloadResults.push({ slug, itemName, filename, success: true, existing: true });
       successCount++;
-      console.log(`  ✓ ${category} - $${estimatedPrice.toFixed(2)}\n`);
-      
-      await new Promise(resolve => setTimeout(resolve, 300));
-    } catch (error) {
-      failCount++;
-      console.error(`  ✗ ${error.message}\n`);
+      continue;
+    }
+    
+    let retries = 2;
+    let success = false;
+    let imageUrl = null;
+    
+    while (retries > 0 && !success) {
+      try {
+        console.log(`[${i + 1}/${foodSlugs.length}] ${itemName}${retries < 2 ? ' (retry)' : ''}`);
+        
+        imageUrl = await getImageUrl(page, slug);
+        await downloadImage(imageUrl, filepath);
+        
+        successCount++;
+        console.log(`  ✓ Downloaded\n`);
+        success = true;
+        
+        downloadResults.push({ slug, itemName, filename, imageUrl, success: true });
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        retries--;
+        if (retries === 0) {
+          failCount++;
+          console.error(`  ✗ ${error.message}\n`);
+          downloadResults.push({ slug, itemName, filename, success: false, error: error.message });
+        } else {
+          console.log(`  ⚠ ${error.message}, retrying...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
     }
   }
   
   await browser.close();
+  
+  console.log('\n=== PHASE 1 Complete ===');
+  console.log(`Downloaded: ${successCount}`);
+  console.log(`Failed: ${failCount}`);
+  
+  // Step 3: METADATA PHASE - Process all downloaded images
+  console.log('\n=== PHASE 2: Processing Metadata ===\n');
+  
+  const iconsList = [];
+  
+  for (const result of downloadResults) {
+    if (!result.success) continue;
+    
+    try {
+      const filepath = path.join(OUTPUT_DIR, result.filename);
+      const stats = fs.statSync(filepath);
+      const category = categorizeFood(result.itemName);
+      const estimatedPrice = estimatePrice(result.itemName, category);
+      
+      iconsList.push({
+        name: result.itemName,
+        slug: result.slug,
+        filename: result.filename,
+        category: category,
+        estimatedPrice: estimatedPrice,
+        keywords: generateKeywords(result.itemName),
+        imageUrl: result.imageUrl || '',
+        size: stats.size
+      });
+      
+      console.log(`✓ ${result.itemName} - ${category} - $${estimatedPrice.toFixed(2)}`);
+    } catch (error) {
+      console.error(`✗ Failed to process ${result.itemName}: ${error.message}`);
+    }
+  }
   
   // Save complete database
   fs.writeFileSync(ICONS_LIST_FILE, JSON.stringify(iconsList, null, 2));
