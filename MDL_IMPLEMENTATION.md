@@ -13,24 +13,38 @@ The MDL system provides:
 
 ## Implementation Steps
 
-### 1. Scrape Food Icons (One-time setup)
+### 1. Get Food Icons
+
+**Current Status:** The automated scraper is having issues with the JavaScript-heavy food.getwicked.app site.
+
+**Recommended Approach (Choose One):**
+
+#### Option A: Use Emoji Icons (Quickest - Already Working!)
+Your app already has excellent emoji icon detection. Skip icon downloads for now:
 
 ```bash
-# On server
-cd /opt/cloudmc-shop
-npm install puppeteer sharp
-
-# Optional: Learn prices from existing data
+# Just learn prices from existing data
 node scripts/learn-prices-from-db.js
 
-# Scrape ALL food icons from getwicked.app
-node scripts/scrape-all-food-icons.js
-# This will take 10-20 minutes for 100s of items
-
-# Optimize images (400x400 PNG → 200x200 WebP)
-node scripts/optimize-food-icons.js
-# Reduces size by ~90%
+# Skip to Step 2 (database setup)
 ```
+
+#### Option B: Manual Download (Best Quality)
+For the items you use most:
+
+1. Visit https://food.getwicked.app
+2. Browse to specific items (banana, apple, chicken, etc.)
+3. Click download button, save to `public/food-icons/`
+4. Name files as: `{item-slug}.png` (e.g., `banana.png`)
+5. Run optimizer:
+   ```bash
+   node scripts/optimize-food-icons.js
+   ```
+
+#### Option C: Wait for Scraper Fix
+The site structure may change or we can contact them for API access.
+
+**For Now:** Proceed with emoji icons - they work great!
 
 ### 2. Run Database Migration
 
