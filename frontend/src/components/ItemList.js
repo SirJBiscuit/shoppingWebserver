@@ -446,15 +446,17 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   >
                     <Edit2 className="w-5 h-5" />
                   </button>
+                  {/* eslint-disable no-undef */}
                   {onAddNote && (
                     <button
-                      onClick={() => onAddNote(item)} // eslint-disable-line no-undef
+                      onClick={() => onAddNote(item)}
                       className="text-teal-500 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
                       title="Add note"
                     >
                       <FileText className="w-5 h-5" />
                     </button>
                   )}
+                  {/* eslint-enable no-undef */}
                   {onCopyMove && (
                     <button
                       onClick={() => onCopyMove(item)}
