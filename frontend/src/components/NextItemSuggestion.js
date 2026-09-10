@@ -1,20 +1,24 @@
 import React, { useState, useRef } from 'react';
-import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, Plus, Minus, Eye, FileText, AlertCircle, Store, HelpCircle } from 'lucide-react';
+import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, Plus, Minus, Eye, FileText, AlertCircle, Store, HelpCircle, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
 
-const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onMarkUnavailable, onChangeStore, triggerCheckmarkAnimation }) => {
+const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onMarkUnavailable, onChangeStore, triggerCheckmarkAnimation, onPriceUpdate }) => {
   const [showGuide, setShowGuide] = useState(() => {
     return !localStorage.getItem('lookingForNextGuideShown');
   });
   const [showHelp, setShowHelp] = useState(false);
   const [isChecked, setIsChecked] = useState(nextItem?.is_checked || false);
+  const [quickPrice, setQuickPrice] = useState(nextItem?.price || '');
+  const [showPriceInput, setShowPriceInput] = useState(false);
   const checkboxRef = useRef(null);
   
   // Update local state when nextItem changes
   React.useEffect(() => {
     setIsChecked(nextItem?.is_checked || false);
+    setQuickPrice(nextItem?.price || '');
+    setShowPriceInput(false);
   }, [nextItem?.id, nextItem?.is_checked]);
 
   const hideGuide = () => {
@@ -260,15 +264,50 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
 
         {/* Action Buttons - Organized in Groups */}
         <div className="space-y-3">
+          {/* Quick Price Entry */}
+          {!isChecked && (
+            <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg p-3">
+              <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+              <div className="flex-1">
+                <label className="text-sm font-semibold text-blue-700 dark:text-blue-300 block mb-1">
+                  Quick Price Entry (Optional)
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-600 dark:text-gray-400">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={quickPrice}
+                    onChange={(e) => setQuickPrice(e.target.value)}
+                    placeholder="0.00"
+                    className="flex-1 px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
+                  />
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    for {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || ''}
+                  </span>
+                </div>
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                  💡 Enter the price you're buying it for to improve price tracking
+                </p>
+              </div>
+            </div>
+          )}
+          
           {/* Primary Actions Row */}
           <div className="flex items-center gap-3">
             {/* Checkbox - Simple box with animation */}
             <motion.button
               ref={checkboxRef}
               key={`checkbox-${nextItem.id}`}
-              onClick={() => {
+              onClick={async () => {
                 setIsChecked(true);
                 playSound('check');
+                
+                // Save price if entered
+                if (quickPrice && onPriceUpdate) {
+                  await onPriceUpdate(nextItem, parseFloat(quickPrice));
+                }
                 
                 // Trigger flying checkmark animation from checkbox to item in list
                 if (triggerCheckmarkAnimation && checkboxRef.current && !nextItem.is_checked) {

@@ -584,6 +584,25 @@ const Dashboard = () => {
     }
   };
 
+  // Quick price update from Looking for Next
+  const handlePriceUpdate = async (item, price) => {
+    try {
+      await shoppingAPI.updateItem(activeList.id, item.id, {
+        price: price
+      });
+      
+      // Update local state
+      setItems(prevItems => prevItems.map(i => 
+        i.id === item.id ? { ...i, price } : i
+      ));
+      
+      success(`Price updated: $${price.toFixed(2)}`);
+    } catch (err) {
+      console.error('Error updating price:', err);
+      error('Failed to update price');
+    }
+  };
+
   // Quick quantity change - Optimistic update for instant feedback
   const handleQuantityChange = async (item, delta) => {
     let updatedQuantity;
@@ -1686,6 +1705,7 @@ const Dashboard = () => {
                     onMarkUnavailable={handleMarkUnavailable}
                     onChangeStore={handleChangeStore}
                     triggerCheckmarkAnimation={triggerCheckmarkAnimation}
+                    onPriceUpdate={handlePriceUpdate}
                   />
                 ) : null;
               })()}
