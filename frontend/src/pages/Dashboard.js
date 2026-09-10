@@ -6,7 +6,7 @@ import { shoppingAPI, itemsAPI, suggestionsAPI, inventoryAPI, pantryAPI, categor
 import stagingAPI from '../services/stagingAPI';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight, FileText
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
@@ -111,6 +111,8 @@ const Dashboard = () => {
   const [skippedItemsHistory, setSkippedItemsHistory] = useState([]);
   const [showClearInventoryConfirm, setShowClearInventoryConfirm] = useState(false);
   const [editingNextItem, setEditingNextItem] = useState(null);
+  const [itemForNote, setItemForNote] = useState(null);
+  const [noteText, setNoteText] = useState('');
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -600,6 +602,52 @@ const Dashboard = () => {
       }
     }
     return null;
+  };
+
+  // Add note to item
+  const handleAddNote = (item) => {
+    setItemForNote(item);
+    setNoteText(item.notes || '');
+  };
+
+  const saveNote = async () => {
+    if (!itemForNote) return;
+    try {
+      await shoppingAPI.updateItem(activeList.id, itemForNote.id, {
+        ...itemForNote,
+        notes: noteText
+      });
+      await loadListItems(activeList.id);
+      setItemForNote(null);
+      setNoteText('');
+      success('Note saved!');
+    } catch (err) {
+      console.error('Error saving note:', err);
+      error('Failed to save note');
+    }
+  };
+
+  // Mark item as unavailable
+  const handleMarkUnavailable = async (item) => {
+    try {
+      await shoppingAPI.updateItem(activeList.id, item.id, {
+        ...item,
+        notes: (item.notes || '') + ' [OUT OF STOCK]'
+      });
+      await loadListItems(activeList.id);
+      // Skip this item
+      setSkippedItems(prev => [...prev, item.id]);
+      success(`${item.item_name} marked as unavailable`);
+    } catch (err) {
+      console.error('Error marking unavailable:', err);
+      error('Failed to mark item');
+    }
+  };
+
+  // Change store - move item to different list
+  const handleChangeStore = (item) => {
+    setItemToCopy(item);
+    setShowCopyItemModal(true);
   };
   
   // Scroll to item in the list
@@ -1581,6 +1629,9 @@ const Dashboard = () => {
                     onDeferItem={handleDeferItem}
                     peekNextItem={getPeekNextItem()}
                     storeName={activeList?.store_name}
+                    onAddNote={handleAddNote}
+                    onMarkUnavailable={handleMarkUnavailable}
+                    onChangeStore={handleChangeStore}
                   />
                 ) : null;
               })()}
@@ -1952,6 +2003,43 @@ const Dashboard = () => {
             }
           }}
         />
+      )}
+
+      {/* Add Note Modal */}
+      {itemForNote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <FileText className="w-6 h-6" />
+              Add Note: {itemForNote.item_name}
+            </h3>
+            <textarea
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              className="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+              rows="4"
+              placeholder="e.g., Get organic, Check expiration date, etc."
+              autoFocus
+            />
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={saveNote}
+                className="flex-1 btn-primary"
+              >
+                Save Note
+              </button>
+              <button
+                onClick={() => {
+                  setItemForNote(null);
+                  setNoteText('');
+                }}
+                className="flex-1 btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete List Confirmation */}

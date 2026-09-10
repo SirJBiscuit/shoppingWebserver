@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, Plus, Minus, Eye } from 'lucide-react';
+import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, Plus, Minus, Eye, FileText, AlertCircle, Store } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 
-const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName }) => {
+const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onMarkUnavailable, onChangeStore }) => {
   const [showGuide, setShowGuide] = useState(() => {
     return !localStorage.getItem('lookingForNextGuideShown');
   });
@@ -235,6 +235,39 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               >
                 <Undo className="w-5 h-5" />
                 <span className="text-[10px] font-medium">Undo</span>
+              </button>
+            )}
+          </div>
+
+          {/* New Action Buttons Row */}
+          <div className="grid grid-cols-3 gap-1.5">
+            {onAddNote && (
+              <button
+                onClick={() => onAddNote(nextItem)}
+                className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-teal-500 hover:bg-teal-600 active:bg-teal-700 text-white rounded-lg transition-all min-h-[44px]"
+              >
+                <FileText className="w-5 h-5" />
+                <span className="text-[10px] font-medium">Add Note</span>
+              </button>
+            )}
+
+            {onMarkUnavailable && (
+              <button
+                onClick={() => onMarkUnavailable(nextItem)}
+                className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white rounded-lg transition-all min-h-[44px]"
+              >
+                <AlertCircle className="w-5 h-5" />
+                <span className="text-[10px] font-medium">Unavailable</span>
+              </button>
+            )}
+
+            {onChangeStore && (
+              <button
+                onClick={() => onChangeStore(nextItem)}
+                className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-indigo-500 hover:bg-indigo-600 active:bg-indigo-700 text-white rounded-lg transition-all min-h-[44px]"
+              >
+                <Store className="w-5 h-5" />
+                <span className="text-[10px] font-medium">Change Store</span>
               </button>
             )}
           </div>
