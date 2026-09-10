@@ -627,11 +627,11 @@ const Dashboard = () => {
     const sortedItems = getSortedItems();
     return sortedItems
       .filter(item => 
-        !item.is_checked && 
         item.id !== nextItem.id && 
-        item.aisle === nextItem.aisle
+        item.aisle === nextItem.aisle &&
+        !skippedItems.includes(item.id)
       )
-      .slice(0, 3); // Show max 3 same-aisle items
+      .slice(0, 5); // Show max 5 same-aisle items
   };
 
   const addItem = async (e) => {
@@ -1562,7 +1562,7 @@ const Dashboard = () => {
                   <NextItemSuggestion 
                     nextItem={nextItem} 
                     sameAisleItems={sameAisleItems}
-                    onCheck={() => toggleItemCheck(nextItem)}
+                    onCheck={(item) => toggleItemCheck(item || nextItem)}
                     onCopyMove={() => handleCopyMove(nextItem)}
                     onSkip={skipNextItem}
                     onHide={() => setHideNextItem(true)}

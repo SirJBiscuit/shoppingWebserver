@@ -270,24 +270,100 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           </div>
         )}
 
-        {/* Same Aisle Items */}
+        {/* Same Aisle Items - Grouped for efficiency */}
         {sameAisleItems.length > 0 && (
-          <div className="mt-4 pt-3 border-t border-green-200 dark:border-green-800">
-            <p className="text-xs font-semibold text-green-700 dark:text-green-300 mb-2 flex items-center gap-1">
-              <span>💡</span>
-              <span>Also in this aisle:</span>
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {sameAisleItems.map((item, index) => (
-                <div
-                  key={index}
-                  className="bg-white dark:bg-gray-800 border border-green-200 dark:border-green-700 rounded-lg px-3 py-1.5 text-sm flex items-center gap-2"
-                >
-                  <span className="text-lg">{item.item_icon || '📦'}</span>
-                  <span className="text-gray-700 dark:text-gray-300 font-medium">{item.item_name}</span>
+          <div className="mt-4 pt-4 border-t-2 border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/10 -mx-4 px-4 pb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">💡</span>
+                <div>
+                  <p className="text-sm font-bold text-green-700 dark:text-green-300">
+                    Grab These Too!
+                  </p>
+                  <p className="text-xs text-green-600 dark:text-green-400">
+                    {sameAisleItems.length} more {sameAisleItems.length === 1 ? 'item' : 'items'} in {nextItem.aisle ? `Aisle ${nextItem.aisle}` : 'this area'}
+                  </p>
                 </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {sameAisleItems.map((item, index) => (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className={`bg-white dark:bg-gray-800 border-2 rounded-lg p-3 flex items-center gap-3 ${
+                    item.is_checked 
+                      ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/20' 
+                      : 'border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-600'
+                  }`}
+                >
+                  {/* Checkbox */}
+                  <motion.button
+                    onClick={() => onCheck && onCheck(item)}
+                    whileTap={{ scale: 0.9 }}
+                    className={`w-8 h-8 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                      item.is_checked
+                        ? 'bg-green-500 border-green-600'
+                        : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600'
+                    }`}
+                  >
+                    {item.is_checked && (
+                      <motion.div
+                        initial={{ scale: 0, rotate: -180 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                      >
+                        <Check className="w-5 h-5 text-white" strokeWidth={3} />
+                      </motion.div>
+                    )}
+                  </motion.button>
+
+                  {/* Item Info */}
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-2xl flex-shrink-0">{item.item_icon || '📦'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-medium truncate ${
+                        item.is_checked 
+                          ? 'text-gray-500 dark:text-gray-400 line-through' 
+                          : 'text-gray-900 dark:text-white'
+                      }`}>
+                        {item.item_name}
+                      </p>
+                      {item.quantity && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {formatQuantityPlain(item.quantity)} {item.unit || ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Price if available */}
+                  {item.price && (
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">
+                        ${(item.price * (item.quantity || 1)).toFixed(2)}
+                      </p>
+                    </div>
+                  )}
+                </motion.div>
               ))}
             </div>
+            
+            {/* Total for aisle items */}
+            {sameAisleItems.some(item => item.price) && (
+              <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-700 flex items-center justify-between">
+                <p className="text-sm font-semibold text-green-700 dark:text-green-300">
+                  Aisle Total:
+                </p>
+                <p className="text-lg font-bold text-green-700 dark:text-green-300">
+                  ${sameAisleItems.reduce((sum, item) => 
+                    sum + ((item.price || 0) * (item.quantity || 1)), 0
+                  ).toFixed(2)}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
