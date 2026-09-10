@@ -274,7 +274,18 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               }`}
             >
               {isChecked && (
-                <Check className="w-8 h-8 text-white" strokeWidth={4} />
+                <motion.div
+                  initial={{ scale: 0, rotate: -180, opacity: 0 }}
+                  animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 200,
+                    damping: 10,
+                    duration: 0.8
+                  }}
+                >
+                  <Check className="w-8 h-8 text-white" strokeWidth={4} />
+                </motion.div>
               )}
             </motion.button>
             
