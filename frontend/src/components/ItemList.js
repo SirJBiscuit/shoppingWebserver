@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy } from 'lucide-react';
+import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import EditItemModal from './EditItemModal';
 import ItemTooltip from './ItemTooltip';
@@ -8,7 +8,7 @@ import { detectIcon, detectCategory } from '../utils/categoryDetector';
 import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 
-const ItemList = ({ items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null }) => {
+const ItemList = ({ items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null, onAddNote }) => {
   const [editingItem, setEditingItem] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   // Group items by name to combine duplicates
@@ -446,6 +446,15 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   >
                     <Edit2 className="w-5 h-5" />
                   </button>
+                  {onAddNote && (
+                    <button
+                      onClick={() => onAddNote(item)}
+                      className="text-teal-500 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
+                      title="Add note"
+                    >
+                      <FileText className="w-5 h-5" />
+                    </button>
+                  )}
                   {onCopyMove && (
                     <button
                       onClick={() => onCopyMove(item)}
