@@ -94,56 +94,41 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           </div>
         )}
 
-        {/* Item Info Row */}
-        <div className="flex items-center gap-3 mb-3">
-          <span className="text-4xl">{nextItem.item_icon || '📦'}</span>
-          <div className="flex-1">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-              {nextItem.item_name}
-            </h3>
-            
-            {/* Location Info */}
-            <div className="flex flex-wrap items-center gap-2 mt-1">
+        {/* Item Info Row - Redesigned */}
+        <div className="flex items-start gap-4 mb-4">
+          {/* Large Icon */}
+          <span className="text-7xl">{nextItem.item_icon || '📦'}</span>
+          
+          <div className="flex-1 min-w-0">
+            {/* Item Name & Aisle */}
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+                {nextItem.item_name}
+              </h3>
               {nextItem.aisle && (
-                <span className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
+                <span className="text-lg font-bold bg-purple-500 text-white px-3 py-1 rounded-lg flex-shrink-0">
                   Aisle {nextItem.aisle}
                 </span>
               )}
+            </div>
+            
+            {/* Compact Info Row */}
+            <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
               {nextItem.category && (
-                <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-4 h-4" />
                   {nextItem.category}
                 </span>
               )}
-            </div>
-          </div>
-        </div>
-
-        {/* Amount & Price Row */}
-        <div className="flex items-center justify-between mb-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-4">
-            {/* Amount Needed */}
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Amount</p>
-              <p className="text-lg font-bold text-gray-900 dark:text-white">
+              <span className="font-semibold text-gray-900 dark:text-white">
                 {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || ''}
-              </p>
-            </div>
-            
-            {/* Estimated Price */}
-            {nextItem.price && (
-              <div className={`px-3 py-1.5 rounded-lg border ${getPriceBadgeColor(nextItem.price, nextItem.avg_price)}`}>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Est. Price</p>
-                <p className={`text-lg font-bold ${getPriceColor(nextItem.price, nextItem.avg_price)}`}>
+              </span>
+              {nextItem.price && (
+                <span className={`font-bold ${getPriceColor(nextItem.price, nextItem.avg_price)}`}>
                   ${(nextItem.price * (nextItem.quantity || 1)).toFixed(2)}
-                </p>
-                {nextItem.avg_price && nextItem.price !== nextItem.avg_price && (
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                    Avg: ${nextItem.avg_price.toFixed(2)}
-                  </p>
-                )}
-              </div>
-            )}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -151,36 +136,40 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
         <div className="space-y-3">
           {/* Primary Actions Row */}
           <div className="flex items-center gap-2">
-            {/* Checkbox - Compact with animation */}
-            <div className="flex items-center gap-3 flex-1">
-              <motion.button
-                key={`checkbox-${nextItem.id}-${nextItem.is_checked}`}
-                onClick={onCheck}
-                whileTap={{ scale: 0.9 }}
-                className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all ${
-                  nextItem.is_checked
-                    ? 'bg-green-500 border-green-600'
-                    : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:border-green-500'
-                }`}
-              >
+            {/* Checkbox - Large with proper animation */}
+            <motion.button
+              onClick={onCheck}
+              whileTap={{ scale: 0.95 }}
+              animate={nextItem.is_checked ? {
+                scale: [1, 1.1, 1],
+                rotate: [0, 5, -5, 0]
+              } : {}}
+              transition={{ duration: 0.3 }}
+              className={`flex-1 py-4 rounded-xl border-3 flex items-center justify-center gap-3 font-bold text-lg transition-all ${
+                nextItem.is_checked
+                  ? 'bg-green-500 border-green-600 text-white shadow-lg'
+                  : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:border-green-500 text-gray-700 dark:text-gray-300 shadow'
+              }`}
+            >
+              <div className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center ${
+                nextItem.is_checked ? 'border-white bg-white/20' : 'border-current'
+              }`}>
                 {nextItem.is_checked && (
                   <motion.div
-                    initial={{ scale: 0, rotate: -180, opacity: 0 }}
-                    animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
                     transition={{ 
                       type: "spring",
-                      stiffness: 260,
-                      damping: 20
+                      stiffness: 200,
+                      damping: 15
                     }}
                   >
-                    <Check className="w-6 h-6 text-white" strokeWidth={3} />
+                    <Check className="w-6 h-6 text-white" strokeWidth={4} />
                   </motion.div>
                 )}
-              </motion.button>
-              <span className={`text-sm font-medium ${nextItem.is_checked ? 'text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>
-                {nextItem.is_checked ? '✓ Found!' : 'Mark as found'}
-              </span>
-            </div>
+              </div>
+              <span>{nextItem.is_checked ? 'Found!' : 'Mark as Found'}</span>
+            </motion.button>
 
             {/* Quantity Controls */}
             {onQuantityChange && (

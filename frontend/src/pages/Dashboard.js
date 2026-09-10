@@ -551,18 +551,26 @@ const Dashboard = () => {
     }
   };
 
-  // Quick quantity change
+  // Quick quantity change - Optimistic update for instant feedback
   const handleQuantityChange = async (item, delta) => {
     const newQuantity = Math.max(1, (item.quantity || 1) + delta);
+    
+    // Optimistic update - update UI immediately
+    setItems(prevItems => prevItems.map(i => 
+      i.id === item.id ? { ...i, quantity: newQuantity } : i
+    ));
+    
+    // Update server in background
     try {
       await shoppingAPI.updateItem(activeList.id, item.id, {
         ...item,
         quantity: newQuantity
       });
-      await loadListItems(activeList.id);
     } catch (err) {
       console.error('Error updating quantity:', err);
       error('Failed to update quantity');
+      // Revert on error
+      await loadListItems(activeList.id);
     }
   };
 
