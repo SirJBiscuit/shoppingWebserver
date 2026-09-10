@@ -69,6 +69,11 @@ const Dashboard = () => {
   const [newItemCategory, setNewItemCategory] = useState('');
   const [newItemIcon, setNewItemIcon] = useState('');
   const [suggestions, setSuggestions] = useState([]);
+
+  // Debug: Log when icon changes
+  useEffect(() => {
+    console.log('newItemIcon changed to:', newItemIcon);
+  }, [newItemIcon]);
   const [inventory, setInventory] = useState([]);
   const [categories, setCategories] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -1278,6 +1283,12 @@ const Dashboard = () => {
                         const learnedPriceValue = getLearnedPrice(value);
                         const detectedCat = detectCategory(value);
                         const detectedIconValue = detectIcon(value);
+                        
+                        console.log('Icon detection for:', value, {
+                          learned: learnedIconValue,
+                          detected: detectedIconValue,
+                          final: learnedIconValue || detectedIconValue || ''
+                        });
                         
                         // Always update icon when typing (prefer learned, fallback to detected)
                         setNewItemIcon(learnedIconValue || detectedIconValue || '');
