@@ -4,7 +4,7 @@ import { playSound } from '../utils/soundEffects';
 
 const pageVariants = {
   initial: (direction) => ({
-    x: direction > 0 ? 200 : -200,
+    x: direction > 0 ? 100 : -100,
     opacity: 0
   }),
   animate: {
@@ -12,16 +12,16 @@ const pageVariants = {
     opacity: 1,
     transition: {
       type: 'spring',
-      stiffness: 400,
-      damping: 25,
-      duration: 0.2
+      stiffness: 600,
+      damping: 30,
+      duration: 0.15
     }
   },
   exit: (direction) => ({
-    x: direction > 0 ? -200 : 200,
+    x: direction > 0 ? -100 : 100,
     opacity: 0,
     transition: {
-      duration: 0.15
+      duration: 0.1
     }
   })
 };
