@@ -1,19 +1,19 @@
 -- Sound library table
 CREATE TABLE IF NOT EXISTS sounds (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  category TEXT NOT NULL, -- 'check', 'uncheck', 'notification', 'success', 'error', etc.
-  filename TEXT NOT NULL,
-  file_path TEXT NOT NULL,
-  is_default INTEGER DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  category VARCHAR(50) NOT NULL, -- 'check', 'uncheck', 'notification', 'success', 'error', etc.
+  filename VARCHAR(255) NOT NULL,
+  file_path VARCHAR(500) NOT NULL,
+  is_default BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- User sound preferences
 CREATE TABLE IF NOT EXISTS user_sound_preferences (
   user_id INTEGER PRIMARY KEY,
-  sound_enabled INTEGER DEFAULT 0,
-  sound_volume REAL DEFAULT 0.3,
+  sound_enabled BOOLEAN DEFAULT FALSE,
+  sound_volume DECIMAL(3,2) DEFAULT 0.3,
   check_sound_id INTEGER,
   uncheck_sound_id INTEGER,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -23,5 +23,6 @@ CREATE TABLE IF NOT EXISTS user_sound_preferences (
 
 -- Insert default sounds (placeholders - will be replaced with actual files)
 INSERT INTO sounds (name, category, filename, file_path, is_default) VALUES
-  ('Default Check', 'check', 'check.mp3', '/sounds/check.mp3', 1),
-  ('Default Uncheck', 'uncheck', 'uncheck.mp3', '/sounds/uncheck.mp3', 1);
+  ('Default Check', 'check', 'check.mp3', '/sounds/check.mp3', TRUE),
+  ('Default Uncheck', 'uncheck', 'uncheck.mp3', '/sounds/uncheck.mp3', TRUE)
+ON CONFLICT DO NOTHING;

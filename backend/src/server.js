@@ -27,6 +27,7 @@ const featuresRoutes = require('./routes/features');
 const usersRoutes = require('./routes/users');
 const fingerprintsRoutes = require('./routes/fingerprints');
 const versionRoutes = require('./routes/version');
+const soundsRoutes = require('./routes/sounds');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -69,6 +70,7 @@ app.use('/api/features', featuresRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/fingerprints', fingerprintsRoutes);
 app.use('/api/version', versionRoutes);
+app.use('/api/sounds', soundsRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
