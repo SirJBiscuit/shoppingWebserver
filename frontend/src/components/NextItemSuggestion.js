@@ -273,20 +273,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:border-green-500'
               }`}
             >
-              {isChecked ? (
-                <motion.div
-                  key={`checkmark-${nextItem.id}`}
-                  initial={{ scale: 0, rotate: -180, opacity: 0 }}
-                  animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                  transition={{ 
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 15
-                  }}
-                >
-                  <Check className="w-8 h-8 text-white" strokeWidth={4} />
-                </motion.div>
-              ) : null}
+              {isChecked && (
+                <Check className="w-8 h-8 text-white" strokeWidth={4} />
+              )}
             </motion.button>
             
             {/* Label */}
