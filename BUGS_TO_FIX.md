@@ -1,31 +1,12 @@
 # 🐛 Bugs To Fix
 
-**Last Updated:** September 8, 2026 - 1:54 PM
+**Last Updated:** September 9, 2026 - 11:52 PM
 
 ## ❌ Not Fixed Yet
 
 ### Critical Priority (Blocking Usage)
 
-- [ ] **Automatic Price Override - Can't Manually Set Price**
-  - **Issue:** When typing item name (e.g., "bread"), automatic price is added and can't be changed manually
-  - **Root Cause:** Auto-suggestion overriding manual input, no way to disable auto-price
-  - **Fix:** Add toggle to disable auto-price, or allow manual override after auto-fill
-  - **Status:** Needs fix
-  - **Test:** Type "bread", try to manually change price field
-
-- [ ] **Delete Item Still Fails After Running fix-features.sh**
-  - **Issue:** Delete still returns 500 error even after running fix script
-  - **Root Cause:** Migration may not have run correctly, or different issue
-  - **Fix:** Check server logs, verify migration ran, investigate actual error
-  - **Status:** Needs investigation
-  - **Test:** Delete an item, check backend logs for exact error
-
-- [ ] **Admin Toolbar Covering Normal Toolbar**
-  - **Issue:** Admin mode toolbar blocks important elements in normal toolbar
-  - **Root Cause:** Z-index and positioning conflicts
-  - **Fix:** Adjust z-index, add proper spacing/margin
-  - **Status:** Needs fix
-  - **Test:** Check if normal toolbar is accessible with admin toolbar visible
+None! All critical bugs have been fixed.
 
 ### High Priority
 
@@ -84,6 +65,36 @@
 
 ## ✅ Fixed & Verified
 
+- [x] **Ghost Items in Home Inventory**
+  - **Fixed:** September 9, 2026
+  - **Solution:** Changed LEFT JOIN to INNER JOIN in inventory query to prevent orphaned records from showing. Added cleanup script to remove existing ghost items.
+  - **Commit:** e7d17f4
+
+- [x] **Delete Item Fails - Column Mismatch**
+  - **Fixed:** September 9, 2026
+  - **Solution:** Fixed delete route to properly JOIN with items table to get item_name. Fixed column name from i.icon to i.preferred_icon in suggestions.
+  - **Commit:** bef1a04, 802262e
+
+- [x] **Auto-Price Overriding Manual Input (Complete Fix)**
+  - **Fixed:** September 9, 2026
+  - **Solution:** Added manualPriceSet checks in all auto-fill locations (preferences, search results, suggestions) to prevent overriding user's manual price changes
+  - **Commit:** 3dc2960
+
+- [x] **Flying Animation Going to Wrong Position**
+  - **Fixed:** September 9, 2026
+  - **Solution:** Added requestAnimationFrame to recalculate cart position immediately when flying items change (e.g., when switching lists)
+  - **Commit:** 3dc2960
+
+- [x] **XP Notifications Too Slow**
+  - **Fixed:** September 9, 2026
+  - **Solution:** Reduced duration from 600ms to 400ms, added consolidation for multiple XP gains within 500ms, made smaller on mobile
+  - **Commit:** 3dc2960
+
+- [x] **Expired Items Cluttering Inventory**
+  - **Fixed:** September 9, 2026
+  - **Solution:** Created ExpiredItemsAlert component to show expired items as dismissible notifications instead of in main inventory list
+  - **Commit:** e7d17f4
+
 - [x] **Sidebar Hidden on /settings Page**
   - **Fixed:** September 8, 2026
   - **Solution:** Added Sidebar component to Settings.js with proper lg:ml-72 margin
@@ -93,11 +104,6 @@
   - **Fixed:** September 8, 2026
   - **Solution:** Added Sidebar component to MealPlan.js with proper lg:ml-72 margin
   - **Commit:** 69c624d
-
-- [x] **Auto-Price Overriding Manual Input**
-  - **Fixed:** September 8, 2026
-  - **Solution:** Added manualPriceSet flag to track user input and prevent auto-override
-  - **Commit:** ea489e3
 
 - [x] **Admin Toolbar Covering Normal Toolbar**
   - **Fixed:** September 8, 2026
