@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, Plus, Minus, Eye, FileText, AlertCircle, Store } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, Plus, Minus, Eye, FileText, AlertCircle, Store, HelpCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 
 const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onMarkUnavailable, onChangeStore }) => {
   const [showGuide, setShowGuide] = useState(() => {
     return !localStorage.getItem('lookingForNextGuideShown');
   });
+  const [showHelp, setShowHelp] = useState(false);
 
   const hideGuide = () => {
     setShowGuide(false);
@@ -75,13 +76,26 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               Looking for Next
             </span>
           </div>
-          <button
-            onClick={onHide}
-            className="p-3 hover:bg-green-200 dark:hover:bg-green-800 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-            aria-label="Hide Looking for Next"
-          >
-            <EyeOff className="w-5 h-5 text-green-700 dark:text-green-300" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowHelp(!showHelp)}
+              className={`p-3 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center ${
+                showHelp 
+                  ? 'bg-blue-500 text-white' 
+                  : 'hover:bg-green-200 dark:hover:bg-green-800'
+              }`}
+              aria-label="Show help guide"
+            >
+              <HelpCircle className={`w-5 h-5 ${showHelp ? 'text-white' : 'text-green-700 dark:text-green-300'}`} />
+            </button>
+            <button
+              onClick={onHide}
+              className="p-3 hover:bg-green-200 dark:hover:bg-green-800 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Hide Looking for Next"
+            >
+              <EyeOff className="w-5 h-5 text-green-700 dark:text-green-300" />
+            </button>
+          </div>
         </div>
 
         {/* Store Name */}
@@ -91,6 +105,101 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             <span className="font-semibold text-blue-600 dark:text-blue-400">🏪 {storeName}</span>
           </div>
         )}
+
+        {/* Help Guide Panel */}
+        <AnimatePresence>
+          {showHelp && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="mb-4 overflow-hidden"
+            >
+              <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg p-4">
+                <h4 className="font-bold text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5" />
+                  Button Guide
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="font-semibold text-gray-900 dark:text-white">Checkbox:</span>
+                      <span className="text-gray-700 dark:text-gray-300"> Mark item as found in store</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Edit2 className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="font-semibold text-gray-900 dark:text-white">Edit:</span>
+                      <span className="text-gray-700 dark:text-gray-300"> Change item details (name, quantity, price, etc.)</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Eye className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="font-semibold text-gray-900 dark:text-white">Go To:</span>
+                      <span className="text-gray-700 dark:text-gray-300"> Scroll to this item in your full list</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <SkipForward className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="font-semibold text-gray-900 dark:text-white">Skip:</span>
+                      <span className="text-gray-700 dark:text-gray-300"> Skip for now, come back to it later</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <X className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="font-semibold text-gray-900 dark:text-white">Remove:</span>
+                      <span className="text-gray-700 dark:text-gray-300"> Don't need this item right now</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Undo className="w-4 h-4 text-gray-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="font-semibold text-gray-900 dark:text-white">Undo:</span>
+                      <span className="text-gray-700 dark:text-gray-300"> Go back to previous item you skipped</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <FileText className="w-4 h-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="font-semibold text-gray-900 dark:text-white">Add Note:</span>
+                      <span className="text-gray-700 dark:text-gray-300"> Quick reminder (e.g., "Get organic")</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="font-semibold text-gray-900 dark:text-white">Unavailable:</span>
+                      <span className="text-gray-700 dark:text-gray-300"> Item is out of stock at this store</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Store className="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="font-semibold text-gray-900 dark:text-white">Change Store:</span>
+                      <span className="text-gray-700 dark:text-gray-300"> Move item to a different store list</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <div className="flex gap-1 mt-0.5">
+                      <Minus className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                      <Plus className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                    </div>
+                    <div>
+                      <span className="font-semibold text-gray-900 dark:text-white">+/- Buttons:</span>
+                      <span className="text-gray-700 dark:text-gray-300"> Quickly adjust quantity needed</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Item Info Row - Redesigned */}
         <div className="flex items-start gap-4 mb-4">
