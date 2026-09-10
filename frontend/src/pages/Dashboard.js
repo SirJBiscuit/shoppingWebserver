@@ -504,7 +504,9 @@ const Dashboard = () => {
       setNewListStore('');
     } catch (err) {
       console.error('Error updating list:', err);
-      error('Failed to update list');
+      console.error('Error response:', err.response?.data);
+      const errorMsg = err.response?.data?.error || err.response?.data?.details || err.message || 'Unknown error';
+      error(`Failed to update list: ${errorMsg}`);
     }
   };
 
