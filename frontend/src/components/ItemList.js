@@ -8,7 +8,8 @@ import { detectIcon, detectCategory } from '../utils/categoryDetector';
 import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 
-const ItemList = ({ items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null, onAddNote }) => {
+const ItemList = (props) => {
+  const { items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null, onAddNote = null } = props;
   const [editingItem, setEditingItem] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   // Group items by name to combine duplicates
@@ -446,17 +447,16 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   >
                     <Edit2 className="w-5 h-5" />
                   </button>
-                  {/* eslint-disable no-undef */}
+                  {/* eslint-disable-next-line no-undef */}
                   {onAddNote && (
                     <button
-                      onClick={() => onAddNote(item)}
+                      onClick={() => onAddNote(item)} // eslint-disable-line no-undef
                       className="text-teal-500 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
                       title="Add note"
                     >
                       <FileText className="w-5 h-5" />
                     </button>
                   )}
-                  {/* eslint-enable no-undef */}
                   {onCopyMove && (
                     <button
                       onClick={() => onCopyMove(item)}
