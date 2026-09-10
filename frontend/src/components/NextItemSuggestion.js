@@ -8,6 +8,12 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
     return !localStorage.getItem('lookingForNextGuideShown');
   });
   const [showHelp, setShowHelp] = useState(false);
+  const [isChecked, setIsChecked] = useState(nextItem?.is_checked || false);
+  
+  // Update local state when nextItem changes
+  React.useEffect(() => {
+    setIsChecked(nextItem?.is_checked || false);
+  }, [nextItem?.id, nextItem?.is_checked]);
 
   const hideGuide = () => {
     setShowGuide(false);
@@ -255,42 +261,48 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           <div className="flex items-center gap-3">
             {/* Checkbox - Simple box with animation */}
             <motion.button
-              onClick={onCheck}
+              onClick={() => {
+                setIsChecked(true);
+                onCheck();
+              }}
               whileTap={{ scale: 0.9 }}
-              animate={nextItem.is_checked ? {
+              animate={isChecked ? {
                 scale: [1, 1.2, 1],
                 rotate: [0, 10, -10, 0]
               } : {}}
               transition={{ duration: 0.4 }}
               className={`w-12 h-12 rounded-lg border-3 flex items-center justify-center transition-all ${
-                nextItem.is_checked
+                isChecked
                   ? 'bg-green-500 border-green-600 shadow-lg shadow-green-500/50'
                   : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:border-green-500'
               }`}
             >
-              {nextItem.is_checked && (
-                <motion.div
-                  key={`check-${nextItem.id}`}
-                  initial={{ scale: 0, rotate: -180, opacity: 0 }}
-                  animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                  transition={{ 
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 15
-                  }}
-                >
-                  <Check className="w-8 h-8 text-white" strokeWidth={4} />
-                </motion.div>
-              )}
+              <AnimatePresence mode="wait">
+                {isChecked && (
+                  <motion.div
+                    key={`check-${nextItem.id}-${isChecked}`}
+                    initial={{ scale: 0, rotate: -180, opacity: 0 }}
+                    animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ 
+                      type: "spring",
+                      stiffness: 300,
+                      damping: 15
+                    }}
+                  >
+                    <Check className="w-8 h-8 text-white" strokeWidth={4} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.button>
             
             {/* Label */}
             <span className={`text-base font-semibold flex-1 ${
-              nextItem.is_checked 
+              isChecked 
                 ? 'text-green-600 dark:text-green-400' 
                 : 'text-gray-700 dark:text-gray-300'
             }`}>
-              {nextItem.is_checked ? '✓ Found!' : 'Mark as Found'}
+              {isChecked ? '✓ Found!' : 'Mark as Found'}
             </span>
 
             {/* Quantity Controls */}
@@ -447,21 +459,30 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   <motion.button
                     onClick={() => onCheck && onCheck(item)}
                     whileTap={{ scale: 0.9 }}
+                    animate={item.is_checked ? {
+                      scale: [1, 1.15, 1],
+                      rotate: [0, 5, -5, 0]
+                    } : {}}
+                    transition={{ duration: 0.3 }}
                     className={`w-8 h-8 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                       item.is_checked
-                        ? 'bg-green-500 border-green-600'
+                        ? 'bg-green-500 border-green-600 shadow-md shadow-green-500/50'
                         : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600'
                     }`}
                   >
-                    {item.is_checked && (
-                      <motion.div
-                        initial={{ scale: 0, rotate: -180 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                      >
-                        <Check className="w-5 h-5 text-white" strokeWidth={3} />
-                      </motion.div>
-                    )}
+                    <AnimatePresence mode="wait">
+                      {item.is_checked && (
+                        <motion.div
+                          key={`check-grouped-${item.id}`}
+                          initial={{ scale: 0, rotate: -180, opacity: 0 }}
+                          animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                        >
+                          <Check className="w-5 h-5 text-white" strokeWidth={3} />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </motion.button>
 
                   {/* Item Info */}
