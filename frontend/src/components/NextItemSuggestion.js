@@ -57,10 +57,12 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           </div>
           <button
             onClick={onHide}
-            className="p-1.5 hover:bg-green-200 dark:hover:bg-green-800 rounded-lg transition-colors"
-            title="Hide this feature"
+            className="p-1.5 hover:bg-green-200 dark:hover:bg-green-800 rounded-lg transition-colors group"
           >
             <EyeOff className="w-4 h-4 text-green-700 dark:text-green-300" />
+            <span className="hidden group-hover:block absolute right-0 top-full mt-1 bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none">
+              Hide this feature
+            </span>
           </button>
         </div>
 
@@ -119,7 +121,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 <button
                   onClick={() => onQuantityChange(nextItem, -1)}
                   className="p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors"
-                  title="Decrease"
+                  aria-label="Decrease quantity"
                 >
                   <Minus className="w-4 h-4" />
                 </button>
@@ -129,7 +131,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 <button
                   onClick={() => onQuantityChange(nextItem, 1)}
                   className="p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors"
-                  title="Increase"
+                  aria-label="Increase quantity"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
@@ -137,12 +139,11 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             )}
           </div>
 
-          {/* Secondary Actions Row - Labeled Buttons */}
+          {/* Secondary Actions Row - Labeled Buttons (Self-explanatory, no tooltips needed) */}
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={onEdit}
               className="flex items-center justify-center gap-2 py-2.5 px-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all font-medium text-sm"
-              title="Edit item details"
             >
               <Edit2 className="w-4 h-4" />
               <span>Edit</span>
@@ -151,7 +152,6 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             <button
               onClick={onJumpToItem}
               className="flex items-center justify-center gap-2 py-2.5 px-3 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-all font-medium text-sm"
-              title="Scroll to item in list"
             >
               <Eye className="w-4 h-4" />
               <span>Go To</span>
@@ -160,7 +160,6 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             <button
               onClick={onSkip}
               className="flex items-center justify-center gap-2 py-2.5 px-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-all font-medium text-sm"
-              title="Skip for now, come back later"
             >
               <SkipForward className="w-4 h-4" />
               <span>Skip</span>
@@ -170,7 +169,6 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               <button
                 onClick={() => onDeferItem(nextItem)}
                 className="flex items-center justify-center gap-2 py-2.5 px-3 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all font-medium text-sm"
-                title="Don't need right now"
               >
                 <X className="w-4 h-4" />
                 <span>Don't Need</span>
@@ -179,7 +177,6 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               <button
                 onClick={onCopyMove}
                 className="flex items-center justify-center gap-2 py-2.5 px-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-all font-medium text-sm"
-                title="Copy or move to another list"
               >
                 <Copy className="w-4 h-4" />
                 <span>Copy/Move</span>
