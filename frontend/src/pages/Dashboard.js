@@ -33,6 +33,7 @@ import StoreManager from '../components/StoreManager';
 import CopyItemModal from '../components/CopyItemModal';
 import SaveTemplateModal from '../components/SaveTemplateModal';
 import NextItemSuggestion from '../components/NextItemSuggestion';
+import EditItemModal from '../components/EditItemModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { useToast } from '../hooks/useToast';
@@ -107,7 +108,9 @@ const Dashboard = () => {
   const [itemSearchQuery, setItemSearchQuery] = useState('');
   const [hideNextItem, setHideNextItem] = useState(false);
   const [skippedItems, setSkippedItems] = useState([]);
+  const [skippedItemsHistory, setSkippedItemsHistory] = useState([]);
   const [showClearInventoryConfirm, setShowClearInventoryConfirm] = useState(false);
+  const [editingNextItem, setEditingNextItem] = useState(null);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -534,8 +537,61 @@ const Dashboard = () => {
   const skipNextItem = () => {
     const nextItem = getNextItem();
     if (nextItem) {
+      setSkippedItemsHistory(prev => [...prev, nextItem.id]);
       setSkippedItems(prev => [...prev, nextItem.id]);
     }
+  };
+
+  // Undo - go back to previous item
+  const undoSkip = () => {
+    if (skippedItemsHistory.length > 0) {
+      const lastSkipped = skippedItemsHistory[skippedItemsHistory.length - 1];
+      setSkippedItems(prev => prev.filter(id => id !== lastSkipped));
+      setSkippedItemsHistory(prev => prev.slice(0, -1));
+    }
+  };
+
+  // Quick quantity change
+  const handleQuantityChange = async (item, delta) => {
+    const newQuantity = Math.max(1, (item.quantity || 1) + delta);
+    try {
+      await shoppingAPI.updateItem(activeList.id, item.id, {
+        ...item,
+        quantity: newQuantity
+      });
+      await loadListItems(activeList.id);
+    } catch (err) {
+      console.error('Error updating quantity:', err);
+      error('Failed to update quantity');
+    }
+  };
+
+  // Defer item - don't need right now
+  const handleDeferItem = async (item) => {
+    try {
+      await deleteItem(item.id);
+      success(`${item.item_name} removed - you can add it back later!`);
+    } catch (err) {
+      error('Failed to remove item');
+    }
+  };
+
+  // Get peek at next item (after current)
+  const getPeekNextItem = () => {
+    const sortedItems = getSortedItems();
+    const currentNext = getNextItem();
+    if (!currentNext) return null;
+    
+    const currentIndex = sortedItems.findIndex(item => item.id === currentNext.id);
+    if (currentIndex === -1) return null;
+    
+    // Find next unchecked item after current
+    for (let i = currentIndex + 1; i < sortedItems.length; i++) {
+      if (!sortedItems[i].is_checked && !skippedItems.includes(sortedItems[i].id)) {
+        return sortedItems[i];
+      }
+    }
+    return null;
   };
   
   // Scroll to item in the list
@@ -1511,7 +1567,11 @@ const Dashboard = () => {
                     onSkip={skipNextItem}
                     onHide={() => setHideNextItem(true)}
                     onJumpToItem={() => scrollToItem(nextItem.id)}
-                    onEdit={() => scrollToItem(nextItem.id)}
+                    onEdit={() => setEditingNextItem(nextItem)}
+                    onUndo={skippedItemsHistory.length > 0 ? undoSkip : null}
+                    onQuantityChange={handleQuantityChange}
+                    onDeferItem={handleDeferItem}
+                    peekNextItem={getPeekNextItem()}
                   />
                 ) : null;
               })()}
@@ -1865,6 +1925,25 @@ const Dashboard = () => {
 
       {/* XP Notifications */}
       <XPNotificationContainer />
+
+      {/* Edit Next Item Modal */}
+      {editingNextItem && (
+        <EditItemModal
+          item={editingNextItem}
+          onClose={() => setEditingNextItem(null)}
+          onSave={async (updatedItem) => {
+            try {
+              await shoppingAPI.updateItem(activeList.id, editingNextItem.id, updatedItem);
+              await loadListItems(activeList.id);
+              setEditingNextItem(null);
+              success('Item updated!');
+            } catch (err) {
+              console.error('Error updating item:', err);
+              error('Failed to update item');
+            }
+          }}
+        />
+      )}
 
       {/* Delete List Confirmation */}
       <ConfirmDialog

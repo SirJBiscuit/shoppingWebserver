@@ -139,61 +139,52 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             )}
           </div>
 
-          {/* Secondary Actions Row - Labeled Buttons (Self-explanatory, no tooltips needed) */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Secondary Actions Row - Compact but touch-friendly (44px min) */}
+          <div className="grid grid-cols-4 gap-1.5">
             <button
               onClick={onEdit}
-              className="flex items-center justify-center gap-2 py-2.5 px-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all font-medium text-sm"
+              className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white rounded-lg transition-all min-h-[44px]"
             >
-              <Edit2 className="w-4 h-4" />
-              <span>Edit</span>
+              <Edit2 className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Edit</span>
             </button>
 
             <button
               onClick={onJumpToItem}
-              className="flex items-center justify-center gap-2 py-2.5 px-3 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-all font-medium text-sm"
+              className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-purple-500 hover:bg-purple-600 active:bg-purple-700 text-white rounded-lg transition-all min-h-[44px]"
             >
-              <Eye className="w-4 h-4" />
-              <span>Go To</span>
+              <Eye className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Go To</span>
             </button>
 
             <button
               onClick={onSkip}
-              className="flex items-center justify-center gap-2 py-2.5 px-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-all font-medium text-sm"
+              className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 text-white rounded-lg transition-all min-h-[44px]"
             >
-              <SkipForward className="w-4 h-4" />
-              <span>Skip</span>
+              <SkipForward className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Skip</span>
             </button>
 
-            {onDeferItem ? (
+            {onDeferItem && (
               <button
                 onClick={() => onDeferItem(nextItem)}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all font-medium text-sm"
+                className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-lg transition-all min-h-[44px]"
               >
-                <X className="w-4 h-4" />
-                <span>Don't Need</span>
+                <X className="w-5 h-5" />
+                <span className="text-[10px] font-medium">Remove</span>
               </button>
-            ) : (
+            )}
+
+            {onUndo && (
               <button
-                onClick={onCopyMove}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-all font-medium text-sm"
+                onClick={onUndo}
+                className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-gray-500 hover:bg-gray-600 active:bg-gray-700 text-white rounded-lg transition-all min-h-[44px]"
               >
-                <Copy className="w-4 h-4" />
-                <span>Copy/Move</span>
+                <Undo className="w-5 h-5" />
+                <span className="text-[10px] font-medium">Undo</span>
               </button>
             )}
           </div>
-
-          {/* Undo Button - If available */}
-          {onUndo && (
-            <button
-              onClick={onUndo}
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-gray-400 hover:bg-gray-500 text-white rounded-lg transition-all font-medium text-sm"
-            >
-              <Undo className="w-4 h-4" />
-              <span>Undo (Go Back)</span>
-            </button>
-          )}
         </div>
 
         {/* Next Item Preview */}
