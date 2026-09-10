@@ -77,12 +77,10 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           </div>
           <button
             onClick={onHide}
-            className="p-1.5 hover:bg-green-200 dark:hover:bg-green-800 rounded-lg transition-colors group"
+            className="p-3 hover:bg-green-200 dark:hover:bg-green-800 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Hide Looking for Next"
           >
-            <EyeOff className="w-4 h-4 text-green-700 dark:text-green-300" />
-            <span className="hidden group-hover:block absolute right-0 top-full mt-1 bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none">
-              Hide this feature
-            </span>
+            <EyeOff className="w-5 h-5 text-green-700 dark:text-green-300" />
           </button>
         </div>
 
@@ -107,7 +105,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               </h3>
               {nextItem.aisle && (
                 <span className="text-lg font-bold bg-purple-500 text-white px-3 py-1 rounded-lg flex-shrink-0">
-                  Aisle {nextItem.aisle}
+                  Aisle: {nextItem.aisle}
                 </span>
               )}
             </div>
@@ -135,41 +133,40 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
         {/* Action Buttons - Organized in Groups */}
         <div className="space-y-3">
           {/* Primary Actions Row */}
-          <div className="flex items-center gap-2">
-            {/* Checkbox - Large with proper animation */}
+          <div className="flex items-center gap-3">
+            {/* Checkbox - Simple box with animation */}
             <motion.button
               onClick={onCheck}
-              whileTap={{ scale: 0.95 }}
-              animate={nextItem.is_checked ? {
-                scale: [1, 1.1, 1],
-                rotate: [0, 5, -5, 0]
-              } : {}}
-              transition={{ duration: 0.3 }}
-              className={`flex-1 py-4 rounded-xl border-3 flex items-center justify-center gap-3 font-bold text-lg transition-all ${
+              whileTap={{ scale: 0.9 }}
+              className={`w-12 h-12 rounded-lg border-3 flex items-center justify-center transition-all ${
                 nextItem.is_checked
-                  ? 'bg-green-500 border-green-600 text-white shadow-lg'
-                  : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:border-green-500 text-gray-700 dark:text-gray-300 shadow'
+                  ? 'bg-green-500 border-green-600'
+                  : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:border-green-500'
               }`}
             >
-              <div className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center ${
-                nextItem.is_checked ? 'border-white bg-white/20' : 'border-current'
-              }`}>
-                {nextItem.is_checked && (
-                  <motion.div
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ 
-                      type: "spring",
-                      stiffness: 200,
-                      damping: 15
-                    }}
-                  >
-                    <Check className="w-6 h-6 text-white" strokeWidth={4} />
-                  </motion.div>
-                )}
-              </div>
-              <span>{nextItem.is_checked ? 'Found!' : 'Mark as Found'}</span>
+              {nextItem.is_checked && (
+                <motion.div
+                  initial={{ scale: 0, rotate: -180, opacity: 0 }}
+                  animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 260,
+                    damping: 20
+                  }}
+                >
+                  <Check className="w-8 h-8 text-white" strokeWidth={3} />
+                </motion.div>
+              )}
             </motion.button>
+            
+            {/* Label */}
+            <span className={`text-base font-semibold flex-1 ${
+              nextItem.is_checked 
+                ? 'text-green-600 dark:text-green-400' 
+                : 'text-gray-700 dark:text-gray-300'
+            }`}>
+              {nextItem.is_checked ? '✓ Found!' : 'Mark as Found'}
+            </span>
 
             {/* Quantity Controls */}
             {onQuantityChange && (
