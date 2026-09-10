@@ -261,6 +261,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           <div className="flex items-center gap-3">
             {/* Checkbox - Simple box with animation */}
             <motion.button
+              key={`checkbox-${nextItem.id}`}
               onClick={() => {
                 setIsChecked(true);
                 onCheck();
@@ -272,20 +273,20 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:border-green-500'
               }`}
             >
-              {isChecked && (
+              {isChecked ? (
                 <motion.div
+                  key={`checkmark-${nextItem.id}`}
                   initial={{ scale: 0, rotate: -180, opacity: 0 }}
                   animate={{ scale: 1, rotate: 0, opacity: 1 }}
                   transition={{ 
                     type: "spring",
                     stiffness: 300,
-                    damping: 15,
-                    duration: 0.5
+                    damping: 15
                   }}
                 >
                   <Check className="w-8 h-8 text-white" strokeWidth={4} />
                 </motion.div>
-              )}
+              ) : null}
             </motion.button>
             
             {/* Label */}
