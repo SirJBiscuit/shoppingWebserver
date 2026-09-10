@@ -8,6 +8,7 @@ import { FeatureFlagProvider } from './context/FeatureFlagContext';
 import FlyingItemAnimation from './components/FlyingItemAnimation';
 // import MobileBottomNav from './components/MobileBottomNav'; // Disabled for now
 import AdminToolbar from './components/AdminToolbar';
+import UpdateChecker from './components/UpdateChecker';
 
 // Lazy load pages for better performance
 const Login = lazy(() => import('./pages/Login'));
@@ -111,6 +112,7 @@ function App() {
         <ThemeProvider>
           <CartAnimationProvider>
             <Router>
+              <UpdateChecker />
               <AdminToolbar />
               <AnimatedRoutes />
               <FlyingItemAnimation />
