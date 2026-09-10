@@ -446,10 +446,9 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   >
                     <Edit2 className="w-5 h-5" />
                   </button>
-                  {/* eslint-disable-next-line no-undef */}
                   {onAddNote && (
                     <button
-                      onClick={() => onAddNote(item)}
+                      onClick={() => onAddNote(item)} // eslint-disable-line no-undef
                       className="text-teal-500 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
                       title="Add note"
                     >
