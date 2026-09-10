@@ -1,9 +1,19 @@
-import React from 'react';
-import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, ArrowDown, Edit2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, ArrowDown, Edit2, Undo, X, Plus, Minus, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 
-const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit }) => {
+const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem }) => {
+  const [showGuide, setShowGuide] = useState(() => {
+    // Show guide on first use
+    return !localStorage.getItem('lookingForNextGuideShown');
+  });
+
+  const hideGuide = () => {
+    setShowGuide(false);
+    localStorage.setItem('lookingForNextGuideShown', 'true');
+  };
+
   if (!nextItem) return null;
 
   return (
@@ -12,6 +22,23 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
       animate={{ opacity: 1, y: 0 }}
       className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-300 dark:border-green-700 rounded-xl p-4 pr-14 shadow-lg relative"
     >
+      {/* Visual Guide for first-time users */}
+      {showGuide && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="absolute -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full bg-blue-600 text-white px-4 py-2 rounded-lg shadow-xl text-sm font-semibold z-20 whitespace-nowrap"
+        >
+          <div className="flex items-center gap-2">
+            <span>👋 This helps you find items faster!</span>
+            <button onClick={hideGuide} className="hover:bg-blue-700 rounded p-1">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-blue-600"></div>
+        </motion.div>
+      )}
+
       {/* Hide button - absolute top-right, outside action buttons area */}
       <button
         onClick={onHide}
@@ -48,9 +75,26 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
         </div>
         
         <div className="flex items-center gap-2 ml-4">
-          {nextItem.quantity && (
-            <div className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-bold">
-              x{formatQuantityPlain(nextItem.quantity)}
+          {/* Quick Quantity Adjust */}
+          {onQuantityChange && (
+            <div className="flex items-center gap-1 bg-white dark:bg-gray-700 rounded-lg border-2 border-green-500 p-1">
+              <button
+                onClick={() => onQuantityChange(nextItem, -1)}
+                className="p-1 hover:bg-green-100 dark:hover:bg-green-900 rounded transition-colors"
+                title="Decrease quantity"
+              >
+                <Minus className="w-4 h-4 text-green-700 dark:text-green-300" />
+              </button>
+              <div className="px-2 font-bold text-green-700 dark:text-green-300 min-w-[40px] text-center">
+                x{formatQuantityPlain(nextItem.quantity || 1)}
+              </div>
+              <button
+                onClick={() => onQuantityChange(nextItem, 1)}
+                className="p-1 hover:bg-green-100 dark:hover:bg-green-900 rounded transition-colors"
+                title="Increase quantity"
+              >
+                <Plus className="w-4 h-4 text-green-700 dark:text-green-300" />
+              </button>
             </div>
           )}
           {/* Item Checkbox - synced with actual item */}
@@ -85,27 +129,56 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               </motion.div>
             )}
           </motion.button>
+          {/* Undo Button */}
+          {onUndo && (
+            <button
+              onClick={onUndo}
+              className="bg-gray-400 hover:bg-gray-500 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg"
+              title="⏮️ Go back to previous item"
+            >
+              <Undo className="w-5 h-5" />
+            </button>
+          )}
+          
+          {/* Edit Button - Opens Modal */}
+          <button
+            onClick={onEdit}
+            className="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg"
+            title="✏️ Edit this item (opens modal)"
+          >
+            <Edit2 className="w-5 h-5" />
+          </button>
+          
+          {/* Go to Item Button - Scrolls to item */}
           <button
             onClick={onJumpToItem}
             className="bg-purple-500 hover:bg-purple-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg"
-            title="🎯 Jump to this item in the list"
+            title="👁️ Go to item in list (scroll)"
           >
-            <ArrowDown className="w-5 h-5" />
+            <Eye className="w-5 h-5" />
           </button>
+          
+          {/* Copy/Move Button */}
           <button
             onClick={onCopyMove}
-            className="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg"
+            className="bg-indigo-500 hover:bg-indigo-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg"
             title="📋 Copy or Move to another list"
           >
             <Copy className="w-5 h-5" />
           </button>
-          <button
-            onClick={onEdit}
-            className="bg-gray-500 hover:bg-gray-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg"
-            title="✏️ Edit this item"
-          >
-            <Edit2 className="w-5 h-5" />
-          </button>
+          
+          {/* Don't Need Right Now Button */}
+          {onDeferItem && (
+            <button
+              onClick={() => onDeferItem(nextItem)}
+              className="bg-red-500 hover:bg-red-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg"
+              title="❌ Don't need right now - Cross off for next trip"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+          
+          {/* Skip Button */}
           <button
             onClick={onSkip}
             className="bg-yellow-500 hover:bg-yellow-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg"
@@ -115,6 +188,22 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           </button>
         </div>
       </div>
+
+      {/* Next Item Preview */}
+      {peekNextItem && (
+        <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-800">
+          <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+            <span className="font-semibold">Next:</span>
+            <span className="text-xl">{peekNextItem.item_icon || '📦'}</span>
+            <span className="font-medium">{peekNextItem.item_name}</span>
+            {peekNextItem.aisle && (
+              <span className="text-xs bg-green-100 dark:bg-green-900 px-2 py-0.5 rounded">
+                Aisle {peekNextItem.aisle}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Same Aisle Items */}
       {sameAisleItems.length > 0 && (
