@@ -20,19 +20,16 @@ const Sidebar = ({ onAction }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [expiringCount, setExpiringCount] = useState(0);
 
-  // Don't render sidebar until user data is loaded
-  if (loading) {
-    return null;
-  }
-
   // Debug: Log user object
   useEffect(() => {
-    console.log('Sidebar - User from context:', user);
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      console.log('Sidebar - User from localStorage:', JSON.parse(storedUser));
+    if (!loading && user) {
+      console.log('Sidebar - User from context:', user);
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        console.log('Sidebar - User from localStorage:', JSON.parse(storedUser));
+      }
     }
-  }, [user]);
+  }, [user, loading]);
 
   // Fetch expiring items count
   useEffect(() => {
@@ -50,13 +47,18 @@ const Sidebar = ({ onAction }) => {
       }
     };
 
-    if (user) {
+    if (user && !loading) {
       fetchExpiringCount();
       // Refresh every 5 minutes
       const interval = setInterval(fetchExpiringCount, 5 * 60 * 1000);
       return () => clearInterval(interval);
     }
-  }, [user]);
+  }, [user, loading]);
+
+  // Don't render sidebar until user data is loaded
+  if (loading) {
+    return null;
+  }
 
   const mainNavItems = [
     { path: '/', icon: ShoppingCart, label: 'Dashboard', color: 'text-blue-600', feature: 'shopping_lists' },
