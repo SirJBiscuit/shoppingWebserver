@@ -9,7 +9,7 @@ class SoundManager {
   }
 
   initSounds() {
-    // Load MP3 sound files
+    // Load default MP3 sound files (will be overridden by user preferences)
     this.sounds = {
       check: this.loadSound('/sounds/check.mp3'),
       uncheck: this.loadSound('/sounds/uncheck.mp3')
@@ -30,6 +30,37 @@ class SoundManager {
         console.warn('Sound play failed:', err);
       });
     };
+  }
+
+  // Update sounds based on user preferences
+  updateSounds(checkSoundPath, uncheckSoundPath) {
+    if (checkSoundPath) {
+      this.sounds.check = this.loadSound(checkSoundPath);
+    }
+    if (uncheckSoundPath) {
+      this.sounds.uncheck = this.loadSound(uncheckSoundPath);
+    }
+  }
+
+  // Load preferences from API
+  async loadPreferences(soundsAPI) {
+    try {
+      const prefs = await soundsAPI.getPreferences();
+      this.setEnabled(prefs.sound_enabled);
+      this.setVolume(prefs.sound_volume);
+      
+      // Load selected sounds
+      const sounds = await soundsAPI.getAllSounds();
+      const checkSound = sounds.find(s => s.id === prefs.check_sound_id);
+      const uncheckSound = sounds.find(s => s.id === prefs.uncheck_sound_id);
+      
+      this.updateSounds(
+        checkSound?.file_path,
+        uncheckSound?.file_path
+      );
+    } catch (error) {
+      console.warn('Could not load sound preferences:', error);
+    }
   }
 
   createBeep(frequency, duration, type = 'sine') {
