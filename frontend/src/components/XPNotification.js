@@ -6,12 +6,12 @@ const XPNotification = ({ xpAmount, message, onComplete }) => {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Auto-dismiss after 600ms (very fast for mobile)
+    // Auto-dismiss after 400ms (ultra fast)
     const timer = setTimeout(() => {
       setIsVisible(false);
       // Call onComplete immediately when hiding
       if (onComplete) onComplete();
-    }, 600);
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [onComplete]);
@@ -24,10 +24,10 @@ const XPNotification = ({ xpAmount, message, onComplete }) => {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -10, scale: 0.95 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-full shadow-xl flex items-center space-x-2 border-2 border-yellow-300"
+          className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-full shadow-xl flex items-center space-x-1 sm:space-x-2 border border-yellow-300 sm:border-2"
         >
-          <Sparkles className="w-4 h-4" />
-          <span className="text-lg font-bold">+{xpAmount} XP</span>
+          <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
+          <span className="text-sm sm:text-lg font-bold">+{xpAmount} XP</span>
           {message && (
             <span className="text-xs opacity-90 hidden sm:inline">{message}</span>
           )}
@@ -40,14 +40,34 @@ const XPNotification = ({ xpAmount, message, onComplete }) => {
 // Container to manage multiple XP notifications
 export const XPNotificationContainer = () => {
   const [notifications, setNotifications] = useState([]);
+  const [consolidatedXP, setConsolidatedXP] = useState(null);
 
   useEffect(() => {
     // Listen for XP events
     const handleXPGain = (event) => {
       const { xp, message } = event.detail;
-      const id = Date.now();
       
-      setNotifications(prev => [...prev, { id, xp, message }]);
+      // Consolidate XP notifications if they come within 500ms of each other
+      setConsolidatedXP(prev => {
+        if (prev && Date.now() - prev.timestamp < 500) {
+          // Add to existing consolidated notification
+          return {
+            ...prev,
+            xp: prev.xp + xp,
+            count: prev.count + 1,
+            timestamp: Date.now()
+          };
+        } else {
+          // Start new consolidated notification
+          return {
+            id: Date.now(),
+            xp: xp,
+            message: message,
+            count: 1,
+            timestamp: Date.now()
+          };
+        }
+      });
     };
 
     window.addEventListener('xpGained', handleXPGain);
@@ -57,12 +77,24 @@ export const XPNotificationContainer = () => {
     };
   }, []);
 
+  useEffect(() => {
+    // When consolidated XP changes, show it as a notification after a brief delay
+    if (consolidatedXP) {
+      const timer = setTimeout(() => {
+        setNotifications(prev => [...prev, consolidatedXP]);
+        setConsolidatedXP(null);
+      }, 100); // Small delay to allow more XP to consolidate
+
+      return () => clearTimeout(timer);
+    }
+  }, [consolidatedXP]);
+
   const removeNotification = (id) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   return (
-    <div className="fixed top-20 right-4 z-50 space-y-2">
+    <div className="fixed top-20 right-2 sm:right-4 z-50 space-y-2">
       {notifications.map((notification, index) => (
         <motion.div
           key={notification.id}
@@ -73,7 +105,7 @@ export const XPNotificationContainer = () => {
         >
           <XPNotification
             xpAmount={notification.xp}
-            message={notification.message}
+            message={notification.count > 1 ? `${notification.count}x actions!` : notification.message}
             onComplete={() => removeNotification(notification.id)}
           />
         </motion.div>

@@ -1294,7 +1294,9 @@ const Dashboard = () => {
                         // Use saved preferences
                         console.log('Found preference:', preference);
                         if (preference.preferred_icon) setNewItemIcon(preference.preferred_icon);
-                        if (preference.average_price) setNewItemPrice(preference.average_price.toString());
+                        if (preference.average_price && !manualPriceSet) {
+                          setNewItemPrice(preference.average_price.toString());
+                        }
                         if (preference.category) setNewItemCategory(preference.category);
                         // Set quantity as integer
                         const qty = preference.preferred_quantity ? Math.floor(preference.preferred_quantity) : 1;
@@ -1308,7 +1310,7 @@ const Dashboard = () => {
                         const detectedIconValue = detectIcon(value);
                       
                         setNewItemIcon(learnedIconValue || detectedIconValue || '');
-                        if (learnedPriceValue !== null) {
+                        if (learnedPriceValue !== null && !manualPriceSet) {
                           setNewItemPrice(learnedPriceValue.toString());
                         }
                         setNewItemCategory(detectedCat || '');
@@ -1349,7 +1351,9 @@ const Dashboard = () => {
                             const learnedPriceValue = getLearnedPrice(itemName);
                             
                             setNewItemIcon(learnedIconValue || result.icon || '');
-                            setNewItemPrice(learnedPriceValue !== null ? learnedPriceValue.toString() : (result.average_price || ''));
+                            if (!manualPriceSet) {
+                              setNewItemPrice(learnedPriceValue !== null ? learnedPriceValue.toString() : (result.average_price || ''));
+                            }
                             
                             setSearchQuery('');
                             setSearchResults([]);

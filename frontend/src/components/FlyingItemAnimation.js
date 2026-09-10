@@ -19,6 +19,14 @@ const FlyingItemAnimation = () => {
       }
     };
 
+    // IMMEDIATELY update position when flying items change (e.g., switching lists)
+    if (flyingItems.length > 0) {
+      // Use requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        updateCartPosition();
+      });
+    }
+
     updateCartPosition();
     window.addEventListener('resize', updateCartPosition);
     window.addEventListener('scroll', updateCartPosition, true); // Use capture phase
