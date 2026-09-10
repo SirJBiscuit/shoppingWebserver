@@ -153,8 +153,8 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   <div className="flex items-start gap-2">
                     <X className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
                     <div>
-                      <span className="font-semibold text-gray-900 dark:text-white">Remove:</span>
-                      <span className="text-gray-700 dark:text-gray-300"> Don't need this item right now</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">Don't Need:</span>
+                      <span className="text-gray-700 dark:text-gray-300"> Remove item from list (don't need right now)</span>
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
@@ -236,6 +236,16 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 </span>
               )}
             </div>
+
+            {/* Note Display */}
+            {nextItem.notes && (
+              <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 rounded">
+                <div className="flex items-start gap-2">
+                  <FileText className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">{nextItem.notes}</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -333,7 +343,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-lg transition-all min-h-[44px]"
               >
                 <X className="w-5 h-5" />
-                <span className="text-[10px] font-medium">Remove</span>
+                <span className="text-[10px] font-medium leading-tight">Don't Need</span>
               </button>
             )}
 
