@@ -44,13 +44,31 @@ const AdminNew = () => {
   const checkForUpdates = async () => {
     setChecking(true);
     try {
-      const response = await api.get('/system/check-updates');
-      setUpdateInfo(response.data);
+      // Get current version from new version API
+      const versionResponse = await api.get('/version/current');
+      const currentVersion = versionResponse.data;
+      
+      // Check if there are updates available (compare with git)
+      let gitUpdate = null;
+      try {
+        const gitResponse = await api.get('/system/check-updates');
+        gitUpdate = gitResponse.data;
+      } catch (gitError) {
+        console.log('Git check not available:', gitError);
+      }
+      
+      setUpdateInfo({
+        hasUpdate: gitUpdate?.hasUpdate || false,
+        currentVersion: currentVersion.current?.substring(0, 7) || 'Unknown',
+        latestVersion: gitUpdate?.latestVersion || 'Unknown',
+        lastUpdated: currentVersion.updated,
+        fullHash: currentVersion.current
+      });
     } catch (error) {
       console.error('Failed to check updates:', error);
       setUpdateInfo({
         hasUpdate: false,
-        currentVersion: 'v1.0.0',
+        currentVersion: 'Unknown',
         latestVersion: 'Unknown',
         error: error.response?.status === 403 
           ? 'Admin access required' 
@@ -64,12 +82,27 @@ const AdminNew = () => {
   const getSystemStatus = async () => {
     try {
       const response = await api.get('/system/status');
-      setSystemStatus(response.data);
+      
+      // Also get version info
+      let versionInfo = null;
+      try {
+        const versionResponse = await api.get('/version/current');
+        versionInfo = versionResponse.data;
+      } catch (versionError) {
+        console.log('Version info not available:', versionError);
+      }
+      
+      setSystemStatus({
+        ...response.data,
+        version: versionInfo?.current?.substring(0, 7) || response.data.version,
+        fullHash: versionInfo?.current,
+        lastUpdated: versionInfo?.updated
+      });
     } catch (error) {
       console.error('Failed to get system status:', error);
       setSystemStatus({
         uptime: 'Unknown',
-        version: 'v1.0.0',
+        version: 'Unknown',
         environment: 'production',
         database: { connected: true },
         error: 'Unable to fetch system status',
@@ -291,11 +324,19 @@ const AdminNew = () => {
                           {formatUptime(systemStatus.uptime)}
                         </p>
                       </div>
-                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div 
+                        className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                        title={systemStatus.fullHash ? `Full hash: ${systemStatus.fullHash}\nLast updated: ${new Date(systemStatus.lastUpdated).toLocaleString()}` : ''}
+                      >
                         <p className="text-sm text-gray-600 dark:text-gray-400">Version</p>
                         <p className="text-lg font-mono font-semibold text-gray-900 dark:text-gray-100">
                           {systemStatus.version}
                         </p>
+                        {systemStatus.lastUpdated && (
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            {new Date(systemStatus.lastUpdated).toLocaleDateString()}
+                          </p>
+                        )}
                       </div>
                       <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                         <p className="text-sm text-gray-600 dark:text-gray-400">Environment</p>
