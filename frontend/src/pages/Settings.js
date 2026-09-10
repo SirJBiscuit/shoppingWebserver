@@ -4,12 +4,13 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { 
   ArrowLeft, Settings as SettingsIcon, User, Bell, 
-  Palette, Database, Download, Upload, Trash2, Save
+  Palette, Database, Download, Upload, Trash2, Save, Volume2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import Sidebar from '../components/Sidebar';
+import SoundSettings from '../components/SoundSettings';
 
 const Settings = () => {
   const { user } = useAuth();
@@ -30,6 +31,7 @@ const Settings = () => {
 
   const [customUnits, setCustomUnits] = useState([]);
   const [newUnit, setNewUnit] = useState('');
+  const [showSoundSettings, setShowSoundSettings] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -314,6 +316,36 @@ const Settings = () => {
               </div>
             </motion.div>
 
+            {/* Sound Settings */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="card"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <Volume2 className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    Sound Settings
+                  </h2>
+                </div>
+              </div>
+              
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  Customize sound effects, volume, and select from available sounds
+                </p>
+                <button
+                  onClick={() => setShowSoundSettings(true)}
+                  className="btn-primary w-full"
+                >
+                  <Volume2 className="w-4 h-4 mr-2 inline" />
+                  Configure Sounds
+                </button>
+              </div>
+            </motion.div>
+
             {/* Custom Units */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -412,6 +444,13 @@ const Settings = () => {
         </main>
         </div>
       </div>
+
+      {/* Sound Settings Modal */}
+      <SoundSettings
+        isOpen={showSoundSettings}
+        onClose={() => setShowSoundSettings(false)}
+        isAdmin={user?.isAdmin}
+      />
     </PageTransition>
   );
 };

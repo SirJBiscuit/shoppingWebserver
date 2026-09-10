@@ -4,7 +4,7 @@ import {
   Settings, RefreshCw, Download, Server, Database, 
   GitBranch, Package, ShoppingCart, ChefHat, LogOut,
   CheckCircle, XCircle, AlertCircle, Terminal, Play, Flag,
-  Crown, Users, Layout
+  Crown, Users, Layout, Volume2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -14,6 +14,7 @@ import PageTransition from '../components/PageTransition';
 import FeatureManagementVisual from '../components/admin/FeatureManagementVisual';
 import UserManagement from '../components/UserManagement';
 import DashboardEditor from '../components/DashboardEditor';
+import SoundSettings from '../components/SoundSettings';
 
 const AdminNew = () => {
   const navigate = useNavigate();
@@ -201,6 +202,7 @@ const AdminNew = () => {
     { id: 'system', name: 'System & Updates', icon: Server },
     { id: 'features', name: 'Feature Management', icon: Flag },
     { id: 'users', name: 'User Management', icon: Users },
+    { id: 'sounds', name: 'Sound Management', icon: Volume2 },
     { id: 'logs', name: 'System Logs', icon: Terminal },
   ];
 
@@ -463,6 +465,24 @@ const AdminNew = () => {
             {activeTab === 'users' && (
               <div className="card">
                 <UserManagement />
+              </div>
+            )}
+
+            {/* Sound Management Tab */}
+            {activeTab === 'sounds' && (
+              <div className="card">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center mb-4">
+                  <Volume2 className="w-6 h-6 mr-2 text-primary-600" />
+                  Sound Management
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  Upload and manage sound effects that users can select for their app experience.
+                </p>
+                <SoundSettings
+                  isOpen={true}
+                  onClose={() => {}}
+                  isAdmin={true}
+                />
               </div>
             )}
 
