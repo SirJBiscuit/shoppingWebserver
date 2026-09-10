@@ -266,34 +266,26 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 onCheck();
               }}
               whileTap={{ scale: 0.9 }}
-              animate={isChecked ? {
-                scale: [1, 1.2, 1],
-                rotate: [0, 10, -10, 0]
-              } : {}}
-              transition={{ duration: 0.4 }}
               className={`w-12 h-12 rounded-lg border-3 flex items-center justify-center transition-all ${
                 isChecked
                   ? 'bg-green-500 border-green-600 shadow-lg shadow-green-500/50'
                   : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:border-green-500'
               }`}
             >
-              <AnimatePresence mode="wait">
-                {isChecked && (
-                  <motion.div
-                    key={`check-${nextItem.id}-${isChecked}`}
-                    initial={{ scale: 0, rotate: -180, opacity: 0 }}
-                    animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                    exit={{ scale: 0, opacity: 0 }}
-                    transition={{ 
-                      type: "spring",
-                      stiffness: 300,
-                      damping: 15
-                    }}
-                  >
-                    <Check className="w-8 h-8 text-white" strokeWidth={4} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {isChecked && (
+                <motion.div
+                  initial={{ scale: 0, rotate: -180, opacity: 0 }}
+                  animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 15,
+                    duration: 0.5
+                  }}
+                >
+                  <Check className="w-8 h-8 text-white" strokeWidth={4} />
+                </motion.div>
+              )}
             </motion.button>
             
             {/* Label */}
@@ -459,30 +451,21 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   <motion.button
                     onClick={() => onCheck && onCheck(item)}
                     whileTap={{ scale: 0.9 }}
-                    animate={item.is_checked ? {
-                      scale: [1, 1.15, 1],
-                      rotate: [0, 5, -5, 0]
-                    } : {}}
-                    transition={{ duration: 0.3 }}
                     className={`w-8 h-8 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                       item.is_checked
                         ? 'bg-green-500 border-green-600 shadow-md shadow-green-500/50'
                         : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600'
                     }`}
                   >
-                    <AnimatePresence mode="wait">
-                      {item.is_checked && (
-                        <motion.div
-                          key={`check-grouped-${item.id}`}
-                          initial={{ scale: 0, rotate: -180, opacity: 0 }}
-                          animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                          exit={{ scale: 0, opacity: 0 }}
-                          transition={{ type: "spring", stiffness: 300, damping: 15 }}
-                        >
-                          <Check className="w-5 h-5 text-white" strokeWidth={3} />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    {item.is_checked && (
+                      <motion.div
+                        initial={{ scale: 0, rotate: -180, opacity: 0 }}
+                        animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                      >
+                        <Check className="w-5 h-5 text-white" strokeWidth={3} />
+                      </motion.div>
+                    )}
                   </motion.button>
 
                   {/* Item Info */}
