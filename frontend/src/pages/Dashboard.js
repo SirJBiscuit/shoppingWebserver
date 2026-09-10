@@ -555,18 +555,22 @@ const Dashboard = () => {
 
   // Quick quantity change - Optimistic update for instant feedback
   const handleQuantityChange = async (item, delta) => {
-    const newQuantity = Math.max(1, (item.quantity || 1) + delta);
+    let updatedQuantity;
     
-    // Optimistic update - update UI immediately
-    setItems(prevItems => prevItems.map(i => 
-      i.id === item.id ? { ...i, quantity: newQuantity } : i
-    ));
+    // Optimistic update - update UI immediately using current state
+    setItems(prevItems => prevItems.map(i => {
+      if (i.id === item.id) {
+        updatedQuantity = Math.max(1, (i.quantity || 1) + delta);
+        return { ...i, quantity: updatedQuantity };
+      }
+      return i;
+    }));
     
     // Update server in background
     try {
       await shoppingAPI.updateItem(activeList.id, item.id, {
         ...item,
-        quantity: newQuantity
+        quantity: updatedQuantity
       });
     } catch (err) {
       console.error('Error updating quantity:', err);
