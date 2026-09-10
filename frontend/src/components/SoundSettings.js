@@ -309,7 +309,6 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
               </div>
             </div>
           )}
-        </div>
     </div>
   );
 
