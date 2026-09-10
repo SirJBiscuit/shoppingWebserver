@@ -20,6 +20,7 @@ import VisualInventoryMap from '../components/inventory/VisualInventoryMap';
 import AddItemModal from '../components/inventory/AddItemModal';
 import InventoryStats from '../components/inventory/InventoryStats';
 import BulkActionBar from '../components/inventory/BulkActionBar';
+import ExpiredItemsAlert from '../components/ExpiredItemsAlert';
 
 /**
  * PantryNewV2 - Home Inventory with new 3-panel layout
@@ -122,6 +123,15 @@ const PantryNewV2 = () => {
   const getFilteredItems = () => {
     let filtered = [...items];
 
+    // ALWAYS filter out expired items from main display (they go in the alert)
+    filtered = filtered.filter(item => {
+      if (!item.estimated_expiry_date) return true;
+      const daysUntilExpiry = Math.floor(
+        (new Date(item.estimated_expiry_date) - new Date()) / (1000 * 60 * 60 * 24)
+      );
+      return daysUntilExpiry >= 0; // Only show non-expired items
+    });
+
     // Filter by location
     if (activeLocation) {
       filtered = filtered.filter(item => 
@@ -184,6 +194,17 @@ const PantryNewV2 = () => {
     }
 
     return filtered;
+  };
+
+  // Get expired items for alert
+  const getExpiredItems = () => {
+    return items.filter(item => {
+      if (!item.estimated_expiry_date) return false;
+      const daysUntilExpiry = Math.floor(
+        (new Date(item.estimated_expiry_date) - new Date()) / (1000 * 60 * 60 * 24)
+      );
+      return daysUntilExpiry < 0; // Expired items
+    });
   };
 
   // ============================================
@@ -491,6 +512,7 @@ const PantryNewV2 = () => {
   }
 
   const filteredItems = getFilteredItems();
+  const expiredItems = getExpiredItems();
   const itemCounts = getItemCounts();
   const filterCounts = getFilterCounts();
 
@@ -565,6 +587,13 @@ const PantryNewV2 = () => {
                 <InventoryStats stats={stats} expiringSoon={[]} />
               </div>
             )}
+
+            {/* Expired Items Alert */}
+            <ExpiredItemsAlert
+              expiredItems={expiredItems}
+              onDelete={handleDeleteItem}
+              onStillGood={handleStillGood}
+            />
 
             {/* Three-Panel Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">

@@ -176,7 +176,7 @@ router.get('/', authenticateToken, async (req, res) => {
         csl.name as custom_location_name,
         csl.icon as custom_location_icon
       FROM inventory i
-      LEFT JOIN items it ON i.item_id = it.id
+      INNER JOIN items it ON i.item_id = it.id
       LEFT JOIN custom_storage_locations csl ON i.custom_location_id = csl.id
       WHERE i.user_id = $1
     `;
