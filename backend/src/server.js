@@ -81,7 +81,36 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+// Run migrations on startup
+const runMigrations = async () => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const db = require('./database/db');
+    
+    const migrationPath = path.join(__dirname, '../migrations/add_sound_system.sql');
+    
+    // Check if migration file exists
+    if (fs.existsSync(migrationPath)) {
+      console.log('Running sound system migration...');
+      const migration = fs.readFileSync(migrationPath, 'utf8');
+      await db.query(migration);
+      console.log('✅ Sound system migration completed');
+    }
+  } catch (error) {
+    // Ignore errors if tables already exist
+    if (error.message && error.message.includes('already exists')) {
+      console.log('Sound system tables already exist, skipping migration');
+    } else {
+      console.warn('Migration warning:', error.message);
+    }
+  }
+};
+
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  // Run migrations after server starts
+  await runMigrations();
 });
