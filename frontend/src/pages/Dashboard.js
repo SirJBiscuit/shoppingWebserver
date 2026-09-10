@@ -1267,6 +1267,11 @@ const Dashboard = () => {
                       setNewItemName(value);
                       setSearchQuery(value);
                       
+                      // Clear icon if input is empty
+                      if (!value.trim()) {
+                        setNewItemIcon('');
+                      }
+                      
                       // Auto-fill learned preferences when user types
                       if (value.length >= 3) {
                         const learnedIconValue = getLearnedIcon(value);
@@ -1274,11 +1279,8 @@ const Dashboard = () => {
                         const detectedCat = detectCategory(value);
                         const detectedIconValue = detectIcon(value);
                         
-                        if (learnedIconValue && !newItemIcon) {
-                          setNewItemIcon(learnedIconValue);
-                        } else if (!newItemIcon && detectedIconValue) {
-                          setNewItemIcon(detectedIconValue);
-                        }
+                        // Always update icon when typing (prefer learned, fallback to detected)
+                        setNewItemIcon(learnedIconValue || detectedIconValue || '');
                         
                         if (learnedPriceValue !== null && !newItemPrice) {
                           setNewItemPrice(learnedPriceValue.toString());
