@@ -126,7 +126,8 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
 
   if (!isOpen) return null;
 
-  const content = (
+  // Render content
+  const renderContent = () => (
     <div className="p-6">
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
@@ -314,14 +315,14 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
 
   // If onClose is empty function, render as embedded component (for admin page)
   if (onClose.toString() === '() => {}') {
-    return content;
+    return renderContent();
   }
 
   // Otherwise render as modal
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        {content}
+        {renderContent()}
       </div>
     </div>
   );
