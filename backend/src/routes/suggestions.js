@@ -115,7 +115,7 @@ router.get('/search', async (req, res) => {
     const result = await db.query(
       `SELECT DISTINCT ON (LOWER(i.name)) i.*, 
        stats.total_purchases, stats.preferred_quantity, stats.preferred_unit,
-       i.average_price, i.icon, i.category
+       i.average_price, i.preferred_icon as icon, i.category
        FROM items i
        LEFT JOIN item_statistics stats ON i.id = stats.item_id AND stats.user_id = $1
        WHERE i.user_id = $1 AND LOWER(i.name) LIKE LOWER($2)
