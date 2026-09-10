@@ -45,6 +45,12 @@ export const XPNotificationContainer = () => {
   useEffect(() => {
     // Listen for XP events
     const handleXPGain = (event) => {
+      // Check if XP notifications are enabled in settings
+      const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+      if (settings.showXPNotifications === false) {
+        return; // Don't show notification if disabled
+      }
+
       const { xp, message } = event.detail;
       
       // Consolidate XP notifications if they come within 500ms of each other

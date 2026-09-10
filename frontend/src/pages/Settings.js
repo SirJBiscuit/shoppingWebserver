@@ -25,6 +25,7 @@ const Settings = () => {
     compactMode: false,
     autoSuggest: true,
     soundEffects: false,
+    showXPNotifications: true,
   });
 
   const [customUnits, setCustomUnits] = useState([]);
@@ -121,6 +122,7 @@ const Settings = () => {
         compactMode: false,
         autoSuggest: true,
         soundEffects: false,
+        showXPNotifications: true,
       });
       setCustomUnits([]);
       alert('All settings cleared!');
@@ -267,6 +269,12 @@ const Settings = () => {
                   description="Play sounds for actions"
                   value={settings.soundEffects}
                   onChange={(val) => setSettings({ ...settings, soundEffects: val })}
+                />
+                <SettingToggle
+                  label="XP Notifications"
+                  description="Show XP gain notifications when completing actions"
+                  value={settings.showXPNotifications}
+                  onChange={(val) => setSettings({ ...settings, showXPNotifications: val })}
                 />
                 
                 {/* Admin Toolbar Toggle - Only show for admin users */}
