@@ -1077,7 +1077,7 @@ const Dashboard = () => {
                   <div className="mb-4 flex items-start justify-between">
                     <div className="flex-1">
                       <div className="text-2xl font-bold text-primary-600 dark:text-primary-400 flex items-center gap-2">
-                        📋 {activeList.name}
+                        <span data-cart-target className="inline-block">📋</span> {activeList.name}
                         <button
                           onClick={() => {
                             setNewListName(activeList.name);
