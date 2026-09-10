@@ -9,58 +9,26 @@ class SoundManager {
   }
 
   initSounds() {
-    // Pleasant click sounds for check/uncheck
+    // Load MP3 sound files
     this.sounds = {
-      check: this.createCheckSound(),
-      uncheck: this.createUncheckSound()
+      check: this.loadSound('/sounds/check.mp3'),
+      uncheck: this.loadSound('/sounds/uncheck.mp3')
     };
   }
 
-  createCheckSound() {
+  loadSound(url) {
+    const audio = new Audio(url);
+    audio.volume = this.volume;
+    
     return () => {
       if (!this.enabled) return;
       
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-
-      // Pleasant upward "tick" sound
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(1200, audioContext.currentTime + 0.05);
-      oscillator.type = 'sine';
-      
-      gainNode.gain.setValueAtTime(this.volume * 0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.1);
-    };
-  }
-
-  createUncheckSound() {
-    return () => {
-      if (!this.enabled) return;
-      
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-
-      // Subtle downward "tock" sound
-      oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.05);
-      oscillator.type = 'sine';
-      
-      gainNode.gain.setValueAtTime(this.volume * 0.25, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.08);
-
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.08);
+      // Clone the audio to allow multiple simultaneous plays
+      const sound = audio.cloneNode();
+      sound.volume = this.volume;
+      sound.play().catch(err => {
+        console.warn('Sound play failed:', err);
+      });
     };
   }
 
