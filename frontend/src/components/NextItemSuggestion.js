@@ -257,23 +257,29 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             <motion.button
               onClick={onCheck}
               whileTap={{ scale: 0.9 }}
+              animate={nextItem.is_checked ? {
+                scale: [1, 1.2, 1],
+                rotate: [0, 10, -10, 0]
+              } : {}}
+              transition={{ duration: 0.4 }}
               className={`w-12 h-12 rounded-lg border-3 flex items-center justify-center transition-all ${
                 nextItem.is_checked
-                  ? 'bg-green-500 border-green-600'
+                  ? 'bg-green-500 border-green-600 shadow-lg shadow-green-500/50'
                   : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:border-green-500'
               }`}
             >
               {nextItem.is_checked && (
                 <motion.div
+                  key={`check-${nextItem.id}`}
                   initial={{ scale: 0, rotate: -180, opacity: 0 }}
                   animate={{ scale: 1, rotate: 0, opacity: 1 }}
                   transition={{ 
                     type: "spring",
-                    stiffness: 260,
-                    damping: 20
+                    stiffness: 300,
+                    damping: 15
                   }}
                 >
-                  <Check className="w-8 h-8 text-white" strokeWidth={3} />
+                  <Check className="w-8 h-8 text-white" strokeWidth={4} />
                 </motion.div>
               )}
             </motion.button>
