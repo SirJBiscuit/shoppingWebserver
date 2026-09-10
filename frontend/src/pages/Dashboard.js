@@ -553,6 +553,37 @@ const Dashboard = () => {
     }
   };
 
+  // Look for specific item - skip all items until we reach this one
+  const handleLookForThis = (targetItem) => {
+    const sortedItems = getSortedItems();
+    const itemsToSkip = [];
+    
+    // Skip all unchecked items before the target item
+    for (const item of sortedItems) {
+      if (item.id === targetItem.id) break;
+      if (!item.is_checked && !skippedItems.includes(item.id)) {
+        itemsToSkip.push(item.id);
+      }
+    }
+    
+    // Add to skipped items
+    if (itemsToSkip.length > 0) {
+      setSkippedItems(prev => [...prev, ...itemsToSkip]);
+      setSkippedItemsHistory(prev => [...prev, ...itemsToSkip]);
+    }
+    
+    // Scroll to Looking for Next section
+    const lookingForNextElement = document.querySelector('[data-looking-for-next]');
+    if (lookingForNextElement) {
+      lookingForNextElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Flash animation
+      lookingForNextElement.classList.add('ring-4', 'ring-purple-500', 'ring-opacity-50');
+      setTimeout(() => {
+        lookingForNextElement.classList.remove('ring-4', 'ring-purple-500', 'ring-opacity-50');
+      }, 2000);
+    }
+  };
+
   // Quick quantity change - Optimistic update for instant feedback
   const handleQuantityChange = async (item, delta) => {
     let updatedQuantity;
@@ -1666,6 +1697,7 @@ const Dashboard = () => {
                 nextItemId={getNextItem()?.id}
                 hideCategories={hideCategories}
                 storeName={activeList?.store_name}
+                onLookForThis={handleLookForThis}
                 onEdit={async (updatedItem) => {
                   try {
                     console.log('Updating item:', updatedItem);

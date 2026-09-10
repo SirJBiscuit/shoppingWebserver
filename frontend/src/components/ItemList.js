@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText } from 'lucide-react';
+import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
 import EditItemModal from './EditItemModal';
 import ItemTooltip from './ItemTooltip';
@@ -9,7 +9,7 @@ import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts
 import { formatQuantityPlain } from '../utils/formatQuantity';
 
 const ItemList = (props) => {
-  const { items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null } = props;
+  const { items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null, onLookForThis } = props;
   const [editingItem, setEditingItem] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [noteItem, setNoteItem] = useState(null);
@@ -86,6 +86,7 @@ const ItemList = (props) => {
               setShowEditModal={setShowEditModal}
               setNoteItem={setNoteItem}
               setNoteText={setNoteText}
+              onLookForThis={onLookForThis}
             />
           ))}
         </div>
@@ -115,6 +116,7 @@ const ItemList = (props) => {
                   storeName={storeName}
                   setNoteItem={setNoteItem}
                   setNoteText={setNoteText}
+                  onLookForThis={onLookForThis}
                 />
               ))}
             </div>
@@ -192,7 +194,7 @@ const ItemList = (props) => {
 };
 
 // Separate ItemCard component for reusability
-const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText }) => {
+const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis }) => {
   const [editingAisle, setEditingAisle] = useState(false);
   const [aisleNumber, setAisleNumber] = useState('');
   const [aisleName, setAisleName] = useState('');
@@ -512,6 +514,15 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   >
                     <FileText className="w-5 h-5" />
                   </button>
+                  {onLookForThis && !item.is_checked && (
+                    <button
+                      onClick={() => onLookForThis(item)}
+                      className="text-purple-500 hover:text-purple-700 dark:hover:text-purple-400 transition-colors"
+                      title="Look for this item"
+                    >
+                      <Eye className="w-5 h-5" />
+                    </button>
+                  )}
                   {onCopyMove && (
                     <button
                       onClick={() => onCopyMove(item)}
