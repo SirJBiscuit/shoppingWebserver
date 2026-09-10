@@ -84,6 +84,8 @@ const ItemList = (props) => {
               isNextItem={item.id === nextItemId}
               setEditingItem={setEditingItem}
               setShowEditModal={setShowEditModal}
+              setNoteItem={setNoteItem}
+              setNoteText={setNoteText}
             />
           ))}
         </div>
@@ -111,6 +113,8 @@ const ItemList = (props) => {
                   setEditingItem={setEditingItem}
                   setShowEditModal={setShowEditModal}
                   storeName={storeName}
+                  setNoteItem={setNoteItem}
+                  setNoteText={setNoteText}
                 />
               ))}
             </div>
@@ -188,7 +192,7 @@ const ItemList = (props) => {
 };
 
 // Separate ItemCard component for reusability
-const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName }) => {
+const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText }) => {
   const [editingAisle, setEditingAisle] = useState(false);
   const [aisleNumber, setAisleNumber] = useState('');
   const [aisleName, setAisleName] = useState('');
