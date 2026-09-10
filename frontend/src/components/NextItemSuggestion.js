@@ -3,7 +3,7 @@ import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, P
 import { motion } from 'framer-motion';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 
-const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem }) => {
+const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName }) => {
   const [showGuide, setShowGuide] = useState(() => {
     return !localStorage.getItem('lookingForNextGuideShown');
   });
@@ -11,6 +11,26 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
   const hideGuide = () => {
     setShowGuide(false);
     localStorage.setItem('lookingForNextGuideShown', 'true');
+  };
+
+  // Get price color based on comparison (future: compare with historical prices)
+  const getPriceColor = (price, avgPrice) => {
+    if (!price || !avgPrice) return 'text-gray-600 dark:text-gray-400';
+    const ratio = price / avgPrice;
+    if (ratio <= 0.8) return 'text-green-600 dark:text-green-400'; // Great price!
+    if (ratio <= 0.95) return 'text-yellow-600 dark:text-yellow-400'; // Good price
+    if (ratio <= 1.1) return 'text-orange-500 dark:text-orange-400'; // Fair price
+    return 'text-red-600 dark:text-red-400'; // High price
+  };
+
+  // Get price badge background
+  const getPriceBadgeColor = (price, avgPrice) => {
+    if (!price || !avgPrice) return 'bg-gray-100 dark:bg-gray-700';
+    const ratio = price / avgPrice;
+    if (ratio <= 0.8) return 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700';
+    if (ratio <= 0.95) return 'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700';
+    if (ratio <= 1.1) return 'bg-orange-100 dark:bg-orange-900/30 border-orange-300 dark:border-orange-700';
+    return 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700';
   };
 
   if (!nextItem) return null;
@@ -66,18 +86,63 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           </button>
         </div>
 
+        {/* Store Name */}
+        {storeName && (
+          <div className="mb-3 flex items-center gap-2 text-sm">
+            <span className="text-gray-600 dark:text-gray-400">Shopping at:</span>
+            <span className="font-semibold text-blue-600 dark:text-blue-400">🏪 {storeName}</span>
+          </div>
+        )}
+
         {/* Item Info Row */}
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-3">
           <span className="text-4xl">{nextItem.item_icon || '📦'}</span>
           <div className="flex-1">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white">
               {nextItem.item_name}
             </h3>
-            {nextItem.aisle && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center mt-0.5">
-                <MapPin className="w-3.5 h-3.5 mr-1" />
-                Aisle {nextItem.aisle}
+            
+            {/* Location Info */}
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              {nextItem.aisle && (
+                <span className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  Aisle {nextItem.aisle}
+                </span>
+              )}
+              {nextItem.category && (
+                <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">
+                  {nextItem.category}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Amount & Price Row */}
+        <div className="flex items-center justify-between mb-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-4">
+            {/* Amount Needed */}
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Amount</p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">
+                {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || ''}
               </p>
+            </div>
+            
+            {/* Estimated Price */}
+            {nextItem.price && (
+              <div className={`px-3 py-1.5 rounded-lg border ${getPriceBadgeColor(nextItem.price, nextItem.avg_price)}`}>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Est. Price</p>
+                <p className={`text-lg font-bold ${getPriceColor(nextItem.price, nextItem.avg_price)}`}>
+                  ${(nextItem.price * (nextItem.quantity || 1)).toFixed(2)}
+                </p>
+                {nextItem.avg_price && nextItem.price !== nextItem.avg_price && (
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                    Avg: ${nextItem.avg_price.toFixed(2)}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -86,34 +151,36 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
         <div className="space-y-3">
           {/* Primary Actions Row */}
           <div className="flex items-center gap-2">
-            {/* Checkbox - Large and prominent */}
-            <motion.button
-              key={`${nextItem.id}-${nextItem.is_checked}`}
-              onClick={onCheck}
-              whileTap={{ scale: 0.95 }}
-              animate={nextItem.is_checked ? {
-                scale: [1, 1.2, 1],
-                rotate: [0, 10, -10, 0],
-              } : { scale: 1 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-              className={`flex-1 py-3 rounded-lg border-2 flex items-center justify-center gap-2 font-semibold transition-all ${
-                nextItem.is_checked
-                  ? 'bg-green-500 border-green-600 text-white'
-                  : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:border-green-500 text-gray-700 dark:text-gray-300'
-              }`}
-            >
-              {nextItem.is_checked ? (
-                <>
-                  <Check className="w-5 h-5" />
-                  <span>Found!</span>
-                </>
-              ) : (
-                <>
-                  <div className="w-5 h-5 border-2 border-current rounded"></div>
-                  <span>Mark as Found</span>
-                </>
-              )}
-            </motion.button>
+            {/* Checkbox - Compact with animation */}
+            <div className="flex items-center gap-3 flex-1">
+              <motion.button
+                key={`checkbox-${nextItem.id}-${nextItem.is_checked}`}
+                onClick={onCheck}
+                whileTap={{ scale: 0.9 }}
+                className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all ${
+                  nextItem.is_checked
+                    ? 'bg-green-500 border-green-600'
+                    : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:border-green-500'
+                }`}
+              >
+                {nextItem.is_checked && (
+                  <motion.div
+                    initial={{ scale: 0, rotate: -180, opacity: 0 }}
+                    animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                    transition={{ 
+                      type: "spring",
+                      stiffness: 260,
+                      damping: 20
+                    }}
+                  >
+                    <Check className="w-6 h-6 text-white" strokeWidth={3} />
+                  </motion.div>
+                )}
+              </motion.button>
+              <span className={`text-sm font-medium ${nextItem.is_checked ? 'text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                {nextItem.is_checked ? '✓ Found!' : 'Mark as found'}
+              </span>
+            </div>
 
             {/* Quantity Controls */}
             {onQuantityChange && (

@@ -1572,6 +1572,7 @@ const Dashboard = () => {
                     onQuantityChange={handleQuantityChange}
                     onDeferItem={handleDeferItem}
                     peekNextItem={getPeekNextItem()}
+                    storeName={activeList?.store_name}
                   />
                 ) : null;
               })()}
