@@ -9,6 +9,7 @@ import FlyingItemAnimation from './components/FlyingItemAnimation';
 // import MobileBottomNav from './components/MobileBottomNav'; // Disabled for now
 import AdminToolbar from './components/AdminToolbar';
 import UpdateChecker from './components/UpdateChecker';
+import UpdateNotification from './components/UpdateNotification';
 
 // Lazy load pages for better performance
 const Login = lazy(() => import('./pages/Login'));
@@ -115,6 +116,7 @@ function App() {
           <CartAnimationProvider>
             <Router>
               <UpdateChecker />
+              <UpdateNotification />
               <AdminToolbar />
               <AnimatedRoutes />
               <FlyingItemAnimation />
