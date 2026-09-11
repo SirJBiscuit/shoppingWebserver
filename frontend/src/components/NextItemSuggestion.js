@@ -214,39 +214,92 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           )}
         </AnimatePresence>
 
-        {/* Item Info Row - Redesigned */}
-        <div className="flex items-start gap-4 mb-4">
+        {/* Item Info Row - Redesigned with checkbox and quantity inline */}
+        <div className="flex items-start gap-4 mb-3">
           {/* Large Icon */}
-          <span className="text-7xl">{nextItem.item_icon || '📦'}</span>
+          <span className="text-6xl">{nextItem.item_icon || '📦'}</span>
           
           <div className="flex-1 min-w-0">
-            {/* Item Name & Aisle */}
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+            {/* Item Name with Checkbox and Quantity Controls */}
+            <div className="flex items-center gap-3 mb-2">
+              {/* Checkbox */}
+              <motion.button
+                ref={checkboxRef}
+                onClick={async () => {
+                  setIsChecked(true);
+                  playSound('check');
+                  if (quickPrice && onPriceUpdate) {
+                    await onPriceUpdate(nextItem.id, parseFloat(quickPrice));
+                  }
+                  if (onCheck) onCheck();
+                  if (triggerCheckmarkAnimation) triggerCheckmarkAnimation();
+                }}
+                className={`w-8 h-8 rounded-lg border-3 flex items-center justify-center transition-all flex-shrink-0 ${
+                  isChecked
+                    ? 'bg-green-500 border-green-600'
+                    : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-green-500'
+                }`}
+                whileTap={{ scale: 0.9 }}
+              >
+                {isChecked && <Check className="w-5 h-5 text-white" />}
+              </motion.button>
+
+              {/* Item Name */}
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight flex-1">
                 {nextItem.item_name}
               </h3>
-              {nextItem.aisle && (
-                <span className="text-lg font-bold bg-purple-500 text-white px-3 py-1 rounded-lg flex-shrink-0">
-                  Aisle: {nextItem.aisle}
+
+              {/* Quantity Controls */}
+              <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg px-2 py-1">
+                <button
+                  onClick={() => onQuantityChange && onQuantityChange(nextItem.id, Math.max(0.25, (nextItem.quantity || 1) - 1))}
+                  className="w-7 h-7 flex items-center justify-center rounded bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="font-bold text-gray-900 dark:text-white min-w-[60px] text-center">
+                  {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || ''}
                 </span>
-              )}
+                <button
+                  onClick={() => onQuantityChange && onQuantityChange(nextItem.id, (nextItem.quantity || 1) + 1)}
+                  className="w-7 h-7 flex items-center justify-center rounded bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             
-            {/* Compact Info Row */}
-            <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-              {nextItem.category && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-4 h-4" />
-                  {nextItem.category}
-                </span>
+            {/* Store, Aisle, Price Row - Prominent with Labels */}
+            <div className="flex items-center gap-4 flex-wrap">
+              {storeName && (
+                <div className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg">
+                  <Store className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                    {storeName}
+                  </span>
+                </div>
               )}
-              <span className="font-semibold text-gray-900 dark:text-white">
-                {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || ''}
-              </span>
+              {nextItem.aisle && (
+                <div className="flex items-center gap-2 bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 rounded-lg">
+                  <MapPin className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                    Aisle:
+                  </span>
+                  <span className="text-sm font-bold text-purple-900 dark:text-purple-100">
+                    {nextItem.aisle}
+                  </span>
+                </div>
+              )}
               {nextItem.price && (
-                <span className={`font-bold ${getPriceColor(nextItem.price, nextItem.avg_price)}`}>
-                  ${(nextItem.price * (nextItem.quantity || 1)).toFixed(2)}
-                </span>
+                <div className="flex items-center gap-2 bg-green-100 dark:bg-green-900/30 px-3 py-1.5 rounded-lg">
+                  <DollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  <span className="text-sm font-medium text-green-900 dark:text-green-100">
+                    Price:
+                  </span>
+                  <span className={`text-sm font-bold ${getPriceColor(nextItem.price, nextItem.avg_price)}`}>
+                    ${(nextItem.price * (nextItem.quantity || 1)).toFixed(2)}
+                  </span>
+                </div>
               )}
             </div>
 
@@ -262,98 +315,97 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           </div>
         </div>
 
+        {/* Up Next Preview - Moved here */}
+        {peekNextItem && (
+          <div className="mb-3 p-3 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border-2 border-green-300 dark:border-green-700 rounded-lg">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-green-700 dark:text-green-300">Up Next:</span>
+              <span className="text-2xl">{peekNextItem.item_icon || '📦'}</span>
+              <span className="font-semibold text-gray-900 dark:text-white flex-1">{peekNextItem.item_name}</span>
+              {peekNextItem.aisle && (
+                <span className="text-xs bg-green-500 text-white px-2 py-1 rounded font-bold">
+                  Aisle {peekNextItem.aisle}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons - Organized in Groups */}
         <div className="space-y-3">
-          {/* Quick Price Entry */}
+          {/* Quick Price Entry - Redesigned */}
           {!isChecked && (
             <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                <label className="text-sm font-semibold text-blue-700 dark:text-blue-300">
-                  Quick Price Entry (Optional)
-                </label>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <label className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                    Quick Price Entry (Optional)
+                  </label>
+                </div>
+                {quickPrice && (
+                  <button
+                    onClick={() => setQuickPrice('')}
+                    className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition-colors"
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
               
-              {/* Current Price Display with Clear Context */}
-              <div className="bg-white dark:bg-gray-800 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-bold text-blue-600 dark:text-blue-400">
-                        ${quickPrice || '0.00'}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        Price for:
-                      </span>
-                      <span className="text-lg font-bold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/40 px-3 py-1 rounded">
-                        {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || 'item'}{(nextItem.quantity || 1) > 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      ⚠️ Make sure this matches what you're buying!
-                    </p>
-                  </div>
-                  {quickPrice && (
-                    <button
-                      onClick={() => setQuickPrice('')}
-                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-semibold"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </div>
-
               {/* Learned/Suggested Price */}
               {nextItem.price && !quickPrice && (
                 <button
                   onClick={() => setQuickPrice(parseFloat(nextItem.price).toFixed(2))}
-                  className="w-full mb-3 py-2 px-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-semibold shadow-md transition-all flex items-center justify-center gap-2"
+                  className="w-full mb-2 py-2 px-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-semibold shadow-md transition-all flex items-center justify-center gap-2"
                 >
                   <span>💡 Use Last Price: ${parseFloat(nextItem.price).toFixed(2)}</span>
                 </button>
               )}
 
-              {/* Increment/Decrement Buttons */}
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                <button
-                  onClick={() => {
-                    const current = parseFloat(quickPrice) || 0;
-                    setQuickPrice(Math.max(0, current - 5).toFixed(2));
-                  }}
-                  className="py-3 px-4 bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 border-2 border-red-300 dark:border-red-700 rounded-lg font-bold hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-                >
-                  -$5
-                </button>
-                <button
-                  onClick={() => {
-                    const current = parseFloat(quickPrice) || 0;
-                    setQuickPrice(Math.max(0, current - 1).toFixed(2));
-                  }}
-                  className="py-3 px-4 bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 border-2 border-red-300 dark:border-red-700 rounded-lg font-bold hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-                >
-                  -$1
-                </button>
-                <button
-                  onClick={() => {
-                    const current = parseFloat(quickPrice) || 0;
-                    setQuickPrice(Math.max(0, current - 0.5).toFixed(2));
-                  }}
-                  className="py-3 px-4 bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 border-2 border-red-300 dark:border-red-700 rounded-lg font-bold hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-                >
-                  -$0.50
-                </button>
+              {/* Current Price Display - Clickable */}
+              <div 
+                onClick={() => setShowPriceInput(true)}
+                className="bg-white dark:bg-gray-800 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-2 cursor-pointer hover:border-blue-400 dark:hover:border-blue-600 transition-colors"
+              >
+                {showPriceInput ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-bold text-gray-700 dark:text-gray-300">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={quickPrice}
+                      onChange={(e) => setQuickPrice(e.target.value)}
+                      onBlur={() => setShowPriceInput(false)}
+                      autoFocus
+                      placeholder="0.00"
+                      className="flex-1 text-3xl font-bold bg-transparent border-none outline-none text-blue-600 dark:text-blue-400"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                      ${quickPrice || '0.00'}
+                    </div>
+                    <div className="mt-1 flex items-center gap-2 text-xs">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        for {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || 'item'}{(nextItem.quantity || 1) > 1 ? 's' : ''}
+                      </span>
+                      <span className="text-gray-500 dark:text-gray-500">• Click to edit</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-3 gap-2 mb-3">
+              {/* Increment Buttons (Green on top) */}
+              <div className="grid grid-cols-3 gap-1.5 mb-1.5">
                 <button
                   onClick={() => {
                     const current = parseFloat(quickPrice) || 0;
                     setQuickPrice((current + 5).toFixed(2));
                   }}
-                  className="py-3 px-4 bg-white dark:bg-gray-800 text-green-600 dark:text-green-400 border-2 border-green-300 dark:border-green-700 rounded-lg font-bold hover:bg-green-50 dark:hover:bg-green-900/20 transition-all"
+                  className="py-2 px-2 bg-green-500 hover:bg-green-600 text-white rounded font-bold transition-all text-sm"
                 >
                   +$5
                 </button>
@@ -362,7 +414,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     const current = parseFloat(quickPrice) || 0;
                     setQuickPrice((current + 1).toFixed(2));
                   }}
-                  className="py-3 px-4 bg-white dark:bg-gray-800 text-green-600 dark:text-green-400 border-2 border-green-300 dark:border-green-700 rounded-lg font-bold hover:bg-green-50 dark:hover:bg-green-900/20 transition-all"
+                  className="py-2 px-2 bg-green-500 hover:bg-green-600 text-white rounded font-bold transition-all text-sm"
                 >
                   +$1
                 </button>
@@ -371,32 +423,44 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     const current = parseFloat(quickPrice) || 0;
                     setQuickPrice((current + 0.5).toFixed(2));
                   }}
-                  className="py-3 px-4 bg-white dark:bg-gray-800 text-green-600 dark:text-green-400 border-2 border-green-300 dark:border-green-700 rounded-lg font-bold hover:bg-green-50 dark:hover:bg-green-900/20 transition-all"
+                  className="py-2 px-2 bg-green-500 hover:bg-green-600 text-white rounded font-bold transition-all text-sm"
                 >
                   +$0.50
                 </button>
               </div>
 
-              {/* Custom Price Input (collapsed by default) */}
-              <details className="mt-2">
-                <summary className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer hover:underline">
-                  Type exact price
-                </summary>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-gray-600 dark:text-gray-400">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={quickPrice}
-                    onChange={(e) => setQuickPrice(e.target.value)}
-                    placeholder="0.00"
-                    className="flex-1 px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
-                  />
-                </div>
-              </details>
+              {/* Decrement Buttons (Red on bottom) */}
+              <div className="grid grid-cols-3 gap-1.5 mb-2">
+                <button
+                  onClick={() => {
+                    const current = parseFloat(quickPrice) || 0;
+                    setQuickPrice(Math.max(0, current - 5).toFixed(2));
+                  }}
+                  className="py-2 px-2 bg-red-500 hover:bg-red-600 text-white rounded font-bold transition-all text-sm"
+                >
+                  -$5
+                </button>
+                <button
+                  onClick={() => {
+                    const current = parseFloat(quickPrice) || 0;
+                    setQuickPrice(Math.max(0, current - 1).toFixed(2));
+                  }}
+                  className="py-2 px-2 bg-red-500 hover:bg-red-600 text-white rounded font-bold transition-all text-sm"
+                >
+                  -$1
+                </button>
+                <button
+                  onClick={() => {
+                    const current = parseFloat(quickPrice) || 0;
+                    setQuickPrice(Math.max(0, current - 0.5).toFixed(2));
+                  }}
+                  className="py-2 px-2 bg-red-500 hover:bg-red-600 text-white rounded font-bold transition-all text-sm"
+                >
+                  -$0.50
+                </button>
+              </div>
 
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded p-2 mt-2">
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded p-2">
                 <p className="text-xs text-yellow-800 dark:text-yellow-300">
                   <strong>📊 Smart Price Learning:</strong><br/>
                   {nextItem.price 
@@ -407,184 +471,49 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             </div>
           )}
           
-          {/* Primary Actions Row */}
-          <div className="flex items-center gap-3">
-            {/* Checkbox - Simple box with animation */}
-            <motion.button
-              ref={checkboxRef}
-              key={`checkbox-${nextItem.id}`}
-              onClick={async () => {
-                setIsChecked(true);
-                playSound('check');
-                
-                // Save price if entered
-                if (quickPrice && onPriceUpdate) {
-                  await onPriceUpdate(nextItem, parseFloat(quickPrice));
-                }
-                
-                // Trigger flying checkmark animation from checkbox to item in list
-                if (triggerCheckmarkAnimation && checkboxRef.current && !nextItem.is_checked) {
-                  // Find the item card in the list
-                  const itemElement = document.querySelector(`[data-item-id="${nextItem.id}"]`);
-                  if (itemElement) {
-                    triggerCheckmarkAnimation(nextItem, checkboxRef.current, itemElement);
-                  }
-                }
-                
-                onCheck();
-              }}
-              whileTap={{ scale: 0.9 }}
-              className={`w-12 h-12 rounded-lg border-3 flex items-center justify-center transition-all ${
-                isChecked
-                  ? 'bg-green-500 border-green-600 shadow-lg shadow-green-500/50'
-                  : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:border-green-500'
-              }`}
-            >
-              {isChecked && (
-                <motion.div
-                  initial={{ scale: 0, rotate: -180, opacity: 0 }}
-                  animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                  transition={{ 
-                    type: "spring",
-                    stiffness: 200,
-                    damping: 10,
-                    duration: 0.8
-                  }}
-                >
-                  <Check className="w-8 h-8 text-white" strokeWidth={4} />
-                </motion.div>
-              )}
-            </motion.button>
+          {/* Action Buttons - Icon Left, Text Right */}
+          <div className="grid grid-cols-2 gap-2">
+            {onEdit && (
+              <button
+                onClick={() => onEdit(nextItem)}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors"
+              >
+                <Edit2 className="w-5 h-5" />
+                <span>Edit</span>
+              </button>
+            )}
             
-            {/* Label */}
-            <span className={`text-base font-semibold flex-1 ${
-              isChecked 
-                ? 'text-green-600 dark:text-green-400' 
-                : 'text-gray-700 dark:text-gray-300'
-            }`}>
-              {isChecked ? '✓ Found!' : 'Mark as Found'}
-            </span>
-
-            {/* Quantity Controls */}
-            {onQuantityChange && (
-              <div className="flex items-center gap-1 bg-white dark:bg-gray-700 rounded-lg border-2 border-gray-300 dark:border-gray-600 px-2 py-2">
-                <button
-                  onClick={() => onQuantityChange(nextItem, -1)}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors"
-                  aria-label="Decrease quantity"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <div className="px-3 font-bold text-gray-900 dark:text-white min-w-[50px] text-center">
-                  {formatQuantityPlain(nextItem.quantity || 1)}
-                </div>
-                <button
-                  onClick={() => onQuantityChange(nextItem, 1)}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors"
-                  aria-label="Increase quantity"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Secondary Actions Row - Compact but touch-friendly (44px min) */}
-          <div className="grid grid-cols-4 gap-1.5">
-            <button
-              onClick={onEdit}
-              className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white rounded-lg transition-all min-h-[44px]"
-            >
-              <Edit2 className="w-5 h-5" />
-              <span className="text-[10px] font-medium">Edit</span>
-            </button>
-
-            <button
-              onClick={onJumpToItem}
-              className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-purple-500 hover:bg-purple-600 active:bg-purple-700 text-white rounded-lg transition-all min-h-[44px]"
-            >
-              <Eye className="w-5 h-5" />
-              <span className="text-[10px] font-medium">Go To</span>
-            </button>
-
-            <button
-              onClick={onSkip}
-              className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 text-white rounded-lg transition-all min-h-[44px]"
-            >
-              <SkipForward className="w-5 h-5" />
-              <span className="text-[10px] font-medium">Skip</span>
-            </button>
-
-            {onDeferItem && (
+            {onJumpToItem && (
               <button
-                onClick={() => onDeferItem(nextItem)}
-                className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-lg transition-all min-h-[44px]"
+                onClick={() => onJumpToItem(nextItem)}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-semibold transition-colors"
               >
-                <X className="w-5 h-5" />
-                <span className="text-[10px] font-medium leading-tight">Don't Need</span>
+                <ArrowRight className="w-5 h-5" />
+                <span>Go To</span>
               </button>
             )}
-
-            {onUndo && (
+            
+            {onSkip && (
               <button
-                onClick={onUndo}
-                className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-gray-500 hover:bg-gray-600 active:bg-gray-700 text-white rounded-lg transition-all min-h-[44px]"
+                onClick={() => onSkip(nextItem)}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors"
               >
-                <Undo className="w-5 h-5" />
-                <span className="text-[10px] font-medium">Undo</span>
+                <SkipForward className="w-5 h-5" />
+                <span>Skip</span>
               </button>
             )}
-          </div>
-
-          {/* New Action Buttons Row */}
-          <div className="grid grid-cols-3 gap-1.5">
-            {onAddNote && (
+            
+            {onHide && (
               <button
-                onClick={() => onAddNote(nextItem)}
-                className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-teal-500 hover:bg-teal-600 active:bg-teal-700 text-white rounded-lg transition-all min-h-[44px]"
+                onClick={() => onHide(nextItem)}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-semibold transition-colors"
               >
-                <FileText className="w-5 h-5" />
-                <span className="text-[10px] font-medium">Add Note</span>
-              </button>
-            )}
-
-            {onMarkUnavailable && (
-              <button
-                onClick={() => onMarkUnavailable(nextItem)}
-                className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white rounded-lg transition-all min-h-[44px]"
-              >
-                <AlertCircle className="w-5 h-5" />
-                <span className="text-[10px] font-medium">Unavailable</span>
-              </button>
-            )}
-
-            {onChangeStore && (
-              <button
-                onClick={() => onChangeStore(nextItem)}
-                className="flex flex-col items-center justify-center gap-0.5 py-2 px-2 bg-indigo-500 hover:bg-indigo-600 active:bg-indigo-700 text-white rounded-lg transition-all min-h-[44px]"
-              >
-                <Store className="w-5 h-5" />
-                <span className="text-[10px] font-medium">Change Store</span>
+                <EyeOff className="w-5 h-5" />
+                <span>Hide</span>
               </button>
             )}
           </div>
         </div>
-
-        {/* Next Item Preview */}
-        {peekNextItem && (
-          <div className="mt-4 pt-3 border-t border-green-200 dark:border-green-800">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="font-semibold text-green-700 dark:text-green-300">Up Next:</span>
-              <span className="text-xl">{peekNextItem.item_icon || '📦'}</span>
-              <span className="font-medium text-gray-900 dark:text-white">{peekNextItem.item_name}</span>
-              {peekNextItem.aisle && (
-                <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-0.5 rounded">
-                  Aisle {peekNextItem.aisle}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Same Aisle Items - Grouped for efficiency */}
         {sameAisleItems.length > 0 && (
