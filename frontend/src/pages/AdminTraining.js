@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GraduationCap, DollarSign, Package, TrendingUp, AlertCircle } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import PageTransition from '../components/PageTransition';
