@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS price_history (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  shopping_item_id INTEGER REFERENCES shopping_items(id) ON DELETE SET NULL,
+  shopping_item_id INTEGER,
   item_name VARCHAR(255) NOT NULL,
   item_icon VARCHAR(10),
   category VARCHAR(100),
