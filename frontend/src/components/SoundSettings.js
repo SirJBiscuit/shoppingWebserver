@@ -3,6 +3,7 @@ import { Volume2, VolumeX, Play, Upload, Trash2, X } from 'lucide-react';
 import soundsAPI from '../services/soundsAPI';
 import { useToast } from '../hooks/useToast';
 import soundManager from '../utils/soundEffects';
+import ConfirmModal from './ConfirmModal';
 
 const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
   const [sounds, setSounds] = useState([]);
@@ -14,6 +15,7 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
   });
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const { success, error } = useToast();
 
   useEffect(() => {
@@ -113,11 +115,10 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
   };
 
   const handleDelete = async (soundId) => {
-    if (!window.confirm('Are you sure you want to delete this sound?')) return;
-
     try {
       await soundsAPI.deleteSound(soundId);
       success('Sound deleted');
+      setDeleteConfirm(null);
       loadData();
     } catch (err) {
       error('Failed to delete sound');
@@ -132,7 +133,7 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Sound Settings</h2>
-            {onClose.toString() !== '() => {}' && (
+            {!isAdmin && onClose && (
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -238,7 +239,7 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleDelete(sound.id);
+                              setDeleteConfirm(sound);
                             }}
                             className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded text-red-600"
                           >
@@ -295,7 +296,7 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleDelete(sound.id);
+                              setDeleteConfirm(sound);
                             }}
                             className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded text-red-600"
                           >
@@ -312,18 +313,42 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
     </div>
   );
 
-  // If onClose is empty function, render as embedded component (for admin page)
-  if (onClose.toString() === '() => {}') {
-    return renderContent();
+  // If in admin mode, render as embedded component
+  if (isAdmin) {
+    return (
+      <>
+        {renderContent()}
+        <ConfirmModal
+          isOpen={deleteConfirm !== null}
+          onClose={() => setDeleteConfirm(null)}
+          onConfirm={() => handleDelete(deleteConfirm.id)}
+          title="Delete Sound"
+          message={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
+          confirmText="Delete"
+          confirmStyle="danger"
+        />
+      </>
+    );
   }
 
   // Otherwise render as modal
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        {renderContent()}
+    <>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          {renderContent()}
+        </div>
       </div>
-    </div>
+      <ConfirmModal
+        isOpen={deleteConfirm !== null}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => handleDelete(deleteConfirm.id)}
+        title="Delete Sound"
+        message={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        confirmStyle="danger"
+      />
+    </>
   );
 };
 

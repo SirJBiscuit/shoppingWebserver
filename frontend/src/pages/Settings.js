@@ -267,12 +267,6 @@ const Settings = () => {
                   onChange={(val) => setSettings({ ...settings, autoSuggest: val })}
                 />
                 <SettingToggle
-                  label="Sound Effects"
-                  description="Play sounds for actions"
-                  value={settings.soundEffects}
-                  onChange={(val) => setSettings({ ...settings, soundEffects: val })}
-                />
-                <SettingToggle
                   label="XP Notifications"
                   description="Show XP gain notifications when completing actions"
                   value={settings.showXPNotifications}
