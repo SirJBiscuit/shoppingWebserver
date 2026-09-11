@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, RefreshCw, X, Zap, Star, CheckCircle, Smartphone, Monitor, Tablet } from 'lucide-react';
+import { Sparkles, RefreshCw, Zap, Star, CheckCircle, Smartphone, Monitor, Tablet } from 'lucide-react';
 
 const UpdateNotification = () => {
   const [showModal, setShowModal] = useState(false);
@@ -12,8 +12,9 @@ const UpdateNotification = () => {
     detectPlatform();
     checkForUpdates();
     
-    // Check for updates every 5 minutes
-    const interval = setInterval(checkForUpdates, 5 * 60 * 1000);
+    // Check for updates every 2 minutes (more frequent for better UX)
+    const CHECK_INTERVAL = 2 * 60 * 1000; // 2 minutes
+    const interval = setInterval(checkForUpdates, CHECK_INTERVAL);
     
     return () => clearInterval(interval);
   }, []);
@@ -46,8 +47,14 @@ const UpdateNotification = () => {
         const serverVersion = await response.json();
         const localVersion = localStorage.getItem('app_version');
         
-        // If versions don't match, show update notification
+        // If versions don't match, show update notification (no dismiss option)
         if (localVersion && localVersion !== serverVersion.current) {
+          console.log('🔔 New update detected:', {
+            current: serverVersion.current,
+            previous: localVersion,
+            message: serverVersion.message
+          });
+          
           setUpdateInfo({
             current: serverVersion.current.substring(0, 7),
             previous: localVersion.substring(0, 7),
@@ -61,7 +68,7 @@ const UpdateNotification = () => {
         localStorage.setItem('app_version', serverVersion.current);
       }
     } catch (error) {
-      console.error('Error checking for updates:', error);
+      console.error('❌ Error checking for updates:', error);
     }
   };
 
@@ -108,12 +115,6 @@ const UpdateNotification = () => {
     if (platform === 'web-mobile') return 'Mobile Web';
     if (platform === 'web-tablet') return 'Tablet Web';
     return 'Desktop Web';
-  };
-
-  const handleDismiss = () => {
-    setShowModal(false);
-    // Store that user dismissed this version
-    localStorage.setItem('dismissed_version', updateInfo?.current);
   };
 
   if (!showModal || !updateInfo) return null;
@@ -169,14 +170,6 @@ const UpdateNotification = () => {
         >
           {/* Animated gradient border */}
           <div className="absolute inset-0 bg-gradient-to-r from-primary-500 via-purple-500 to-pink-500 opacity-20 blur-xl" />
-          
-          {/* Close button */}
-          <button
-            onClick={handleDismiss}
-            className="absolute top-4 right-4 z-10 p-2 rounded-full bg-gray-200/50 dark:bg-gray-700/50 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-          </button>
 
           {/* Content */}
           <div className={`relative ${isMobile ? 'p-6' : 'p-8'}`}>
@@ -270,17 +263,16 @@ const UpdateNotification = () => {
               </ul>
             </motion.div>
 
-            {/* Action buttons */}
+            {/* Action button - Single mandatory update */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
-              className="flex gap-3"
             >
               <button
                 onClick={handleUpdate}
                 disabled={isUpdating}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-700 hover:to-purple-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full px-6 py-4 bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-700 hover:to-purple-700 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isUpdating ? (
                   <>
@@ -290,16 +282,9 @@ const UpdateNotification = () => {
                 ) : (
                   <>
                     <RefreshCw className="w-5 h-5" />
-                    {isNative ? 'Update from Store' : 'Update Now'}
+                    {isNative ? 'Update from Store' : 'Update App'}
                   </>
                 )}
-              </button>
-              
-              <button
-                onClick={handleDismiss}
-                className="px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold transition-colors"
-              >
-                Later
               </button>
             </motion.div>
 
