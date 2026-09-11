@@ -44,7 +44,8 @@ import { sortItemsByStoreAisle } from '../data/storeLayouts';
 import { smartSortItems, getShoppingEfficiency } from '../utils/storeSorting';
 import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils/userPreferences';
 import { getAutocompleteSuggestions } from '../utils/autocomplete';
-import { playSound } from '../utils/soundEffects';
+import { formatQuantityPlain } from '../utils/formatQuantity';
+import RichNoteEditor from '../components/RichNoteEditor';
 import useScrollSound from '../hooks/useScrollSound';
 
 const Dashboard = () => {
@@ -2089,13 +2090,10 @@ const Dashboard = () => {
               <FileText className="w-6 h-6" />
               Add Note: {itemForNote.item_name}
             </h3>
-            <textarea
+            <RichNoteEditor
               value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              className="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
-              rows="4"
+              onChange={setNoteText}
               placeholder="e.g., Get organic, Check expiration date, etc."
-              autoFocus
             />
             <div className="flex gap-3 mt-4">
               <button

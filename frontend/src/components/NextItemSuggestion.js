@@ -3,6 +3,7 @@ import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, P
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
+import FormattedNote from './FormattedNote';
 
 const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onMarkUnavailable, onChangeStore, triggerCheckmarkAnimation, onPriceUpdate }) => {
   const [showGuide, setShowGuide] = useState(() => {
@@ -227,26 +228,26 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 {nextItem.item_name}
               </h3>
 
-              {/* Quantity Controls */}
-              <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg px-2 py-1">
+              {/* Quantity Controls - Match checkbox size */}
+              <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl px-3 py-2 shadow-md">
                 <button
                   onClick={() => onQuantityChange && onQuantityChange(nextItem, -1)}
-                  className="w-7 h-7 flex items-center justify-center rounded bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
-                  <Minus className="w-4 h-4" />
+                  <Minus className="w-5 h-5" />
                 </button>
-                <span className="font-bold text-gray-900 dark:text-white min-w-[60px] text-center">
+                <span className="font-bold text-base text-gray-900 dark:text-white min-w-[70px] text-center">
                   {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || ''}
                 </span>
                 <button
                   onClick={() => onQuantityChange && onQuantityChange(nextItem, 1)}
-                  className="w-7 h-7 flex items-center justify-center rounded bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Checkbox - Bigger and on the right */}
+              {/* Checkbox - No box, just button */}
               <motion.button
                 ref={checkboxRef}
                 onClick={async () => {
@@ -258,19 +259,15 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   if (onCheck) onCheck();
                   if (triggerCheckmarkAnimation) triggerCheckmarkAnimation();
                 }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all flex-shrink-0 ${
+                className={`flex items-center gap-3 px-5 py-3 rounded-xl transition-all flex-shrink-0 shadow-md hover:shadow-lg ${
                   isChecked
-                    ? 'bg-green-500 border-green-600'
-                    : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-green-500'
+                    ? 'bg-green-500'
+                    : 'bg-white dark:bg-gray-800 hover:bg-green-50 dark:hover:bg-green-900/20'
                 }`}
                 whileTap={{ scale: 0.95 }}
               >
-                <div className={`w-6 h-6 rounded flex items-center justify-center border-2 ${
-                  isChecked ? 'border-white' : 'border-gray-400'
-                }`}>
-                  {isChecked && <Check className="w-5 h-5 text-white" strokeWidth={3} />}
-                </div>
-                <span className={`font-semibold text-sm ${
+                {isChecked && <Check className="w-6 h-6 text-white" strokeWidth={4} />}
+                <span className={`font-bold text-base ${
                   isChecked ? 'text-white' : 'text-gray-700 dark:text-gray-300'
                 }`}>
                   {isChecked ? 'Found!' : 'Mark Found'}
@@ -317,7 +314,10 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 rounded">
                 <div className="flex items-start gap-2">
                   <FileText className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-yellow-800 dark:text-yellow-200">{nextItem.notes}</p>
+                  <FormattedNote 
+                    text={nextItem.notes} 
+                    className="text-sm text-yellow-800 dark:text-yellow-200"
+                  />
                 </div>
               </div>
             )}
@@ -394,8 +394,11 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                         </div>
                       )}
                     </div>
-                    <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                      Buying {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || 'item'}{(nextItem.quantity || 1) > 1 ? 's' : ''} for this price • Click to edit
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">
+                        Buying {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || 'item'}{(nextItem.quantity || 1) > 1 ? 's' : ''}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-500">• Click to edit</span>
                     </div>
                   </div>
                 )}
@@ -474,19 +477,15 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   -$0.50
                 </button>
               </div>
-
-              <div className="text-xs text-center text-gray-600 dark:text-gray-400">
-                � This will update your personal average
-              </div>
             </div>
           )}
           
-          {/* Action Buttons - Icon Left, Text Right, Narrower */}
+          {/* Primary Action Buttons */}
           <div className="grid grid-cols-4 gap-2">
             {onEdit && (
               <button
                 onClick={() => onEdit(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors text-sm"
               >
                 <Edit2 className="w-4 h-4" />
                 <span>Edit</span>
@@ -496,7 +495,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             {onJumpToItem && (
               <button
                 onClick={() => onJumpToItem(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-semibold transition-colors text-sm"
               >
                 <ArrowRight className="w-4 h-4" />
                 <span>Go To</span>
@@ -506,7 +505,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             {onSkip && (
               <button
                 onClick={() => onSkip(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors text-sm"
               >
                 <SkipForward className="w-4 h-4" />
                 <span>Skip</span>
@@ -516,13 +515,67 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             {onHide && (
               <button
                 onClick={() => onHide(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-semibold transition-colors text-sm"
               >
                 <EyeOff className="w-4 h-4" />
                 <span>Hide</span>
               </button>
             )}
           </div>
+
+          {/* Secondary Action Buttons */}
+          <div className="grid grid-cols-4 gap-2">
+            {onDeferItem && (
+              <button
+                onClick={() => onDeferItem(nextItem)}
+                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors text-sm"
+              >
+                <X className="w-4 h-4" />
+                <span>Don't Need</span>
+              </button>
+            )}
+            
+            {onUndo && (
+              <button
+                onClick={onUndo}
+                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors text-sm"
+              >
+                <Undo className="w-4 h-4" />
+                <span>Undo</span>
+              </button>
+            )}
+            
+            {onAddNote && (
+              <button
+                onClick={() => onAddNote(nextItem)}
+                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-lg font-semibold transition-colors text-sm"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Add Note</span>
+              </button>
+            )}
+            
+            {onMarkUnavailable && (
+              <button
+                onClick={() => onMarkUnavailable(nextItem)}
+                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold transition-colors text-sm"
+              >
+                <AlertCircle className="w-4 h-4" />
+                <span>Unavailable</span>
+              </button>
+            )}
+          </div>
+          
+          {/* Tertiary Actions */}
+          {onChangeStore && (
+            <button
+              onClick={() => onChangeStore(nextItem)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-semibold transition-colors text-sm"
+            >
+              <Store className="w-4 h-4" />
+              <span>Change Store</span>
+            </button>
+          )}
         </div>
 
         {/* Same Aisle Items - Grouped for efficiency */}
