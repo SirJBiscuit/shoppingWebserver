@@ -274,63 +274,113 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 </label>
               </div>
               
-              {/* Current Price Display */}
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    ${quickPrice || '0.00'}
-                  </span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    for {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || ''}
-                  </span>
+              {/* Current Price Display with Clear Context */}
+              <div className="bg-white dark:bg-gray-800 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-4xl font-bold text-blue-600 dark:text-blue-400">
+                        ${quickPrice || '0.00'}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        Price for:
+                      </span>
+                      <span className="text-lg font-bold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/40 px-3 py-1 rounded">
+                        {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || 'item'}{(nextItem.quantity || 1) > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      ⚠️ Make sure this matches what you're buying!
+                    </p>
+                  </div>
+                  {quickPrice && (
+                    <button
+                      onClick={() => setQuickPrice('')}
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
-                {quickPrice && (
-                  <button
-                    onClick={() => setQuickPrice('')}
-                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    Clear
-                  </button>
-                )}
               </div>
 
-              {/* Preset Price Buttons */}
-              <div className="grid grid-cols-5 gap-2 mb-2">
-                {[0.99, 1.99, 2.99, 3.99, 4.99].map(price => (
-                  <button
-                    key={price}
-                    onClick={() => setQuickPrice(price.toFixed(2))}
-                    className={`py-2 px-3 rounded-lg font-semibold text-sm transition-all ${
-                      quickPrice === price.toFixed(2)
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border-2 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/40'
-                    }`}
-                  >
-                    ${price.toFixed(2)}
-                  </button>
-                ))}
+              {/* Learned/Suggested Price */}
+              {nextItem.price && !quickPrice && (
+                <button
+                  onClick={() => setQuickPrice(nextItem.price.toFixed(2))}
+                  className="w-full mb-3 py-2 px-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-semibold shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  <span>💡 Use Last Price: ${nextItem.price.toFixed(2)}</span>
+                </button>
+              )}
+
+              {/* Increment/Decrement Buttons */}
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <button
+                  onClick={() => {
+                    const current = parseFloat(quickPrice) || 0;
+                    setQuickPrice(Math.max(0, current - 5).toFixed(2));
+                  }}
+                  className="py-3 px-4 bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 border-2 border-red-300 dark:border-red-700 rounded-lg font-bold hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                >
+                  -$5
+                </button>
+                <button
+                  onClick={() => {
+                    const current = parseFloat(quickPrice) || 0;
+                    setQuickPrice(Math.max(0, current - 1).toFixed(2));
+                  }}
+                  className="py-3 px-4 bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 border-2 border-red-300 dark:border-red-700 rounded-lg font-bold hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                >
+                  -$1
+                </button>
+                <button
+                  onClick={() => {
+                    const current = parseFloat(quickPrice) || 0;
+                    setQuickPrice(Math.max(0, current - 0.5).toFixed(2));
+                  }}
+                  className="py-3 px-4 bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 border-2 border-red-300 dark:border-red-700 rounded-lg font-bold hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                >
+                  -$0.50
+                </button>
               </div>
-              
-              <div className="grid grid-cols-5 gap-2 mb-2">
-                {[5.99, 7.99, 9.99, 12.99, 14.99].map(price => (
-                  <button
-                    key={price}
-                    onClick={() => setQuickPrice(price.toFixed(2))}
-                    className={`py-2 px-3 rounded-lg font-semibold text-sm transition-all ${
-                      quickPrice === price.toFixed(2)
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border-2 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/40'
-                    }`}
-                  >
-                    ${price.toFixed(2)}
-                  </button>
-                ))}
+
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <button
+                  onClick={() => {
+                    const current = parseFloat(quickPrice) || 0;
+                    setQuickPrice((current + 5).toFixed(2));
+                  }}
+                  className="py-3 px-4 bg-white dark:bg-gray-800 text-green-600 dark:text-green-400 border-2 border-green-300 dark:border-green-700 rounded-lg font-bold hover:bg-green-50 dark:hover:bg-green-900/20 transition-all"
+                >
+                  +$5
+                </button>
+                <button
+                  onClick={() => {
+                    const current = parseFloat(quickPrice) || 0;
+                    setQuickPrice((current + 1).toFixed(2));
+                  }}
+                  className="py-3 px-4 bg-white dark:bg-gray-800 text-green-600 dark:text-green-400 border-2 border-green-300 dark:border-green-700 rounded-lg font-bold hover:bg-green-50 dark:hover:bg-green-900/20 transition-all"
+                >
+                  +$1
+                </button>
+                <button
+                  onClick={() => {
+                    const current = parseFloat(quickPrice) || 0;
+                    setQuickPrice((current + 0.5).toFixed(2));
+                  }}
+                  className="py-3 px-4 bg-white dark:bg-gray-800 text-green-600 dark:text-green-400 border-2 border-green-300 dark:border-green-700 rounded-lg font-bold hover:bg-green-50 dark:hover:bg-green-900/20 transition-all"
+                >
+                  +$0.50
+                </button>
               </div>
 
               {/* Custom Price Input (collapsed by default) */}
               <details className="mt-2">
                 <summary className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer hover:underline">
-                  Enter custom price
+                  Type exact price
                 </summary>
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-gray-600 dark:text-gray-400">$</span>
@@ -346,9 +396,14 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 </div>
               </details>
 
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                💡 Tap a price or enter custom to improve price tracking
-              </p>
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded p-2 mt-2">
+                <p className="text-xs text-yellow-800 dark:text-yellow-300">
+                  <strong>📊 Smart Price Learning:</strong><br/>
+                  {nextItem.price 
+                    ? `Your last price: $${nextItem.price.toFixed(2)} • This will update your personal average` 
+                    : 'First time buying this? Your price will be saved for next time'}
+                </p>
+              </div>
             </div>
           )}
           

@@ -1,3 +1,10 @@
+# MDL (Master Data Library) Implementation Plan
+
+## 🆕 NEW: Admin Training System Integration
+See `ADMIN_TRAINING_SYSTEM.md` for comprehensive training system that will integrate with MDL.
+
+---
+
 # MDL (Massive Data List) Implementation Guide
 
 Complete guide to implementing the product master database with food icons throughout Listzy.
