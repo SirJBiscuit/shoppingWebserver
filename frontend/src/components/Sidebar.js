@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   ShoppingCart, ChefHat, Package, Calendar, BarChart3, 
   Settings, Shield, History, Search, Mic, Scan, Share2,
-  Menu, X, Bell, Moon, Sun, Crown, Store, Sparkles, Home
+  Menu, X, Bell, Moon, Sun, Crown, Store, Sparkles, Home, GraduationCap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -97,6 +97,14 @@ const Sidebar = ({ onAction }) => {
       color: 'text-orange-600',
       isAdmin: true, // Special flag to bypass feature filtering
       adminSpecial: true // Flag for special orange styling
+    });
+    settingsItems.push({ 
+      path: '/admin/training', 
+      icon: GraduationCap, 
+      label: 'Training System', 
+      color: 'text-purple-600',
+      isAdmin: true,
+      adminSpecial: true
     });
   } else {
     console.log('❌ User is not admin, skipping admin button');
