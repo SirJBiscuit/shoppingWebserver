@@ -6,12 +6,14 @@ const XPNotification = ({ xpAmount, message, onComplete }) => {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Auto-dismiss after 400ms (ultra fast)
+    // Auto-dismiss after 800ms (quick but visible)
     const timer = setTimeout(() => {
       setIsVisible(false);
-      // Call onComplete immediately when hiding
-      if (onComplete) onComplete();
-    }, 400);
+      // Call onComplete after animation
+      setTimeout(() => {
+        if (onComplete) onComplete();
+      }, 200);
+    }, 800);
 
     return () => clearTimeout(timer);
   }, [onComplete]);
@@ -20,16 +22,38 @@ const XPNotification = ({ xpAmount, message, onComplete }) => {
     <AnimatePresence>
       {isVisible && (
         <motion.div
-          initial={{ opacity: 0, y: -30, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -10, scale: 0.95 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-full shadow-xl flex items-center space-x-1 sm:space-x-2 border border-yellow-300 sm:border-2"
+          initial={{ opacity: 0, scale: 0.3, y: 20 }}
+          animate={{ 
+            opacity: 1, 
+            scale: [0.3, 1.1, 1], 
+            y: 0,
+            rotate: [0, -5, 5, 0]
+          }}
+          exit={{ opacity: 0, scale: 0.8, y: -20 }}
+          transition={{ 
+            duration: 0.3, 
+            ease: 'easeOut',
+            scale: { times: [0, 0.6, 1], duration: 0.4 }
+          }}
+          className="bg-gradient-to-br from-yellow-400 via-orange-500 to-pink-500 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-full shadow-2xl flex items-center space-x-2 border-2 border-yellow-300 relative overflow-hidden"
         >
-          <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
-          <span className="text-sm sm:text-lg font-bold">+{xpAmount} XP</span>
+          {/* Shine effect */}
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30"
+            initial={{ x: '-100%' }}
+            animate={{ x: '200%' }}
+            transition={{ duration: 0.6, ease: 'easeInOut' }}
+          />
+          
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 0.5, ease: 'easeInOut' }}
+          >
+            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
+          </motion.div>
+          <span className="text-base sm:text-lg font-bold relative z-10">+{xpAmount} XP</span>
           {message && (
-            <span className="text-xs opacity-90 hidden sm:inline">{message}</span>
+            <span className="text-xs opacity-90 hidden sm:inline relative z-10">{message}</span>
           )}
         </motion.div>
       )}

@@ -220,9 +220,33 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           <span className="text-6xl">{nextItem.item_icon || '📦'}</span>
           
           <div className="flex-1 min-w-0">
-            {/* Item Name with Checkbox and Quantity Controls */}
+            {/* Item Name with Quantity and Checkbox */}
             <div className="flex items-center gap-3 mb-2">
-              {/* Checkbox */}
+              {/* Item Name */}
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight flex-1">
+                {nextItem.item_name}
+              </h3>
+
+              {/* Quantity Controls */}
+              <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg px-2 py-1">
+                <button
+                  onClick={() => onQuantityChange && onQuantityChange(nextItem, -1)}
+                  className="w-7 h-7 flex items-center justify-center rounded bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="font-bold text-gray-900 dark:text-white min-w-[60px] text-center">
+                  {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || ''}
+                </span>
+                <button
+                  onClick={() => onQuantityChange && onQuantityChange(nextItem, 1)}
+                  className="w-7 h-7 flex items-center justify-center rounded bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Checkbox - Bigger and on the right */}
               <motion.button
                 ref={checkboxRef}
                 onClick={async () => {
@@ -234,39 +258,24 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   if (onCheck) onCheck();
                   if (triggerCheckmarkAnimation) triggerCheckmarkAnimation();
                 }}
-                className={`w-8 h-8 rounded-lg border-3 flex items-center justify-center transition-all flex-shrink-0 ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all flex-shrink-0 ${
                   isChecked
                     ? 'bg-green-500 border-green-600'
                     : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-green-500'
                 }`}
-                whileTap={{ scale: 0.9 }}
+                whileTap={{ scale: 0.95 }}
               >
-                {isChecked && <Check className="w-5 h-5 text-white" />}
-              </motion.button>
-
-              {/* Item Name */}
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight flex-1">
-                {nextItem.item_name}
-              </h3>
-
-              {/* Quantity Controls */}
-              <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg px-2 py-1">
-                <button
-                  onClick={() => onQuantityChange && onQuantityChange(nextItem.id, Math.max(0.25, (nextItem.quantity || 1) - 1))}
-                  className="w-7 h-7 flex items-center justify-center rounded bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <span className="font-bold text-gray-900 dark:text-white min-w-[60px] text-center">
-                  {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || ''}
+                <div className={`w-6 h-6 rounded flex items-center justify-center border-2 ${
+                  isChecked ? 'border-white' : 'border-gray-400'
+                }`}>
+                  {isChecked && <Check className="w-5 h-5 text-white" strokeWidth={3} />}
+                </div>
+                <span className={`font-semibold text-sm ${
+                  isChecked ? 'text-white' : 'text-gray-700 dark:text-gray-300'
+                }`}>
+                  {isChecked ? 'Found!' : 'Mark Found'}
                 </span>
-                <button
-                  onClick={() => onQuantityChange && onQuantityChange(nextItem.id, (nextItem.quantity || 1) + 1)}
-                  className="w-7 h-7 flex items-center justify-center rounded bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
+              </motion.button>
             </div>
             
             {/* Store, Aisle, Price Row - Prominent with Labels */}
@@ -340,7 +349,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 <div className="flex items-center gap-2">
                   <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   <label className="text-sm font-semibold text-blue-700 dark:text-blue-300">
-                    Quick Price Entry (Optional)
+                    Quick Price Entry
                   </label>
                 </div>
                 {quickPrice && (
@@ -352,18 +361,8 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   </button>
                 )}
               </div>
-              
-              {/* Learned/Suggested Price */}
-              {nextItem.price && !quickPrice && (
-                <button
-                  onClick={() => setQuickPrice(parseFloat(nextItem.price).toFixed(2))}
-                  className="w-full mb-2 py-2 px-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-semibold shadow-md transition-all flex items-center justify-center gap-2"
-                >
-                  <span>💡 Use Last Price: ${parseFloat(nextItem.price).toFixed(2)}</span>
-                </button>
-              )}
 
-              {/* Current Price Display - Clickable */}
+              {/* Current Price Display - Clickable with Last Price */}
               <div 
                 onClick={() => setShowPriceInput(true)}
                 className="bg-white dark:bg-gray-800 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-2 cursor-pointer hover:border-blue-400 dark:hover:border-blue-600 transition-colors"
@@ -385,27 +384,43 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   </div>
                 ) : (
                   <div>
-                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                      ${quickPrice || '0.00'}
+                    <div className="flex items-baseline gap-3">
+                      <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                        ${quickPrice || '0.00'}
+                      </div>
+                      {nextItem.price && (
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          Last: ${parseFloat(nextItem.price).toFixed(2)}
+                        </div>
+                      )}
                     </div>
-                    <div className="mt-1 flex items-center gap-2 text-xs">
-                      <span className="text-gray-600 dark:text-gray-400">
-                        for {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || 'item'}{(nextItem.quantity || 1) > 1 ? 's' : ''}
-                      </span>
-                      <span className="text-gray-500 dark:text-gray-500">• Click to edit</span>
+                    <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                      Buying {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || 'item'}{(nextItem.quantity || 1) > 1 ? 's' : ''} for this price • Click to edit
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Increment Buttons (Green on top) */}
-              <div className="grid grid-cols-3 gap-1.5 mb-1.5">
+              {/* Price Adjustment Buttons - Compact */}
+              <div className="grid grid-cols-7 gap-1 mb-2">
+                {/* Use Last Price Button */}
+                {nextItem.price && (
+                  <button
+                    onClick={() => setQuickPrice(parseFloat(nextItem.price).toFixed(2))}
+                    className="col-span-1 py-2 px-1 bg-blue-500 hover:bg-blue-600 text-white rounded font-bold transition-all text-xs"
+                    title="Use last price"
+                  >
+                    💡
+                  </button>
+                )}
+                
+                {/* Increment Buttons (Green) */}
                 <button
                   onClick={() => {
                     const current = parseFloat(quickPrice) || 0;
                     setQuickPrice((current + 5).toFixed(2));
                   }}
-                  className="py-2 px-2 bg-green-500 hover:bg-green-600 text-white rounded font-bold transition-all text-sm"
+                  className={`py-2 px-1 bg-green-500 hover:bg-green-600 text-white rounded font-bold transition-all text-xs ${nextItem.price ? 'col-span-2' : 'col-span-2'}`}
                 >
                   +$5
                 </button>
@@ -414,7 +429,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     const current = parseFloat(quickPrice) || 0;
                     setQuickPrice((current + 1).toFixed(2));
                   }}
-                  className="py-2 px-2 bg-green-500 hover:bg-green-600 text-white rounded font-bold transition-all text-sm"
+                  className={`py-2 px-1 bg-green-500 hover:bg-green-600 text-white rounded font-bold transition-all text-xs ${nextItem.price ? 'col-span-2' : 'col-span-2'}`}
                 >
                   +$1
                 </button>
@@ -423,20 +438,20 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     const current = parseFloat(quickPrice) || 0;
                     setQuickPrice((current + 0.5).toFixed(2));
                   }}
-                  className="py-2 px-2 bg-green-500 hover:bg-green-600 text-white rounded font-bold transition-all text-sm"
+                  className={`py-2 px-1 bg-green-500 hover:bg-green-600 text-white rounded font-bold transition-all text-xs ${nextItem.price ? 'col-span-2' : 'col-span-3'}`}
                 >
                   +$0.50
                 </button>
               </div>
 
-              {/* Decrement Buttons (Red on bottom) */}
-              <div className="grid grid-cols-3 gap-1.5 mb-2">
+              {/* Decrement Buttons (Red) */}
+              <div className="grid grid-cols-6 gap-1 mb-2">
                 <button
                   onClick={() => {
                     const current = parseFloat(quickPrice) || 0;
                     setQuickPrice(Math.max(0, current - 5).toFixed(2));
                   }}
-                  className="py-2 px-2 bg-red-500 hover:bg-red-600 text-white rounded font-bold transition-all text-sm"
+                  className="col-span-2 py-2 px-1 bg-red-500 hover:bg-red-600 text-white rounded font-bold transition-all text-xs"
                 >
                   -$5
                 </button>
@@ -445,7 +460,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     const current = parseFloat(quickPrice) || 0;
                     setQuickPrice(Math.max(0, current - 1).toFixed(2));
                   }}
-                  className="py-2 px-2 bg-red-500 hover:bg-red-600 text-white rounded font-bold transition-all text-sm"
+                  className="col-span-2 py-2 px-1 bg-red-500 hover:bg-red-600 text-white rounded font-bold transition-all text-xs"
                 >
                   -$1
                 </button>
@@ -454,31 +469,26 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     const current = parseFloat(quickPrice) || 0;
                     setQuickPrice(Math.max(0, current - 0.5).toFixed(2));
                   }}
-                  className="py-2 px-2 bg-red-500 hover:bg-red-600 text-white rounded font-bold transition-all text-sm"
+                  className="col-span-2 py-2 px-1 bg-red-500 hover:bg-red-600 text-white rounded font-bold transition-all text-xs"
                 >
                   -$0.50
                 </button>
               </div>
 
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded p-2">
-                <p className="text-xs text-yellow-800 dark:text-yellow-300">
-                  <strong>📊 Smart Price Learning:</strong><br/>
-                  {nextItem.price 
-                    ? `Your last price: $${parseFloat(nextItem.price).toFixed(2)} • This will update your personal average` 
-                    : 'First time buying this? Your price will be saved for next time'}
-                </p>
+              <div className="text-xs text-center text-gray-600 dark:text-gray-400">
+                � This will update your personal average
               </div>
             </div>
           )}
           
-          {/* Action Buttons - Icon Left, Text Right */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Action Buttons - Icon Left, Text Right, Narrower */}
+          <div className="grid grid-cols-4 gap-2">
             {onEdit && (
               <button
                 onClick={() => onEdit(nextItem)}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors"
+                className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors text-sm"
               >
-                <Edit2 className="w-5 h-5" />
+                <Edit2 className="w-4 h-4" />
                 <span>Edit</span>
               </button>
             )}
@@ -486,9 +496,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             {onJumpToItem && (
               <button
                 onClick={() => onJumpToItem(nextItem)}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-semibold transition-colors"
+                className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-semibold transition-colors text-sm"
               >
-                <ArrowRight className="w-5 h-5" />
+                <ArrowRight className="w-4 h-4" />
                 <span>Go To</span>
               </button>
             )}
@@ -496,9 +506,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             {onSkip && (
               <button
                 onClick={() => onSkip(nextItem)}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors"
+                className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors text-sm"
               >
-                <SkipForward className="w-5 h-5" />
+                <SkipForward className="w-4 h-4" />
                 <span>Skip</span>
               </button>
             )}
@@ -506,9 +516,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             {onHide && (
               <button
                 onClick={() => onHide(nextItem)}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-semibold transition-colors"
+                className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-semibold transition-colors text-sm"
               >
-                <EyeOff className="w-5 h-5" />
+                <EyeOff className="w-4 h-4" />
                 <span>Hide</span>
               </button>
             )}
