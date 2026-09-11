@@ -309,10 +309,10 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               {/* Learned/Suggested Price */}
               {nextItem.price && !quickPrice && (
                 <button
-                  onClick={() => setQuickPrice(nextItem.price.toFixed(2))}
+                  onClick={() => setQuickPrice(parseFloat(nextItem.price).toFixed(2))}
                   className="w-full mb-3 py-2 px-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-semibold shadow-md transition-all flex items-center justify-center gap-2"
                 >
-                  <span>💡 Use Last Price: ${nextItem.price.toFixed(2)}</span>
+                  <span>💡 Use Last Price: ${parseFloat(nextItem.price).toFixed(2)}</span>
                 </button>
               )}
 
@@ -400,7 +400,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 <p className="text-xs text-yellow-800 dark:text-yellow-300">
                   <strong>📊 Smart Price Learning:</strong><br/>
                   {nextItem.price 
-                    ? `Your last price: $${nextItem.price.toFixed(2)} • This will update your personal average` 
+                    ? `Your last price: $${parseFloat(nextItem.price).toFixed(2)} • This will update your personal average` 
                     : 'First time buying this? Your price will be saved for next time'}
                 </p>
               </div>

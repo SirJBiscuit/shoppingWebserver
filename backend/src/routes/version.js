@@ -3,7 +3,31 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 
-// Get current version info
+// Get version info (root route for UpdateNotification)
+router.get('/', (req, res) => {
+  try {
+    const versionPath = path.join(__dirname, '../../../version.json');
+    
+    if (fs.existsSync(versionPath)) {
+      const versionData = JSON.parse(fs.readFileSync(versionPath, 'utf8'));
+      res.json(versionData);
+    } else {
+      // If version.json doesn't exist, create a default one
+      const defaultVersion = {
+        current: 'unknown',
+        previous: 'none',
+        updated: new Date().toISOString(),
+        message: 'Welcome to Listzy!'
+      };
+      res.json(defaultVersion);
+    }
+  } catch (error) {
+    console.error('Error reading version:', error);
+    res.status(500).json({ error: 'Failed to read version' });
+  }
+});
+
+// Get current version info (legacy route)
 router.get('/current', (req, res) => {
   try {
     const versionPath = path.join(__dirname, '../../../version.json');
