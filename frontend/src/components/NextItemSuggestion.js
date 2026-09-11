@@ -266,13 +266,73 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
         <div className="space-y-3">
           {/* Quick Price Entry */}
           {!isChecked && (
-            <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg p-3">
-              <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-              <div className="flex-1">
-                <label className="text-sm font-semibold text-blue-700 dark:text-blue-300 block mb-1">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <label className="text-sm font-semibold text-blue-700 dark:text-blue-300">
                   Quick Price Entry (Optional)
                 </label>
+              </div>
+              
+              {/* Current Price Display */}
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    ${quickPrice || '0.00'}
+                  </span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    for {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || ''}
+                  </span>
+                </div>
+                {quickPrice && (
+                  <button
+                    onClick={() => setQuickPrice('')}
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Preset Price Buttons */}
+              <div className="grid grid-cols-5 gap-2 mb-2">
+                {[0.99, 1.99, 2.99, 3.99, 4.99].map(price => (
+                  <button
+                    key={price}
+                    onClick={() => setQuickPrice(price.toFixed(2))}
+                    className={`py-2 px-3 rounded-lg font-semibold text-sm transition-all ${
+                      quickPrice === price.toFixed(2)
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border-2 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                    }`}
+                  >
+                    ${price.toFixed(2)}
+                  </button>
+                ))}
+              </div>
+              
+              <div className="grid grid-cols-5 gap-2 mb-2">
+                {[5.99, 7.99, 9.99, 12.99, 14.99].map(price => (
+                  <button
+                    key={price}
+                    onClick={() => setQuickPrice(price.toFixed(2))}
+                    className={`py-2 px-3 rounded-lg font-semibold text-sm transition-all ${
+                      quickPrice === price.toFixed(2)
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border-2 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                    }`}
+                  >
+                    ${price.toFixed(2)}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Price Input (collapsed by default) */}
+              <details className="mt-2">
+                <summary className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer hover:underline">
+                  Enter custom price
+                </summary>
+                <div className="flex items-center gap-2 mt-2">
                   <span className="text-gray-600 dark:text-gray-400">$</span>
                   <input
                     type="number"
@@ -283,14 +343,12 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     placeholder="0.00"
                     className="flex-1 px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
                   />
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    for {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || ''}
-                  </span>
                 </div>
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                  💡 Enter the price you're buying it for to improve price tracking
-                </p>
-              </div>
+              </details>
+
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                💡 Tap a price or enter custom to improve price tracking
+              </p>
             </div>
           )}
           
