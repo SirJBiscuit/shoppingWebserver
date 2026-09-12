@@ -28,6 +28,7 @@ import AutocompleteInput from '../components/AutocompleteInput';
 import TemplatesModal from '../components/TemplatesModal';
 import NewListModal from '../components/NewListModal';
 import PriceLearningModal from '../components/PriceLearningModal';
+import UpdateNotification from '../components/UpdateNotification';
 import AisleConfigModal from '../components/AisleConfigModal';
 import StoreManager from '../components/StoreManager';
 import CopyItemModal from '../components/CopyItemModal';
@@ -2339,6 +2340,9 @@ const Dashboard = () => {
         }}
         onCancel={() => setShowClearInventoryConfirm(false)}
       />
+
+      {/* Update Notification - Shows when new version is available */}
+      <UpdateNotification />
     </PageTransition>
   );
 };
