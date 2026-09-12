@@ -353,7 +353,7 @@ const AdminNew = () => {
                           Database
                         </p>
                         <p className="text-lg font-semibold">
-                          {systemStatus.database.connected ? (
+                          {systemStatus?.database?.connected ? (
                             <span className="text-green-600">Connected</span>
                           ) : (
                             <span className="text-red-600">Disconnected</span>
