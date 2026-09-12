@@ -441,4 +441,146 @@ router.get('/logs/:service', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
+// ============================================
+// AUTO-UPDATE SYSTEM ROUTES (Optimized)
+// ============================================
+
+// Get update status (lightweight, cached)
+router.get('/update/status', authenticateToken, async (req, res) => {
+  try {
+    const autoUpdater = require('../services/autoUpdater');
+    const status = await autoUpdater.getStatus();
+    res.json(status);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get update status' });
+  }
+});
+
+// Get system notifications (for all users)
+router.get('/notifications', authenticateToken, async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    const result = await db.query(
+      `SELECT id, type, message, data, created_at 
+       FROM system_notifications 
+       WHERE is_read = FALSE 
+         AND (expires_at IS NULL OR expires_at > NOW())
+       ORDER BY created_at DESC 
+       LIMIT $1`,
+      [Math.min(limit, 50)] // Cap at 50 for performance
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get notifications' });
+  }
+});
+
+// Mark notification as read (non-blocking)
+router.post('/notifications/:id/read', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  
+  // Respond immediately, update in background
+  res.json({ success: true });
+  
+  setImmediate(async () => {
+    try {
+      await db.query(
+        'UPDATE system_notifications SET is_read = TRUE WHERE id = $1',
+        [id]
+      );
+    } catch (error) {
+      console.error('Error marking notification as read:', error.message);
+    }
+  });
+});
+
+// Admin: Get update history
+router.get('/update/history', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { limit = 20 } = req.query;
+    const autoUpdater = require('../services/autoUpdater');
+    const history = await autoUpdater.getUpdateHistory(Math.min(limit, 100));
+    res.json(history);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get update history' });
+  }
+});
+
+// Admin: Get admin notifications
+router.get('/admin/notifications', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { limit = 20, unread_only = 'true' } = req.query;
+    
+    let query = `SELECT * FROM admin_notifications `;
+    if (unread_only === 'true') {
+      query += `WHERE is_read = FALSE `;
+    }
+    query += `ORDER BY 
+      CASE severity
+        WHEN 'critical' THEN 1
+        WHEN 'high' THEN 2
+        WHEN 'medium' THEN 3
+        ELSE 4
+      END,
+      created_at DESC 
+      LIMIT $1`;
+    
+    const result = await db.query(query, [Math.min(limit, 100)]);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get admin notifications' });
+  }
+});
+
+// Admin: Mark admin notification as read
+router.post('/admin/notifications/:id/read', authenticateToken, isAdmin, async (req, res) => {
+  const { id } = req.params;
+  
+  res.json({ success: true });
+  
+  setImmediate(async () => {
+    try {
+      await db.query(
+        'UPDATE admin_notifications SET is_read = TRUE, read_at = NOW() WHERE id = $1',
+        [id]
+      );
+    } catch (error) {
+      console.error('Error marking admin notification as read:', error.message);
+    }
+  });
+});
+
+// Admin: Manually trigger update check
+router.post('/update/check', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const autoUpdater = require('../services/autoUpdater');
+    const result = await autoUpdater.checkForUpdates();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to check for updates' });
+  }
+});
+
+// Admin: Manually trigger update (use with caution)
+router.post('/update/perform', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const autoUpdater = require('../services/autoUpdater');
+    
+    // Start update asynchronously
+    res.json({ 
+      success: true, 
+      message: 'Update started in background',
+      note: 'Check update history for results'
+    });
+    
+    // Perform update without blocking response
+    setImmediate(async () => {
+      await autoUpdater.performUpdate();
+    });
+    
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to start update' });
+  }
+});
+
 module.exports = router;

@@ -121,4 +121,19 @@ app.listen(PORT, '0.0.0.0', async () => {
   
   // Run migrations after server starts
   await runMigrations();
+  
+  // Initialize auto-updater (non-blocking, runs in background)
+  if (process.env.NODE_ENV === 'production') {
+    setImmediate(async () => {
+      try {
+        const autoUpdater = require('./services/autoUpdater');
+        await autoUpdater.initialize();
+        console.log('✅ Auto-updater initialized');
+      } catch (error) {
+        console.error('❌ Failed to initialize auto-updater:', error.message);
+      }
+    });
+  } else {
+    console.log('ℹ️  Auto-updater disabled in development mode');
+  }
 });
