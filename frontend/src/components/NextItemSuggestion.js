@@ -681,13 +681,14 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 </div>
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2 custom-scrollbar-thin custom-scrollbar-green">
               {sameAisleItems.map((item, index) => (
                 <motion.div
                   key={item.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
+                  layout
                   className={`bg-white dark:bg-gray-800 border-2 rounded-lg p-3 flex items-center gap-3 ${
                     item.is_checked 
                       ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/20' 

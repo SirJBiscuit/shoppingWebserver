@@ -806,7 +806,7 @@ const Dashboard = () => {
           item.aisle === nextItem.aisle &&
           !skippedItems.includes(item.id)
         )
-        .slice(0, 5); // Show max 5 same-aisle items
+        .slice(0, 10); // Show max 10 same-aisle items
     }
     
     // If no aisle, group by category
@@ -818,7 +818,7 @@ const Dashboard = () => {
           (item.category_name === category || item.category === category) &&
           !skippedItems.includes(item.id)
         )
-        .slice(0, 5); // Show max 5 same-category items
+        .slice(0, 10); // Show max 10 same-category items
     }
     
     return [];
