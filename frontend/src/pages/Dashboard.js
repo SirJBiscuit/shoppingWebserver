@@ -729,6 +729,20 @@ const Dashboard = () => {
     }
   };
 
+  const removeNote = async (item) => {
+    try {
+      await shoppingAPI.updateItem(activeList.id, item.id, {
+        ...item,
+        notes: ''
+      });
+      await loadListItems(activeList.id);
+      success('Note removed!');
+    } catch (err) {
+      console.error('Error removing note:', err);
+      error('Failed to remove note');
+    }
+  };
+
   // Mark item as unavailable
   const handleMarkUnavailable = async (item) => {
     try {
@@ -1790,6 +1804,7 @@ const Dashboard = () => {
                     peekNextItem={getPeekNextItem()}
                     storeName={activeList?.store_name}
                     onAddNote={handleAddNote}
+                    onRemoveNote={removeNote}
                     onMarkUnavailable={handleMarkUnavailable}
                     onChangeStore={handleChangeStore}
                     triggerCheckmarkAnimation={triggerCheckmarkAnimation}

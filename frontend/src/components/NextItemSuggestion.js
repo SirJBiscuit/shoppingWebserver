@@ -5,7 +5,7 @@ import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
 import FormattedNote from './FormattedNote';
 
-const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onMarkUnavailable, onChangeStore, triggerCheckmarkAnimation, onPriceUpdate, triggerFlyingAnimation }) => {
+const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onRemoveNote, onMarkUnavailable, onChangeStore, triggerCheckmarkAnimation, onPriceUpdate, triggerFlyingAnimation }) => {
   const [showGuide, setShowGuide] = useState(() => {
     return !localStorage.getItem('lookingForNextGuideShown');
   });
@@ -366,9 +366,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                       className="text-sm text-yellow-800 dark:text-yellow-200"
                     />
                   </div>
-                  {onAddNote && (
+                  {onRemoveNote && (
                     <button
-                      onClick={() => onAddNote({ ...nextItem, notes: '' })}
+                      onClick={() => onRemoveNote(nextItem)}
                       className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded transition-colors flex-shrink-0"
                       title="Remove note"
                     >

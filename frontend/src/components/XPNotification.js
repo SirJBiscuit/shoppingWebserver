@@ -125,21 +125,24 @@ export const XPNotificationContainer = () => {
 
   return (
     <div className="fixed top-20 right-2 sm:right-4 z-50 space-y-2">
-      {notifications.map((notification, index) => (
-        <motion.div
-          key={notification.id}
-          initial={{ opacity: 0, x: 100 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 100 }}
-          transition={{ delay: index * 0.1 }}
-        >
-          <XPNotification
-            xpAmount={notification.xp}
-            message={notification.count > 1 ? `${notification.count}x actions!` : notification.message}
-            onComplete={() => removeNotification(notification.id)}
-          />
-        </motion.div>
-      ))}
+      <AnimatePresence mode="popLayout">
+        {notifications.map((notification, index) => (
+          <motion.div
+            key={notification.id}
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 100 }}
+            transition={{ delay: index * 0.1 }}
+            layout
+          >
+            <XPNotification
+              xpAmount={notification.xp}
+              message={notification.count > 1 ? `${notification.count}x actions!` : notification.message}
+              onComplete={() => removeNotification(notification.id)}
+            />
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 };
