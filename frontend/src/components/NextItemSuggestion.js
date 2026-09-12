@@ -568,30 +568,33 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             {onEdit && (
               <button
                 onClick={() => onEdit(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                title="Edit item"
               >
                 <Edit2 className="w-4 h-4" />
-                <span>Edit</span>
+                <span className="hidden sm:inline">Edit</span>
               </button>
             )}
             
             {onJumpToItem && (
               <button
                 onClick={() => onJumpToItem(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                title="Jump to item in list"
               >
                 <ArrowRight className="w-4 h-4" />
-                <span>Go To</span>
+                <span className="hidden sm:inline">Go To</span>
               </button>
             )}
             
             {onSkip && (
               <button
                 onClick={() => onSkip(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                title="Skip to next item"
               >
                 <SkipForward className="w-4 h-4" />
-                <span>Skip</span>
+                <span className="hidden sm:inline">Skip</span>
               </button>
             )}
           </div>
@@ -602,7 +605,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             <button
               onClick={onBack}
               disabled={!onBack}
-              className={`flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg font-semibold transition-colors text-sm ${
+              className={`flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-lg font-semibold transition-colors text-sm ${
                 onBack 
                   ? 'bg-blue-600 hover:bg-blue-700 text-white' 
                   : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 cursor-not-allowed'
@@ -610,14 +613,14 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               title="Go back to previous skipped item"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back</span>
+              <span className="hidden sm:inline">Back</span>
             </button>
             
             {/* Undo button - for restoring removed items */}
             <button
               onClick={onUndo}
               disabled={!onUndo}
-              className={`flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg font-semibold transition-colors text-sm ${
+              className={`flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-lg font-semibold transition-colors text-sm ${
                 onUndo 
                   ? 'bg-gray-600 hover:bg-gray-700 text-white' 
                   : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 cursor-not-allowed'
@@ -625,36 +628,39 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               title="Restore last removed item"
             >
               <Undo className="w-4 h-4" />
-              <span>Undo</span>
+              <span className="hidden sm:inline">Undo</span>
             </button>
             
             {onDeferItem && (
               <button
                 onClick={() => onDeferItem(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                title="Remove item from list"
               >
                 <X className="w-4 h-4" />
-                <span>Remove Item</span>
+                <span className="hidden sm:inline">Remove Item</span>
               </button>
             )}
             
             {onAddNote && (
               <button
                 onClick={() => onAddNote(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                title="Add note to item"
               >
                 <FileText className="w-4 h-4" />
-                <span>Add Note</span>
+                <span className="hidden sm:inline">Add Note</span>
               </button>
             )}
             
             {onMarkUnavailable && (
               <button
                 onClick={() => onMarkUnavailable(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold transition-colors text-sm"
+                title="Mark as unavailable"
               >
                 <AlertCircle className="w-4 h-4" />
-                <span>Unavailable</span>
+                <span className="hidden sm:inline">Unavailable</span>
               </button>
             )}
           </div>
