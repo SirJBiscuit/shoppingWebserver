@@ -565,6 +565,21 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           
           {/* Primary Action Buttons */}
           <div className="grid grid-cols-4 gap-2">
+            {/* Back button - left side for backward navigation */}
+            <button
+              onClick={onBack}
+              disabled={!onBack}
+              className={`flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-lg font-semibold transition-colors text-sm ${
+                onBack 
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                  : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 cursor-not-allowed'
+              }`}
+              title="Go back to previous skipped item"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Back</span>
+            </button>
+            
             {onEdit && (
               <button
                 onClick={() => onEdit(nextItem)}
@@ -587,6 +602,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               </button>
             )}
             
+            {/* Skip button - right side for forward navigation */}
             {onSkip && (
               <button
                 onClick={() => onSkip(nextItem)}
@@ -601,21 +617,6 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
 
           {/* Secondary Action Buttons */}
           <div className="grid grid-cols-4 gap-2">
-            {/* Back button - for going back to previous skipped item */}
-            <button
-              onClick={onBack}
-              disabled={!onBack}
-              className={`flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-lg font-semibold transition-colors text-sm ${
-                onBack 
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                  : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 cursor-not-allowed'
-              }`}
-              title="Go back to previous skipped item"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Back</span>
-            </button>
-            
             {/* Undo button - for restoring removed items */}
             <button
               onClick={onUndo}
