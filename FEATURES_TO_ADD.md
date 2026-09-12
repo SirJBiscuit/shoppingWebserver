@@ -101,6 +101,18 @@
   - **Dependencies:** None
   - **Notes:** Components partially exist
 
+- [ ] **Custom Animated Scrollbars System-Wide**
+  - **Description:** Apply smooth, themed scrollbars throughout the application
+  - **Details:**
+    - Use existing scrollbar.css styles (custom-scrollbar, custom-scrollbar-thin, color variants)
+    - Apply to Dashboard, modals, lists, and any scrollable content
+    - Smooth scroll behavior with auto-scroll on interactions
+    - Color-coded scrollbars matching section themes (green for shopping, blue for default, purple for premium, etc.)
+    - Already implemented in "Grab These Too" section
+  - **Estimated Effort:** Small-Medium
+  - **Dependencies:** scrollbar.css already exists
+  - **Notes:** Improves UX and visual consistency across the app
+
 ### Low Priority
 
 - [ ] **Dark Mode Improvements**
