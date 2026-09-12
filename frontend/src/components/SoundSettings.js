@@ -17,6 +17,8 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [viewMode, setViewMode] = useState('functions'); // 'functions' or 'library'
   const { success, error } = useToast();
 
   useEffect(() => {
@@ -94,8 +96,7 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
     audio.play().catch(err => console.error('Play failed:', err));
   };
 
-  const handleUpload = async (e, category) => {
-    const file = e.target.files[0];
+  const handleUpload = async (file, category = 'general') => {
     if (!file) return;
 
     const formData = new FormData();
@@ -106,12 +107,43 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
     try {
       setUploading(true);
       await soundsAPI.uploadSound(formData);
-      success('Sound uploaded successfully');
+      success(`Sound "${file.name}" uploaded successfully`);
       loadData();
     } catch (err) {
       error('Failed to upload sound');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleFileInput = (e, category) => {
+    const file = e.target.files[0];
+    if (file) handleUpload(file, category);
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      // Check if it's an audio file
+      if (file.type.startsWith('audio/')) {
+        handleUpload(file, 'general');
+      } else {
+        error('Please upload an audio file (mp3, wav, ogg, m4a)');
+      }
     }
   };
 
@@ -128,9 +160,21 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
 
   if (!isOpen) return null;
 
+  // Define available functions
+  const soundFunctions = [
+    { key: 'check', label: 'Item Checked', description: 'When checking off an item', icon: '✓' },
+    { key: 'uncheck', label: 'Item Unchecked', description: 'When unchecking an item', icon: '○' },
+    { key: 'pop', label: 'Item to Cart', description: 'When item flies to cart', icon: '🛒' }
+  ];
+
   // Render content
   const renderContent = () => (
-    <div className="p-6">
+    <div className="p-6"
+      onDragEnter={handleDrag}
+      onDragLeave={handleDrag}
+      onDragOver={handleDrag}
+      onDrop={handleDrop}
+    >
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Sound Settings</h2>
@@ -143,6 +187,17 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
               </button>
             )}
           </div>
+          
+          {/* Drag and Drop Overlay */}
+          {dragActive && (
+            <div className="fixed inset-0 bg-primary-500 bg-opacity-20 border-4 border-dashed border-primary-500 rounded-lg flex items-center justify-center z-50 pointer-events-none">
+              <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl">
+                <Upload className="w-16 h-16 text-primary-600 mx-auto mb-4" />
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">Drop audio file here</p>
+                <p className="text-gray-600 dark:text-gray-400 mt-2">Supports: MP3, WAV, OGG, M4A</p>
+              </div>
+            </div>
+          )}
 
           {loading ? (
             <div className="text-center py-8">
@@ -196,190 +251,148 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
                 />
               </div>
 
-              {/* Check Sound Selection */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Check Sound</h3>
-                  {isAdmin && (
-                    <label className="btn-secondary text-sm cursor-pointer">
-                      <Upload className="w-4 h-4 inline mr-1" />
-                      Upload
-                      <input
-                        type="file"
-                        accept="audio/*"
-                        onChange={(e) => handleUpload(e, 'check')}
-                        className="hidden"
-                        disabled={uploading}
-                      />
-                    </label>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 gap-2">
-                  {sounds.filter(s => s.category === 'check').map(sound => (
-                    <div
-                      key={sound.id}
-                      className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                        preferences.check_sound_id === sound.id
-                          ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-primary-300'
-                      }`}
-                      onClick={() => handleSoundSelect('check', sound.id)}
-                    >
-                      <span className="text-gray-900 dark:text-white">{sound.name}</span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePlaySound(sound.file_path);
-                          }}
-                          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                          disabled={!preferences.sound_enabled}
-                        >
-                          <Play className="w-4 h-4" />
-                        </button>
-                        {isAdmin && !sound.is_default && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteConfirm(sound);
-                            }}
-                            className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              {/* Tab Navigation */}
+              <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setViewMode('functions')}
+                  className={`px-4 py-2 font-medium transition-colors ${
+                    viewMode === 'functions'
+                      ? 'text-primary-600 border-b-2 border-primary-600'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Functions
+                </button>
+                <button
+                  onClick={() => setViewMode('library')}
+                  className={`px-4 py-2 font-medium transition-colors ${
+                    viewMode === 'library'
+                      ? 'text-primary-600 border-b-2 border-primary-600'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Sound Library ({sounds.length})
+                </button>
               </div>
 
-              {/* Pop Sound Selection */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Pop Sound (Item to Cart)</h3>
-                  {isAdmin && (
-                    <label className="btn-secondary text-sm cursor-pointer">
-                      <Upload className="w-4 h-4 inline mr-1" />
-                      Upload
-                      <input
-                        type="file"
-                        accept="audio/*"
-                        onChange={(e) => handleUpload(e, 'pop')}
-                        className="hidden"
-                        disabled={uploading}
-                      />
-                    </label>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 gap-2">
-                  {sounds.filter(s => s.category === 'pop').map(sound => (
-                    <div
-                      key={sound.id}
-                      className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                        preferences.pop_sound_id === sound.id
-                          ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-primary-300'
-                      }`}
-                      onClick={() => handleSoundSelect('pop', sound.id)}
-                    >
-                      <span className="text-gray-900 dark:text-white">{sound.name}</span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePlaySound(sound.file_path);
-                          }}
-                          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                          disabled={!preferences.sound_enabled}
+              {/* Functions View */}
+              {viewMode === 'functions' && (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Assign sounds to different app functions. Click on a function to select which sound plays.
+                  </p>
+                  {soundFunctions.map(func => {
+                    const selectedSound = sounds.find(s => s.id === preferences[`${func.key}_sound_id`]);
+                    return (
+                      <div key={func.key} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <span className="text-3xl">{func.icon}</span>
+                            <div>
+                              <h3 className="font-semibold text-gray-900 dark:text-white">{func.label}</h3>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">{func.description}</p>
+                            </div>
+                          </div>
+                          {selectedSound && (
+                            <button
+                              onClick={() => handlePlaySound(selectedSound.file_path)}
+                              className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors"
+                              disabled={!preferences.sound_enabled}
+                              title="Test sound"
+                            >
+                              <Play className="w-5 h-5 text-primary-600" />
+                            </button>
+                          )}
+                        </div>
+                        <select
+                          value={preferences[`${func.key}_sound_id`] || ''}
+                          onChange={(e) => handleSoundSelect(func.key, e.target.value ? parseInt(e.target.value) : null)}
+                          className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                         >
-                          <Play className="w-4 h-4" />
-                        </button>
-                        {isAdmin && !sound.is_default && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteConfirm(sound);
-                            }}
-                            className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
+                          <option value="">No sound</option>
+                          {sounds.filter(s => s.category === func.key || s.category === 'general').map(sound => (
+                            <option key={sound.id} value={sound.id}>
+                              {sound.name} {sound.is_default ? '(Default)' : ''}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-              </div>
+              )}
 
-              {/* Uncheck Sound Selection */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Uncheck Sound</h3>
-                  {isAdmin && (
-                    <label className="btn-secondary text-sm cursor-pointer">
-                      <Upload className="w-4 h-4 inline mr-1" />
-                      Upload
+              {/* Sound Library View */}
+              {viewMode === 'library' && (
+                <div className="space-y-4">
+                  {/* Upload Area */}
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-primary-500 transition-colors">
+                    <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-900 dark:text-white font-medium mb-2">
+                      Drag & drop audio files here
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      or click to browse (MP3, WAV, OGG, M4A)
+                    </p>
+                    <label className="btn-primary cursor-pointer inline-block">
+                      Choose File
                       <input
                         type="file"
                         accept="audio/*"
-                        onChange={(e) => handleUpload(e, 'uncheck')}
+                        onChange={(e) => handleFileInput(e, 'general')}
                         className="hidden"
                         disabled={uploading}
                       />
                     </label>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 gap-2">
-                  {sounds.filter(s => s.category === 'uncheck').map(sound => (
-                    <div
-                      key={sound.id}
-                      className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                        preferences.uncheck_sound_id === sound.id
-                          ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-primary-300'
-                      }`}
-                      onClick={() => handleSoundSelect('uncheck', sound.id)}
-                    >
-                      <span className="text-gray-900 dark:text-white">{sound.name}</span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePlaySound(sound.file_path);
-                          }}
-                          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                          disabled={!preferences.sound_enabled}
+                    {uploading && (
+                      <p className="text-sm text-primary-600 mt-2">Uploading...</p>
+                    )}
+                  </div>
+
+                  {/* Sound List */}
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
+                      All Sounds ({sounds.length})
+                    </h3>
+                    {sounds.length === 0 ? (
+                      <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+                        No sounds uploaded yet. Upload your first sound above!
+                      </p>
+                    ) : (
+                      sounds.map(sound => (
+                        <div
+                          key={sound.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                         >
-                          <Play className="w-4 h-4" />
-                        </button>
-                        {isAdmin && !sound.is_default && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteConfirm(sound);
-                            }}
-                            className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Sound File Location Info */}
-              {isAdmin && (
-                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Sound File Storage</h4>
-                  <p className="text-sm text-blue-800 dark:text-blue-400">
-                    <strong>Location:</strong> <code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">/backend/public/sounds/</code>
-                  </p>
-                  <p className="text-sm text-blue-800 dark:text-blue-400 mt-2">
-                    Uploaded sounds are stored on the server and accessible at <code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">/sounds/filename.mp3</code>
-                  </p>
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900 dark:text-white">{sound.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {sound.category} {sound.is_default && '• Default'}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handlePlaySound(sound.file_path)}
+                              className="p-2 hover:bg-gray-200 dark:hover:bg-gray-500 rounded"
+                              disabled={!preferences.sound_enabled}
+                              title="Play sound"
+                            >
+                              <Play className="w-4 h-4" />
+                            </button>
+                            {isAdmin && !sound.is_default && (
+                              <button
+                                onClick={() => setDeleteConfirm(sound)}
+                                className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded text-red-600"
+                                title="Delete sound"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
             </div>
