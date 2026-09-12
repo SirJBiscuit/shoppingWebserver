@@ -1454,7 +1454,7 @@ const Dashboard = () => {
                     className="btn-secondary text-sm flex items-center"
                   >
                     <Plus className="w-4 h-4 mr-1" />
-                    New
+                    New List
                   </button>
                   <button
                     type="button"
