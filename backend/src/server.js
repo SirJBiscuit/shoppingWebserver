@@ -126,7 +126,7 @@ app.listen(PORT, '0.0.0.0', async () => {
   if (process.env.NODE_ENV === 'production') {
     setImmediate(async () => {
       try {
-        const autoUpdater = require('./services/autoUpdater');
+        const autoUpdater = require('./services/autoUpdaterSimple');
         await autoUpdater.initialize();
         console.log('✅ Auto-updater initialized');
       } catch (error) {

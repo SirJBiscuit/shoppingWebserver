@@ -58,6 +58,23 @@ cat > version.json << EOF
 }
 EOF
 
+# Update database with new version
+echo -e "${YELLOW}Updating system_status table...${NC}"
+docker exec -i shop_postgres psql -U shopuser -d shopdb << EOSQL
+UPDATE system_status 
+SET current_version = '${CURRENT_COMMIT}',
+    last_successful_update = CURRENT_TIMESTAMP,
+    update_available = false,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = 1;
+EOSQL
+
+# Remove update flag file if it exists
+if [ -f ".update-requested" ]; then
+    echo -e "${YELLOW}Removing update flag file...${NC}"
+    rm -f .update-requested
+fi
+
 # Copy production config
 echo -e "${YELLOW}Setting up production configuration...${NC}"
 cp docker-compose.prod.yml docker-compose.yml

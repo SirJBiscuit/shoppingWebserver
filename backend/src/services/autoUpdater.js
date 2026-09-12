@@ -2,6 +2,9 @@ const { exec, spawn } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
 const db = require('../database/db');
+const fs = require('fs').promises;
+const path = require('path');
+const axios = require('axios');
 
 class AutoUpdater {
   constructor() {
