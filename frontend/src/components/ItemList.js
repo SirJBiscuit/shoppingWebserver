@@ -7,6 +7,7 @@ import SmartSuggestionTooltip from './SmartSuggestionTooltip';
 import { detectIcon, detectCategory } from '../utils/categoryDetector';
 import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts';
 import { formatQuantityPlain } from '../utils/formatQuantity';
+import { playSound } from '../utils/soundEffects';
 
 const ItemList = (props) => {
   const { items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null, onLookForThis } = props;
