@@ -42,38 +42,72 @@ const UpdateNotification = () => {
 
   const checkForUpdates = async () => {
     try {
-      const response = await fetch('/api/version');
-      if (response.ok) {
-        const serverVersion = await response.json();
-        const localVersion = localStorage.getItem('app_version');
-        
-        // If versions don't match, show update notification (no dismiss option)
-        if (localVersion && localVersion !== serverVersion.current) {
-          console.log('🔔 New update detected:', {
-            current: serverVersion.current,
-            previous: localVersion,
-            message: serverVersion.message
-          });
-          
-          setUpdateInfo({
-            current: serverVersion.current.substring(0, 7),
-            previous: localVersion.substring(0, 7),
-            updated: serverVersion.updated,
-            message: serverVersion.message || 'New features and improvements available!'
-          });
-          setShowModal(true);
+      // Check for system notifications from backend
+      const token = localStorage.getItem('token');
+      if (!token) return; // Only check if user is logged in
+      
+      const response = await fetch('/api/system/notifications?limit=1', {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
+      });
+      
+      if (response.ok) {
+        const notifications = await response.json();
         
-        // Store current version
-        localStorage.setItem('app_version', serverVersion.current);
+        // Look for update_success notification
+        const updateNotification = notifications.find(n => n.type === 'update_success');
+        
+        if (updateNotification) {
+          const localVersion = localStorage.getItem('app_version');
+          const serverVersion = updateNotification.data?.version || updateNotification.data?.newCommit;
+          
+          // If versions don't match, show mandatory update notification
+          if (!localVersion || localVersion !== serverVersion) {
+            console.log('🔔 New update detected from server:', {
+              current: serverVersion,
+              previous: localVersion,
+              notification: updateNotification
+            });
+            
+            setUpdateInfo({
+              current: serverVersion?.substring(0, 7) || 'latest',
+              previous: localVersion?.substring(0, 7) || 'old',
+              updated: updateNotification.created_at,
+              message: updateNotification.message || 'New features and improvements available!',
+              notificationId: updateNotification.id
+            });
+            setShowModal(true);
+          }
+        }
       }
     } catch (error) {
       console.error('❌ Error checking for updates:', error);
     }
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     setIsUpdating(true);
+    
+    try {
+      // Mark notification as read
+      if (updateInfo?.notificationId) {
+        const token = localStorage.getItem('token');
+        await fetch(`/api/system/notifications/${updateInfo.notificationId}/read`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      }
+      
+      // Update stored version
+      if (updateInfo?.current) {
+        localStorage.setItem('app_version', updateInfo.current);
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
     
     // Platform-specific update logic
     if (platform.startsWith('native-') || platform === 'android' || platform === 'ios') {
@@ -88,16 +122,43 @@ const UpdateNotification = () => {
       setIsUpdating(false);
       setShowModal(false);
     } else {
-      // Web platform - clear cache and reload
-      setTimeout(() => {
+      // Web platform - aggressive cache clearing and forced reload
+      console.log('🔄 Clearing all caches and reloading...');
+      
+      setTimeout(async () => {
+        // Clear Service Worker caches
         if ('caches' in window) {
-          caches.keys().then(names => {
-            names.forEach(name => caches.delete(name));
-          });
+          try {
+            const cacheNames = await caches.keys();
+            console.log(`🗑️  Deleting ${cacheNames.length} caches...`);
+            await Promise.all(cacheNames.map(name => caches.delete(name)));
+          } catch (err) {
+            console.error('Error clearing caches:', err);
+          }
         }
         
-        // Force reload from server
-        window.location.reload(true);
+        // Unregister service workers
+        if ('serviceWorker' in navigator) {
+          try {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map(reg => reg.unregister()));
+            console.log('🗑️  Service workers unregistered');
+          } catch (err) {
+            console.error('Error unregistering service workers:', err);
+          }
+        }
+        
+        // Clear localStorage except auth token
+        const token = localStorage.getItem('token');
+        localStorage.clear();
+        if (token) localStorage.setItem('token', token);
+        
+        // Clear sessionStorage
+        sessionStorage.clear();
+        
+        // Force hard reload from server (bypasses all caches)
+        console.log('🚀 Forcing hard reload...');
+        window.location.href = window.location.href + '?v=' + Date.now();
       }, 1000);
     }
   };

@@ -8,10 +8,12 @@ class AutoUpdater {
     this.isUpdating = false;
     this.lastCheck = null;
     this.currentCommit = null;
+    this.lastAppliedCommit = null; // Track last successfully applied update
     this.updateInterval = null;
     this.checkIntervalMs = 30000; // 30 seconds
     this.isCheckingForUpdates = false; // Prevent concurrent checks
     this.dbPool = null; // Reuse DB connections
+    this.failedUpdateAttempts = new Map(); // Track failed commits to avoid retry spam
   }
 
   async initialize() {
@@ -85,6 +87,22 @@ class AutoUpdater {
       const local = this.currentCommit || await this.getCurrentCommit();
       
       if (remote !== local) {
+        // Check if this is the same commit we already applied
+        if (remote === this.lastAppliedCommit) {
+          console.log(`⏭️  Commit ${remote.substring(0, 7)} already applied, skipping`);
+          return { hasUpdate: false, reason: 'already_applied' };
+        }
+        
+        // Check if this commit failed recently (within last hour)
+        const failedAttempt = this.failedUpdateAttempts.get(remote);
+        if (failedAttempt) {
+          const hoursSinceFailure = (Date.now() - failedAttempt.timestamp) / (1000 * 60 * 60);
+          if (hoursSinceFailure < 1 && failedAttempt.attempts >= 3) {
+            console.log(`⏸️  Commit ${remote.substring(0, 7)} failed ${failedAttempt.attempts} times, waiting before retry`);
+            return { hasUpdate: false, reason: 'failed_recently' };
+          }
+        }
+        
         console.log(`🆕 Update available: ${local.substring(0, 7)} → ${remote.substring(0, 7)}`);
         
         // Get commit messages (async, don't wait)
@@ -142,11 +160,35 @@ class AutoUpdater {
       console.log(`⏱️  Duration: ${(duration / 1000).toFixed(1)}s`);
 
       // Update current commit
-      await this.getCurrentCommit();
+      const newCommit = await this.getCurrentCommit();
+      
+      // Mark this commit as successfully applied
+      this.lastAppliedCommit = newCommit;
+      
+      // Clear any failed attempts for this commit
+      this.failedUpdateAttempts.delete(newCommit);
+      
+      // Update system_status table
+      setImmediate(async () => {
+        try {
+          await db.query(
+            `UPDATE system_status 
+             SET current_version = $1, 
+                 last_successful_update = NOW(),
+                 is_updating = FALSE,
+                 update_available = FALSE
+             WHERE id = 1`,
+            [newCommit.substring(0, 7)]
+          );
+        } catch (err) {
+          console.error('Error updating system status:', err.message);
+        }
+      });
 
       // Log success to database
       await this.logUpdateAttempt('success', {
         duration,
+        commit: newCommit.substring(0, 7),
         output: stdout.substring(0, 5000) // Store first 5000 chars
       });
 
@@ -154,6 +196,7 @@ class AutoUpdater {
       await this.notifyClients({
         type: 'update_success',
         message: 'Application updated successfully',
+        version: newCommit.substring(0, 7),
         timestamp: new Date()
       });
 
@@ -167,12 +210,36 @@ class AutoUpdater {
       const duration = Date.now() - startTime;
       
       console.error('❌ Update failed:', error.message);
+      
+      // Track failed attempt to prevent spam
+      const remoteCommit = await execPromise('git rev-parse origin/main').then(r => r.stdout.trim()).catch(() => 'unknown');
+      const existing = this.failedUpdateAttempts.get(remoteCommit) || { attempts: 0, timestamp: Date.now() };
+      this.failedUpdateAttempts.set(remoteCommit, {
+        attempts: existing.attempts + 1,
+        timestamp: Date.now(),
+        lastError: error.message
+      });
+      
+      // Update system_status
+      setImmediate(async () => {
+        try {
+          await db.query(
+            `UPDATE system_status 
+             SET is_updating = FALSE
+             WHERE id = 1`
+          );
+        } catch (err) {
+          console.error('Error updating system status:', err.message);
+        }
+      });
 
       // Log failure to database
       await this.logUpdateAttempt('failed', {
         duration,
+        commit: remoteCommit.substring(0, 7),
         error: error.message,
-        stderr: error.stderr?.substring(0, 5000)
+        stderr: error.stderr?.substring(0, 5000),
+        attempts: this.failedUpdateAttempts.get(remoteCommit).attempts
       });
 
       // Notify admins of failure
@@ -180,6 +247,8 @@ class AutoUpdater {
         type: 'update_failed',
         message: 'Automatic update failed',
         error: error.message,
+        commit: remoteCommit.substring(0, 7),
+        attempts: this.failedUpdateAttempts.get(remoteCommit).attempts,
         timestamp: new Date()
       });
 
