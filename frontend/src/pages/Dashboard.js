@@ -47,6 +47,7 @@ import { getAutocompleteSuggestions } from '../utils/autocomplete';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import RichNoteEditor from '../components/RichNoteEditor';
 import useScrollSound from '../hooks/useScrollSound';
+import { playSound } from '../utils/soundEffects';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
