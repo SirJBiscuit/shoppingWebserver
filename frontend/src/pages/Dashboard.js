@@ -292,8 +292,13 @@ const Dashboard = () => {
         if (listToActivate) {
           setActiveList(listToActivate);
         } else if (response.data.length === 0) {
-          console.log('No lists found, creating new one');
-          await createNewList();
+          console.log('No lists found, creating default list for new user');
+          // Auto-create a default list for new users (don't open modal)
+          const defaultListData = {
+            name: 'My Shopping List',
+            store_name: null
+          };
+          await createNewList(defaultListData);
         }
       }
       
