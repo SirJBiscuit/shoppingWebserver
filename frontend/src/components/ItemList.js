@@ -213,11 +213,20 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
   // Check if item exists in inventory and get smart suggestions
   useEffect(() => {
     const checkInventoryAndSuggestions = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('No auth token, skipping inventory check');
+        return;
+      }
+
       try {
         // Check inventory
         const inventoryResponse = await fetch('/api/inventory/check-inventory', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
           credentials: 'include',
           body: JSON.stringify({ itemName: item.item_name })
         });
@@ -227,10 +236,16 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
           if (data.hasItem) {
             setInventoryCheck(data);
           }
+        } else if (inventoryResponse.status === 401) {
+          console.warn('Auth token expired, skipping inventory check');
+          return;
         }
 
         // Get smart reorder suggestion
         const suggestionResponse = await fetch(`/api/inventory/smart-suggestion/${encodeURIComponent(item.item_name)}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
           credentials: 'include'
         });
         
@@ -241,7 +256,10 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
           }
         }
       } catch (error) {
-        console.error('Error checking inventory:', error);
+        // Silently fail to prevent console spam
+        if (error.message !== 'Failed to fetch') {
+          console.error('Error checking inventory:', error);
+        }
       }
     };
     
