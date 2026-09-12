@@ -113,6 +113,7 @@ const Dashboard = () => {
   const [hideNextItem, setHideNextItem] = useState(false);
   const [skippedItems, setSkippedItems] = useState([]);
   const [skippedItemsHistory, setSkippedItemsHistory] = useState([]);
+  const [deletedItemsHistory, setDeletedItemsHistory] = useState([]);
   const [showClearInventoryConfirm, setShowClearInventoryConfirm] = useState(false);
   const [editingNextItem, setEditingNextItem] = useState(null);
   const [itemForNote, setItemForNote] = useState(null);
@@ -585,12 +586,29 @@ const Dashboard = () => {
     }
   };
 
-  // Undo - go back to previous item
-  const undoSkip = () => {
+  // Back - go back to previous skipped item
+  const goBack = () => {
     if (skippedItemsHistory.length > 0) {
       const lastSkipped = skippedItemsHistory[skippedItemsHistory.length - 1];
       setSkippedItems(prev => prev.filter(id => id !== lastSkipped));
       setSkippedItemsHistory(prev => prev.slice(0, -1));
+    }
+  };
+
+  // Undo - restore last removed item
+  const undoRemove = async () => {
+    if (deletedItemsHistory.length > 0) {
+      const lastDeleted = deletedItemsHistory[deletedItemsHistory.length - 1];
+      try {
+        // Re-add the item to the list
+        await shoppingAPI.addItem(activeList.id, lastDeleted);
+        await loadListItems(activeList.id);
+        setDeletedItemsHistory(prev => prev.slice(0, -1));
+        success(`${lastDeleted.item_name} restored!`);
+      } catch (err) {
+        console.error('Error restoring item:', err);
+        error('Failed to restore item');
+      }
     }
   };
 
@@ -696,8 +714,21 @@ const Dashboard = () => {
   // Defer item - don't need right now
   const handleDeferItem = async (item) => {
     try {
+      // Save item to history before deleting so we can undo
+      setDeletedItemsHistory(prev => [...prev, {
+        item_name: item.item_name,
+        quantity: item.quantity,
+        unit: item.unit,
+        category: item.category,
+        category_name: item.category_name,
+        item_icon: item.item_icon,
+        notes: item.notes,
+        price: item.price,
+        aisle: item.aisle
+      }]);
+      
       await deleteItem(item.id);
-      success(`${item.item_name} removed - you can add it back later!`);
+      success(`${item.item_name} removed - click Undo to restore!`);
     } catch (err) {
       error('Failed to remove item');
     }
@@ -1814,7 +1845,8 @@ const Dashboard = () => {
                     onHide={() => setHideNextItem(true)}
                     onJumpToItem={() => scrollToItem(nextItem.id)}
                     onEdit={() => setEditingNextItem(nextItem)}
-                    onUndo={skippedItemsHistory.length > 0 ? undoSkip : null}
+                    onBack={skippedItemsHistory.length > 0 ? goBack : null}
+                    onUndo={deletedItemsHistory.length > 0 ? undoRemove : null}
                     onQuantityChange={handleQuantityChange}
                     onDeferItem={handleDeferItem}
                     peekNextItem={getPeekNextItem()}

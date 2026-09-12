@@ -1,11 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, Plus, Minus, Eye, FileText, AlertCircle, Store, HelpCircle, DollarSign } from 'lucide-react';
+import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, Plus, Minus, Eye, FileText, AlertCircle, Store, HelpCircle, DollarSign, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
 import FormattedNote from './FormattedNote';
 
-const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onRemoveNote, onMarkUnavailable, onChangeStore, triggerCheckmarkAnimation, onPriceUpdate, triggerFlyingAnimation }) => {
+const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onBack, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onRemoveNote, onMarkUnavailable, onChangeStore, triggerCheckmarkAnimation, onPriceUpdate, triggerFlyingAnimation }) => {
   const [showGuide, setShowGuide] = useState(() => {
     return !localStorage.getItem('lookingForNextGuideShown');
   });
@@ -598,7 +598,22 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
 
           {/* Secondary Action Buttons */}
           <div className="grid grid-cols-4 gap-2">
-            {/* Undo button - always visible */}
+            {/* Back button - for going back to previous skipped item */}
+            <button
+              onClick={onBack}
+              disabled={!onBack}
+              className={`flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg font-semibold transition-colors text-sm ${
+                onBack 
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                  : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 cursor-not-allowed'
+              }`}
+              title="Go back to previous skipped item"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back</span>
+            </button>
+            
+            {/* Undo button - for restoring removed items */}
             <button
               onClick={onUndo}
               disabled={!onUndo}
@@ -607,6 +622,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   ? 'bg-gray-600 hover:bg-gray-700 text-white' 
                   : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 cursor-not-allowed'
               }`}
+              title="Restore last removed item"
             >
               <Undo className="w-4 h-4" />
               <span>Undo</span>
