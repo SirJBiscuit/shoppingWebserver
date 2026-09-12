@@ -40,7 +40,6 @@ import NextItemSuggestion from '../components/NextItemSuggestion';
 import EditItemModal from '../components/EditItemModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
-import { useToast } from '../hooks/useToast';
 import { XPNotificationContainer, showXPNotification } from '../components/XPNotification';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
