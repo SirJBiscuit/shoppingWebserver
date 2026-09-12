@@ -201,8 +201,8 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   <div className="flex items-start gap-2">
                     <X className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
                     <div>
-                      <span className="font-semibold text-gray-900 dark:text-white">Don't Need:</span>
-                      <span className="text-gray-700 dark:text-gray-300"> Remove item from list (don't need right now)</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">Remove Item:</span>
+                      <span className="text-gray-700 dark:text-gray-300"> Permanently delete item from list</span>
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
@@ -608,23 +608,27 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
 
           {/* Secondary Action Buttons */}
           <div className="grid grid-cols-4 gap-2">
+            {/* Undo button - always visible */}
+            <button
+              onClick={onUndo}
+              disabled={!onUndo}
+              className={`flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg font-semibold transition-colors text-sm ${
+                onUndo 
+                  ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                  : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              <Undo className="w-4 h-4" />
+              <span>Undo</span>
+            </button>
+            
             {onDeferItem && (
               <button
                 onClick={() => onDeferItem(nextItem)}
                 className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors text-sm"
               >
                 <X className="w-4 h-4" />
-                <span>Don't Need</span>
-              </button>
-            )}
-            
-            {onUndo && (
-              <button
-                onClick={onUndo}
-                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors text-sm"
-              >
-                <Undo className="w-4 h-4" />
-                <span>Undo</span>
+                <span>Remove Item</span>
               </button>
             )}
             

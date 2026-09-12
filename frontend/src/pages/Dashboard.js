@@ -653,12 +653,12 @@ const Dashboard = () => {
 
   // Quick quantity change - Optimistic update for instant feedback
   const handleQuantityChange = async (item, delta) => {
-    let updatedQuantity;
+    // Calculate new quantity first
+    const updatedQuantity = Math.max(1, (item.quantity || 1) + delta);
     
-    // Optimistic update - update UI immediately using current state
+    // Optimistic update - update UI immediately
     setItems(prevItems => prevItems.map(i => {
       if (i.id === item.id) {
-        updatedQuantity = Math.max(1, (i.quantity || 1) + delta);
         return { ...i, quantity: updatedQuantity };
       }
       return i;
