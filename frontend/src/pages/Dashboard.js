@@ -542,7 +542,17 @@ const Dashboard = () => {
       console.error('Error updating list:', err);
       console.error('Error response:', err.response?.data);
       const errorMsg = err.response?.data?.error || err.response?.data?.details || err.message || 'Unknown error';
-      error(`Failed to update list: ${errorMsg}`);
+      
+      // Make store location errors more noticeable
+      if (newListStore && newListStore !== activeList.store_name) {
+        error(`⚠️ STORE LOCATION UPDATE FAILED: ${errorMsg}`, { duration: 8000 });
+        // Keep the modal open so user can retry
+      } else {
+        error(`Failed to update list: ${errorMsg}`);
+        setEditingListName(false);
+        setNewListName('');
+        setNewListStore('');
+      }
     }
   };
 
