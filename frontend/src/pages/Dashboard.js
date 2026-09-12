@@ -1278,8 +1278,8 @@ const Dashboard = () => {
         {/* Main Content */}
         <div className="flex-1 min-w-0">
           {/* Simple Top Bar for Notifications and Logout */}
-          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
-            {/* Version Indicator - Left Side */}
+          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 pl-16 pr-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
+            {/* Version Indicator - Left Side (with padding for mobile menu button) */}
             <div className="flex items-center space-x-2 text-xs sm:text-sm">
               {versionInfo.updateAvailable ? (
                 <div className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 animate-pulse">
