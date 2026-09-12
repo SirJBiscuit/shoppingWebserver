@@ -5,7 +5,7 @@ import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
 import FormattedNote from './FormattedNote';
 
-const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onMarkUnavailable, onChangeStore, triggerCheckmarkAnimation, onPriceUpdate }) => {
+const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onMarkUnavailable, onChangeStore, triggerCheckmarkAnimation, onPriceUpdate, triggerFlyingAnimation }) => {
   const [showGuide, setShowGuide] = useState(() => {
     return !localStorage.getItem('lookingForNextGuideShown');
   });
@@ -16,6 +16,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
   const [priceSetTime, setPriceSetTime] = useState(null);
   const checkboxRef = useRef(null);
   const priceTrackingTimerRef = useRef(null);
+  const sameAisleIconRefs = useRef({});
   
   // Update local state when nextItem changes
   React.useEffect(() => {
@@ -691,7 +692,14 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 >
                   {/* Checkbox */}
                   <motion.button
-                    onClick={() => onCheck && onCheck(item)}
+                    onClick={() => {
+                      // Trigger flying animation before checking
+                      if (!item.is_checked && triggerFlyingAnimation && sameAisleIconRefs.current[item.id]) {
+                        triggerFlyingAnimation(item, sameAisleIconRefs.current[item.id]);
+                        playSound('pop'); // Play pop sound when item flies to cart
+                      }
+                      onCheck && onCheck(item);
+                    }}
                     whileTap={{ scale: 0.9 }}
                     className={`w-8 h-8 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                       item.is_checked
@@ -712,7 +720,12 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
 
                   {/* Item Info */}
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="text-2xl flex-shrink-0">{item.item_icon || '📦'}</span>
+                    <span 
+                      ref={el => sameAisleIconRefs.current[item.id] = el}
+                      className="text-2xl flex-shrink-0"
+                    >
+                      {item.item_icon || '📦'}
+                    </span>
                     <div className="flex-1 min-w-0">
                       <p className={`font-medium truncate ${
                         item.is_checked 

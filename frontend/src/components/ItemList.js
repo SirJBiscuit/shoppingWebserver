@@ -283,6 +283,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
     // Trigger animation from the icon's position when checking
     if (!item.is_checked && triggerAnimation && iconRef.current) {
       triggerAnimation(item, iconRef.current);
+      playSound('pop'); // Play pop sound when item flies to cart
     }
     // Trigger checkbox animation
     setCheckAnimKey(prev => prev + 1);

@@ -70,10 +70,30 @@ const FlyingItemAnimation = () => {
               width: '60px',
               height: '60px',
             }}
+            onAnimationComplete={() => {
+              // Trigger poof effect when animation completes
+            }}
           >
             <div className="bg-white dark:bg-gray-700 rounded-lg p-2 shadow-2xl border-2 border-primary-500 flex items-center justify-center">
               <span className="text-3xl">{item.icon}</span>
             </div>
+            
+            {/* Poof cloud effect at destination */}
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ 
+                scale: [0, 2, 3],
+                opacity: [0, 0.8, 0]
+              }}
+              transition={{
+                duration: 0.6,
+                delay: 0.7, // Start just before item disappears
+                ease: "easeOut"
+              }}
+              className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            >
+              <span className="text-4xl">💨</span>
+            </motion.div>
           </motion.div>
         ))}
         

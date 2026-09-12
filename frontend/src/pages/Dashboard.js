@@ -1747,6 +1747,7 @@ const Dashboard = () => {
                     onMarkUnavailable={handleMarkUnavailable}
                     onChangeStore={handleChangeStore}
                     triggerCheckmarkAnimation={triggerCheckmarkAnimation}
+                    triggerFlyingAnimation={triggerFlyingAnimation}
                     onPriceUpdate={handlePriceUpdate}
                   />
                 ) : null;
