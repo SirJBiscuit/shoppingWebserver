@@ -18,12 +18,14 @@ class AutoUpdater {
 
   async initialize() {
     console.log('🔄 Auto-updater initialized');
+    console.log('ℹ️  Auto-updater runs via webhook or manual trigger');
+    console.log('ℹ️  Git operations must be performed on the host, not in container');
     
-    // Get current commit on startup
-    await this.getCurrentCommit();
-    
-    // Start checking for updates
-    this.startChecking();
+    // Note: We don't start automatic checking because Git isn't available in container
+    // Updates are triggered via:
+    // 1. GitHub webhook (POST /api/system/webhook)
+    // 2. Manual update (POST /api/system/update)
+    // 3. Running ./update-server.sh on the host
   }
 
   async getCurrentCommit() {
