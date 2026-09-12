@@ -1731,7 +1731,7 @@ const Dashboard = () => {
                   <NextItemSuggestion 
                     nextItem={nextItem} 
                     sameAisleItems={sameAisleItems}
-                    onCheck={(item) => toggleItemCheck(item || nextItem)}
+                    onCheck={(item) => handleCheckItem(item || nextItem)}
                     onCopyMove={() => handleCopyMove(nextItem)}
                     onSkip={skipNextItem}
                     onHide={() => setHideNextItem(true)}
@@ -1769,7 +1769,7 @@ const Dashboard = () => {
 
               <ItemList
                 items={getFilteredItems()}
-                onToggleCheck={toggleItemCheck}
+                onToggleCheck={handleCheckItem}
                 onDelete={deleteItem}
                 onCopyMove={handleCopyMove}
                 triggerAnimation={triggerFlyingAnimation}
