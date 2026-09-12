@@ -19,6 +19,7 @@ const Sidebar = ({ onAction }) => {
   const { hasFeature } = useFeatureFlags();
   const [isOpen, setIsOpen] = useState(false);
   const [expiringCount, setExpiringCount] = useState(0);
+  const [versionInfo, setVersionInfo] = useState({ version: '...', updateAvailable: false });
 
   // Debug: Log user object
   useEffect(() => {

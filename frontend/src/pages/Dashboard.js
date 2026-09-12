@@ -5,7 +5,7 @@ import { useCartAnimation } from '../contexts/CartAnimationContext';
 import { shoppingAPI, itemsAPI, suggestionsAPI, inventoryAPI, pantryAPI, categoriesAPI } from '../services/api';
 import stagingAPI from '../services/stagingAPI';
 import { 
-  ShoppingCart, LogOut, Plus, Search, Trash2, Check, 
+  ShoppingCart, LogOut, Plus, Search, Trash2, Check, CheckCircle,
   AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight, FileText
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
@@ -56,6 +56,7 @@ const Dashboard = () => {
   const { triggerFlyingAnimation, triggerCheckmarkAnimation } = useCartAnimation();
   const addButtonRef = useRef(null);
   const isRecoveringFromError = useRef(false);
+  const [versionInfo, setVersionInfo] = useState({ version: 'Loading...', updateAvailable: false });
   const { toasts, hideToast, success, error, warning, info } = useToast();
   
   // Disable scroll sounds (too annoying)
@@ -159,6 +160,27 @@ const Dashboard = () => {
     loadCategories();
     loadCustomStores();
 
+    // Fetch version info
+    const fetchVersion = async () => {
+      try {
+        const response = await fetch('/api/system/status', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setVersionInfo({
+            version: data.current_version?.substring(0, 7) || 'unknown',
+            updateAvailable: data.update_available || false
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching version:', err);
+      }
+    };
+    fetchVersion();
+    // Check every 2 minutes
+    const versionInterval = setInterval(fetchVersion, 2 * 60 * 1000);
+
     // Listen for sidebar tool clicks
     const handleSidebarTool = (event) => {
       const { action } = event.detail;
@@ -180,6 +202,7 @@ const Dashboard = () => {
     return () => {
       window.removeEventListener('sidebar-tool-click', handleSidebarTool);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(versionInterval);
     };
   }, []);
 
@@ -1255,16 +1278,39 @@ const Dashboard = () => {
         {/* Main Content */}
         <div className="flex-1 min-w-0">
           {/* Simple Top Bar for Notifications and Logout */}
-          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-end space-x-4">
-            <NotificationCenter />
-            <button
-              onClick={logout}
-              className="flex items-center space-x-2 px-3 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
-              title="Logout"
-            >
-              <LogOut className="w-5 h-5" />
-              <span className="hidden sm:inline font-medium text-sm">Logout</span>
-            </button>
+          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
+            {/* Version Indicator - Left Side */}
+            <div className="flex items-center space-x-2 text-xs sm:text-sm">
+              {versionInfo.updateAvailable ? (
+                <div className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 animate-pulse">
+                  <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="font-medium hidden sm:inline">Update Available</span>
+                  <span className="font-medium sm:hidden">Update!</span>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
+                  <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="font-medium hidden sm:inline">Up to date</span>
+                  <span className="font-medium sm:hidden">✓</span>
+                </div>
+              )}
+              <span className="text-gray-500 dark:text-gray-400 font-mono hidden md:inline">
+                v{versionInfo.version}
+              </span>
+            </div>
+
+            {/* Right Side - Notifications and Logout */}
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <NotificationCenter />
+              <button
+                onClick={logout}
+                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
+                title="Logout"
+              >
+                <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline font-medium text-sm">Logout</span>
+              </button>
+            </div>
           </div>
 
           <main className="p-4 lg:p-8">
