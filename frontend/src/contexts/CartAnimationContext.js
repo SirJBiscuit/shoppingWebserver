@@ -57,8 +57,14 @@ export const CartAnimationProvider = ({ children }) => {
     }, 1000);
   };
 
+  // Clear all animations (useful when switching lists)
+  const clearAnimations = () => {
+    setFlyingItems([]);
+    setFlyingCheckmarks([]);
+  };
+
   return (
-    <CartAnimationContext.Provider value={{ flyingItems, flyingCheckmarks, triggerFlyingAnimation, triggerCheckmarkAnimation }}>
+    <CartAnimationContext.Provider value={{ flyingItems, flyingCheckmarks, triggerFlyingAnimation, triggerCheckmarkAnimation, clearAnimations }}>
       {children}
     </CartAnimationContext.Provider>
   );

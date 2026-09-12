@@ -53,7 +53,7 @@ import { playSound } from '../utils/soundEffects';
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { triggerFlyingAnimation, triggerCheckmarkAnimation } = useCartAnimation();
+  const { triggerFlyingAnimation, triggerCheckmarkAnimation, clearAnimations } = useCartAnimation();
   const addButtonRef = useRef(null);
   const isRecoveringFromError = useRef(false);
   const [versionInfo, setVersionInfo] = useState({ version: 'Loading...', updateAvailable: false });
@@ -210,6 +210,9 @@ const Dashboard = () => {
   useEffect(() => {
     if (activeList && activeList.id) {
       console.log('Active list changed to:', activeList.name, 'ID:', activeList.id);
+      
+      // Clear any flying animations when switching lists
+      clearAnimations();
       
       // If we just recovered from an error, don't try to load again (items already set)
       if (isRecoveringFromError.current) {

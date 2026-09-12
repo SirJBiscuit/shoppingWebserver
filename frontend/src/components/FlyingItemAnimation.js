@@ -12,10 +12,11 @@ const FlyingItemAnimation = () => {
       const cartElement = document.querySelector('[data-cart-target]');
       if (cartElement) {
         const rect = cartElement.getBoundingClientRect();
-        // Target the center of the 3D cart basket (lower portion of the cart)
+        // Target the visual center of the cart basket
+        // Adjusted to 70% down for better visual alignment with 3D cart
         setCartPosition({
           x: rect.left + rect.width / 2,
-          y: rect.top + rect.height * 0.65, // Target 65% down to hit the basket center
+          y: rect.top + rect.height * 0.7, // Target 70% down to hit the basket center
         });
       }
     };
@@ -52,8 +53,8 @@ const FlyingItemAnimation = () => {
               opacity: 1,
             }}
             animate={{
-              x: cartPosition.x - 30,
-              y: cartPosition.y - 30,
+              x: cartPosition.x - 30, // Center the 60px item (half of 60)
+              y: cartPosition.y - 30, // Center the 60px item (half of 60)
               scale: 0.5,
               opacity: 0.8,
             }}
