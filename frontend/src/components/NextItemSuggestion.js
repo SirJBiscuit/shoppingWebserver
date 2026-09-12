@@ -275,36 +275,46 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               </motion.button>
             </div>
             
-            {/* Store, Aisle, Price Row - Prominent with Labels */}
-            <div className="flex items-center gap-4 flex-wrap">
+            {/* Store, Aisle, Category, Price Row - VERY PROMINENT */}
+            <div className="flex items-center gap-3 flex-wrap mt-2">
               {storeName && (
-                <div className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg">
-                  <Store className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                <div className="flex items-center gap-2 bg-blue-500 px-4 py-2 rounded-xl shadow-md">
+                  <Store className="w-5 h-5 text-white" />
+                  <span className="text-base font-bold text-white">
                     {storeName}
                   </span>
                 </div>
               )}
+              
               {nextItem.aisle && (
-                <div className="flex items-center gap-2 bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 rounded-lg">
-                  <MapPin className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  <span className="text-sm font-medium text-purple-900 dark:text-purple-100">
-                    Aisle:
-                  </span>
-                  <span className="text-sm font-bold text-purple-900 dark:text-purple-100">
-                    {nextItem.aisle}
+                <div className="flex items-center gap-2 bg-purple-500 px-4 py-2 rounded-xl shadow-md">
+                  <MapPin className="w-5 h-5 text-white" />
+                  <div className="flex flex-col">
+                    <span className="text-xs text-purple-100 leading-none">Aisle</span>
+                    <span className="text-lg font-bold text-white leading-tight">
+                      {nextItem.aisle}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {(nextItem.category_name || nextItem.category) && (
+                <div className="flex items-center gap-2 bg-orange-500 px-4 py-2 rounded-xl shadow-md">
+                  <span className="text-base font-bold text-white">
+                    📍 {nextItem.category_name || nextItem.category}
                   </span>
                 </div>
               )}
+              
               {nextItem.price && (
-                <div className="flex items-center gap-2 bg-green-100 dark:bg-green-900/30 px-3 py-1.5 rounded-lg">
-                  <DollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
-                  <span className="text-sm font-medium text-green-900 dark:text-green-100">
-                    Price:
-                  </span>
-                  <span className={`text-sm font-bold ${getPriceColor(nextItem.price, nextItem.avg_price)}`}>
-                    ${(nextItem.price * (nextItem.quantity || 1)).toFixed(2)}
-                  </span>
+                <div className="flex items-center gap-2 bg-green-500 px-4 py-2 rounded-xl shadow-md">
+                  <DollarSign className="w-5 h-5 text-white" />
+                  <div className="flex flex-col">
+                    <span className="text-xs text-green-100 leading-none">Default Price</span>
+                    <span className={`text-lg font-bold text-white leading-tight`}>
+                      ${(nextItem.price * (nextItem.quantity || 1)).toFixed(2)}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
