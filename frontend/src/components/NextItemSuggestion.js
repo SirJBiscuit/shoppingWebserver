@@ -594,16 +594,6 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 <span>Skip</span>
               </button>
             )}
-            
-            {onHide && (
-              <button
-                onClick={() => onHide(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-2 py-2.5 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-semibold transition-colors text-sm"
-              >
-                <EyeOff className="w-4 h-4" />
-                <span>Hide</span>
-              </button>
-            )}
           </div>
 
           {/* Secondary Action Buttons */}
