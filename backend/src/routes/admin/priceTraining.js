@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../../database/db');
-const { authenticateToken, requireAdmin } = require('../../middleware/auth');
+const { authenticateToken, isAdmin } = require('../../middleware/auth');
 
 // Apply authentication and admin check to all routes
 router.use(authenticateToken);
-router.use(requireAdmin);
+router.use(isAdmin);
 
 // Get all price training data with statistics
 router.get('/training-data', async (req, res) => {
