@@ -310,7 +310,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 <div className="flex items-center gap-2 bg-green-500 px-4 py-2 rounded-xl shadow-md">
                   <DollarSign className="w-5 h-5 text-white" />
                   <div className="flex flex-col">
-                    <span className="text-xs text-green-100 leading-none">Default Price</span>
+                    <span className="text-xs text-green-100 leading-none">
+                      Default Price {nextItem.aisle && `• Aisle ${nextItem.aisle}`}
+                    </span>
                     <span className={`text-lg font-bold text-white leading-tight`}>
                       ${(nextItem.price * (nextItem.quantity || 1)).toFixed(2)}
                     </span>
@@ -322,12 +324,23 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             {/* Note Display */}
             {nextItem.notes && (
               <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 rounded">
-                <div className="flex items-start gap-2">
-                  <FileText className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
-                  <FormattedNote 
-                    text={nextItem.notes} 
-                    className="text-sm text-yellow-800 dark:text-yellow-200"
-                  />
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 flex-1">
+                    <FileText className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+                    <FormattedNote 
+                      text={nextItem.notes} 
+                      className="text-sm text-yellow-800 dark:text-yellow-200"
+                    />
+                  </div>
+                  {onAddNote && (
+                    <button
+                      onClick={() => onAddNote({ ...nextItem, notes: '' })}
+                      className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded transition-colors flex-shrink-0"
+                      title="Remove note"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -378,19 +391,31 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 className="bg-white dark:bg-gray-800 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-2 cursor-pointer hover:border-blue-400 dark:hover:border-blue-600 transition-colors"
               >
                 {showPriceInput ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl font-bold text-gray-700 dark:text-gray-300">$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={quickPrice}
-                      onChange={(e) => setQuickPrice(e.target.value)}
-                      onBlur={() => setShowPriceInput(false)}
-                      autoFocus
-                      placeholder="0.00"
-                      className="flex-1 text-3xl font-bold bg-transparent border-none outline-none text-blue-600 dark:text-blue-400"
-                    />
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold text-gray-700 dark:text-gray-300">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={quickPrice}
+                        onChange={(e) => setQuickPrice(e.target.value)}
+                        autoFocus
+                        placeholder="0.00"
+                        className="flex-1 text-3xl font-bold bg-transparent border-none outline-none text-blue-600 dark:text-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowPriceInput(false);
+                        if (quickPrice && onPriceUpdate) {
+                          onPriceUpdate(nextItem.id, parseFloat(quickPrice));
+                        }
+                      }}
+                      className="w-full py-2 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-colors"
+                    >
+                      ✓ Save Price
+                    </button>
                   </div>
                 ) : (
                   <div>
@@ -399,7 +424,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                         ${quickPrice || '0.00'}
                       </div>
                       {nextItem.price && (
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                        <div className="text-base font-bold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/40 px-2 py-1 rounded">
                           Last: ${parseFloat(nextItem.price).toFixed(2)}
                         </div>
                       )}
