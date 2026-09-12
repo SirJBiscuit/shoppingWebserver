@@ -599,7 +599,31 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           
           {/* Primary Action Buttons */}
           <div className="grid grid-cols-4 gap-2">
-            {/* Back button - left side for backward navigation */}
+            {/* Edit button - first position */}
+            {onEdit && (
+              <button
+                onClick={() => onEdit(nextItem)}
+                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                title="Edit item"
+              >
+                <Edit2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Edit</span>
+              </button>
+            )}
+            
+            {/* Go To button - second position */}
+            {onJumpToItem && (
+              <button
+                onClick={() => onJumpToItem(nextItem)}
+                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                title="Jump to item in list"
+              >
+                <ArrowRight className="w-4 h-4" />
+                <span className="hidden sm:inline">Go To</span>
+              </button>
+            )}
+            
+            {/* Back button - third position */}
             <button
               onClick={onBack}
               disabled={!onBack}
@@ -613,28 +637,6 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Back</span>
             </button>
-            
-            {onEdit && (
-              <button
-                onClick={() => onEdit(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors text-sm"
-                title="Edit item"
-              >
-                <Edit2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Edit</span>
-              </button>
-            )}
-            
-            {onJumpToItem && (
-              <button
-                onClick={() => onJumpToItem(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-semibold transition-colors text-sm"
-                title="Jump to item in list"
-              >
-                <ArrowRight className="w-4 h-4" />
-                <span className="hidden sm:inline">Go To</span>
-              </button>
-            )}
             
             {/* Skip button - right side for forward navigation */}
             {onSkip && (
