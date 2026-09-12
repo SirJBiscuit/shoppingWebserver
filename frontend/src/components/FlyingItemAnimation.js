@@ -12,9 +12,10 @@ const FlyingItemAnimation = () => {
       const cartElement = document.querySelector('[data-cart-target]');
       if (cartElement) {
         const rect = cartElement.getBoundingClientRect();
+        // Target the center of the 3D cart basket (lower portion of the cart)
         setCartPosition({
           x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
+          y: rect.top + rect.height * 0.65, // Target 65% down to hit the basket center
         });
       }
     };
