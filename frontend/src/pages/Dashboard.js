@@ -1452,6 +1452,7 @@ const Dashboard = () => {
                     type="button"
                     onClick={() => createNewList()}
                     className="btn-secondary text-sm flex items-center"
+                    title="Create a new shopping list"
                   >
                     <Plus className="w-4 h-4 mr-1" />
                     New List
