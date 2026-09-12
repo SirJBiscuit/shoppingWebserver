@@ -203,6 +203,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
   const [smartSuggestion, setSmartSuggestion] = useState(null);
   const [showSuggestion, setShowSuggestion] = useState(true);
   const itemRef = useRef(null);
+  const iconRef = useRef(null);
   
   // Get aisle information if store is specified
   const category = item.category_name || item.category || 'Other';
@@ -279,9 +280,9 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
   };
   
   const handleCheck = () => {
-    // Trigger animation from this item's position when checking
-    if (!item.is_checked && triggerAnimation && itemRef.current) {
-      triggerAnimation(item, itemRef.current);
+    // Trigger animation from the icon's position when checking
+    if (!item.is_checked && triggerAnimation && iconRef.current) {
+      triggerAnimation(item, iconRef.current);
     }
     // Trigger checkbox animation
     setCheckAnimKey(prev => prev + 1);
@@ -375,7 +376,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   </motion.button>
                   
                   {/* Icon */}
-                  <div className="text-2xl mr-2 relative">
+                  <div ref={iconRef} className="text-2xl mr-2 relative">
                     {item.item_icon || detectIcon(item.item_name)}
                     {!item.item_icon && (
                       <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-yellow-500 animate-pulse" />
