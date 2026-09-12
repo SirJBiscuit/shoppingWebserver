@@ -25,6 +25,7 @@ import LevelUpModal from '../components/LevelUpModal';
 import VoiceInput, { parseVoiceInput } from '../components/VoiceInput';
 import NotificationCenter from '../components/NotificationCenter';
 import Onboarding from '../components/Onboarding';
+import HelpButton from '../components/HelpButton';
 import Sidebar from '../components/Sidebar';
 import AutocompleteInput from '../components/AutocompleteInput';
 import TemplatesModal from '../components/TemplatesModal';
@@ -1365,8 +1366,11 @@ const Dashboard = () => {
               </span>
             </div>
 
-            {/* Right Side - Optimization Toggle, Notifications and Logout */}
+            {/* Right Side - Help, Optimization Toggle, Notifications and Logout */}
             <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* Help Button */}
+              <HelpButton userId={user?.id || user?.username} />
+              
               {/* Optimization Mode Toggle */}
               <button
                 onClick={toggleOptimization}

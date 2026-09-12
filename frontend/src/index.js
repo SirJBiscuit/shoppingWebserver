@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import './styles/mobile.css';
 import './styles/optimization.css';
+import './styles/tutorial.css';
 import App from './App';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));

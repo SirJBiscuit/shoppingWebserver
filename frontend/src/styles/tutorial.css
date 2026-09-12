@@ -1,0 +1,111 @@
+/* Tutorial Highlight Effect - Animated Focus Box */
+.tutorial-highlight {
+  position: relative;
+  z-index: 9998 !important;
+  animation: tutorial-pulse 2s ease-in-out infinite;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.6), 
+              0 0 20px rgba(59, 130, 246, 0.4),
+              0 0 40px rgba(59, 130, 246, 0.2) !important;
+  border-radius: 0.75rem !important;
+  outline: 4px solid rgb(59, 130, 246);
+  outline-offset: 6px;
+  transition: all 0.3s ease-in-out;
+}
+
+/* Pulsing animation for tutorial highlights */
+@keyframes tutorial-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.6), 
+                0 0 20px rgba(59, 130, 246, 0.4),
+                0 0 40px rgba(59, 130, 246, 0.2);
+    outline-offset: 6px;
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.4), 
+                0 0 30px rgba(59, 130, 246, 0.6),
+                0 0 60px rgba(59, 130, 246, 0.3);
+    outline-offset: 8px;
+  }
+}
+
+/* Spotlight effect - dims everything except highlighted element */
+.tutorial-spotlight-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9997;
+  pointer-events: none;
+  animation: tutorial-fade-in 0.3s ease-in-out;
+}
+
+@keyframes tutorial-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Pointer arrow for tutorials */
+.tutorial-pointer {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  border-top: 20px solid rgb(59, 130, 246);
+  animation: tutorial-bounce 1s ease-in-out infinite;
+  z-index: 9999;
+}
+
+@keyframes tutorial-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Glow effect for important elements */
+.tutorial-glow {
+  animation: tutorial-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes tutorial-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.5));
+  }
+  50% {
+    filter: drop-shadow(0 0 15px rgba(59, 130, 246, 0.8));
+  }
+}
+
+/* Ensure highlighted elements are visible above other content */
+.tutorial-highlight * {
+  position: relative;
+  z-index: 9999;
+}
+
+/* Dark mode adjustments */
+.dark .tutorial-highlight {
+  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.6), 
+              0 0 20px rgba(96, 165, 250, 0.4),
+              0 0 40px rgba(96, 165, 250, 0.2) !important;
+  outline-color: rgb(96, 165, 250);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-highlight {
+    animation: none;
+  }
+  
+  .tutorial-pointer {
+    animation: none;
+  }
+  
+  .tutorial-glow {
+    animation: none;
+  }
+}
