@@ -587,18 +587,40 @@ const Dashboard = () => {
   };
 
   // Quick price update from Looking for Next
-  const handlePriceUpdate = async (item, price) => {
+  const handlePriceUpdate = async (itemId, price, isAutoSave = false) => {
     try {
-      await shoppingAPI.updateItem(activeList.id, item.id, {
+      const item = items.find(i => i.id === itemId);
+      if (!item) return;
+
+      // Update item price
+      await shoppingAPI.updateItem(activeList.id, itemId, {
         price: price
       });
       
+      // Save to price history for learning
+      try {
+        await shoppingAPI.savePriceHistory({
+          item_name: item.item_name,
+          price: price,
+          quantity: item.quantity || 1,
+          store_name: activeList.store_name || 'Unknown',
+          user_id: user.id,
+          notes: isAutoSave ? 'Auto-saved after 3s' : 'Manual save'
+        });
+        console.log(`Price saved to history: $${price} for ${item.item_name}`);
+      } catch (historyErr) {
+        console.error('Failed to save price history:', historyErr);
+        // Don't fail the whole operation if history save fails
+      }
+      
       // Update local state
       setItems(prevItems => prevItems.map(i => 
-        i.id === item.id ? { ...i, price } : i
+        i.id === itemId ? { ...i, price } : i
       ));
       
-      success(`Price updated: $${price.toFixed(2)}`);
+      if (!isAutoSave) {
+        success(`Price updated: $${price.toFixed(2)}`);
+      }
     } catch (err) {
       console.error('Error updating price:', err);
       error('Failed to update price');
@@ -881,10 +903,27 @@ const Dashboard = () => {
     }
   };
 
-  const toggleItemCheck = async (item) => {
+  const handleCheckItem = async (item) => {
     const newCheckedState = !item.is_checked;
     
-    // Play sound immediately
+    // If checking off and has a price, save to price history
+    if (newCheckedState && item.price && parseFloat(item.price) > 0) {
+      try {
+        await shoppingAPI.savePriceHistory({
+          item_name: item.item_name,
+          price: parseFloat(item.price),
+          quantity: item.quantity || 1,
+          store_name: activeList.store_name || 'Unknown',
+          user_id: user.id,
+          notes: 'Checked off item'
+        });
+        console.log(`Price saved on check-off: $${item.price} for ${item.item_name}`);
+      } catch (historyErr) {
+        console.error('Failed to save price history on check:', historyErr);
+      }
+    }
+    
+    // Play sound effect
     playSound(newCheckedState ? 'check' : 'uncheck');
     
     // Optimistic update - update UI immediately

@@ -13,14 +13,47 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
   const [isChecked, setIsChecked] = useState(nextItem?.is_checked || false);
   const [quickPrice, setQuickPrice] = useState(nextItem?.price || '');
   const [showPriceInput, setShowPriceInput] = useState(false);
+  const [priceSetTime, setPriceSetTime] = useState(null);
   const checkboxRef = useRef(null);
+  const priceTrackingTimerRef = useRef(null);
   
   // Update local state when nextItem changes
   React.useEffect(() => {
     setIsChecked(nextItem?.is_checked || false);
     setQuickPrice(nextItem?.price || '');
     setShowPriceInput(false);
+    setPriceSetTime(null);
+    // Clear any pending price tracking timer
+    if (priceTrackingTimerRef.current) {
+      clearTimeout(priceTrackingTimerRef.current);
+      priceTrackingTimerRef.current = null;
+    }
   }, [nextItem?.id, nextItem?.is_checked]);
+
+  // Auto-save price to database after user keeps it for 3 seconds
+  React.useEffect(() => {
+    if (priceSetTime && quickPrice && parseFloat(quickPrice) > 0) {
+      // Clear any existing timer
+      if (priceTrackingTimerRef.current) {
+        clearTimeout(priceTrackingTimerRef.current);
+      }
+      
+      // Set new timer for 3 seconds
+      priceTrackingTimerRef.current = setTimeout(() => {
+        // Save price to database
+        if (onPriceUpdate) {
+          console.log(`Auto-saving price $${quickPrice} for ${nextItem.item_name} after 3 seconds`);
+          onPriceUpdate(nextItem.id, parseFloat(quickPrice), true); // true = auto-save
+        }
+      }, 3000);
+    }
+    
+    return () => {
+      if (priceTrackingTimerRef.current) {
+        clearTimeout(priceTrackingTimerRef.current);
+      }
+    };
+  }, [priceSetTime, quickPrice, nextItem?.id, nextItem?.item_name, onPriceUpdate]);
 
   const hideGuide = () => {
     setShowGuide(false);
@@ -409,7 +442,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                       onClick={() => {
                         setShowPriceInput(false);
                         if (quickPrice && onPriceUpdate) {
-                          onPriceUpdate(nextItem.id, parseFloat(quickPrice));
+                          console.log(`Manual save: $${quickPrice} for ${nextItem.item_name}`);
+                          onPriceUpdate(nextItem.id, parseFloat(quickPrice), false); // false = manual save
+                          setPriceSetTime(Date.now()); // Start auto-save timer
                         }
                       }}
                       className="w-full py-2 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-colors"
@@ -456,7 +491,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 <button
                   onClick={() => {
                     const current = parseFloat(quickPrice) || 0;
-                    setQuickPrice((current + 5).toFixed(2));
+                    const newPrice = (current + 5).toFixed(2);
+                    setQuickPrice(newPrice);
+                    setPriceSetTime(Date.now()); // Start tracking
                   }}
                   className={`py-2 px-1 bg-green-500 hover:bg-green-600 text-white rounded font-bold transition-all text-xs ${nextItem.price ? 'col-span-2' : 'col-span-2'}`}
                 >
@@ -465,7 +502,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 <button
                   onClick={() => {
                     const current = parseFloat(quickPrice) || 0;
-                    setQuickPrice((current + 1).toFixed(2));
+                    const newPrice = (current + 1).toFixed(2);
+                    setQuickPrice(newPrice);
+                    setPriceSetTime(Date.now());
                   }}
                   className={`py-2 px-1 bg-green-500 hover:bg-green-600 text-white rounded font-bold transition-all text-xs ${nextItem.price ? 'col-span-2' : 'col-span-2'}`}
                 >
@@ -474,7 +513,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 <button
                   onClick={() => {
                     const current = parseFloat(quickPrice) || 0;
-                    setQuickPrice((current + 0.5).toFixed(2));
+                    const newPrice = (current + 0.5).toFixed(2);
+                    setQuickPrice(newPrice);
+                    setPriceSetTime(Date.now());
                   }}
                   className={`py-2 px-1 bg-green-500 hover:bg-green-600 text-white rounded font-bold transition-all text-xs ${nextItem.price ? 'col-span-2' : 'col-span-3'}`}
                 >
@@ -487,7 +528,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 <button
                   onClick={() => {
                     const current = parseFloat(quickPrice) || 0;
-                    setQuickPrice(Math.max(0, current - 5).toFixed(2));
+                    const newPrice = Math.max(0, current - 5).toFixed(2);
+                    setQuickPrice(newPrice);
+                    setPriceSetTime(Date.now());
                   }}
                   className="col-span-2 py-2 px-1 bg-red-500 hover:bg-red-600 text-white rounded font-bold transition-all text-xs"
                 >
@@ -496,7 +539,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 <button
                   onClick={() => {
                     const current = parseFloat(quickPrice) || 0;
-                    setQuickPrice(Math.max(0, current - 1).toFixed(2));
+                    const newPrice = Math.max(0, current - 1).toFixed(2);
+                    setQuickPrice(newPrice);
+                    setPriceSetTime(Date.now());
                   }}
                   className="col-span-2 py-2 px-1 bg-red-500 hover:bg-red-600 text-white rounded font-bold transition-all text-xs"
                 >
@@ -505,7 +550,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 <button
                   onClick={() => {
                     const current = parseFloat(quickPrice) || 0;
-                    setQuickPrice(Math.max(0, current - 0.5).toFixed(2));
+                    const newPrice = Math.max(0, current - 0.5).toFixed(2);
+                    setQuickPrice(newPrice);
+                    setPriceSetTime(Date.now());
                   }}
                   className="col-span-2 py-2 px-1 bg-red-500 hover:bg-red-600 text-white rounded font-bold transition-all text-xs"
                 >

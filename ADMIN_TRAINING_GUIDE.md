@@ -13,7 +13,23 @@
 ## Price Learning System
 
 ### How It Works
-The app learns from user price entries to provide smart price suggestions and detect outliers.
+The app learns from user price entries to provide smart price suggestions and detect outliers. The system has three stages:
+1. **Collection**: Users enter prices in the app (auto-saved after 3s or when checking off items)
+2. **Training**: Admin reviews and validates price data
+3. **Deployment**: Approved data is pushed to the MDL (Master Data Layer) system
+
+### Admin Price Training Interface
+
+#### Accessing the Training System
+```bash
+# API Endpoints
+GET  /api/admin/price-training/training-data      # View all training data
+GET  /api/admin/price-training/items-summary      # Get item statistics
+GET  /api/admin/price-training/item/:name/history # Item price history
+POST /api/admin/price-training/approve-to-mdl     # Approve item to MDL
+POST /api/admin/price-training/auto-approve-all   # Bulk approve items
+GET  /api/admin/price-training/statistics         # System statistics
+```
 
 ### Training the System
 
@@ -88,21 +104,123 @@ ORDER BY created_at DESC
 LIMIT 20;
 ```
 
+### Admin Training Workflow
+
+#### Step 1: View All Training Data
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:3007/api/admin/price-training/training-data?limit=100"
+```
+
+This shows all price entries with:
+- User who entered it
+- Average price for that item
+- Total entries
+- Standard deviation
+- Outlier status
+
+#### Step 2: Review Items Summary
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:3007/api/admin/price-training/items-summary?sort=entry_count&order=DESC"
+```
+
+Shows each unique item with:
+- Entry count (how many times users entered prices)
+- Average, min, max prices
+- Number of stores
+- Number of users who contributed
+- Outlier and invalid counts
+
+#### Step 3: Review Specific Item
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:3007/api/admin/price-training/item/Milk%201%20Gallon/history"
+```
+
+See all price entries for a specific item to identify patterns.
+
+#### Step 4: Clean Bad Data
+```bash
+# Mark a single entry as invalid
+curl -X PATCH -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"invalid","notes":"Typo - user meant $3.99"}' \
+  "http://localhost:3007/api/admin/price-training/entry/123"
+
+# Bulk update multiple entries
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"ids":[123,124,125],"status":"invalid"}' \
+  "http://localhost:3007/api/admin/price-training/bulk-update"
+```
+
+#### Step 5: Approve to MDL System
+```bash
+# Approve single item
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"item_name":"Milk 1 Gallon"}' \
+  "http://localhost:3007/api/admin/price-training/approve-to-mdl"
+
+# Auto-approve all items with good data
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"min_samples":5,"max_stddev_percent":30}' \
+  "http://localhost:3007/api/admin/price-training/auto-approve-all"
+```
+
+**Auto-Approve Criteria:**
+- `min_samples`: Minimum number of price entries (default: 5)
+- `max_stddev_percent`: Maximum standard deviation as % of average (default: 30%)
+
+Items meeting these criteria are automatically pushed to MDL.
+
+#### Step 6: Monitor Statistics
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:3007/api/admin/price-training/statistics"
+```
+
+Shows:
+- Total entries, unique items, contributing users
+- Active vs invalid entries
+- Outlier count
+- MDL system status
+
 ### Best Practices for Price Learning
 
 1. **Seed Initial Data**
    - Add common items with typical prices for your area
    - Use multiple stores to build comparison data
+   - Use the manual entry endpoint:
+   ```bash
+   curl -X POST -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"item_name":"Milk 1 Gallon","price":3.99,"store_name":"Walmart"}' \
+     "http://localhost:3007/api/admin/price-training/manual-entry"
+   ```
    
 2. **Monitor Outliers Weekly**
    - Review flagged outliers
    - Mark invalid entries
    - Look for patterns (e.g., user always enters wrong prices)
+   - Filter by outliers: `?status=active` and check `is_outlier=true`
 
 3. **Clean Up Regularly**
    - Remove test data
    - Archive old entries (>1 year)
-   - Merge duplicate item names
+   - Merge duplicate item names (use SQL updates)
+
+4. **Approve in Batches**
+   - Run auto-approve weekly
+   - Review items with 5+ entries
+   - Manually approve items with <5 entries if data looks good
+
+5. **Quality Control**
+   - Items with high standard deviation need review
+   - Check for duplicate item names with different spellings
+   - Verify store names are consistent
 
 ---
 

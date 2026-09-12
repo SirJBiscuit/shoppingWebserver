@@ -53,6 +53,7 @@ export const shoppingAPI = {
   getTemplateItems: (templateId) => api.get(`/shopping/templates/${templateId}/items`),
   createTemplate: (data) => api.post('/shopping/templates', data),
   deleteTemplate: (templateId) => api.delete(`/shopping/templates/${templateId}`),
+  savePriceHistory: (data) => api.post('/shopping/price-history', data),
 };
 
 export const itemsAPI = {

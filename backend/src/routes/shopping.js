@@ -743,4 +743,32 @@ router.get('/templates/:id/items', async (req, res) => {
   }
 });
 
+// Save price history for learning
+router.post('/price-history', async (req, res) => {
+  const { item_name, price, quantity, store_name, notes } = req.body;
+  
+  if (!item_name || !price) {
+    return res.status(400).json({ error: 'Item name and price are required' });
+  }
+
+  try {
+    const result = await db.query(
+      `INSERT INTO price_history 
+       (user_id, item_name, price, quantity, store_name, notes, status, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW())
+       RETURNING *`,
+      [req.user.id, item_name, parseFloat(price), quantity || 1, store_name || 'Unknown', notes || '']
+    );
+    
+    res.json({ 
+      success: true, 
+      message: 'Price saved to history',
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error saving price history:', error);
+    res.status(500).json({ error: 'Failed to save price history' });
+  }
+});
+
 module.exports = router;
