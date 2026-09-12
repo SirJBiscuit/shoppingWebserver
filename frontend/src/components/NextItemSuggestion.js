@@ -17,6 +17,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
   const checkboxRef = useRef(null);
   const priceTrackingTimerRef = useRef(null);
   const sameAisleIconRefs = useRef({});
+  const grabTheseScrollRef = useRef(null);
   
   // Update local state when nextItem changes
   React.useEffect(() => {
@@ -30,6 +31,39 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
       priceTrackingTimerRef.current = null;
     }
   }, [nextItem?.id, nextItem?.is_checked]);
+
+  // Auto-scroll Grab These Too section when items are checked
+  React.useEffect(() => {
+    if (!grabTheseScrollRef.current || sameAisleItems.length === 0) return;
+
+    const scrollContainer = grabTheseScrollRef.current;
+    const checkedItems = sameAisleItems.filter(item => item.is_checked);
+    const uncheckedItems = sameAisleItems.filter(item => !item.is_checked);
+
+    // If there are unchecked items, scroll to show the first unchecked item
+    if (uncheckedItems.length > 0 && checkedItems.length > 0) {
+      const firstUncheckedIndex = sameAisleItems.findIndex(item => !item.is_checked);
+      
+      // Add auto-scrolling class for animation
+      scrollContainer.classList.add('auto-scrolling');
+      
+      // Smooth scroll to the first unchecked item
+      setTimeout(() => {
+        const itemHeight = 80; // Approximate height of each item
+        const scrollPosition = firstUncheckedIndex * itemHeight;
+        
+        scrollContainer.scrollTo({
+          top: scrollPosition,
+          behavior: 'smooth'
+        });
+        
+        // Remove auto-scrolling class after animation
+        setTimeout(() => {
+          scrollContainer.classList.remove('auto-scrolling');
+        }, 1500);
+      }, 100);
+    }
+  }, [sameAisleItems]);
 
   // Auto-save price to database after user keeps it for 3 seconds
   React.useEffect(() => {
@@ -694,7 +728,10 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 </div>
               </div>
             </div>
-            <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2 custom-scrollbar-thin custom-scrollbar-green">
+            <div 
+              ref={grabTheseScrollRef}
+              className="max-h-[400px] overflow-y-auto space-y-2 pr-2 scrollbar-hybrid"
+            >
               {sameAisleItems.map((item, index) => (
                 <motion.div
                   key={item.id}
