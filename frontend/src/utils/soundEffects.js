@@ -5,27 +5,32 @@ class SoundManager {
     this.enabled = localStorage.getItem('soundEnabled') === 'true'; // Disabled by default
     this.volume = parseFloat(localStorage.getItem('soundVolume') || '0.3');
     this.sounds = {};
-    this.initSounds();
-  }
-
-  initSounds() {
-    // Load default MP3 sound files (will be overridden by user preferences)
-    this.sounds = {
-      check: this.loadSound('/sounds/check.mp3'),
-      uncheck: this.loadSound('/sounds/uncheck.mp3'),
-      pop: this.loadSound('/sounds/pop.mp3')
+    this.audioCache = {}; // Cache for lazy-loaded audio objects
+    this.soundPaths = {
+      check: '/sounds/check.mp3',
+      uncheck: '/sounds/uncheck.mp3',
+      pop: '/sounds/pop.mp3'
     };
   }
 
+  initSounds() {
+    // Deprecated - sounds are now lazy-loaded on first play
+    // Kept for backwards compatibility
+  }
+
   loadSound(url) {
-    const audio = new Audio(url);
-    audio.volume = this.volume;
-    
+    // Lazy load: create Audio object only when first played
     return () => {
       if (!this.enabled) return;
       
+      // Check cache first
+      if (!this.audioCache[url]) {
+        this.audioCache[url] = new Audio(url);
+        this.audioCache[url].volume = this.volume;
+      }
+      
       // Clone the audio to allow multiple simultaneous plays
-      const sound = audio.cloneNode();
+      const sound = this.audioCache[url].cloneNode();
       sound.volume = this.volume;
       sound.play().catch(err => {
         console.warn('Sound play failed:', err);
@@ -94,12 +99,22 @@ class SoundManager {
   }
 
   play(soundName) {
-    if (this.sounds[soundName]) {
-      try {
-        this.sounds[soundName]();
-      } catch (error) {
-        console.error('Error playing sound:', error);
+    if (!this.enabled) return;
+    
+    try {
+      // Lazy-load sound on first play
+      if (!this.sounds[soundName]) {
+        const soundPath = this.soundPaths[soundName];
+        if (soundPath) {
+          this.sounds[soundName] = this.loadSound(soundPath);
+        }
       }
+      
+      if (this.sounds[soundName]) {
+        this.sounds[soundName]();
+      }
+    } catch (error) {
+      console.error('Error playing sound:', error);
     }
   }
 
