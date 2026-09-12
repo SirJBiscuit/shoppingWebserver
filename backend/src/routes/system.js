@@ -353,8 +353,25 @@ router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-// Get system status
-router.get('/status', authenticateToken, isAdmin, async (req, res) => {
+// Get system status (public version for version indicator)
+router.get('/status', authenticateToken, async (req, res) => {
+  try {
+    // Get version info from database
+    const statusResult = await db.query('SELECT current_version, update_available FROM system_status WHERE id = 1');
+    const status = statusResult.rows[0] || { current_version: 'unknown', update_available: false };
+    
+    res.json({
+      current_version: status.current_version || 'unknown',
+      update_available: status.update_available || false
+    });
+  } catch (error) {
+    console.error('Get system status error:', error);
+    res.status(500).json({ error: 'Failed to get system status', details: error.message });
+  }
+});
+
+// Get detailed system status (admin only)
+router.get('/status/detailed', authenticateToken, isAdmin, async (req, res) => {
   try {
     // Get database version
     const dbResult = await db.query('SELECT version()');
@@ -381,7 +398,7 @@ router.get('/status', authenticateToken, isAdmin, async (req, res) => {
       platform: process.platform
     });
   } catch (error) {
-    console.error('Get system status error:', error);
+    console.error('Get detailed system status error:', error);
     res.status(500).json({ error: 'Failed to get system status', details: error.message, stack: error.stack });
   }
 });
