@@ -249,39 +249,39 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           )}
         </AnimatePresence>
 
-        {/* Item Info Row - Redesigned with checkbox and quantity inline */}
-        <div className="flex items-start gap-4 mb-3">
+        {/* Item Info Row - Mobile Responsive */}
+        <div className="flex items-start gap-3 sm:gap-4 mb-3">
           {/* Large Icon */}
-          <span className="text-6xl">{nextItem.item_icon || '📦'}</span>
+          <span className="text-5xl sm:text-6xl flex-shrink-0">{nextItem.item_icon || '📦'}</span>
           
           <div className="flex-1 min-w-0">
-            {/* Item Name with Quantity and Checkbox */}
-            <div className="flex items-center gap-3 mb-2">
-              {/* Item Name */}
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight flex-1">
-                {nextItem.item_name}
-              </h3>
+            {/* Item Name */}
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-tight mb-2">
+              {nextItem.item_name}
+            </h3>
 
-              {/* Quantity Controls - Match checkbox size */}
-              <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl px-3 py-2 shadow-md">
+            {/* Mobile: Quantity and Checkbox stacked below name */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              {/* Quantity Controls */}
+              <div className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg sm:rounded-xl px-2 sm:px-3 py-1.5 sm:py-2 shadow-md">
                 <button
                   onClick={() => onQuantityChange && onQuantityChange(nextItem, -1)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex-shrink-0"
                 >
-                  <Minus className="w-5 h-5" />
+                  <Minus className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
-                <span className="font-bold text-base text-gray-900 dark:text-white min-w-[70px] text-center">
+                <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-white min-w-[50px] sm:min-w-[70px] text-center">
                   {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || ''}
                 </span>
                 <button
                   onClick={() => onQuantityChange && onQuantityChange(nextItem, 1)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex-shrink-0"
                 >
-                  <Plus className="w-5 h-5" />
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               </div>
 
-              {/* Checkbox - No box, just button */}
+              {/* Checkbox Button */}
               <motion.button
                 ref={checkboxRef}
                 onClick={async () => {
@@ -293,15 +293,15 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   if (onCheck) onCheck();
                   if (triggerCheckmarkAnimation) triggerCheckmarkAnimation();
                 }}
-                className={`flex items-center gap-3 px-5 py-3 rounded-xl transition-all flex-shrink-0 shadow-md hover:shadow-lg ${
+                className={`flex items-center justify-center gap-2 sm:gap-3 px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg sm:rounded-xl transition-all flex-shrink-0 shadow-md hover:shadow-lg ${
                   isChecked
                     ? 'bg-green-500'
                     : 'bg-white dark:bg-gray-800 hover:bg-green-50 dark:hover:bg-green-900/20'
                 }`}
                 whileTap={{ scale: 0.95 }}
               >
-                {isChecked && <Check className="w-6 h-6 text-white" strokeWidth={4} />}
-                <span className={`font-bold text-base ${
+                {isChecked && <Check className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={4} />}
+                <span className={`font-bold text-sm sm:text-base ${
                   isChecked ? 'text-white' : 'text-gray-700 dark:text-gray-300'
                 }`}>
                   {isChecked ? 'Found!' : 'Mark Found'}
