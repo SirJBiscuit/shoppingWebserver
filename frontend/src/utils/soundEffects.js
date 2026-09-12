@@ -12,7 +12,8 @@ class SoundManager {
     // Load default MP3 sound files (will be overridden by user preferences)
     this.sounds = {
       check: this.loadSound('/sounds/check.mp3'),
-      uncheck: this.loadSound('/sounds/uncheck.mp3')
+      uncheck: this.loadSound('/sounds/uncheck.mp3'),
+      pop: this.loadSound('/sounds/pop.mp3')
     };
   }
 
@@ -33,12 +34,15 @@ class SoundManager {
   }
 
   // Update sounds based on user preferences
-  updateSounds(checkSoundPath, uncheckSoundPath) {
+  updateSounds(checkSoundPath, uncheckSoundPath, popSoundPath) {
     if (checkSoundPath) {
       this.sounds.check = this.loadSound(checkSoundPath);
     }
     if (uncheckSoundPath) {
       this.sounds.uncheck = this.loadSound(uncheckSoundPath);
+    }
+    if (popSoundPath) {
+      this.sounds.pop = this.loadSound(popSoundPath);
     }
   }
 
@@ -53,10 +57,12 @@ class SoundManager {
       const sounds = await soundsAPI.getAllSounds();
       const checkSound = sounds.find(s => s.id === prefs.check_sound_id);
       const uncheckSound = sounds.find(s => s.id === prefs.uncheck_sound_id);
+      const popSound = sounds.find(s => s.id === prefs.pop_sound_id);
       
       this.updateSounds(
         checkSound?.file_path,
-        uncheckSound?.file_path
+        uncheckSound?.file_path,
+        popSound?.file_path
       );
     } catch (error) {
       console.warn('Could not load sound preferences:', error);
