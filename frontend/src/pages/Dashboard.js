@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCartAnimation } from '../contexts/CartAnimationContext';
+import { useOptimization } from '../contexts/OptimizationContext';
+import { useToast } from '../hooks/useToast';
 import { shoppingAPI, itemsAPI, suggestionsAPI, inventoryAPI, pantryAPI, categoriesAPI } from '../services/api';
 import stagingAPI from '../services/stagingAPI';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, CheckCircle,
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight, FileText
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight, FileText, Zap
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
@@ -54,6 +56,7 @@ const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { triggerFlyingAnimation, triggerCheckmarkAnimation, clearAnimations } = useCartAnimation();
+  const { optimizationMode, toggleOptimization } = useOptimization();
   const addButtonRef = useRef(null);
   const isRecoveringFromError = useRef(false);
   const [versionInfo, setVersionInfo] = useState({ version: 'Loading...', updateAvailable: false });
@@ -1362,8 +1365,24 @@ const Dashboard = () => {
               </span>
             </div>
 
-            {/* Right Side - Notifications and Logout */}
+            {/* Right Side - Optimization Toggle, Notifications and Logout */}
             <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* Optimization Mode Toggle */}
+              <button
+                onClick={toggleOptimization}
+                className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all duration-200 ${
+                  optimizationMode
+                    ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title={optimizationMode ? 'Optimization Mode ON (Faster Performance)' : 'Optimization Mode OFF (Full Features)'}
+              >
+                <Zap className={`w-4 h-4 sm:w-5 sm:h-5 ${optimizationMode ? 'animate-pulse' : ''}`} />
+                <span className="hidden md:inline font-medium text-sm">
+                  {optimizationMode ? 'Optimized' : 'Full Mode'}
+                </span>
+              </button>
+              
               <NotificationCenter />
               <button
                 onClick={logout}

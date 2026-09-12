@@ -1,0 +1,123 @@
+/* Optimization Mode Styles - Maximum Performance for Mobile/Tablet */
+
+/* Disable all animations in optimization mode */
+.optimization-mode * {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Reduce motion for better performance */
+.optimization-mode {
+  --animation-duration: 0s;
+  --transition-duration: 0s;
+}
+
+/* Disable transforms that cause repaints */
+.optimization-mode *:not(.optimization-keep-transform) {
+  transform: none !important;
+}
+
+/* Simplify shadows for better rendering performance */
+.optimization-mode .shadow-lg,
+.optimization-mode .shadow-xl,
+.optimization-mode .shadow-2xl {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Disable backdrop filters (expensive) */
+.optimization-mode [class*="backdrop-"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Disable gradients (use solid colors) */
+.optimization-mode [class*="gradient"] {
+  background-image: none !important;
+}
+
+/* Smaller, touch-friendly color buttons for mobile/tablet */
+.optimization-mode .color-picker-button,
+.optimization-mode [data-color-function] {
+  min-width: 32px !important;
+  min-height: 32px !important;
+  padding: 4px !important;
+  font-size: 12px !important;
+}
+
+/* Compact spacing for mobile */
+.optimization-mode .space-y-6 {
+  gap: 1rem !important;
+}
+
+.optimization-mode .space-x-4 {
+  gap: 0.75rem !important;
+}
+
+/* Reduce padding on cards */
+.optimization-mode .card {
+  padding: 0.75rem !important;
+}
+
+/* Disable hover effects (not needed on touch) */
+.optimization-mode *:hover {
+  transform: none !important;
+  scale: 1 !important;
+}
+
+/* Simplify borders */
+.optimization-mode .border-2 {
+  border-width: 1px !important;
+}
+
+/* Disable blur effects */
+.optimization-mode [class*="blur"] {
+  filter: none !important;
+}
+
+/* Performance: Use GPU acceleration only where needed */
+.optimization-mode .optimization-keep-transform {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Reduce opacity transitions */
+.optimization-mode [class*="opacity-"] {
+  transition: none !important;
+}
+
+/* Touch-optimized buttons */
+.optimization-mode button,
+.optimization-mode .btn {
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+}
+
+/* Disable complex pseudo-elements */
+.optimization-mode *::before,
+.optimization-mode *::after {
+  display: none !important;
+}
+
+/* Keep essential pseudo-elements */
+.optimization-mode .checkbox::before,
+.optimization-mode .radio::before {
+  display: block !important;
+}
+
+/* Reduce font rendering complexity */
+.optimization-mode {
+  text-rendering: optimizeSpeed;
+  -webkit-font-smoothing: subpixel-antialiased;
+}
+
+/* Disable will-change on everything (let browser decide) */
+.optimization-mode * {
+  will-change: auto !important;
+}
+
+/* Simpler focus states */
+.optimization-mode *:focus {
+  outline: 2px solid currentColor !important;
+  outline-offset: 2px !important;
+}

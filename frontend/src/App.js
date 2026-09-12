@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { CartAnimationProvider } from './contexts/CartAnimationContext';
 import { FeatureFlagProvider } from './context/FeatureFlagContext';
+import { OptimizationProvider } from './contexts/OptimizationContext';
 import FlyingItemAnimation from './components/FlyingItemAnimation';
 // import MobileBottomNav from './components/MobileBottomNav'; // Disabled for now
 import AdminToolbar from './components/AdminToolbar';
@@ -113,16 +114,18 @@ function App() {
     <AuthProvider>
       <FeatureFlagProvider>
         <ThemeProvider>
-          <CartAnimationProvider>
-            <Router>
-              <UpdateChecker />
-              <UpdateNotification />
-              <AdminToolbar />
-              <AnimatedRoutes />
-              <FlyingItemAnimation />
-              {/* <MobileBottomNav /> */} {/* Disabled for now */}
-            </Router>
-          </CartAnimationProvider>
+          <OptimizationProvider>
+            <CartAnimationProvider>
+              <Router>
+                <UpdateChecker />
+                <UpdateNotification />
+                <AdminToolbar />
+                <AnimatedRoutes />
+                <FlyingItemAnimation />
+                {/* <MobileBottomNav /> */} {/* Disabled for now */}
+              </Router>
+            </CartAnimationProvider>
+          </OptimizationProvider>
         </ThemeProvider>
       </FeatureFlagProvider>
     </AuthProvider>

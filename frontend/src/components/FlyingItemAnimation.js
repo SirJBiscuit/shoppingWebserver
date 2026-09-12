@@ -5,6 +5,9 @@ import { useCartAnimation } from '../contexts/CartAnimationContext';
 const FlyingItemAnimation = () => {
   const { flyingItems, flyingCheckmarks } = useCartAnimation();
   const [cartPosition, setCartPosition] = useState({ x: 0, y: 0 });
+  
+  // Skip animations in optimization mode
+  const isOptimizationMode = document.body.classList.contains('optimization-mode');
 
   useEffect(() => {
     // Find cart position - update whenever flying items change
@@ -39,6 +42,9 @@ const FlyingItemAnimation = () => {
     };
   }, [flyingItems]); // Update when items change
 
+  // Don't render animations in optimization mode
+  if (isOptimizationMode) return null;
+  
   return (
     <div className="fixed inset-0 pointer-events-none z-[9999]">
       <AnimatePresence>

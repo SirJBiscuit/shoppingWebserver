@@ -101,6 +101,9 @@ class SoundManager {
   play(soundName) {
     if (!this.enabled) return;
     
+    // Skip sounds in optimization mode
+    if (document.body.classList.contains('optimization-mode')) return;
+    
     try {
       // Lazy-load sound on first play
       if (!this.sounds[soundName]) {
