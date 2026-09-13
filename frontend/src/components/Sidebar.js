@@ -147,7 +147,7 @@ const Sidebar = ({ onAction }) => {
       {/* Mobile Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-3 bg-primary-600 text-white rounded-lg shadow-lg hover:bg-primary-700 transition-all hover:scale-105"
+        className="lg:hidden fixed top-4 left-4 z-[60] p-3 bg-primary-600 text-white rounded-lg shadow-lg hover:bg-primary-700 transition-all hover:scale-105"
       >
         {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
       </button>
@@ -167,7 +167,7 @@ const Sidebar = ({ onAction }) => {
 
       {/* Sidebar */}
       <motion.aside
-        initial={{ x: -280 }}
+        initial={false}
         animate={{ x: (isOpen || isDesktop) ? 0 : -280 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         className="fixed left-0 top-0 h-screen w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-xl z-40 flex flex-col custom-scrollbar overflow-y-auto"
