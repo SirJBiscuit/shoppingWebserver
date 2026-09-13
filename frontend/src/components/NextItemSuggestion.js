@@ -14,6 +14,8 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
   const [quickPrice, setQuickPrice] = useState(nextItem?.price ? nextItem.price.toString() : '');
   const [showPriceInput, setShowPriceInput] = useState(false);
   const [priceSetTime, setPriceSetTime] = useState(null);
+  const [predictedAisle, setPredictedAisle] = useState(null);
+  const [aisleConfidence, setAisleConfidence] = useState(null);
   const checkboxRef = useRef(null);
   const priceTrackingTimerRef = useRef(null);
   const sameAisleIconRefs = useRef({});
@@ -89,6 +91,54 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
       }
     };
   }, [priceSetTime, quickPrice, nextItem?.id, nextItem?.item_name, onPriceUpdate]);
+
+  // Fetch predicted aisle from MDL system
+  React.useEffect(() => {
+    const fetchPredictedAisle = async () => {
+      // Only fetch if we don't have a confirmed aisle and we have a store
+      if (!nextItem || nextItem.aisle || !storeName) {
+        setPredictedAisle(null);
+        setAisleConfidence(null);
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('token');
+        // For now, we'll use storeName as a simple identifier
+        // Later this will use actual store_id from store_locations table
+        const storeId = encodeURIComponent(storeName);
+        const itemName = encodeURIComponent(nextItem.item_name);
+        
+        const response = await fetch(`/api/mdl/aisle/${itemName}/${storeId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.aisle) {
+            setPredictedAisle(data.aisle);
+            setAisleConfidence(data.confidence);
+          } else {
+            setPredictedAisle(null);
+            setAisleConfidence(null);
+          }
+        } else {
+          // API not ready yet or no prediction available
+          setPredictedAisle(null);
+          setAisleConfidence(null);
+        }
+      } catch (error) {
+        // Silently fail - MDL system might not be fully deployed yet
+        console.log('MDL aisle prediction not available yet');
+        setPredictedAisle(null);
+        setAisleConfidence(null);
+      }
+    };
+
+    fetchPredictedAisle();
+  }, [nextItem?.id, nextItem?.item_name, nextItem?.aisle, storeName]);
 
   const hideGuide = () => {
     setShowGuide(false);
@@ -379,14 +429,6 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 </div>
               )}
               
-              {(nextItem.category_name || nextItem.category) && (
-                <div className="flex items-center gap-2 bg-orange-500 px-4 py-2 rounded-xl shadow-md">
-                  <span className="text-base font-bold text-white">
-                    📍 {nextItem.category_name || nextItem.category}
-                  </span>
-                </div>
-              )}
-              
               {nextItem.price && (
                 <div className="flex items-center gap-2 bg-green-500 px-4 py-2 rounded-xl shadow-md">
                   <DollarSign className="w-5 h-5 text-white" />
@@ -401,16 +443,16 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 </div>
               )}
               
-              {/* Most Likely Aisle - Show predicted aisle if available, otherwise show category */}
-              {!nextItem.aisle && (nextItem.predicted_aisle || nextItem.category_name || nextItem.category) && (
+              {/* Most Likely Aisle - Only show when we have a predicted aisle number from MDL */}
+              {!nextItem.aisle && predictedAisle && (
                 <div className="flex items-center gap-2 bg-amber-500 px-4 py-2 rounded-xl shadow-md">
                   <MapPin className="w-5 h-5 text-white" />
                   <div className="flex flex-col">
                     <span className="text-xs text-amber-100 leading-none">
-                      {nextItem.predicted_aisle ? 'Most Likely Aisle' : 'Category'}
+                      Most Likely Aisle {aisleConfidence && `(${Math.round(aisleConfidence * 100)}%)`}
                     </span>
                     <span className="text-lg font-bold text-white leading-tight">
-                      {nextItem.predicted_aisle ? `Aisle ${nextItem.predicted_aisle}` : (nextItem.category_name || nextItem.category)}
+                      Aisle {predictedAisle}
                     </span>
                   </div>
                 </div>
@@ -627,107 +669,107 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             </div>
           )}
           
-          {/* Primary Action Buttons */}
-          <div className="grid grid-cols-4 gap-2">
-            {/* Edit button - first position */}
+          {/* Primary Action Buttons - 2x2 grid on mobile, 4 columns on desktop */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {/* Edit button */}
             {onEdit && (
               <button
                 onClick={() => onEdit(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
                 title="Edit item"
               >
-                <Edit2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Edit</span>
+                <Edit2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden md:inline">Edit</span>
               </button>
             )}
             
-            {/* Go To button - second position */}
+            {/* Go To button */}
             {onJumpToItem && (
               <button
                 onClick={() => onJumpToItem(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
                 title="Jump to item in list"
               >
-                <ArrowRight className="w-4 h-4" />
-                <span className="hidden sm:inline">Go To</span>
+                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden md:inline">Go To</span>
               </button>
             )}
             
-            {/* Back button - third position */}
+            {/* Back button */}
             <button
               onClick={onBack}
               disabled={!onBack}
-              className={`flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-lg font-semibold transition-colors text-sm ${
+              className={`flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px] ${
                 onBack 
                   ? 'bg-blue-600 hover:bg-blue-700 text-white' 
                   : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 cursor-not-allowed'
               }`}
               title="Go back to previous skipped item"
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Back</span>
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden md:inline">Back</span>
             </button>
             
-            {/* Skip button - right side for forward navigation */}
+            {/* Skip button */}
             {onSkip && (
               <button
                 onClick={() => onSkip(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
                 title="Skip to next item"
               >
-                <SkipForward className="w-4 h-4" />
-                <span className="hidden sm:inline">Skip to Next</span>
+                <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden md:inline">Skip</span>
               </button>
             )}
           </div>
 
-          {/* Secondary Action Buttons */}
-          <div className="grid grid-cols-4 gap-2">
-            {/* Undo button - for restoring removed items */}
+          {/* Secondary Action Buttons - 2x2 grid on mobile */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {/* Undo button */}
             <button
               onClick={onUndo}
               disabled={!onUndo}
-              className={`flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-lg font-semibold transition-colors text-sm ${
+              className={`flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px] ${
                 onUndo 
                   ? 'bg-gray-600 hover:bg-gray-700 text-white' 
                   : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 cursor-not-allowed'
               }`}
               title="Restore last removed item"
             >
-              <Undo className="w-4 h-4" />
-              <span className="hidden sm:inline">Undo</span>
+              <Undo className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden md:inline">Undo</span>
             </button>
             
             {onDeferItem && (
               <button
                 onClick={() => onDeferItem(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
                 title="Remove item from list"
               >
-                <X className="w-4 h-4" />
-                <span className="hidden sm:inline">Remove Item</span>
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden md:inline">Remove</span>
               </button>
             )}
             
             {onAddNote && (
               <button
                 onClick={() => onAddNote(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
                 title="Add note to item"
               >
-                <FileText className="w-4 h-4" />
-                <span className="hidden sm:inline">Add Note</span>
+                <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden md:inline">Note</span>
               </button>
             )}
             
             {onMarkUnavailable && (
               <button
                 onClick={() => onMarkUnavailable(nextItem)}
-                className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold transition-colors text-sm"
+                className="flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
                 title="Mark as unavailable"
               >
-                <AlertCircle className="w-4 h-4" />
-                <span className="hidden sm:inline">Unavailable</span>
+                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden md:inline">N/A</span>
               </button>
             )}
           </div>
@@ -736,9 +778,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
           {onChangeStore && (
             <button
               onClick={() => onChangeStore(nextItem)}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-semibold transition-colors text-sm"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 sm:py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
             >
-              <Store className="w-4 h-4" />
+              <Store className="w-4 h-4 sm:w-5 sm:h-5" />
               <span>Change Store</span>
             </button>
           )}

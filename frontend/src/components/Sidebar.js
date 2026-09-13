@@ -154,13 +154,13 @@ const Sidebar = ({ onAction }) => {
 
       {/* Overlay for mobile */}
       <AnimatePresence>
-        {isOpen && (
+        {isOpen && !isDesktop && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
           />
         )}
       </AnimatePresence>
@@ -168,7 +168,8 @@ const Sidebar = ({ onAction }) => {
       {/* Sidebar */}
       <motion.aside
         initial={{ x: -280 }}
-        animate={{ x: isOpen || isDesktop ? 0 : -280 }}
+        animate={{ x: (isOpen || isDesktop) ? 0 : -280 }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
         className="fixed left-0 top-0 h-screen w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-xl z-40 flex flex-col custom-scrollbar overflow-y-auto"
       >
         {/* Header */}
