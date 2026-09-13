@@ -16,6 +16,8 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
   const [priceSetTime, setPriceSetTime] = useState(null);
   const [predictedAisle, setPredictedAisle] = useState(null);
   const [aisleConfidence, setAisleConfidence] = useState(null);
+  const [showAisleReport, setShowAisleReport] = useState(false);
+  const [customAisle, setCustomAisle] = useState('');
   const checkboxRef = useRef(null);
   const priceTrackingTimerRef = useRef(null);
   const sameAisleIconRefs = useRef({});
@@ -143,6 +145,47 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
   const hideGuide = () => {
     setShowGuide(false);
     localStorage.setItem('lookingForNextGuideShown', 'true');
+  };
+
+  // Report aisle location to MDL system
+  const reportAisle = async (aisleNumber) => {
+    try {
+      const token = localStorage.getItem('token');
+      const storeId = encodeURIComponent(storeName || 'unknown');
+      
+      await fetch('/api/mdl/aisle/report', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          itemName: nextItem.item_name,
+          aisleNumber: parseInt(aisleNumber),
+          storeId: storeId,
+          wasCorrect: predictedAisle ? (parseInt(aisleNumber) === parseInt(predictedAisle)) : null,
+          categoryId: nextItem.category
+        })
+      });
+      
+      // Update the item's aisle field if onPriceUpdate exists (reuse for aisle update)
+      if (onPriceUpdate) {
+        await onPriceUpdate(nextItem, { aisle: aisleNumber });
+      }
+      
+      // Show success message
+      playSound('success');
+      
+      // Close the reporting UI
+      setShowAisleReport(false);
+      setCustomAisle('');
+      
+      // Refresh predicted aisle
+      setPredictedAisle(parseInt(aisleNumber));
+      setAisleConfidence(1.0);
+    } catch (error) {
+      console.error('Error reporting aisle:', error);
+    }
   };
 
   // Get price color based on comparison (future: compare with historical prices)
@@ -457,7 +500,67 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   </div>
                 </div>
               )}
+              
+              {/* Category - Fallback when no aisle or prediction */}
+              {!nextItem.aisle && !predictedAisle && (nextItem.category_name || nextItem.category) && (
+                <div className="flex items-center gap-2 bg-orange-500 px-4 py-2 rounded-xl shadow-md">
+                  <span className="text-base font-bold text-white">
+                    📍 {nextItem.category_name || nextItem.category}
+                  </span>
+                </div>
+              )}
             </div>
+            
+            {/* Aisle Reporting UI */}
+            {showAisleReport && storeName && (
+              <div className="mt-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border-2 border-purple-300 dark:border-purple-700">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-semibold text-purple-900 dark:text-purple-100">
+                    Which aisle did you find this in?
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowAisleReport(false);
+                      setCustomAisle('');
+                    }}
+                    className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                {/* Quick Number Buttons 1-20 */}
+                <div className="grid grid-cols-5 gap-2 mb-3">
+                  {[...Array(20)].map((_, i) => (
+                    <button
+                      key={i + 1}
+                      onClick={() => reportAisle(i + 1)}
+                      className="px-3 py-2 bg-white dark:bg-gray-800 hover:bg-purple-100 dark:hover:bg-purple-900 border-2 border-purple-200 dark:border-purple-700 rounded-lg font-bold text-purple-900 dark:text-purple-100 transition-colors"
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Custom Input */}
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={customAisle}
+                    onChange={(e) => setCustomAisle(e.target.value)}
+                    placeholder="Other aisle number..."
+                    className="flex-1 px-3 py-2 border-2 border-purple-300 dark:border-purple-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  />
+                  <button
+                    onClick={() => customAisle && reportAisle(customAisle)}
+                    disabled={!customAisle}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg font-semibold transition-colors"
+                  >
+                    Submit
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Note Display */}
             {nextItem.notes && (
@@ -773,6 +876,21 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               </button>
             )}
           </div>
+          
+          {/* Aisle Reporting Button - Only show if store is set */}
+          {storeName && !nextItem.aisle && (
+            <button
+              onClick={() => setShowAisleReport(!showAisleReport)}
+              className={`w-full flex items-center justify-center gap-2 px-3 py-2 sm:py-2.5 rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px] ${
+                showAisleReport 
+                  ? 'bg-purple-700 hover:bg-purple-800 text-white' 
+                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+              }`}
+            >
+              <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span>{showAisleReport ? 'Cancel Aisle Report' : 'Found in Aisle'}</span>
+            </button>
+          )}
           
           {/* Tertiary Actions */}
           {onChangeStore && (
