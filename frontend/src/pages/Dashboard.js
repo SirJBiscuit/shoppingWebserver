@@ -8,7 +8,7 @@ import { shoppingAPI, itemsAPI, suggestionsAPI, inventoryAPI, pantryAPI, categor
 import stagingAPI from '../services/stagingAPI';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, CheckCircle,
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight, FileText, Zap
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight, FileText, Zap, MapPin
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
