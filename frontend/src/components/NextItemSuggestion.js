@@ -419,59 +419,16 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               </div>
-
-              {/* Checkbox Button */}
-              <motion.button
-                ref={checkboxRef}
-                onClick={async () => {
-                  setIsChecked(true);
-                  playSound('check');
-                  const priceValue = parseFloat(quickPrice);
-                  if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
-                    await onPriceUpdate(nextItem.id, priceValue);
-                  }
-                  if (onCheck) onCheck();
-                  if (triggerCheckmarkAnimation) triggerCheckmarkAnimation();
-                }}
-                className={`flex items-center justify-center gap-2 sm:gap-3 px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg sm:rounded-xl transition-all flex-shrink-0 shadow-md hover:shadow-lg ${
-                  isChecked
-                    ? 'bg-green-500'
-                    : 'bg-white dark:bg-gray-800 hover:bg-green-50 dark:hover:bg-green-900/20'
-                }`}
-                whileTap={{ scale: 0.95 }}
-              >
-                {isChecked && <Check className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={4} />}
-                <span className={`font-bold text-sm sm:text-base ${
-                  isChecked ? 'text-white' : 'text-gray-700 dark:text-gray-300'
-                }`}>
-                  {isChecked ? 'Found!' : 'Mark Found'}
-                </span>
-              </motion.button>
-            </div>
             
-            {/* Store, Aisle, Category, Price Row - VERY PROMINENT */}
+            {/* Store, Category, Price, Aisle Row - VERY PROMINENT */}
             <div className="flex items-center gap-3 flex-wrap mt-2">
-              {storeName && (
-                <div className="flex items-center gap-2 bg-blue-500 px-4 py-2 rounded-xl shadow-md">
-                  <Store className="w-5 h-5 text-white" />
+              {(nextItem.category_name || nextItem.category) && (
+                <div className="flex items-center gap-2 bg-orange-500 px-4 py-2 rounded-xl shadow-md">
                   <span className="text-base font-bold text-white">
-                    {storeName}
+                    📍 {nextItem.category_name || nextItem.category}
                   </span>
                 </div>
               )}
-              
-              {nextItem.aisle && (
-                <div className="flex items-center gap-2 bg-purple-500 px-4 py-2 rounded-xl shadow-md">
-                  <MapPin className="w-5 h-5 text-white" />
-                  <div className="flex flex-col">
-                    <span className="text-xs text-purple-100 leading-none">Aisle</span>
-                    <span className="text-lg font-bold text-white leading-tight">
-                      {nextItem.aisle}
-                    </span>
-                  </div>
-                </div>
-              )}
-              
               {nextItem.price && (
                 <div className="flex items-center gap-2 bg-green-500 px-4 py-2 rounded-xl shadow-md">
                   <DollarSign className="w-5 h-5 text-white" />
@@ -485,8 +442,17 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   </div>
                 </div>
               )}
-              
-              {/* Most Likely Aisle - Only show when we have a predicted aisle number from MDL */}
+              {nextItem.aisle && (
+                <div className="flex items-center gap-2 bg-purple-500 px-4 py-2 rounded-xl shadow-md">
+                  <MapPin className="w-5 h-5 text-white" />
+                  <div className="flex flex-col">
+                    <span className="text-xs text-purple-100 leading-none">Aisle</span>
+                    <span className="text-lg font-bold text-white leading-tight">
+                      {nextItem.aisle}
+                    </span>
+                  </div>
+                </div>
+              )}
               {!nextItem.aisle && predictedAisle && (
                 <div className="flex items-center gap-2 bg-amber-500 px-4 py-2 rounded-xl shadow-md">
                   <MapPin className="w-5 h-5 text-white" />
@@ -500,14 +466,47 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   </div>
                 </div>
               )}
+            </div>
+            
+            {/* Giant Mark Found Button + Found in Aisle */}
+            <div className="mt-4 flex gap-2">
+              <motion.button
+                onClick={async () => {
+                  setIsChecked(true);
+                  playSound('check');
+                  const priceValue = parseFloat(quickPrice);
+                  if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
+                    await onPriceUpdate(nextItem.id, priceValue);
+                  }
+                  if (onCheck) onCheck();
+                  if (triggerCheckmarkAnimation) triggerCheckmarkAnimation();
+                }}
+                whileTap={{ scale: 0.95 }}
+                className={`flex-1 py-4 rounded-xl font-bold text-lg transition-all shadow-lg ${
+                  isChecked
+                    ? 'bg-green-500 hover:bg-green-600 text-white'
+                    : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white'
+                }`}
+              >
+                <span className={`flex items-center justify-center gap-2 ${
+                  isChecked ? 'text-white' : 'text-gray-700 dark:text-gray-300'
+                }`}>
+                  {isChecked ? 'Found!' : 'Mark Found'}
+                </span>
+              </motion.button>
               
-              {/* Category - Fallback when no aisle or prediction */}
-              {!nextItem.aisle && !predictedAisle && (nextItem.category_name || nextItem.category) && (
-                <div className="flex items-center gap-2 bg-orange-500 px-4 py-2 rounded-xl shadow-md">
-                  <span className="text-base font-bold text-white">
-                    📍 {nextItem.category_name || nextItem.category}
-                  </span>
-                </div>
+              {/* Found in Aisle Button - Next to Mark Found */}
+              {storeName && !nextItem.aisle && (
+                <button
+                  onClick={() => setShowAisleReport(!showAisleReport)}
+                  className={`px-4 py-4 rounded-xl font-bold text-sm transition-all shadow-lg whitespace-nowrap ${
+                    showAisleReport 
+                      ? 'bg-purple-700 hover:bg-purple-800 text-white' 
+                      : 'bg-purple-600 hover:bg-purple-700 text-white'
+                  }`}
+                >
+                  <MapPin className="w-5 h-5 mx-auto" />
+                </button>
               )}
             </div>
             
@@ -646,24 +645,26 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                         className="flex-1 text-3xl font-bold bg-transparent border-none outline-none text-blue-600 dark:text-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </div>
-                    <button
-                      onClick={() => {
-                        const priceValue = quickPrice ? parseFloat(quickPrice) : 0;
-                        if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
-                          const formattedPrice = priceValue.toFixed(2);
-                          console.log(`Manual save: $${formattedPrice} for ${nextItem.item_name}`);
-                          onPriceUpdate(nextItem.id, parseFloat(formattedPrice), false); // false = manual save
-                          setQuickPrice(formattedPrice); // Update display to show formatted price
-                          setPriceSetTime(Date.now()); // Start auto-save timer
-                        }
-                      }}
-                      className="w-full py-2 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-colors"
-                    >
-                      ✓ Save Price
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          const priceValue = quickPrice ? parseFloat(quickPrice) : 0;
+                          if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
+                            const formattedPrice = priceValue.toFixed(2);
+                            console.log(`Manual save: $${formattedPrice} for ${nextItem.item_name}`);
+                            onPriceUpdate(nextItem.id, parseFloat(formattedPrice), false);
+                            setQuickPrice(formattedPrice);
+                            setPriceSetTime(Date.now());
+                          }
+                        }}
+                        className="flex-1 py-2 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-colors"
+                      >
+                        ✓ Save Price
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <div>
+                  <div className="flex items-center justify-between gap-3">
                     <div className="flex items-baseline gap-3">
                       <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
                         ${quickPrice || '0.00'}
@@ -674,12 +675,21 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                         </div>
                       )}
                     </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded">
-                        Buying {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || 'item'}{(nextItem.quantity || 1) > 1 ? 's' : ''}
-                      </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-500">• Click to edit</span>
-                    </div>
+                    <button
+                      onClick={() => {
+                        const priceValue = quickPrice ? parseFloat(quickPrice) : 0;
+                        if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
+                          const formattedPrice = priceValue.toFixed(2);
+                          console.log(`Manual save: $${formattedPrice} for ${nextItem.item_name}`);
+                          onPriceUpdate(nextItem.id, parseFloat(formattedPrice), false);
+                          setQuickPrice(formattedPrice);
+                          setPriceSetTime(Date.now());
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
+                    >
+                      ✓ Save
+                    </button>
                   </div>
                 )}
               </div>
@@ -877,20 +887,6 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             )}
           </div>
           
-          {/* Aisle Reporting Button - Only show if store is set */}
-          {storeName && !nextItem.aisle && (
-            <button
-              onClick={() => setShowAisleReport(!showAisleReport)}
-              className={`w-full flex items-center justify-center gap-2 px-3 py-2 sm:py-2.5 rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px] ${
-                showAisleReport 
-                  ? 'bg-purple-700 hover:bg-purple-800 text-white' 
-                  : 'bg-purple-600 hover:bg-purple-700 text-white'
-              }`}
-            >
-              <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>{showAisleReport ? 'Cancel Aisle Report' : 'Found in Aisle'}</span>
-            </button>
-          )}
           
           {/* Tertiary Actions */}
           {onChangeStore && (
