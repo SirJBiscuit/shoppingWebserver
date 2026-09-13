@@ -389,14 +389,14 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 </div>
               )}
               
-              {/* Most Likely Aisle - Show even if no aisle set */}
-              {!nextItem.aisle && (nextItem.category_name || nextItem.category) && (
+              {/* Most Likely Aisle - Show predicted aisle if available */}
+              {!nextItem.aisle && nextItem.predicted_aisle && (
                 <div className="flex items-center gap-2 bg-amber-500 px-4 py-2 rounded-xl shadow-md">
                   <MapPin className="w-5 h-5 text-white" />
                   <div className="flex flex-col">
                     <span className="text-xs text-amber-100 leading-none">Most Likely Aisle</span>
-                    <span className="text-sm font-semibold text-white leading-tight">
-                      {nextItem.category_name || nextItem.category}
+                    <span className="text-lg font-bold text-white leading-tight">
+                      Aisle {nextItem.predicted_aisle}
                     </span>
                   </div>
                 </div>
