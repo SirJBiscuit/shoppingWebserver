@@ -693,7 +693,6 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   </div>
                 )}
               </div>
-
             </div>
           )}
           
