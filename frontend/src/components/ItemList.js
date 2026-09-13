@@ -351,7 +351,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
       {/* Item Card */}
               <div
                 ref={itemRef}
-                id={`item-${item.id}`}
+                id={`item-${item.ids ? item.ids[0] : item.id}`}
                 key={item.id}
                 className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
                   item.is_checked

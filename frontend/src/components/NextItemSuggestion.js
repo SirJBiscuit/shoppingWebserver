@@ -11,7 +11,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
   });
   const [showHelp, setShowHelp] = useState(false);
   const [isChecked, setIsChecked] = useState(nextItem?.is_checked || false);
-  const [quickPrice, setQuickPrice] = useState(nextItem?.price || '');
+  const [quickPrice, setQuickPrice] = useState(nextItem?.price ? nextItem.price.toString() : '');
   const [showPriceInput, setShowPriceInput] = useState(false);
   const [priceSetTime, setPriceSetTime] = useState(null);
   const checkboxRef = useRef(null);
@@ -22,7 +22,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
   // Update local state when nextItem changes
   React.useEffect(() => {
     setIsChecked(nextItem?.is_checked || false);
-    setQuickPrice(nextItem?.price || '');
+    setQuickPrice(nextItem?.price ? nextItem.price.toString() : '');
     setShowPriceInput(false);
     setPriceSetTime(null);
     // Clear any pending price tracking timer
@@ -321,8 +321,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 onClick={async () => {
                   setIsChecked(true);
                   playSound('check');
-                  if (quickPrice && onPriceUpdate) {
-                    await onPriceUpdate(nextItem.id, parseFloat(quickPrice));
+                  const priceValue = parseFloat(quickPrice);
+                  if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
+                    await onPriceUpdate(nextItem.id, priceValue);
                   }
                   if (onCheck) onCheck();
                   if (triggerCheckmarkAnimation) triggerCheckmarkAnimation();
@@ -379,10 +380,23 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   <DollarSign className="w-5 h-5 text-white" />
                   <div className="flex flex-col">
                     <span className="text-xs text-green-100 leading-none">
-                      Default Price {nextItem.aisle && `• Aisle ${nextItem.aisle}`}
+                      Default Price
                     </span>
                     <span className={`text-lg font-bold text-white leading-tight`}>
                       ${(nextItem.price * (nextItem.quantity || 1)).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Most Likely Aisle - Show even if no aisle set */}
+              {!nextItem.aisle && (nextItem.category_name || nextItem.category) && (
+                <div className="flex items-center gap-2 bg-amber-500 px-4 py-2 rounded-xl shadow-md">
+                  <MapPin className="w-5 h-5 text-white" />
+                  <div className="flex flex-col">
+                    <span className="text-xs text-amber-100 leading-none">Most Likely Aisle</span>
+                    <span className="text-sm font-semibold text-white leading-tight">
+                      {nextItem.category_name || nextItem.category}
                     </span>
                   </div>
                 </div>
@@ -476,9 +490,10 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     <button
                       onClick={() => {
                         setShowPriceInput(false);
-                        if (quickPrice && onPriceUpdate) {
+                        const priceValue = parseFloat(quickPrice);
+                        if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
                           console.log(`Manual save: $${quickPrice} for ${nextItem.item_name}`);
-                          onPriceUpdate(nextItem.id, parseFloat(quickPrice), false); // false = manual save
+                          onPriceUpdate(nextItem.id, priceValue, false); // false = manual save
                           setPriceSetTime(Date.now()); // Start auto-save timer
                         }
                       }}
@@ -646,7 +661,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 title="Skip to next item"
               >
                 <SkipForward className="w-4 h-4" />
-                <span className="hidden sm:inline">Skip</span>
+                <span className="hidden sm:inline">Skip to Next</span>
               </button>
             )}
           </div>

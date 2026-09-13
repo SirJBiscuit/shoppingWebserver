@@ -20,6 +20,22 @@ const Sidebar = ({ onAction }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [expiringCount, setExpiringCount] = useState(0);
   const [versionInfo, setVersionInfo] = useState({ version: '...', updateAvailable: false });
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      const desktop = window.innerWidth >= 1024;
+      setIsDesktop(desktop);
+      // Close sidebar on mobile when resizing
+      if (!desktop && isOpen) {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isOpen]);
 
   // Debug: Log user object
   useEffect(() => {
@@ -152,7 +168,7 @@ const Sidebar = ({ onAction }) => {
       {/* Sidebar */}
       <motion.aside
         initial={{ x: -280 }}
-        animate={{ x: isOpen || window.innerWidth >= 1024 ? 0 : -280 }}
+        animate={{ x: isOpen || isDesktop ? 0 : -280 }}
         className="fixed left-0 top-0 h-screen w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-xl z-40 flex flex-col custom-scrollbar overflow-y-auto"
       >
         {/* Header */}
@@ -242,7 +258,14 @@ const Sidebar = ({ onAction }) => {
               .map((item) => (
               <button
                 key={item.path || item.action}
-                onClick={() => item.action ? onAction?.(item.action) : handleNavClick(item.path)}
+                onClick={() => {
+                  if (item.action) {
+                    onAction?.(item.action);
+                    setIsOpen(false);
+                  } else {
+                    handleNavClick(item.path);
+                  }
+                }}
                 className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
                   item.adminSpecial
                     ? isActive(item.path)

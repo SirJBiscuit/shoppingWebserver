@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronRight, ChevronLeft, Check, Zap, BookOpen, Plus, ShoppingCart, Package, ChefHat, Settings as SettingsIcon, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const Onboarding = ({ userId, forceOpen }) => {
+const Onboarding = ({ userId, forceOpen, onClose }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [tutorialMode, setTutorialMode] = useState(null); // 'quick' or 'full'
   const [currentStep, setCurrentStep] = useState(0);
@@ -313,6 +313,8 @@ const Onboarding = ({ userId, forceOpen }) => {
     document.querySelectorAll('.tutorial-highlight').forEach(el => {
       el.classList.remove('tutorial-highlight');
     });
+    // Notify parent component
+    if (onClose) onClose();
   };
 
   const handleSkip = () => {
@@ -337,6 +339,7 @@ const Onboarding = ({ userId, forceOpen }) => {
       setTimeout(() => {
         setShowSkipMessage(false);
         setIsOpen(false);
+        if (onClose) onClose();
       }, 5000);
     } else {
       // Already seen skip message before - just close
@@ -348,12 +351,15 @@ const Onboarding = ({ userId, forceOpen }) => {
       document.querySelectorAll('.tutorial-highlight').forEach(el => {
         el.classList.remove('tutorial-highlight');
       });
+      // Notify parent component
+      if (onClose) onClose();
     }
   };
 
   const closeSkipMessage = () => {
     setShowSkipMessage(false);
     setIsOpen(false);
+    if (onClose) onClose();
   };
 
   const selectMode = (mode) => {

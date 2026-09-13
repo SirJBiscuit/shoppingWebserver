@@ -12,13 +12,19 @@ export const useOptimization = () => {
 
 export const OptimizationProvider = ({ children }) => {
   const [optimizationMode, setOptimizationMode] = useState(() => {
-    // Check localStorage and device type
+    // Check localStorage first - user preference takes priority
     const saved = localStorage.getItem('optimizationMode');
     if (saved !== null) {
       return saved === 'true';
     }
-    // Auto-enable for tablets/mobile by default
-    return /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
+    // Auto-enable for tablets/mobile ONLY on first visit
+    const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      // Set localStorage so this only happens once
+      localStorage.setItem('optimizationMode', 'true');
+      return true;
+    }
+    return false;
   });
 
   useEffect(() => {

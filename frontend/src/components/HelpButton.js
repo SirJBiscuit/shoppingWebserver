@@ -9,6 +9,10 @@ const HelpButton = ({ userId }) => {
     setShowTutorial(true);
   };
 
+  const closeTutorial = () => {
+    setShowTutorial(false);
+  };
+
   return (
     <>
       <button
@@ -26,6 +30,7 @@ const HelpButton = ({ userId }) => {
         <Onboarding 
           userId={userId} 
           forceOpen={showTutorial}
+          onClose={closeTutorial}
         />
       )}
     </>

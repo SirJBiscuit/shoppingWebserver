@@ -1334,12 +1334,14 @@ const Dashboard = () => {
     <PageTransition>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
         {/* Sidebar Navigation */}
-        <Sidebar onAction={(action) => {
-          if (action === 'stores') setShowStoreManager(true);
-          else if (action === 'voice') setShowVoice(true);
-          else if (action === 'scan') setShowScanner(true);
-          else if (action === 'share') setShowShare(true);
-        }} />
+        <div data-tutorial="sidebar">
+          <Sidebar onAction={(action) => {
+            if (action === 'stores') setShowStoreManager(true);
+            else if (action === 'voice') setShowVoice(true);
+            else if (action === 'scan') setShowScanner(true);
+            else if (action === 'share') setShowShare(true);
+          }} />
+        </div>
 
         {/* Main Content */}
         <div className="flex-1 min-w-0">
@@ -1366,7 +1368,7 @@ const Dashboard = () => {
             </div>
 
             {/* Right Side - Help, Optimization Toggle, Notifications and Logout */}
-            <div className="flex items-center space-x-2 sm:space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4" data-tutorial="top-toolbar">
               {/* Help Button */}
               <HelpButton userId={user?.id || user?.username} />
               
@@ -1524,6 +1526,7 @@ const Dashboard = () => {
                     onClick={() => createNewList()}
                     className="btn-secondary text-sm flex items-center"
                     title="Create a new shopping list"
+                    data-tutorial="new-list-button"
                   >
                     <Plus className="w-4 h-4 mr-1" />
                     New List
@@ -1625,6 +1628,7 @@ const Dashboard = () => {
                     )}
                     <AutocompleteInput
                       value={newItemName}
+                      data-tutorial="add-item-input"
                       onChange={(e) => {
                       const value = e.target.value;
                       setNewItemName(value);
@@ -1861,7 +1865,8 @@ const Dashboard = () => {
                 const nextItem = getNextItem();
                 const sameAisleItems = nextItem ? getSameAisleItems(nextItem) : [];
                 return nextItem ? (
-                  <NextItemSuggestion 
+                  <div data-tutorial="looking-for-next">
+                    <NextItemSuggestion 
                     nextItem={nextItem} 
                     sameAisleItems={sameAisleItems}
                     onCheck={(item) => handleCheckItem(item || nextItem)}
@@ -1884,6 +1889,7 @@ const Dashboard = () => {
                     triggerFlyingAnimation={triggerFlyingAnimation}
                     onPriceUpdate={handlePriceUpdate}
                   />
+                  </div>
                 ) : null;
               })()}
               
