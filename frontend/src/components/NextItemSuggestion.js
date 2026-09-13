@@ -299,16 +299,28 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               {/* Quantity Controls */}
               <div className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg sm:rounded-xl px-2 sm:px-3 py-1.5 sm:py-2 shadow-md">
                 <button
-                  onClick={() => onQuantityChange && onQuantityChange(nextItem, -1)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (onQuantityChange) {
+                      onQuantityChange(nextItem, -1);
+                    }
+                  }}
                   className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex-shrink-0"
                 >
                   <Minus className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
-                <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-white min-w-[50px] sm:min-w-[70px] text-center">
+                <span className="text-base sm:text-lg font-bold text-gray-900 dark:text-white min-w-[60px] sm:min-w-[80px] text-center">
                   {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || ''}
                 </span>
                 <button
-                  onClick={() => onQuantityChange && onQuantityChange(nextItem, 1)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (onQuantityChange) {
+                      onQuantityChange(nextItem, 1);
+                    }
+                  }}
                   className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex-shrink-0"
                 >
                   <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -389,14 +401,16 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 </div>
               )}
               
-              {/* Most Likely Aisle - Show predicted aisle if available */}
-              {!nextItem.aisle && nextItem.predicted_aisle && (
+              {/* Most Likely Aisle - Show predicted aisle if available, otherwise show category */}
+              {!nextItem.aisle && (nextItem.predicted_aisle || nextItem.category_name || nextItem.category) && (
                 <div className="flex items-center gap-2 bg-amber-500 px-4 py-2 rounded-xl shadow-md">
                   <MapPin className="w-5 h-5 text-white" />
                   <div className="flex flex-col">
-                    <span className="text-xs text-amber-100 leading-none">Most Likely Aisle</span>
+                    <span className="text-xs text-amber-100 leading-none">
+                      {nextItem.predicted_aisle ? 'Most Likely Aisle' : 'Category'}
+                    </span>
                     <span className="text-lg font-bold text-white leading-tight">
-                      Aisle {nextItem.predicted_aisle}
+                      {nextItem.predicted_aisle ? `Aisle ${nextItem.predicted_aisle}` : (nextItem.category_name || nextItem.category)}
                     </span>
                   </div>
                 </div>
@@ -489,11 +503,12 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     </div>
                     <button
                       onClick={() => {
-                        setShowPriceInput(false);
-                        const priceValue = parseFloat(quickPrice);
+                        const priceValue = quickPrice ? parseFloat(quickPrice) : 0;
                         if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
-                          console.log(`Manual save: $${quickPrice} for ${nextItem.item_name}`);
-                          onPriceUpdate(nextItem.id, priceValue, false); // false = manual save
+                          const formattedPrice = priceValue.toFixed(2);
+                          console.log(`Manual save: $${formattedPrice} for ${nextItem.item_name}`);
+                          onPriceUpdate(nextItem.id, parseFloat(formattedPrice), false); // false = manual save
+                          setQuickPrice(formattedPrice); // Update display to show formatted price
                           setPriceSetTime(Date.now()); // Start auto-save timer
                         }
                       }}

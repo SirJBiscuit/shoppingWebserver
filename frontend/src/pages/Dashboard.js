@@ -606,13 +606,27 @@ const Dashboard = () => {
     if (deletedItemsHistory.length > 0) {
       const lastDeleted = deletedItemsHistory[deletedItemsHistory.length - 1];
       try {
-        // Re-add the item to the list
-        await shoppingAPI.addItem(activeList.id, lastDeleted);
+        // Re-add the item to the list with all fields
+        const itemToRestore = {
+          item_name: lastDeleted.item_name,
+          quantity: lastDeleted.quantity || 1,
+          unit: lastDeleted.unit || '',
+          category: lastDeleted.category || null,
+          category_name: lastDeleted.category_name || null,
+          item_icon: lastDeleted.item_icon || null,
+          notes: lastDeleted.notes || null,
+          price: lastDeleted.price || null,
+          aisle: lastDeleted.aisle || null,
+          is_checked: false
+        };
+        
+        await shoppingAPI.addItem(activeList.id, itemToRestore);
         await loadListItems(activeList.id);
         setDeletedItemsHistory(prev => prev.slice(0, -1));
         success(`${lastDeleted.item_name} restored!`);
       } catch (err) {
         console.error('Error restoring item:', err);
+        console.error('Item data:', lastDeleted);
         error('Failed to restore item');
       }
     }
@@ -1470,49 +1484,91 @@ const Dashboard = () => {
                 {/* Store Info */}
                 {activeList && (
                   <div className="mb-4">
-                    <div className="mt-2 flex items-center text-sm text-gray-600 dark:text-gray-400">
-                      <Store className="w-4 h-4 mr-2" />
+                    {/* Store Location Section - Redesigned */}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
                       {activeList.store_name ? (
                         <>
-                          <span className="font-medium">Shopping at: </span>
-                          <span className="ml-1 text-blue-600 dark:text-blue-400 font-semibold">{activeList.store_name}</span>
+                          {/* Current Store Badge */}
+                          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                            <Store className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                            <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                              {activeList.store_name}
+                            </span>
+                          </div>
+                          
+                          {/* Change Store Button */}
                           <button
                             onClick={() => {
                               setNewListName(activeList.name);
                               setNewListStore(activeList.store_name || '');
                               setEditingListName(true);
                             }}
-                            className="ml-2 text-xs text-gray-500 hover:text-primary-600 dark:hover:text-primary-400"
+                            className="px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors flex items-center gap-1"
                           >
-                            (change)
+                            <Edit2 className="w-3.5 h-3.5" />
+                            Change
                           </button>
+                          
+                          {/* Configure Aisles Button */}
                           <button
                             onClick={() => setShowAisleConfig(true)}
-                            className="ml-2 text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium"
+                            className="px-3 py-2 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded-lg text-sm font-medium text-purple-700 dark:text-purple-300 transition-colors flex items-center gap-1"
                           >
-                            ⚙️ Configure Aisles
+                            <MapPin className="w-3.5 h-3.5" />
+                            Configure Aisles
                           </button>
+                          
+                          {/* My Stores Button - For MDL Integration */}
+                          <button
+                            onClick={() => {
+                              // TODO: Open My Stores modal for MDL integration
+                              info('My Stores feature coming soon! This will show your saved stores and allow quick switching.');
+                            }}
+                            className="px-3 py-2 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg text-sm font-medium text-green-700 dark:text-green-300 transition-colors flex items-center gap-1"
+                            title="View and manage your saved stores"
+                          >
+                            <Store className="w-3.5 h-3.5" />
+                            My Stores
+                          </button>
+                          
                           {activeList.list_type && activeList.list_type !== 'general' && (
-                            <span className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full">
+                            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium">
                               {activeList.list_type}
                             </span>
                           )}
                         </>
                       ) : (
-                        <button
-                          onClick={() => {
-                            setNewListName(activeList.name);
-                            setNewListStore('');
-                            setEditingListName(true);
-                          }}
-                          className="text-primary-600 dark:text-primary-400 hover:underline font-medium"
-                        >
-                          + Set store location
-                        </button>
+                        <>
+                          {/* Set Store Location Button */}
+                          <button
+                            onClick={() => {
+                              setNewListName(activeList.name);
+                              setNewListStore('');
+                              setEditingListName(true);
+                            }}
+                            className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
+                          >
+                            <Store className="w-4 h-4" />
+                            Set Store Location
+                          </button>
+                          
+                          {/* My Stores Button - Also available when no store set */}
+                          <button
+                            onClick={() => {
+                              // TODO: Open My Stores modal for MDL integration
+                              info('My Stores feature coming soon! Save your favorite stores for quick access.');
+                            }}
+                            className="px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors flex items-center gap-1"
+                            title="View and manage your saved stores"
+                          >
+                            <Store className="w-3.5 h-3.5" />
+                            My Stores
+                          </button>
+                        </>
                       )}
                     </div>
                     {activeList.notes && (
-                      <div className="mt-1 text-sm text-gray-500 dark:text-gray-400 italic">
+                      <div className="mt-2 text-sm text-gray-500 dark:text-gray-400 italic">
                         {activeList.notes}
                       </div>
                     )}
