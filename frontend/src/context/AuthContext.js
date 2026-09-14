@@ -56,15 +56,19 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    // Preserve lastActiveListId so user returns to same list after login
+    // Preserve user preferences across logout
     const lastListId = localStorage.getItem('lastActiveListId');
+    const adminToolbarHidden = localStorage.getItem('adminToolbarHidden');
     
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     
-    // Restore lastActiveListId after clearing storage
+    // Restore preserved preferences
     if (lastListId) {
       localStorage.setItem('lastActiveListId', lastListId);
+    }
+    if (adminToolbarHidden) {
+      localStorage.setItem('adminToolbarHidden', adminToolbarHidden);
     }
     
     setUser(null);
