@@ -168,9 +168,11 @@ const Sidebar = ({ onAction }) => {
       {/* Sidebar */}
       <motion.aside
         initial={false}
-        animate={{ x: (isOpen || isDesktop) ? 0 : -280 }}
+        animate={{ x: (isOpen || isDesktop) ? 0 : -288 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="fixed left-0 top-0 h-screen w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-xl z-[52] flex flex-col custom-scrollbar overflow-y-auto"
+        className={`fixed left-0 top-0 h-screen w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-xl z-[52] flex flex-col custom-scrollbar overflow-y-auto ${
+          !isOpen && !isDesktop ? 'pointer-events-none' : ''
+        }`}
       >
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
