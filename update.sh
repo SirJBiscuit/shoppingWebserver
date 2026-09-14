@@ -46,13 +46,13 @@ fi
 echo -e "${CYAN}Step 3: Updating backend dependencies...${NC}"
 cd backend
 npm install
-npm audit fix --force || true
+npm audit fix || true
 cd ..
 
 echo -e "${CYAN}Step 4: Updating frontend dependencies...${NC}"
 cd frontend
 npm install
-npm audit fix --force || true
+npm audit fix || true
 
 echo -e "${CYAN}Step 5: Building optimized frontend...${NC}"
 npm run build
