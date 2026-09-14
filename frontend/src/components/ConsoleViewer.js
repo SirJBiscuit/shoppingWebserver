@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Terminal, X, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Terminal, X, Trash2, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const ConsoleViewer = () => {
@@ -71,6 +71,38 @@ const ConsoleViewer = () => {
     setLogs([]);
   };
 
+  const downloadLogs = () => {
+    // Create text content from logs
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const content = logs.map(log => 
+      `[${log.timestamp}] ${log.type.toUpperCase()}: ${log.message}`
+    ).join('\n\n');
+    
+    // Add header with device info
+    const header = `Console Logs Export
+Generated: ${new Date().toLocaleString()}
+User Agent: ${navigator.userAgent}
+Screen Size: ${window.innerWidth}x${window.innerHeight}
+Total Logs: ${logs.length}
+
+${'='.repeat(80)}
+
+`;
+    
+    const fullContent = header + content;
+    
+    // Create blob and download
+    const blob = new Blob([fullContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `console-logs-${timestamp}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const getLogColor = (type) => {
     switch (type) {
       case 'error':
@@ -133,6 +165,14 @@ const ConsoleViewer = () => {
             </span>
           </div>
           <div className="flex items-center space-x-2">
+            <button
+              onClick={downloadLogs}
+              disabled={logs.length === 0}
+              className="p-1 hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Download logs as text file"
+            >
+              <Download className="w-4 h-4" />
+            </button>
             <button
               onClick={() => setIsMinimized(!isMinimized)}
               className="p-1 hover:bg-gray-700 rounded transition-colors"
