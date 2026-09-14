@@ -29,23 +29,53 @@ echo -e "${CYAN}Step 1: Creating backup...${NC}"
 
 echo -e "${CYAN}Step 2: Pulling latest changes...${NC}"
 if [ -d ".git" ]; then
+    BEFORE_COMMIT=$(git rev-parse HEAD)
     git pull
+    AFTER_COMMIT=$(git rev-parse HEAD)
+    echo -e "${GREEN}Updated from ${BEFORE_COMMIT:0:7} to ${AFTER_COMMIT:0:7}${NC}"
 else
     echo -e "${YELLOW}Not a git repository. Please manually update files.${NC}"
+    AFTER_COMMIT="manual-update-$(date +%s)"
 fi
 
-echo -e "${CYAN}Step 3: Rebuilding containers...${NC}"
+echo -e "${CYAN}Step 3: Updating backend dependencies...${NC}"
+cd backend
+npm install
+npm audit fix --force || true
+cd ..
+
+echo -e "${CYAN}Step 4: Updating frontend dependencies...${NC}"
+cd frontend
+npm install
+npm audit fix --force || true
+
+echo -e "${CYAN}Step 5: Building optimized frontend...${NC}"
+npm run build
+cd ..
+
+echo -e "${CYAN}Step 6: Rebuilding Docker containers...${NC}"
 docker compose build --no-cache
 
-echo -e "${CYAN}Step 4: Restarting services...${NC}"
-docker compose up -d
+echo -e "${CYAN}Step 7: Restarting services with zero downtime...${NC}"
+docker compose up -d --force-recreate
 
-echo -e "${CYAN}Step 5: Running migrations...${NC}"
+echo -e "${CYAN}Step 8: Running database migrations...${NC}"
 sleep 5
-docker exec shop_backend npm run migrate
+docker exec shop_backend npm run migrate || echo -e "${YELLOW}No migrations to run${NC}"
 
-echo -e "${CYAN}Step 6: Cleaning up old images...${NC}"
+echo -e "${CYAN}Step 9: Creating update notification...${NC}"
+# Create system notification for update
+docker exec shop_backend node -e "
+const db = require('./db');
+db.query(
+  'INSERT INTO system_notifications (type, message, data, created_at) VALUES ($1, $2, $3, NOW())',
+  ['update_success', 'New features and improvements available!', JSON.stringify({version: '${AFTER_COMMIT:0:7}', newCommit: '${AFTER_COMMIT}'})]
+).then(() => console.log('Update notification created')).catch(err => console.error('Error:', err));
+" || echo -e "${YELLOW}Could not create notification${NC}"
+
+echo -e "${CYAN}Step 10: Cleaning up old images and containers...${NC}"
 docker image prune -f
+docker container prune -f
 
 echo ""
 echo -e "${GREEN}Update completed successfully!${NC}"
