@@ -49,6 +49,7 @@ import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils
 import { getAutocompleteSuggestions } from '../utils/autocomplete';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import RichNoteEditor from '../components/RichNoteEditor';
+import ConsoleViewer from '../components/ConsoleViewer';
 import useScrollSound from '../hooks/useScrollSound';
 import { playSound } from '../utils/soundEffects';
 
@@ -1399,6 +1400,9 @@ const Dashboard = () => {
             <div className="flex items-center space-x-2 sm:space-x-4" data-tutorial="top-toolbar">
               {/* Help Button */}
               <HelpButton userId={user?.id || user?.username} />
+              
+              {/* Console Viewer (for debugging on tablets) */}
+              <ConsoleViewer />
               
               {/* Optimization Mode Toggle */}
               <button

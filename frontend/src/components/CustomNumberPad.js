@@ -194,7 +194,10 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, dev
         </div>
 
         {/* Number Pad - 3x4 Grid */}
-        <div className="grid grid-cols-3 gap-2 mb-2">
+        <div className="grid grid-cols-3 gap-2 mb-2 border-4 border-red-500 p-2">
+          <div className="col-span-3 text-center text-xs bg-red-100 dark:bg-red-900 p-1 mb-1">
+            DEBUG: 3-COLUMN GRID (grid-cols-3)
+          </div>
           {/* Row 1: 7, 8, 9 */}
           <NumberButton number="7" onClick={() => handleNumberClick('7')} />
           <NumberButton number="8" onClick={() => handleNumberClick('8')} />

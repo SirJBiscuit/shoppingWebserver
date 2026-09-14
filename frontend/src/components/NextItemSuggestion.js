@@ -690,6 +690,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     {/* Mobile: Bottom sheet (no backdrop) */}
                     {deviceType === 'mobile' && (
                       <div className="fixed bottom-0 left-0 right-0 z-[101]">
+                        {console.log('🟢 Rendering MOBILE number pad')}
                         <CustomNumberPad
                           value={quickPrice}
                           onChange={setQuickPrice}
@@ -721,6 +722,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     {/* Tablet: Centered widget - uses CustomNumberPad with device="tablet" */}
                     {deviceType === 'tablet' && (
                       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101]">
+                        {console.log('🔵 Rendering TABLET number pad with device="tablet"')}
                         <CustomNumberPad
                           value={quickPrice}
                           onChange={setQuickPrice}
@@ -752,6 +754,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     {/* Desktop: Draggable widget */}
                     {deviceType === 'desktop' && (
                       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101]">
+                        {console.log('🟣 Rendering DESKTOP number pad')}
                         <CustomNumberPad
                           value={quickPrice}
                           onChange={setQuickPrice}
