@@ -240,9 +240,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
       )}
 
       {/* Main Content */}
-      <div className="p-4">
+      <div className="p-4 space-y-4">
         {/* Header Row */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="bg-green-500 text-white rounded-full p-1.5">
               <ArrowRight className="w-4 h-4" />
@@ -275,7 +275,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
 
         {/* Store Name */}
         {storeName && (
-          <div className="mb-3 flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-sm">
             <span className="text-gray-600 dark:text-gray-400">Shopping at:</span>
             <span className="font-semibold text-blue-600 dark:text-blue-400">🏪 {storeName}</span>
           </div>
@@ -289,7 +289,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.3 }}
-              className="mb-4 overflow-hidden"
+              className="overflow-hidden"
             >
               <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg p-4">
                 <h4 className="font-bold text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
@@ -377,7 +377,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
         </AnimatePresence>
 
         {/* Item Info Row - Mobile Responsive */}
-        <div className="flex items-start gap-3 sm:gap-4 mb-3">
+        <div className="flex items-start gap-3 sm:gap-4">
           {/* Large Icon */}
           <span className="text-5xl sm:text-6xl flex-shrink-0">{nextItem.item_icon || '📦'}</span>
           
@@ -589,7 +589,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
 
         {/* Up Next Preview - Moved here */}
         {peekNextItem && (
-          <div className="mb-3 p-3 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border-2 border-green-300 dark:border-green-700 rounded-lg">
+          <div className="p-3 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border-2 border-green-300 dark:border-green-700 rounded-lg">
             <div className="flex items-center gap-3">
               <span className="text-sm font-semibold text-green-700 dark:text-green-300">Up Next:</span>
               <span className="text-2xl">{peekNextItem.item_icon || '📦'}</span>
