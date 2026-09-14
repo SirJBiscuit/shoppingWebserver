@@ -64,13 +64,25 @@ const ClearCacheButton = () => {
         }
       }
 
-      // 6. Add cache-busting timestamp to force reload
-      const timestamp = Date.now();
-      console.log(`🔄 Cache cleared! Reloading with timestamp: ${timestamp}`);
+      // 6. Force browser to bypass ALL caches
+      console.log('🔄 Cache cleared! Forcing hard reload...');
       
-      // 7. Force hard reload with cache bypass
+      // 7. Multiple strategies to force fresh download:
+      
+      // Strategy 1: Add no-cache meta tag
+      const meta = document.createElement('meta');
+      meta.httpEquiv = 'Cache-Control';
+      meta.content = 'no-cache, no-store, must-revalidate';
+      document.head.appendChild(meta);
+      
+      // Strategy 2: Add timestamp to URL AND use location.replace
+      const timestamp = Date.now();
+      const baseUrl = window.location.href.split('?')[0].split('#')[0];
+      const newUrl = `${baseUrl}?nocache=${timestamp}`;
+      
       setTimeout(() => {
-        window.location.href = window.location.href.split('?')[0] + '?_=' + timestamp;
+        // Use location.replace to force reload without adding to history
+        window.location.replace(newUrl);
       }, 500);
       
     } catch (error) {
