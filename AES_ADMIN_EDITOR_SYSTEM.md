@@ -7,8 +7,8 @@ A powerful visual editor that lets admins customize EVERY aspect of the entire a
 **Phase 1 Focus:** Dashboard (Looking for Next, Shopping List, etc.)
 **Future Expansion:** Sidebar, Recipe Pages, Admin Panel, Settings, etc.
 
-### AI Learning System
-AES tracks all admin changes and learns from them to improve suggestions and auto-fix common issues. Every edit is logged with context so the AI can understand patterns and help make better recommendations.
+### Assistant Algorithm Learning System
+AES tracks all admin changes and learns from them to improve suggestions and auto-fix common issues. Every edit is logged with context so the Assistant Algorithm can understand patterns and help make better recommendations.
 
 ---
 
@@ -1906,7 +1906,7 @@ export const ProductCard = ({ item }) => {
 
 ---
 
-## AI Learning System
+## Assistant Algorithm Learning System
 
 **AES learns from every admin change to improve suggestions and prevent future issues!**
 
@@ -1944,11 +1944,11 @@ Every edit is logged with full context:
 }
 ```
 
-### AI Analysis
+### Assistant Algorithm Analysis
 
 **Pattern Detection:**
 ```javascript
-// AI detects common patterns
+// Assistant Algorithm detects common patterns
 {
   pattern: 'back_button_missing',
   occurrences: 5,
@@ -1960,7 +1960,7 @@ Every edit is logged with full context:
 
 **Conflict Detection:**
 ```javascript
-// AI warns about potential issues
+// Assistant Algorithm warns about potential issues
 {
   warning: 'z-index_conflict',
   severity: 'high',
@@ -1975,7 +1975,7 @@ Every edit is logged with full context:
 
 **Smart Suggestions:**
 ```javascript
-// AI suggests improvements
+// Assistant Algorithm suggests improvements
 {
   suggestion: 'add_loading_state',
   confidence: 0.87,
@@ -2015,7 +2015,7 @@ CREATE TABLE aes_patterns (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Track AI suggestions
+-- Track Assistant Algorithm suggestions
 CREATE TABLE aes_suggestions (
   id SERIAL PRIMARY KEY,
   widget_id VARCHAR(100),
@@ -2027,63 +2027,134 @@ CREATE TABLE aes_suggestions (
 );
 ```
 
-### AI Features
+### Assistant Algorithm Features
 
-**1. Auto-Fix Common Issues:**
-- Missing back buttons
+**Philosophy:** Invisible when everything is good, helpful when needed. No separate panels or buttons - integrated into the workflow.
+
+**1. Silent Auto-Fix (Critical Issues)**
+```javascript
+// Automatically fix obvious issues when saving
+onSave = () => {
+  const issues = detectIssues(layout);
+  
+  // Auto-fix safe issues silently
+  issues.forEach(issue => {
+    if (issue.severity === 'critical' && issue.autoFixSafe) {
+      applyFix(issue);
+      logFix(issue); // Track for learning
+    }
+  });
+  
+  // Show toast for what was fixed
+  if (fixedIssues.length > 0) {
+    toast.success(`✓ Auto-fixed ${fixedIssues.length} issues`);
+  }
+};
+```
+
+**Auto-fixes:**
 - Z-index conflicts
+- Missing overlay layers
 - Broken responsive layouts
+- Invalid CSS values
+- Accessibility violations
+
+**2. Inline Warnings (On Widget)**
+```jsx
+{/* Show warning directly on the problematic widget */}
+<Widget className={hasIssue ? 'border-yellow-500' : ''}>
+  {hasIssue && (
+    <div className="absolute top-2 right-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs">
+      ⚠️ {issue.message}
+      <button onClick={autoFix} className="ml-2 underline">
+        Fix Now
+      </button>
+    </div>
+  )}
+  {/* Widget content */}
+</Widget>
+```
+
+**Inline warnings for:**
+- Missing back buttons
 - Missing loading states
-- Accessibility issues
+- Text too small on mobile
+- Performance issues
 
-**2. Smart Suggestions:**
-- "Users often add a back button here"
-- "This modal needs an overlay"
-- "Consider adding a loading state"
-- "This text is too small on mobile"
+**3. Prevention (Before Problems Happen)**
+```javascript
+// Warn BEFORE the problem happens
+onAddWidget = (widget) => {
+  if (widget.type === 'modal' && !widget.hasBackButton) {
+    showWarning({
+      message: "Modals usually need a back button",
+      actions: [
+        { label: "Add Back Button", onClick: () => addBackButton() },
+        { label: "Skip", onClick: () => addWithoutBackButton() }
+      ]
+    });
+  }
+  
+  if (widget.type === 'button' && widget.hasAsyncAction && !widget.hasLoadingState) {
+    showWarning({
+      message: "Async buttons should have loading states",
+      actions: [
+        { label: "Add Loading State", onClick: () => addLoadingState() },
+        { label: "Skip", onClick: () => addWithoutLoading() }
+      ]
+    });
+  }
+};
+```
 
-**3. Pattern Recognition:**
+**4. Smart Suggestions Panel (Collapsible)**
+```jsx
+{/* Only show if there ARE suggestions - bottom right corner */}
+{suggestions.length > 0 && (
+  <div className="fixed bottom-4 right-4 bg-white shadow-lg rounded-lg">
+    <button 
+      onClick={togglePanel}
+      className="px-4 py-2 bg-blue-500 text-white rounded-lg"
+    >
+      💡 {suggestions.length} suggestion{suggestions.length > 1 ? 's' : ''}
+    </button>
+    
+    {expanded && (
+      <div className="mt-2 p-4 max-w-sm">
+        <h3 className="font-bold mb-2">Suggestions</h3>
+        <ul className="space-y-2">
+          {suggestions.map(s => (
+            <li key={s.id} className="border-b pb-2">
+              <p className="text-sm">{s.description}</p>
+              <div className="flex gap-2 mt-1">
+                <button 
+                  onClick={() => applySuggestion(s)}
+                  className="text-xs bg-green-500 text-white px-2 py-1 rounded"
+                >
+                  Apply
+                </button>
+                <button 
+                  onClick={() => dismissSuggestion(s)}
+                  className="text-xs bg-gray-300 px-2 py-1 rounded"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+  </div>
+)}
+```
+
+**5. Pattern Recognition (Background)**
 - Detects repeated edits
 - Learns admin preferences
 - Suggests similar changes
-- Predicts next action
-
-**4. Conflict Prevention:**
-- Warns before breaking changes
-- Suggests alternatives
-- Shows impact preview
-- Offers rollback
-
-**5. Performance Optimization:**
-- Detects slow widgets
-- Suggests lazy loading
-- Recommends caching
-- Optimizes animations
-
-### AI Dashboard
-
-```
-┌─ AES AI Insights ─────────────────────┐
-│                                       │
-│  📊 Changes This Week: 47             │
-│  🤖 AI Suggestions: 12                │
-│  ✅ Auto-Fixes Applied: 8             │
-│  ⚠️ Warnings Prevented: 3             │
-│                                       │
-│  Top Patterns Detected:               │
-│  • Back button additions (5x)         │
-│  • Z-index adjustments (3x)           │
-│  • Mobile spacing fixes (4x)          │
-│                                       │
-│  Recent AI Suggestions:               │
-│  ✓ Add loading state to Save button  │
-│  ✓ Increase mobile font size          │
-│  ⏳ Add overlay to price entry        │
-│  ⏳ Optimize image loading             │
-│                                       │
-│  [View All Changes] [Train AI]        │
-└───────────────────────────────────────┘
-```
+- Improves suggestions over time
+- All happens silently in background
 
 ### Benefits
 
@@ -2094,7 +2165,7 @@ CREATE TABLE aes_suggestions (
 - ✅ See what's working
 - ✅ Track improvement over time
 
-**For Me (AI):**
+**For Me (Assistant Algorithm):**
 - ✅ Understand your patterns
 - ✅ Learn what you prefer
 - ✅ Improve suggestions
@@ -2197,9 +2268,9 @@ ALTER TABLE layout_configs ADD COLUMN before_snapshot JSONB;
       </ul>
     </div>
     
-    {/* Copy to Share with AI */}
+    {/* Copy to Share with Assistant Algorithm */}
     <button onClick={() => copyChangesToClipboard()}>
-      📋 Copy Changes (to share with AI)
+      📋 Copy Changes (to share with Assistant)
     </button>
   </ChangesModal>
 )}
@@ -2249,7 +2320,7 @@ const detectChanges = (before, after) => {
 
 **4. Export Changes for AI:**
 ```javascript
-const exportChangesForAI = () => {
+const exportChangesForAssistant = () => {
   const changes = detectChanges(beforeSnapshot, currentConfig);
   
   const report = {
@@ -2284,7 +2355,7 @@ ${JSON.stringify(report, null, 2)}
   `;
   
   navigator.clipboard.writeText(markdown);
-  toast.success('Changes copied! You can paste this to show me what changed.');
+  toast.success('Changes copied! You can paste this to show the Assistant what changed.');
 };
 ```
 
