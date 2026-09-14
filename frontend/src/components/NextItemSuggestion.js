@@ -688,8 +688,8 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                         ${quickPrice || '0.00'}
                       </div>
                       {nextItem.price && (
-                        <div className="text-base font-bold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/40 px-2 py-1 rounded">
-                          Last: ${parseFloat(nextItem.price).toFixed(2)}
+                        <div className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-bold">
+                          ${parseFloat(nextItem.price).toFixed(2)}
                         </div>
                       )}
                     </div>
@@ -871,7 +871,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             </div>
             <div 
               ref={grabTheseScrollRef}
-              className="max-h-[400px] overflow-y-scroll space-y-2 pr-2 scrollbar-hybrid"
+              className="max-h-[400px] overflow-y-auto space-y-2 pr-2 scrollbar-hybrid"
             >
               {sameAisleItems.map((item, index) => (
                 <motion.div
