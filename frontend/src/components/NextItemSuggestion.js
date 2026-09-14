@@ -20,7 +20,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
   const [aisleConfidence, setAisleConfidence] = useState(null);
   const [showAisleReport, setShowAisleReport] = useState(false);
   const [customAisle, setCustomAisle] = useState('');
-  const [deviceType, setDeviceType] = useState('desktop');
+  const [deviceType, setDeviceType] = useState('tablet'); // Default to tablet for safety
   const checkboxRef = useRef(null);
   const priceTrackingTimerRef = useRef(null);
   const sameAisleIconRefs = useRef({});
@@ -31,34 +31,29 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
   React.useEffect(() => {
     const detectDevice = () => {
       const width = window.innerWidth;
-      const height = window.innerHeight;
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       
       console.log('🔍 Device Detection:', {
         width,
-        height,
         isTouchDevice,
         maxTouchPoints: navigator.maxTouchPoints,
-        hasOntouchstart: 'ontouchstart' in window,
         userAgent: navigator.userAgent
       });
       
-      // Check if it's a tablet by user agent
-      const isTabletUA = /iPad|Android(?!.*Mobile)|Tablet|PlayBook|Silk/i.test(navigator.userAgent);
+      // Simple logic: Only tiny phones (<500px) get mobile layout
+      // Everything else with touch gets tablet layout
+      // Non-touch devices get desktop layout
       
-      // Mobile: <600px width
-      if (width < 600) {
-        console.log('📱 Detected: MOBILE (width < 600)');
+      if (width < 500 && isTouchDevice) {
+        console.log('📱 Detected: MOBILE (tiny phone < 500px)');
         setDeviceType('mobile');
       }
-      // Tablet: Touch device 600-1200px OR tablet user agent
-      else if ((width >= 600 && width <= 1200 && isTouchDevice) || isTabletUA) {
-        console.log('📱 Detected: TABLET (touch device 600-1200px or tablet UA)');
+      else if (isTouchDevice) {
+        console.log('📱 Detected: TABLET (touch device >= 500px)');
         setDeviceType('tablet');
       }
-      // Desktop: Everything else
       else {
-        console.log('🖥️ Detected: DESKTOP');
+        console.log('🖥️ Detected: DESKTOP (no touch)');
         setDeviceType('desktop');
       }
     };
