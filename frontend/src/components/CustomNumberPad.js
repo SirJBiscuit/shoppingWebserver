@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Delete, Check, X } from 'lucide-react';
+import { Delete, Check, X, Move } from 'lucide-react';
 
-const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6 }) => {
+const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, isMobile = false }) => {
+  const constraintsRef = useRef(null);
   const handleNumberClick = (num) => {
     const currentValue = value.toString();
     
@@ -72,15 +73,82 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6 }) =
     );
   };
 
+  // Mobile horizontal layout
+  if (isMobile) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
+        className="bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl border-t-2 border-blue-200 dark:border-blue-800 
+                   w-full p-3 pb-safe"
+      >
+        {/* Display - Compact */}
+        <div className="mb-2 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg p-2 border border-blue-200 dark:border-blue-700">
+          <div className="flex items-center justify-center">
+            <span className="text-xl font-bold text-gray-600 dark:text-gray-400 mr-1">$</span>
+            <span className="text-3xl font-bold text-blue-600 dark:text-blue-400 min-w-[100px] text-right">
+              {value || '0'}
+            </span>
+          </div>
+        </div>
+
+        {/* Horizontal Number Pad - 2 rows */}
+        <div className="space-y-2">
+          {/* Row 1: 1-5 */}
+          <div className="grid grid-cols-5 gap-1.5">
+            <NumberButton number="1" onClick={() => handleNumberClick('1')} />
+            <NumberButton number="2" onClick={() => handleNumberClick('2')} />
+            <NumberButton number="3" onClick={() => handleNumberClick('3')} />
+            <NumberButton number="4" onClick={() => handleNumberClick('4')} />
+            <NumberButton number="5" onClick={() => handleNumberClick('5')} />
+          </div>
+          
+          {/* Row 2: 6-0 */}
+          <div className="grid grid-cols-5 gap-1.5">
+            <NumberButton number="6" onClick={() => handleNumberClick('6')} />
+            <NumberButton number="7" onClick={() => handleNumberClick('7')} />
+            <NumberButton number="8" onClick={() => handleNumberClick('8')} />
+            <NumberButton number="9" onClick={() => handleNumberClick('9')} />
+            <NumberButton number="0" onClick={() => handleNumberClick('0')} />
+          </div>
+          
+          {/* Row 3: Actions */}
+          <div className="grid grid-cols-5 gap-1.5">
+            <ActionButton onClick={handleDecimalClick}>
+              <span className="text-2xl">.</span>
+            </ActionButton>
+            <ActionButton icon={Delete} onClick={handleBackspace} />
+            <ActionButton onClick={handleClear} variant="default">
+              <span className="text-xs font-bold">CLR</span>
+            </ActionButton>
+            <ActionButton icon={X} onClick={onCancel} variant="danger" />
+            <ActionButton icon={Check} onClick={onSave} variant="success" />
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Desktop/Tablet vertical layout
   return (
     <motion.div
+      drag
+      dragConstraints={{ left: -200, right: 200, top: -200, bottom: 200 }}
+      dragElastic={0.1}
+      dragMomentum={false}
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border-2 border-blue-200 dark:border-blue-800 
                  w-full max-w-[280px] sm:max-w-[300px] md:max-w-[320px] mx-auto
-                 p-2 sm:p-3"
+                 p-2 sm:p-3 cursor-move select-none"
     >
+      {/* Drag Handle */}
+      <div className="flex items-center justify-center mb-1 py-1 cursor-grab active:cursor-grabbing">
+        <Move className="w-4 h-4 text-gray-400 dark:text-gray-600" />
+      </div>
+      
       {/* Display */}
       <div className="mb-2 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg p-2 border border-blue-200 dark:border-blue-700">
         <div className="flex items-center justify-center">

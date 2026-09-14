@@ -650,20 +650,53 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               <div className="mb-2">
                 {showPriceInput && (
                   <>
-                    {/* Overlay backdrop for desktop/tablet */}
-                    <div 
-                      className="hidden sm:block fixed inset-0 bg-black/50 z-[100]"
-                      onClick={() => setShowPriceInput(false)}
-                    />
-                    
-                    {/* Number Pad - Floating on desktop/tablet, inline on mobile */}
-                    <div className="sm:fixed sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:z-[101]">
+                    {/* Mobile: Bottom overlay */}
+                    <div className="sm:hidden fixed inset-0 bg-black/50 z-[100]" onClick={() => setShowPriceInput(false)} />
+                    <div className="sm:hidden fixed bottom-0 left-0 right-0 z-[101]">
                       <CustomNumberPad
                         value={quickPrice}
                         onChange={setQuickPrice}
+                        isMobile={true}
                         onSave={async () => {
-                          const priceValue = quickPrice ? parseFloat(quickPrice) : 0;
-                          if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
+                          // Handle empty, null, or invalid input as 0.00
+                          let priceValue = 0;
+                          if (quickPrice && quickPrice.trim() !== '') {
+                            const parsed = parseFloat(quickPrice);
+                            if (!isNaN(parsed) && parsed >= 0) {
+                              priceValue = parsed;
+                            }
+                          }
+                          
+                          if (onPriceUpdate) {
+                            const formattedPrice = priceValue.toFixed(2);
+                            console.log(`Manual save: $${formattedPrice} for ${nextItem.item_name}`);
+                            await onPriceUpdate(nextItem.id, parseFloat(formattedPrice));
+                            setQuickPrice(''); // Reset to empty for next item
+                            setShowPriceInput(false); // Close input after save
+                          }
+                        }}
+                        onCancel={() => setShowPriceInput(false)}
+                        maxDigits={6}
+                      />
+                    </div>
+                    
+                    {/* Desktop/Tablet: Centered floating widget */}
+                    <div className="hidden sm:block sm:fixed sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:z-[101]">
+                      <CustomNumberPad
+                        value={quickPrice}
+                        onChange={setQuickPrice}
+                        isMobile={false}
+                        onSave={async () => {
+                          // Handle empty, null, or invalid input as 0.00
+                          let priceValue = 0;
+                          if (quickPrice && quickPrice.trim() !== '') {
+                            const parsed = parseFloat(quickPrice);
+                            if (!isNaN(parsed) && parsed >= 0) {
+                              priceValue = parsed;
+                            }
+                          }
+                          
+                          if (onPriceUpdate) {
                             const formattedPrice = priceValue.toFixed(2);
                             console.log(`Manual save: $${formattedPrice} for ${nextItem.item_name}`);
                             await onPriceUpdate(nextItem.id, parseFloat(formattedPrice));
