@@ -134,7 +134,7 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, isM
   return (
     <motion.div
       drag
-      dragConstraints={constraintsRef}
+      dragConstraints={{ left: -400, right: 400, top: -300, bottom: 300 }}
       dragElastic={0.2}
       dragMomentum={true}
       dragTransition={{ bounceStiffness: 300, bounceDamping: 20 }}
