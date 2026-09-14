@@ -813,7 +813,6 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             </button>
           )}
         </div>
-        </div>
 
         {/* Same Aisle Items - Grouped for efficiency */}
         {sameAisleItems.length > 0 && (
@@ -927,6 +926,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             )}
           </div>
         )}
+      </div>
       </div>
     </motion.div>
   );
