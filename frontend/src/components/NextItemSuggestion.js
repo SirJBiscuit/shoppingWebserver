@@ -651,7 +651,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 {showPriceInput && (
                   <>
                     {/* Mobile: Bottom sheet (no backdrop) */}
-                    <div className="sm:hidden fixed bottom-0 left-0 right-0 z-[101]">
+                    <div className="md:hidden fixed bottom-0 left-0 right-0 z-[101]">
                       <CustomNumberPad
                         value={quickPrice}
                         onChange={setQuickPrice}
@@ -680,7 +680,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     </div>
                     
                     {/* Desktop/Tablet: Centered floating widget */}
-                    <div className="hidden sm:block sm:fixed sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:z-[101]">
+                    <div className="hidden md:block md:fixed md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:z-[101]">
                       <CustomNumberPad
                         value={quickPrice}
                         onChange={setQuickPrice}
