@@ -25,7 +25,12 @@ fi
 cd /opt/cloudmc-shop
 
 echo -e "${CYAN}Step 1: Creating backup...${NC}"
-./backup.sh
+if [ -f "./backup.sh" ]; then
+    ./backup.sh
+else
+    echo -e "${YELLOW}backup.sh not found, skipping backup${NC}"
+    echo -e "${YELLOW}Consider creating backup.sh for database backups${NC}"
+fi
 
 echo -e "${CYAN}Step 2: Pulling latest changes...${NC}"
 if [ -d ".git" ]; then
