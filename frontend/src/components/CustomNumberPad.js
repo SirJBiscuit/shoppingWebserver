@@ -172,8 +172,8 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, dev
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
         className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border-2 border-blue-200 dark:border-blue-800 
-                   w-full max-w-[280px] mx-auto
-                   p-2 select-none touch-none"
+                   w-full max-w-[300px] mx-auto
+                   p-3 select-none touch-none"
         style={{ cursor: 'grab' }}
       >
         {/* Device Indicator */}
@@ -182,23 +182,23 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, dev
         </div>
         
         {/* Drag Handle */}
-        <div className="flex items-center justify-center mb-1 py-1.5 bg-gray-100 dark:bg-gray-700/50 rounded-lg -mx-1">
+        <div className="flex items-center justify-center mb-2 py-1.5 bg-gray-100 dark:bg-gray-700/50 rounded-lg">
           <Move className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-          <span className="ml-1.5 text-xs text-gray-500 dark:text-gray-400 font-medium">Drag to move</span>
+          <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 font-medium">Drag to move</span>
         </div>
         
         {/* Display */}
-        <div className="mb-2 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg p-2 border border-blue-200 dark:border-blue-700">
+        <div className="mb-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg p-2.5 border border-blue-200 dark:border-blue-700">
           <div className="flex items-center justify-center">
-            <span className="text-lg font-bold text-gray-600 dark:text-gray-400 mr-1">$</span>
-            <span className="text-2xl font-bold text-blue-600 dark:text-blue-400 min-w-[80px] text-right">
+            <span className="text-xl font-bold text-gray-600 dark:text-gray-400 mr-1">$</span>
+            <span className="text-2xl font-bold text-blue-600 dark:text-blue-400 min-w-[90px] text-right">
               {value || '0'}
             </span>
           </div>
         </div>
 
         {/* Number Pad - 3x4 Grid */}
-        <div className="grid grid-cols-3 gap-1.5 mb-2">
+        <div className="grid grid-cols-3 gap-2 mb-2">
           {/* Row 1: 7, 8, 9 */}
           <NumberButton number="7" onClick={() => handleNumberClick('7')} />
           <NumberButton number="8" onClick={() => handleNumberClick('8')} />
@@ -216,16 +216,16 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, dev
           
           {/* Row 4: ., 0, ← */}
           <ActionButton onClick={handleDecimalClick}>
-            <span className="text-lg">.</span>
+            <span className="text-xl">.</span>
           </ActionButton>
           <NumberButton number="0" onClick={() => handleNumberClick('0')} />
           <ActionButton icon={Delete} onClick={handleBackspace} />
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-3 gap-2">
           <ActionButton onClick={handleClear} variant="default">
-            <span className="text-xs font-bold">CLR</span>
+            <span className="text-sm font-bold">CLR</span>
           </ActionButton>
           <ActionButton icon={X} onClick={onCancel} variant="danger" />
           <ActionButton icon={Check} onClick={onSave} variant="success" />
