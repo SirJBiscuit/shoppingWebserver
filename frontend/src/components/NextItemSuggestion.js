@@ -31,26 +31,32 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
   React.useEffect(() => {
     const detectDevice = () => {
       const width = window.innerWidth;
+      const height = window.innerHeight;
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       
       console.log('🔍 Device Detection:', {
         width,
+        height,
         isTouchDevice,
         maxTouchPoints: navigator.maxTouchPoints,
-        hasOntouchstart: 'ontouchstart' in window
+        hasOntouchstart: 'ontouchstart' in window,
+        userAgent: navigator.userAgent
       });
       
-      // Mobile: <600px or phone-sized touch device
+      // Check if it's a tablet by user agent
+      const isTabletUA = /iPad|Android(?!.*Mobile)|Tablet|PlayBook|Silk/i.test(navigator.userAgent);
+      
+      // Mobile: <600px width
       if (width < 600) {
-        console.log('📱 Detected: MOBILE');
+        console.log('📱 Detected: MOBILE (width < 600)');
         setDeviceType('mobile');
       }
-      // Tablet: 600-1024px touch device
-      else if (width >= 600 && width < 1024 && isTouchDevice) {
-        console.log('📱 Detected: TABLET');
+      // Tablet: Touch device 600-1200px OR tablet user agent
+      else if ((width >= 600 && width <= 1200 && isTouchDevice) || isTabletUA) {
+        console.log('📱 Detected: TABLET (touch device 600-1200px or tablet UA)');
         setDeviceType('tablet');
       }
-      // Desktop: >=1024px or non-touch device
+      // Desktop: Everything else
       else {
         console.log('🖥️ Detected: DESKTOP');
         setDeviceType('desktop');
