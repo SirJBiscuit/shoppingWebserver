@@ -159,7 +159,10 @@ const Sidebar = ({ onAction }) => {
       {/* Mobile Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="lg:hidden fixed top-4 left-4 z-[60] p-3 bg-primary-600 text-white rounded-lg shadow-lg hover:bg-primary-700 transition-all hover:scale-105"
+        onTouchEnd={(e) => {
+          e.stopPropagation();
+        }}
+        className="lg:hidden fixed top-4 left-4 z-[70] p-3 bg-primary-600 text-white rounded-lg shadow-lg hover:bg-primary-700 transition-all hover:scale-105"
       >
         {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
       </button>
@@ -172,11 +175,8 @@ const Sidebar = ({ onAction }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              setIsOpen(false);
-            }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-[45] touch-none"
+            onTouchStart={() => setIsOpen(false)}
+            className="fixed inset-0 bg-black bg-opacity-50 z-[45]"
           />
         )}
       </AnimatePresence>
@@ -188,7 +188,7 @@ const Sidebar = ({ onAction }) => {
           animate={{ x: (isOpen || isDesktop) ? 0 : -288 }}
           exit={{ x: -288 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="fixed left-0 top-0 h-screen w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-xl z-[60] flex flex-col overflow-y-auto"
+          className="fixed left-0 top-0 h-screen w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-xl z-[60] flex flex-col overflow-y-auto custom-scrollbar-thin"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
         {/* Header */}
