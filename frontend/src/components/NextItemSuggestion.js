@@ -672,7 +672,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                           const formattedPrice = priceValue.toFixed(2);
                           console.log(`Manual save: $${formattedPrice} for ${nextItem.item_name}`);
                           await onPriceUpdate(nextItem.id, parseFloat(formattedPrice));
-                          setQuickPrice(formattedPrice);
+                          setQuickPrice(''); // Reset to empty for next item
                           setShowPriceInput(false); // Close input after save
                         }
                       }}

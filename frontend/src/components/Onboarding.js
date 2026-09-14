@@ -414,7 +414,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-[70] p-2 sm:p-4"
         onClick={(e) => {
           // Close on backdrop click
           if (e.target === e.currentTarget) {
@@ -432,7 +432,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="card max-w-2xl w-full shadow-2xl"
+          className="card max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
