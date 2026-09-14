@@ -1,9 +1,31 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Delete, Check, X, Move } from 'lucide-react';
 
 const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, isMobile = false }) => {
   const constraintsRef = useRef(null);
+  const [dragConstraints, setDragConstraints] = useState({ left: 0, right: 0, top: 0, bottom: 0 });
+
+  useEffect(() => {
+    // Calculate constraints to keep number pad on screen
+    const updateConstraints = () => {
+      const windowWidth = window.innerWidth;
+      const windowHeight = window.innerHeight;
+      const padWidth = 320; // max-w-[320px]
+      const padHeight = 400; // approximate height
+      
+      setDragConstraints({
+        left: -(windowWidth / 2 - padWidth / 2 - 20),
+        right: windowWidth / 2 - padWidth / 2 - 20,
+        top: -(windowHeight / 2 - padHeight / 2 - 20),
+        bottom: windowHeight / 2 - padHeight / 2 - 20
+      });
+    };
+
+    updateConstraints();
+    window.addEventListener('resize', updateConstraints);
+    return () => window.removeEventListener('resize', updateConstraints);
+  }, []);
   const handleNumberClick = (num) => {
     const currentValue = value.toString();
     
@@ -130,14 +152,14 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, isM
     );
   }
 
-  // Desktop/Tablet vertical layout
+  // Desktop/Tablet vertical layout (3x4 grid like calculator)
   return (
     <motion.div
       drag
-      dragConstraints={{ left: -400, right: 400, top: -300, bottom: 300 }}
-      dragElastic={0.2}
-      dragMomentum={true}
-      dragTransition={{ bounceStiffness: 300, bounceDamping: 20 }}
+      dragConstraints={dragConstraints}
+      dragElastic={0.1}
+      dragMomentum={false}
+      dragTransition={{ bounceStiffness: 600, bounceDamping: 30 }}
       whileDrag={{ scale: 1.02, cursor: 'grabbing' }}
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
