@@ -31,21 +31,31 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
     const detectDevice = () => {
       const width = window.innerWidth;
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-
+      
+      console.log('🔍 Device Detection:', {
+        width,
+        isTouchDevice,
+        maxTouchPoints: navigator.maxTouchPoints,
+        hasOntouchstart: 'ontouchstart' in window
+      });
+      
       // Mobile: <600px or phone-sized touch device
       if (width < 600) {
+        console.log('📱 Detected: MOBILE');
         setDeviceType('mobile');
       }
       // Tablet: 600-1024px touch device
       else if (width >= 600 && width < 1024 && isTouchDevice) {
+        console.log('📱 Detected: TABLET');
         setDeviceType('tablet');
       }
       // Desktop: >=1024px or non-touch device
       else {
+        console.log('🖥️ Detected: DESKTOP');
         setDeviceType('desktop');
       }
     };
-
+    
     detectDevice();
     window.addEventListener('resize', detectDevice);
     return () => window.removeEventListener('resize', detectDevice);
