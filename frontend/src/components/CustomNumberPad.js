@@ -2,7 +2,8 @@ import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Delete, Check, X, Move } from 'lucide-react';
 
-const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, isMobile = false }) => {
+const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, device = 'desktop' }) => {
+  // device can be: 'mobile', 'tablet', 'desktop'
   const constraintsRef = useRef(null);
   const [dragConstraints, setDragConstraints] = useState({ left: 0, right: 0, top: 0, bottom: 0 });
 
@@ -95,8 +96,8 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, isM
     );
   };
 
-  // Mobile horizontal layout
-  if (isMobile) {
+  // Mobile horizontal layout (phones only)
+  if (device === 'mobile') {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -152,7 +153,64 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, isM
     );
   }
 
-  // Desktop/Tablet vertical layout (3x4 grid like calculator)
+  // Tablet layout - Slightly smaller than desktop, no drag
+  if (device === 'tablet') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border-2 border-blue-200 dark:border-blue-800 
+                   w-full max-w-[280px] mx-auto p-2.5 select-none"
+      >
+        {/* Display */}
+        <div className="mb-2.5 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg p-2.5 border border-blue-200 dark:border-blue-700">
+          <div className="flex items-center justify-center">
+            <span className="text-lg font-bold text-gray-600 dark:text-gray-400 mr-1">$</span>
+            <span className="text-2xl font-bold text-blue-600 dark:text-blue-400 min-w-[90px] text-right">
+              {value || '0'}
+            </span>
+          </div>
+        </div>
+
+        {/* Number Pad - 3x4 Grid */}
+        <div className="grid grid-cols-3 gap-1.5 mb-2">
+          {/* Row 1: 7, 8, 9 */}
+          <NumberButton number="7" onClick={() => handleNumberClick('7')} />
+          <NumberButton number="8" onClick={() => handleNumberClick('8')} />
+          <NumberButton number="9" onClick={() => handleNumberClick('9')} />
+          
+          {/* Row 2: 4, 5, 6 */}
+          <NumberButton number="4" onClick={() => handleNumberClick('4')} />
+          <NumberButton number="5" onClick={() => handleNumberClick('5')} />
+          <NumberButton number="6" onClick={() => handleNumberClick('6')} />
+          
+          {/* Row 3: 1, 2, 3 */}
+          <NumberButton number="1" onClick={() => handleNumberClick('1')} />
+          <NumberButton number="2" onClick={() => handleNumberClick('2')} />
+          <NumberButton number="3" onClick={() => handleNumberClick('3')} />
+          
+          {/* Row 4: ., 0, ← */}
+          <ActionButton onClick={handleDecimalClick}>
+            <span className="text-xl">.</span>
+          </ActionButton>
+          <NumberButton number="0" onClick={() => handleNumberClick('0')} />
+          <ActionButton icon={Delete} onClick={handleBackspace} />
+        </div>
+
+        {/* Action Buttons */}
+        <div className="grid grid-cols-3 gap-1.5">
+          <ActionButton onClick={handleClear} variant="default">
+            <span className="text-xs font-bold">CLR</span>
+          </ActionButton>
+          <ActionButton icon={X} onClick={onCancel} variant="danger" />
+          <ActionButton icon={Check} onClick={onSave} variant="success" />
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Desktop layout - Full size with drag
   return (
     <motion.div
       drag
