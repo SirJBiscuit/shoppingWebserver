@@ -5,6 +5,7 @@ import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
 import FormattedNote from './FormattedNote';
 import CustomNumberPad from './CustomNumberPad';
+import TabletNumberPad from './TabletNumberPad';
 
 const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onBack, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onRemoveNote, onMarkUnavailable, onChangeStore, triggerCheckmarkAnimation, onPriceUpdate, triggerFlyingAnimation }) => {
   const [showGuide, setShowGuide] = useState(() => {
@@ -717,13 +718,12 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                       </div>
                     )}
                     
-                    {/* Tablet: Centered widget */}
+                    {/* Tablet: Centered widget with dedicated component */}
                     {deviceType === 'tablet' && (
                       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101]">
-                        <CustomNumberPad
+                        <TabletNumberPad
                           value={quickPrice}
                           onChange={setQuickPrice}
-                          device="tablet"
                           onSave={async () => {
                             // Handle empty, null, or invalid input as 0.00
                             let priceValue = 0;
