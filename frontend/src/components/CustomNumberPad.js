@@ -106,6 +106,11 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, dev
         className="bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl border-t-2 border-blue-200 dark:border-blue-800 
                    w-full p-3 pb-safe"
       >
+        {/* Debug indicator */}
+        <div className="text-center mb-2">
+          <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded">MOBILE</span>
+        </div>
+        
         {/* Display - Compact */}
         <div className="mb-2 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg p-2 border border-blue-200 dark:border-blue-700">
           <div className="flex items-center justify-center">
@@ -175,6 +180,7 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, dev
         <div className="flex items-center justify-center mb-1 py-2 bg-gray-100 dark:bg-gray-700/50 rounded-lg -mx-1">
           <Move className="w-5 h-5 text-gray-400 dark:text-gray-500" />
           <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 font-medium">Drag to move</span>
+          <span className="ml-2 px-2 py-0.5 bg-blue-500 text-white text-xs rounded">TABLET</span>
         </div>
         
         {/* Display */}
@@ -245,6 +251,7 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, dev
       <div className="flex items-center justify-center mb-1 py-2 bg-gray-100 dark:bg-gray-700/50 rounded-lg -mx-1">
         <Move className="w-5 h-5 text-gray-400 dark:text-gray-500" />
         <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 font-medium">Drag to move</span>
+        <span className="ml-2 px-2 py-0.5 bg-purple-500 text-white text-xs rounded">DESKTOP</span>
       </div>
       
       {/* Display */}
