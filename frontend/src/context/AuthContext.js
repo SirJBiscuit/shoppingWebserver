@@ -24,9 +24,11 @@ export const AuthProvider = ({ children }) => {
       
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
+      
+      // Set user state immediately to prevent double reload
       setUser(user);
       
-      return { success: true };
+      return { success: true, user };
     } catch (error) {
       return { 
         success: false, 
@@ -54,8 +56,17 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    // Preserve lastActiveListId so user returns to same list after login
+    const lastListId = localStorage.getItem('lastActiveListId');
+    
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    
+    // Restore lastActiveListId after clearing storage
+    if (lastListId) {
+      localStorage.setItem('lastActiveListId', lastListId);
+    }
+    
     setUser(null);
   };
 

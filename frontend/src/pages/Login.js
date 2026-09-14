@@ -20,7 +20,10 @@ const Login = () => {
 
     const result = await login(username, password);
     
-    if (!result.success) {
+    if (result.success) {
+      // Navigate to dashboard - no reload needed since AuthContext updates immediately
+      navigate('/');
+    } else {
       setError(result.error);
       setLoading(false);
     }
@@ -32,10 +35,15 @@ const Login = () => {
 
     try {
       const response = await api.post('/users/guest-login');
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      navigate('/');
-      window.location.reload(); // Refresh to update auth context
+      // Use the login function from AuthContext to properly set state
+      const result = await login(response.data.user.username, null, response.data.token);
+      
+      if (result.success) {
+        navigate('/');
+      } else {
+        setError('Failed to create guest account. Please try again.');
+        setGuestLoading(false);
+      }
     } catch (err) {
       console.error('Guest login error:', err);
       setError('Failed to create guest account. Please try again.');

@@ -731,7 +731,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 title="Edit item"
               >
                 <Edit2 className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden md:inline">Edit</span>
+                <span className="text-xs sm:text-sm">Edit</span>
               </button>
             )}
             
@@ -743,7 +743,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 title="Jump to item in list"
               >
                 <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden md:inline">Go To</span>
+                <span className="text-xs sm:text-sm">Go To</span>
               </button>
             )}
             
@@ -759,7 +759,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               title="Go back to previous skipped item"
             >
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden md:inline">Back</span>
+              <span className="text-xs sm:text-sm">Back</span>
             </button>
             
             {/* Skip button */}
@@ -770,7 +770,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 title="Skip to next item"
               >
                 <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden md:inline">Skip</span>
+                <span className="text-xs sm:text-sm">Skip</span>
               </button>
             )}
           </div>
@@ -789,7 +789,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               title="Restore last removed item"
             >
               <Undo className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden md:inline">Undo</span>
+              <span className="text-xs sm:text-sm">Undo</span>
             </button>
             
             {onDeferItem && (
@@ -799,7 +799,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 title="Remove item from list"
               >
                 <X className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden md:inline">Remove</span>
+                <span className="text-xs sm:text-sm">Remove</span>
               </button>
             )}
             
@@ -810,7 +810,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 title="Add note to item"
               >
                 <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden md:inline">Note</span>
+                <span className="text-xs sm:text-sm">Note</span>
               </button>
             )}
             
@@ -821,7 +821,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 title="Mark as unavailable"
               >
                 <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden md:inline">N/A</span>
+                <span className="text-xs sm:text-sm">N/A</span>
               </button>
             )}
           </div>
