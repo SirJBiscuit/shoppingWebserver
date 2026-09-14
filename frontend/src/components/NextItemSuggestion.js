@@ -650,8 +650,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               <div className="mb-2">
                 {showPriceInput && (
                   <>
-                    {/* Mobile: Bottom overlay */}
-                    <div className="sm:hidden fixed inset-0 bg-black/50 z-[100]" onClick={() => setShowPriceInput(false)} />
+                    {/* Mobile: Bottom sheet (no backdrop) */}
                     <div className="sm:hidden fixed bottom-0 left-0 right-0 z-[101]">
                       <CustomNumberPad
                         value={quickPrice}
