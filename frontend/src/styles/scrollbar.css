@@ -46,9 +46,28 @@
 }
 
 /* Thin scrollbar variant */
+.custom-scrollbar-thin {
+  /* Firefox support */
+  scrollbar-width: thin;
+  scrollbar-color: #3b82f6 #f1f5f9;
+}
+
+.dark .custom-scrollbar-thin {
+  scrollbar-color: #3b82f6 #1e293b;
+}
+
+/* WebKit browsers (Chrome, Safari, Edge) */
 .custom-scrollbar-thin::-webkit-scrollbar {
   width: 8px;
   height: 8px;
+}
+
+/* Mobile: thinner scrollbar */
+@media (max-width: 768px) {
+  .custom-scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
 }
 
 .custom-scrollbar-thin::-webkit-scrollbar-track {
@@ -76,6 +95,19 @@
   box-shadow: 
     0 2px 6px rgba(59, 130, 246, 0.4),
     inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+/* Mobile: no hover effects, simpler styling */
+@media (max-width: 768px) {
+  .custom-scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #3b82f6;
+    box-shadow: none;
+  }
+  
+  .custom-scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #3b82f6;
+    box-shadow: none;
+  }
 }
 
 /* Purple variant */
