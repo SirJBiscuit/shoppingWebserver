@@ -618,14 +618,30 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     Quick Price Entry
                   </label>
                 </div>
-                {quickPrice && (
-                  <button
-                    onClick={() => setQuickPrice('')}
-                    className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition-colors"
-                  >
-                    Clear
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {showPriceInput && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowPriceInput(false);
+                      }}
+                      className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white text-xs font-semibold rounded-lg transition-colors"
+                    >
+                      ← Back
+                    </button>
+                  )}
+                  {quickPrice && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setQuickPrice('');
+                      }}
+                      className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition-colors"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Current Price Display - Clickable with Last Price */}
@@ -649,19 +665,20 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                       />
                     </div>
                     <button
-                      onClick={() => {
+                      onClick={async (e) => {
+                        e.stopPropagation();
                         const priceValue = quickPrice ? parseFloat(quickPrice) : 0;
                         if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
                           const formattedPrice = priceValue.toFixed(2);
                           console.log(`Manual save: $${formattedPrice} for ${nextItem.item_name}`);
-                          onPriceUpdate(nextItem.id, parseFloat(formattedPrice), false); // false = manual save
-                          setQuickPrice(formattedPrice); // Update display to show formatted price
-                          setPriceSetTime(Date.now()); // Start auto-save timer
+                          await onPriceUpdate(nextItem.id, parseFloat(formattedPrice));
+                          setQuickPrice(formattedPrice);
+                          setShowPriceInput(false); // Close input after save
                         }
                       }}
                       className="w-full py-2 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-colors"
                     >
-                      ✓ Save Price
+                      💾 Save Price
                     </button>
                   </div>
                 ) : (
@@ -687,10 +704,13 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               </div>
 
               {/* Use Last Price Button - Kept, others removed */}
-              {nextItem.price && (
+              {nextItem.price && !showPriceInput && (
                 <div className="mb-2">
                   <button
-                    onClick={() => setQuickPrice(parseFloat(nextItem.price).toFixed(2))}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setQuickPrice(parseFloat(nextItem.price).toFixed(2));
+                    }}
                     className="w-full py-2 px-3 bg-blue-500 hover:bg-blue-600 text-white rounded font-semibold transition-all text-sm"
                     title="Use last price"
                   >
@@ -851,7 +871,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             </div>
             <div 
               ref={grabTheseScrollRef}
-              className="max-h-[400px] overflow-y-auto space-y-2 pr-2 scrollbar-hybrid"
+              className="max-h-[400px] overflow-y-scroll space-y-2 pr-2 scrollbar-hybrid"
             >
               {sameAisleItems.map((item, index) => (
                 <motion.div
