@@ -648,24 +648,37 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
 
               {/* Current Price Display - Clickable with Last Price */}
               <div className="mb-2">
-                {showPriceInput ? (
-                  <CustomNumberPad
-                    value={quickPrice}
-                    onChange={setQuickPrice}
-                    onSave={async () => {
-                      const priceValue = quickPrice ? parseFloat(quickPrice) : 0;
-                      if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
-                        const formattedPrice = priceValue.toFixed(2);
-                        console.log(`Manual save: $${formattedPrice} for ${nextItem.item_name}`);
-                        await onPriceUpdate(nextItem.id, parseFloat(formattedPrice));
-                        setQuickPrice(''); // Reset to empty for next item
-                        setShowPriceInput(false); // Close input after save
-                      }
-                    }}
-                    onCancel={() => setShowPriceInput(false)}
-                    maxDigits={6}
-                  />
-                ) : (
+                {showPriceInput && (
+                  <>
+                    {/* Overlay backdrop for desktop/tablet */}
+                    <div 
+                      className="hidden sm:block fixed inset-0 bg-black/50 z-[100]"
+                      onClick={() => setShowPriceInput(false)}
+                    />
+                    
+                    {/* Number Pad - Floating on desktop/tablet, inline on mobile */}
+                    <div className="sm:fixed sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:z-[101]">
+                      <CustomNumberPad
+                        value={quickPrice}
+                        onChange={setQuickPrice}
+                        onSave={async () => {
+                          const priceValue = quickPrice ? parseFloat(quickPrice) : 0;
+                          if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
+                            const formattedPrice = priceValue.toFixed(2);
+                            console.log(`Manual save: $${formattedPrice} for ${nextItem.item_name}`);
+                            await onPriceUpdate(nextItem.id, parseFloat(formattedPrice));
+                            setQuickPrice(''); // Reset to empty for next item
+                            setShowPriceInput(false); // Close input after save
+                          }
+                        }}
+                        onCancel={() => setShowPriceInput(false)}
+                        maxDigits={6}
+                      />
+                    </div>
+                  </>
+                )}
+                
+                {!showPriceInput && (
                   <div 
                     onClick={() => setShowPriceInput(true)}
                     className="cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/10 p-2 rounded-lg transition-colors"
