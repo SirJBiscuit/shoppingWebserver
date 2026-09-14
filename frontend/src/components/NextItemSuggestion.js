@@ -712,7 +712,10 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 
                 {!showPriceInput && (
                   <div 
-                    onClick={() => setShowPriceInput(true)}
+                    onClick={() => {
+                      setQuickPrice(''); // Clear price when opening number pad
+                      setShowPriceInput(true);
+                    }}
                     className="cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/10 p-2 rounded-lg transition-colors"
                   >
                     <div className="flex items-baseline gap-3">
