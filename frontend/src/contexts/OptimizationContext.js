@@ -17,13 +17,7 @@ export const OptimizationProvider = ({ children }) => {
     if (saved !== null) {
       return saved === 'true';
     }
-    // Auto-enable for tablets/mobile ONLY on first visit
-    const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      // Set localStorage so this only happens once
-      localStorage.setItem('optimizationMode', 'true');
-      return true;
-    }
+    // Default to OFF for all devices (better performance with animations)
     return false;
   });
 

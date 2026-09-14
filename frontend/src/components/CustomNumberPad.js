@@ -134,19 +134,23 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, isM
   return (
     <motion.div
       drag
-      dragConstraints={{ left: -200, right: 200, top: -200, bottom: 200 }}
-      dragElastic={0.1}
-      dragMomentum={false}
+      dragConstraints={constraintsRef}
+      dragElastic={0.2}
+      dragMomentum={true}
+      dragTransition={{ bounceStiffness: 300, bounceDamping: 20 }}
+      whileDrag={{ scale: 1.02, cursor: 'grabbing' }}
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border-2 border-blue-200 dark:border-blue-800 
                  w-full max-w-[280px] sm:max-w-[300px] md:max-w-[320px] mx-auto
-                 p-2 sm:p-3 cursor-move select-none"
+                 p-2 sm:p-3 select-none touch-none"
+      style={{ cursor: 'grab' }}
     >
       {/* Drag Handle */}
-      <div className="flex items-center justify-center mb-1 py-1 cursor-grab active:cursor-grabbing">
-        <Move className="w-4 h-4 text-gray-400 dark:text-gray-600" />
+      <div className="flex items-center justify-center mb-1 py-2 bg-gray-100 dark:bg-gray-700/50 rounded-lg -mx-1">
+        <Move className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 font-medium">Drag to move</span>
       </div>
       
       {/* Display */}

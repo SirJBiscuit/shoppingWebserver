@@ -679,12 +679,13 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                       />
                     </div>
                     
-                    {/* Desktop/Tablet: Centered floating widget */}
-                    <div className="hidden sm:block sm:fixed sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:z-[101]">
-                      <CustomNumberPad
-                        value={quickPrice}
-                        onChange={setQuickPrice}
-                        isMobile={false}
+                    {/* Desktop/Tablet: Centered floating widget with drag container */}
+                    <div className="hidden sm:block sm:fixed sm:inset-0 sm:z-[101] pointer-events-none">
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto">
+                        <CustomNumberPad
+                          value={quickPrice}
+                          onChange={setQuickPrice}
+                          isMobile={false}
                         onSave={async () => {
                           // Handle empty, null, or invalid input as 0.00
                           let priceValue = 0;
@@ -706,6 +707,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                         onCancel={() => setShowPriceInput(false)}
                         maxDigits={6}
                       />
+                      </div>
                     </div>
                   </>
                 )}
