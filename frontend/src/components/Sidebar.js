@@ -37,6 +37,18 @@ const Sidebar = ({ onAction }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, [isOpen]);
 
+  // Prevent body scroll when sidebar is open on mobile
+  useEffect(() => {
+    if (isOpen && !isDesktop) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen, isDesktop]);
+
   // Debug: Log user object
   useEffect(() => {
     if (!loading && user) {
@@ -160,7 +172,11 @@ const Sidebar = ({ onAction }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="fixed inset-0 bg-black bg-opacity-50 z-[55]"
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              setIsOpen(false);
+            }}
+            className="fixed inset-0 bg-black bg-opacity-50 z-[55] touch-none"
           />
         )}
       </AnimatePresence>
