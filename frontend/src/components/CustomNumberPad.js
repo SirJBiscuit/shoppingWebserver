@@ -165,8 +165,8 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, isM
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border-2 border-blue-200 dark:border-blue-800 
-                 w-full max-w-[280px] sm:max-w-[300px] md:max-w-[320px] mx-auto
-                 p-2 sm:p-3 select-none touch-none"
+                 w-full max-w-[320px] mx-auto
+                 p-3 select-none touch-none"
       style={{ cursor: 'grab' }}
     >
       {/* Drag Handle */}
@@ -176,17 +176,17 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, isM
       </div>
       
       {/* Display */}
-      <div className="mb-2 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg p-2 border border-blue-200 dark:border-blue-700">
+      <div className="mb-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
         <div className="flex items-center justify-center">
-          <span className="text-lg sm:text-xl font-bold text-gray-600 dark:text-gray-400 mr-1">$</span>
-          <span className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400 min-w-[80px] sm:min-w-[100px] text-right">
+          <span className="text-xl font-bold text-gray-600 dark:text-gray-400 mr-1">$</span>
+          <span className="text-3xl font-bold text-blue-600 dark:text-blue-400 min-w-[100px] text-right">
             {value || '0'}
           </span>
         </div>
       </div>
 
-      {/* Number Pad - Compact */}
-      <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mb-2">
+      {/* Number Pad - 3x4 Grid */}
+      <div className="grid grid-cols-3 gap-2 mb-2">
         {/* Row 1: 7, 8, 9 */}
         <NumberButton number="7" onClick={() => handleNumberClick('7')} />
         <NumberButton number="8" onClick={() => handleNumberClick('8')} />
@@ -210,8 +210,8 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, isM
         <ActionButton icon={Delete} onClick={handleBackspace} />
       </div>
 
-      {/* Action Buttons - Compact */}
-      <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+      {/* Action Buttons */}
+      <div className="grid grid-cols-3 gap-2">
         <ActionButton 
           onClick={handleClear}
           variant="default"
