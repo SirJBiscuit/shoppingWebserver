@@ -2109,6 +2109,210 @@ CREATE TABLE aes_suggestions (
 
 ---
 
+## Leveraging Existing Dashboard Editor
+
+**We already have a Dashboard Layout Editor!** Let's build on top of it instead of starting from scratch.
+
+### What We Already Have
+
+From `DASHBOARD_LAYOUT_EDITOR.md`:
+
+**✅ Database Schema:**
+```sql
+CREATE TABLE layout_configs (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  is_global BOOLEAN DEFAULT false,
+  config_name VARCHAR(100),
+  layout_data JSONB NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**✅ API Endpoints:**
+- `GET /api/layout/dashboard` - Get layout
+- `POST /api/layout/dashboard` - Save layout
+- `POST /api/layout/global` - Admin save global
+- `GET /api/layout/export` - Export layout
+- `POST /api/layout/import` - Import layout
+
+**✅ Core Concepts:**
+- Section-based layout system
+- Drag & drop reordering
+- Spacing controls
+- Visibility toggles
+- Live preview
+
+### What We Need to Add
+
+**1. Enhanced Change Tracking:**
+```sql
+-- Add to existing layout_configs table
+ALTER TABLE layout_configs ADD COLUMN change_description TEXT;
+ALTER TABLE layout_configs ADD COLUMN changed_sections JSONB;
+ALTER TABLE layout_configs ADD COLUMN before_snapshot JSONB;
+```
+
+**2. Simple "Show Changes" Button:**
+```jsx
+<LayoutEditor>
+  <PreviewPane />
+  <ControlPanel>
+    {/* Existing controls */}
+    
+    {/* NEW: Show Changes Button */}
+    <button onClick={() => setShowChanges(true)}>
+      📋 Show What Changed
+    </button>
+  </ControlPanel>
+</LayoutEditor>
+
+{/* NEW: Changes Modal */}
+{showChanges && (
+  <ChangesModal>
+    <h2>Changes Made</h2>
+    
+    {/* Visual Diff */}
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <h3>Before</h3>
+        <Preview config={beforeSnapshot} />
+      </div>
+      <div>
+        <h3>After</h3>
+        <Preview config={currentConfig} />
+      </div>
+    </div>
+    
+    {/* Text Summary */}
+    <div className="mt-4">
+      <h3>Summary of Changes:</h3>
+      <ul>
+        {changes.map(change => (
+          <li key={change.id}>
+            • {change.description}
+          </li>
+        ))}
+      </ul>
+    </div>
+    
+    {/* Copy to Share with AI */}
+    <button onClick={() => copyChangesToClipboard()}>
+      📋 Copy Changes (to share with AI)
+    </button>
+  </ChangesModal>
+)}
+```
+
+**3. Auto-Generate Change Description:**
+```javascript
+const detectChanges = (before, after) => {
+  const changes = [];
+  
+  // Check section reordering
+  before.sections.forEach((section, index) => {
+    const afterIndex = after.sections.findIndex(s => s.id === section.id);
+    if (afterIndex !== index) {
+      changes.push({
+        type: 'reorder',
+        description: `Moved "${section.id}" from position ${index + 1} to ${afterIndex + 1}`
+      });
+    }
+  });
+  
+  // Check spacing changes
+  before.sections.forEach(section => {
+    const afterSection = after.sections.find(s => s.id === section.id);
+    if (afterSection && section.spacing !== afterSection.spacing) {
+      changes.push({
+        type: 'spacing',
+        description: `Changed "${section.id}" spacing from ${section.spacing} to ${afterSection.spacing}`
+      });
+    }
+  });
+  
+  // Check visibility changes
+  before.sections.forEach(section => {
+    const afterSection = after.sections.find(s => s.id === section.id);
+    if (afterSection && section.visible !== afterSection.visible) {
+      changes.push({
+        type: 'visibility',
+        description: `${afterSection.visible ? 'Showed' : 'Hidden'} "${section.id}"`
+      });
+    }
+  });
+  
+  return changes;
+};
+```
+
+**4. Export Changes for AI:**
+```javascript
+const exportChangesForAI = () => {
+  const changes = detectChanges(beforeSnapshot, currentConfig);
+  
+  const report = {
+    timestamp: new Date().toISOString(),
+    admin_id: user.id,
+    page: 'Dashboard',
+    component: 'NextItemSuggestion',
+    changes: changes,
+    before: beforeSnapshot,
+    after: currentConfig,
+    reason: changeReason, // Admin can add notes
+    screenshots: {
+      before: captureScreenshot(beforeSnapshot),
+      after: captureScreenshot(currentConfig)
+    }
+  };
+  
+  // Copy to clipboard in markdown format
+  const markdown = `
+# Layout Changes - ${new Date().toLocaleDateString()}
+
+## Summary
+${changes.map(c => `- ${c.description}`).join('\n')}
+
+## Reason
+${changeReason}
+
+## Details
+\`\`\`json
+${JSON.stringify(report, null, 2)}
+\`\`\`
+  `;
+  
+  navigator.clipboard.writeText(markdown);
+  toast.success('Changes copied! You can paste this to show me what changed.');
+};
+```
+
+### Migration Path
+
+**Phase 1: Enhance Existing Editor (1 week)**
+1. Add change tracking to existing layout editor
+2. Add "Show Changes" button
+3. Add before/after preview
+4. Add export changes feature
+
+**Phase 2: Build Full AES (4-6 weeks)**
+1. Use existing layout editor as foundation
+2. Add Craft.js for more advanced editing
+3. Add layer management
+4. Add state system
+5. Add AI learning
+
+### Benefits of This Approach
+
+✅ **Faster:** Build on existing work
+✅ **Proven:** Layout editor concept already works
+✅ **Incremental:** Can use existing editor while building AES
+✅ **Compatible:** AES can import existing layout configs
+✅ **Less Risk:** Existing editor keeps working
+
+---
+
 ## 🚀 Fast-Track Implementation Strategy
 
 ### How to Build This in 2-4 Weeks Instead of 12
