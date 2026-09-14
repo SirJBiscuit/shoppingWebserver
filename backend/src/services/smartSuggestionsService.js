@@ -66,7 +66,7 @@ async function getSmartReorderSuggestion(userId, itemName) {
         bought_date,
         quantity,
         removed_date,
-        EXTRACT(DAY FROM (removed_date - bought_date))::INTEGER as days_lasted
+        EXTRACT(EPOCH FROM (removed_date - bought_date))::INTEGER / 86400 as days_lasted
       FROM inventory_history
       WHERE user_id = $1 
         AND LOWER(item_name) = LOWER($2)
