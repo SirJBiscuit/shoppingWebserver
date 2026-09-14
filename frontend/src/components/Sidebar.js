@@ -176,7 +176,7 @@ const Sidebar = ({ onAction }) => {
               e.preventDefault();
               setIsOpen(false);
             }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-[55] touch-none"
+            className="fixed inset-0 bg-black bg-opacity-50 z-[45] touch-none"
           />
         )}
       </AnimatePresence>
@@ -188,7 +188,8 @@ const Sidebar = ({ onAction }) => {
           animate={{ x: (isOpen || isDesktop) ? 0 : -288 }}
           exit={{ x: -288 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="fixed left-0 top-0 h-screen w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-xl z-[52] flex flex-col custom-scrollbar overflow-y-auto"
+          className="fixed left-0 top-0 h-screen w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-xl z-[60] flex flex-col overflow-y-auto"
+          style={{ WebkitOverflowScrolling: 'touch' }}
         >
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
