@@ -605,6 +605,15 @@ const Dashboard = () => {
   const undoRemove = async () => {
     if (deletedItemsHistory.length > 0) {
       const lastDeleted = deletedItemsHistory[deletedItemsHistory.length - 1];
+      
+      console.log('Attempting to restore item:', lastDeleted);
+      console.log('Active list ID:', activeList?.id);
+      
+      if (!activeList || !activeList.id) {
+        error('No active list selected');
+        return;
+      }
+      
       try {
         // Re-add the item to the list with all fields
         const itemToRestore = {
@@ -620,14 +629,19 @@ const Dashboard = () => {
           is_checked: false
         };
         
-        await shoppingAPI.addItem(activeList.id, itemToRestore);
+        console.log('Item to restore:', itemToRestore);
+        
+        const result = await shoppingAPI.addItem(activeList.id, itemToRestore);
+        console.log('Restore result:', result);
+        
         await loadListItems(activeList.id);
         setDeletedItemsHistory(prev => prev.slice(0, -1));
         success(`${lastDeleted.item_name} restored!`);
       } catch (err) {
         console.error('Error restoring item:', err);
+        console.error('Error details:', err.response?.data || err.message);
         console.error('Item data:', lastDeleted);
-        error('Failed to restore item');
+        error(`Failed to restore item: ${err.response?.data?.error || err.message}`);
       }
     }
   };
