@@ -17,7 +17,7 @@ const Sidebar = ({ onAction }) => {
   const { user, loading } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { hasFeature } = useFeatureFlags();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(window.innerWidth >= 1024);
   const [expiringCount, setExpiringCount] = useState(0);
   const [versionInfo, setVersionInfo] = useState({ version: '...', updateAvailable: false });
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
@@ -160,7 +160,7 @@ const Sidebar = ({ onAction }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="fixed inset-0 bg-black bg-opacity-50 z-[45]"
+            className="fixed inset-0 bg-black bg-opacity-50 z-[55]"
           />
         )}
       </AnimatePresence>
@@ -170,7 +170,7 @@ const Sidebar = ({ onAction }) => {
         initial={false}
         animate={{ x: (isOpen || isDesktop) ? 0 : -280 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="fixed left-0 top-0 h-screen w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-xl z-50 flex flex-col custom-scrollbar overflow-y-auto"
+        className="fixed left-0 top-0 h-screen w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-xl z-[52] flex flex-col custom-scrollbar overflow-y-auto"
       >
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
