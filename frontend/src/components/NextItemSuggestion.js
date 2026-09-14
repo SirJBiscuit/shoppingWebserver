@@ -449,7 +449,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               </motion.button>
             </div>
             
-            {/* Store, Aisle, Category, Price Row - VERY PROMINENT */}
+            {/* Store, Category, Price, Aisle Row - REORDERED */}
             <div className="flex items-center gap-3 flex-wrap mt-2">
               {storeName && (
                 <div className="flex items-center gap-2 bg-blue-500 px-4 py-2 rounded-xl shadow-md">
@@ -460,18 +460,16 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 </div>
               )}
               
-              {nextItem.aisle && (
-                <div className="flex items-center gap-2 bg-purple-500 px-4 py-2 rounded-xl shadow-md">
-                  <MapPin className="w-5 h-5 text-white" />
-                  <div className="flex flex-col">
-                    <span className="text-xs text-purple-100 leading-none">Aisle</span>
-                    <span className="text-lg font-bold text-white leading-tight">
-                      {nextItem.aisle}
-                    </span>
-                  </div>
+              {/* Category - Always show if available */}
+              {(nextItem.category_name || nextItem.category) && (
+                <div className="flex items-center gap-2 bg-orange-500 px-4 py-2 rounded-xl shadow-md">
+                  <span className="text-base font-bold text-white">
+                    📍 {nextItem.category_name || nextItem.category}
+                  </span>
                 </div>
               )}
               
+              {/* Default Price */}
               {nextItem.price && (
                 <div className="flex items-center gap-2 bg-green-500 px-4 py-2 rounded-xl shadow-md">
                   <DollarSign className="w-5 h-5 text-white" />
@@ -481,6 +479,19 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                     </span>
                     <span className={`text-lg font-bold text-white leading-tight`}>
                       ${(nextItem.price * (nextItem.quantity || 1)).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Confirmed Aisle */}
+              {nextItem.aisle && (
+                <div className="flex items-center gap-2 bg-purple-500 px-4 py-2 rounded-xl shadow-md">
+                  <MapPin className="w-5 h-5 text-white" />
+                  <div className="flex flex-col">
+                    <span className="text-xs text-purple-100 leading-none">Aisle</span>
+                    <span className="text-lg font-bold text-white leading-tight">
+                      {nextItem.aisle}
                     </span>
                   </div>
                 </div>
@@ -498,15 +509,6 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                       Aisle {predictedAisle}
                     </span>
                   </div>
-                </div>
-              )}
-              
-              {/* Category - Fallback when no aisle or prediction */}
-              {!nextItem.aisle && !predictedAisle && (nextItem.category_name || nextItem.category) && (
-                <div className="flex items-center gap-2 bg-orange-500 px-4 py-2 rounded-xl shadow-md">
-                  <span className="text-base font-bold text-white">
-                    📍 {nextItem.category_name || nextItem.category}
-                  </span>
                 </div>
               )}
             </div>
@@ -684,91 +686,18 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 )}
               </div>
 
-              {/* Price Adjustment Buttons - Compact */}
-              <div className="grid grid-cols-7 gap-1 mb-2">
-                {/* Use Last Price Button */}
-                {nextItem.price && (
+              {/* Use Last Price Button - Kept, others removed */}
+              {nextItem.price && (
+                <div className="mb-2">
                   <button
                     onClick={() => setQuickPrice(parseFloat(nextItem.price).toFixed(2))}
-                    className="col-span-1 py-2 px-1 bg-blue-500 hover:bg-blue-600 text-white rounded font-bold transition-all text-xs"
+                    className="w-full py-2 px-3 bg-blue-500 hover:bg-blue-600 text-white rounded font-semibold transition-all text-sm"
                     title="Use last price"
                   >
-                    💡
+                    💡 Use Last Price (${parseFloat(nextItem.price).toFixed(2)})
                   </button>
-                )}
-                
-                {/* Increment Buttons (Green) */}
-                <button
-                  onClick={() => {
-                    const current = parseFloat(quickPrice) || 0;
-                    const newPrice = (current + 5).toFixed(2);
-                    setQuickPrice(newPrice);
-                    setPriceSetTime(Date.now()); // Start tracking
-                  }}
-                  className={`py-2 px-1 bg-green-500 hover:bg-green-600 text-white rounded font-bold transition-all text-xs ${nextItem.price ? 'col-span-2' : 'col-span-2'}`}
-                >
-                  +$5
-                </button>
-                <button
-                  onClick={() => {
-                    const current = parseFloat(quickPrice) || 0;
-                    const newPrice = (current + 1).toFixed(2);
-                    setQuickPrice(newPrice);
-                    setPriceSetTime(Date.now());
-                  }}
-                  className={`py-2 px-1 bg-green-500 hover:bg-green-600 text-white rounded font-bold transition-all text-xs ${nextItem.price ? 'col-span-2' : 'col-span-2'}`}
-                >
-                  +$1
-                </button>
-                <button
-                  onClick={() => {
-                    const current = parseFloat(quickPrice) || 0;
-                    const newPrice = (current + 0.5).toFixed(2);
-                    setQuickPrice(newPrice);
-                    setPriceSetTime(Date.now());
-                  }}
-                  className={`py-2 px-1 bg-green-500 hover:bg-green-600 text-white rounded font-bold transition-all text-xs ${nextItem.price ? 'col-span-2' : 'col-span-3'}`}
-                >
-                  +$0.50
-                </button>
-              </div>
-
-              {/* Decrement Buttons (Red) */}
-              <div className="grid grid-cols-6 gap-1 mb-2">
-                <button
-                  onClick={() => {
-                    const current = parseFloat(quickPrice) || 0;
-                    const newPrice = Math.max(0, current - 5).toFixed(2);
-                    setQuickPrice(newPrice);
-                    setPriceSetTime(Date.now());
-                  }}
-                  className="col-span-2 py-2 px-1 bg-red-500 hover:bg-red-600 text-white rounded font-bold transition-all text-xs"
-                >
-                  -$5
-                </button>
-                <button
-                  onClick={() => {
-                    const current = parseFloat(quickPrice) || 0;
-                    const newPrice = Math.max(0, current - 1).toFixed(2);
-                    setQuickPrice(newPrice);
-                    setPriceSetTime(Date.now());
-                  }}
-                  className="col-span-2 py-2 px-1 bg-red-500 hover:bg-red-600 text-white rounded font-bold transition-all text-xs"
-                >
-                  -$1
-                </button>
-                <button
-                  onClick={() => {
-                    const current = parseFloat(quickPrice) || 0;
-                    const newPrice = Math.max(0, current - 0.5).toFixed(2);
-                    setQuickPrice(newPrice);
-                    setPriceSetTime(Date.now());
-                  }}
-                  className="col-span-2 py-2 px-1 bg-red-500 hover:bg-red-600 text-white rounded font-bold transition-all text-xs"
-                >
-                  -$0.50
-                </button>
-              </div>
+                </div>
+              )}
             </div>
           )}
           
