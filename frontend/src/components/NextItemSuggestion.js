@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
 import FormattedNote from './FormattedNote';
+import CustomNumberPad from './CustomNumberPad';
 
 const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onBack, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onRemoveNote, onMarkUnavailable, onChangeStore, triggerCheckmarkAnimation, onPriceUpdate, triggerFlyingAnimation }) => {
   const [showGuide, setShowGuide] = useState(() => {
@@ -22,6 +23,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
   const priceTrackingTimerRef = useRef(null);
   const sameAisleIconRefs = useRef({});
   const grabTheseScrollRef = useRef(null);
+  const priceInputRef = useRef(null);
   
   // Update local state when nextItem changes
   React.useEffect(() => {
@@ -645,44 +647,29 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               </div>
 
               {/* Current Price Display - Clickable with Last Price */}
-              <div 
-                onClick={() => setShowPriceInput(true)}
-                className="bg-white dark:bg-gray-800 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-2 cursor-pointer hover:border-blue-400 dark:hover:border-blue-600 transition-colors"
-              >
+              <div className="mb-2">
                 {showPriceInput ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl font-bold text-gray-700 dark:text-gray-300">$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={quickPrice}
-                        onChange={(e) => setQuickPrice(e.target.value)}
-                        autoFocus
-                        placeholder="0.00"
-                        className="flex-1 text-3xl font-bold bg-transparent border-none outline-none text-blue-600 dark:text-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                    </div>
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        const priceValue = quickPrice ? parseFloat(quickPrice) : 0;
-                        if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
-                          const formattedPrice = priceValue.toFixed(2);
-                          console.log(`Manual save: $${formattedPrice} for ${nextItem.item_name}`);
-                          await onPriceUpdate(nextItem.id, parseFloat(formattedPrice));
-                          setQuickPrice(''); // Reset to empty for next item
-                          setShowPriceInput(false); // Close input after save
-                        }
-                      }}
-                      className="w-full py-2 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-colors"
-                    >
-                      💾 Save Price
-                    </button>
-                  </div>
+                  <CustomNumberPad
+                    value={quickPrice}
+                    onChange={setQuickPrice}
+                    onSave={async () => {
+                      const priceValue = quickPrice ? parseFloat(quickPrice) : 0;
+                      if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
+                        const formattedPrice = priceValue.toFixed(2);
+                        console.log(`Manual save: $${formattedPrice} for ${nextItem.item_name}`);
+                        await onPriceUpdate(nextItem.id, parseFloat(formattedPrice));
+                        setQuickPrice(''); // Reset to empty for next item
+                        setShowPriceInput(false); // Close input after save
+                      }
+                    }}
+                    onCancel={() => setShowPriceInput(false)}
+                    maxDigits={6}
+                  />
                 ) : (
-                  <div>
+                  <div 
+                    onClick={() => setShowPriceInput(true)}
+                    className="cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/10 p-2 rounded-lg transition-colors"
+                  >
                     <div className="flex items-baseline gap-3">
                       <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
                         ${quickPrice || '0.00'}
