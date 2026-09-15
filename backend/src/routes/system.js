@@ -608,9 +608,16 @@ router.post('/update/perform', authenticateToken, isAdmin, async (req, res) => {
 router.get('/changelog', authenticateToken, async (req, res) => {
   try {
     // Get git log with custom format: hash|date|message|author
+    // Run from project root (one level up from backend)
+    const projectRoot = path.join(__dirname, '..', '..');
     const { stdout } = await execPromise(
-      'git log --pretty=format:"%H|%ai|%s|%an" --reverse'
+      'git log --pretty=format:"%H|%ai|%s|%an" --reverse',
+      { cwd: projectRoot }
     );
+    
+    if (!stdout || !stdout.trim()) {
+      return res.json({ commits: [], total: 0 });
+    }
     
     const commits = stdout
       .split('\n')
@@ -631,15 +638,17 @@ router.get('/changelog', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting changelog:', error);
-    res.status(500).json({ error: 'Failed to get changelog' });
+    res.status(500).json({ error: 'Failed to get changelog', message: error.message });
   }
 });
 
 // Get changelog stats
 router.get('/changelog/stats', authenticateToken, async (req, res) => {
   try {
+    const projectRoot = path.join(__dirname, '..', '..');
     const { stdout } = await execPromise(
-      'git log --pretty=format:"%s" --reverse'
+      'git log --pretty=format:"%s" --reverse',
+      { cwd: projectRoot }
     );
     
     const messages = stdout.split('\n').filter(line => line.trim());
@@ -678,9 +687,10 @@ router.get('/changelog/stats', authenticateToken, async (req, res) => {
 router.get('/changelog/recent/:count?', authenticateToken, async (req, res) => {
   try {
     const count = parseInt(req.params.count) || 10;
-    
+    const projectRoot = path.join(__dirname, '..', '..');
     const { stdout } = await execPromise(
-      `git log --pretty=format:"%H|%ai|%s|%an" -${count}`
+      `git log --pretty=format:"%H|%ai|%s|%an" -n ${count}`,
+      { cwd: projectRoot }
     );
     
     const commits = stdout
