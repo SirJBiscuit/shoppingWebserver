@@ -12,7 +12,7 @@ const FlyingItemAnimation = () => {
   useEffect(() => {
     // Find cart position - update whenever flying items change
     const updateCartPosition = () => {
-      const cartElement = document.querySelector('[data-cart-target]');
+      const cartElement = document.querySelector('[data-animated-cart-target]');
       if (cartElement) {
         const rect = cartElement.getBoundingClientRect();
         // Target the visual center of the cart basket

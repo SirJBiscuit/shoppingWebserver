@@ -56,7 +56,7 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
   }, [items, initialized]);
 
   return (
-    <div className="relative" data-cart-target>
+    <div className="relative" data-animated-cart-target>
       {/* Flying Items Animation */}
       <AnimatePresence>
         {flyingItems.map((item) => (
