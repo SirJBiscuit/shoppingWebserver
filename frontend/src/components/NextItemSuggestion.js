@@ -248,7 +248,42 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
     return 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700';
   };
 
-  if (!nextItem) return null;
+  // Show "No items left" message when all items are checked
+  if (!nextItem) {
+    return (
+      <motion.div
+        data-looking-for-next
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-6 w-full max-w-full bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-xl shadow-lg relative overflow-hidden"
+      >
+        <div className="p-6 text-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="bg-blue-500 text-white rounded-full p-4">
+              <Check className="w-8 h-8" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-blue-900 dark:text-blue-100 mb-1">
+                All Done! 🎉
+              </h3>
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                No items left to find. Great job shopping!
+              </p>
+            </div>
+            {peekNextItem && (
+              <button
+                onClick={() => onUndo()}
+                className="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center gap-2 transition-colors"
+              >
+                <Undo className="w-4 h-4" />
+                Undo Last Check
+              </button>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div

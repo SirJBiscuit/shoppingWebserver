@@ -610,9 +610,18 @@ router.get('/changelog', authenticateToken, async (req, res) => {
     // Get git log with custom format: hash|date|message|author
     // Run from project root (one level up from backend)
     const projectRoot = path.join(__dirname, '..', '..');
+    
+    // Check if git is available and directory is a git repo
+    try {
+      await execPromise('git --version', { cwd: projectRoot });
+    } catch (gitError) {
+      console.warn('Git not available, returning empty changelog');
+      return res.json({ commits: [], total: 0, error: 'Git not available' });
+    }
+    
     const { stdout } = await execPromise(
       'git log --pretty=format:"%H|%ai|%s|%an" --reverse',
-      { cwd: projectRoot }
+      { cwd: projectRoot, timeout: 5000 } // 5 second timeout
     );
     
     if (!stdout || !stdout.trim()) {
@@ -637,8 +646,9 @@ router.get('/changelog', authenticateToken, async (req, res) => {
       total: commits.length
     });
   } catch (error) {
-    console.error('Error getting changelog:', error);
-    res.status(500).json({ error: 'Failed to get changelog', message: error.message });
+    console.error('Error getting changelog:', error.message);
+    // Return empty array instead of error to prevent frontend crashes
+    res.json({ commits: [], total: 0, error: error.message });
   }
 });
 
@@ -648,7 +658,7 @@ router.get('/changelog/stats', authenticateToken, async (req, res) => {
     const projectRoot = path.join(__dirname, '..', '..');
     const { stdout } = await execPromise(
       'git log --pretty=format:"%s" --reverse',
-      { cwd: projectRoot }
+      { cwd: projectRoot, timeout: 5000 }
     );
     
     const messages = stdout.split('\n').filter(line => line.trim());
@@ -678,8 +688,9 @@ router.get('/changelog/stats', authenticateToken, async (req, res) => {
     
     res.json(stats);
   } catch (error) {
-    console.error('Error getting changelog stats:', error);
-    res.status(500).json({ error: 'Failed to get changelog stats' });
+    console.error('Error getting changelog stats:', error.message);
+    // Return empty stats instead of error
+    res.json({ total: 0, features: 0, fixes: 0, performance: 0, docs: 0, other: 0 });
   }
 });
 
@@ -690,7 +701,7 @@ router.get('/changelog/recent/:count?', authenticateToken, async (req, res) => {
     const projectRoot = path.join(__dirname, '..', '..');
     const { stdout } = await execPromise(
       `git log --pretty=format:"%H|%ai|%s|%an" -n ${count}`,
-      { cwd: projectRoot }
+      { cwd: projectRoot, timeout: 5000 }
     );
     
     const commits = stdout
@@ -711,8 +722,9 @@ router.get('/changelog/recent/:count?', authenticateToken, async (req, res) => {
       count: commits.length
     });
   } catch (error) {
-    console.error('Error getting recent changes:', error);
-    res.status(500).json({ error: 'Failed to get recent changes' });
+    console.error('Error getting recent changelog:', error.message);
+    // Return empty array instead of error
+    res.json({ commits: [], count: 0, error: error.message });
   }
 });
 
