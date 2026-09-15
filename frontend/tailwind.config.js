@@ -21,5 +21,28 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    function({ addComponents }) {
+      addComponents({
+        '.btn-square-64': {
+          width: '64px',
+          height: '64px',
+          minWidth: '64px',
+          minHeight: '64px',
+        },
+        '.btn-square-48': {
+          width: '48px',
+          height: '48px',
+          minWidth: '48px',
+          minHeight: '48px',
+        },
+        '.btn-square-56': {
+          width: '56px',
+          height: '56px',
+          minWidth: '56px',
+          minHeight: '56px',
+        },
+      })
+    }
+  ],
 }
