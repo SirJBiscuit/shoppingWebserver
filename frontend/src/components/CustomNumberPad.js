@@ -180,7 +180,7 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, dev
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
         className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border-2 border-blue-200 dark:border-blue-800 
-                   w-full max-w-[300px] mx-auto
+                   w-[240px]
                    p-3 select-none touch-none"
         style={{ cursor: 'grab' }}
       >
