@@ -2,7 +2,15 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
 const { authenticateToken: auth } = require('../middleware/auth');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+// Only initialize Stripe if API key is provided
+let stripe = null;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  console.log('✓ Stripe initialized');
+} else {
+  console.warn('⚠ Stripe API key not found - subscription features disabled');
+}
 
 // Pricing configuration
 const PRICING = {
@@ -52,6 +60,10 @@ router.get('/status', auth, async (req, res) => {
 
 // Create Stripe checkout session
 router.post('/create-checkout-session', auth, async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({ error: 'Subscription service unavailable - Stripe not configured' });
+  }
+  
   try {
     const { tier } = req.body; // 'weekly' or 'monthly'
     
