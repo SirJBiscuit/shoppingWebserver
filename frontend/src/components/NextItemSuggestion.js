@@ -470,8 +470,17 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
                     await onPriceUpdate(nextItem.id, priceValue);
                   }
+                  
+                  // Trigger checkmark animation from this button to the item's checkbox
+                  if (triggerCheckmarkAnimation && checkboxRef.current && nextItem) {
+                    // Find the target checkbox in the item list
+                    const targetCheckbox = document.querySelector(`[data-item-checkbox="${nextItem.id}"]`);
+                    if (targetCheckbox) {
+                      triggerCheckmarkAnimation(nextItem, checkboxRef.current, targetCheckbox);
+                    }
+                  }
+                  
                   if (onCheck) onCheck();
-                  if (triggerCheckmarkAnimation) triggerCheckmarkAnimation();
                 }}
                 className={`flex items-center justify-center gap-2 sm:gap-3 px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg sm:rounded-xl transition-all flex-shrink-0 shadow-md hover:shadow-lg ${
                   isChecked

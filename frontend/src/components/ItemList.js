@@ -364,6 +364,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                 <div className="flex items-center flex-1">
                   <motion.button
                     key={checkAnimKey}
+                    data-item-checkbox={item.id}
                     onClick={handleCheck}
                     whileTap={{ scale: 0.85 }}
                     animate={item.is_checked ? { 
