@@ -163,14 +163,23 @@ const Dashboard = () => {
       // We'll validate it when loadLists runs
     }
     
-    loadLists(true); // Force set active list on initial load
-    loadSuggestions();
-    loadItemPreferences();
-    loadInventory();
-    loadCategories();
-    loadCustomStores();
+    // CRITICAL: Load lists and items first (blocking)
+    const initializeApp = async () => {
+      await loadLists(true); // Force set active list on initial load
+      
+      // NON-CRITICAL: Load everything else after a short delay (non-blocking)
+      setTimeout(() => {
+        loadSuggestions();
+        loadItemPreferences();
+        loadInventory();
+        loadCategories();
+        loadCustomStores();
+      }, 100);
+    };
+    
+    initializeApp();
 
-    // Fetch version info
+    // Fetch version info (non-critical, delayed)
     const fetchVersion = async () => {
       try {
         const response = await fetch('/api/system/status', {
@@ -187,7 +196,7 @@ const Dashboard = () => {
         console.error('Error fetching version:', err);
       }
     };
-    fetchVersion();
+    setTimeout(fetchVersion, 500); // Delay version check
     // Check every 2 minutes
     const versionInterval = setInterval(fetchVersion, 2 * 60 * 1000);
 
