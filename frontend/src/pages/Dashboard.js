@@ -758,13 +758,19 @@ const Dashboard = () => {
 
   // Quick quantity change - Optimistic update for instant feedback
   const handleQuantityChange = async (item, delta) => {
-    // Calculate new quantity first
-    const updatedQuantity = Math.max(1, (item.quantity || 1) + delta);
-    
-    console.log(`Quantity change: ${item.item_name} from ${item.quantity} to ${updatedQuantity}`);
+    let updatedQuantity;
     
     // Optimistic update - update UI immediately with functional update
+    // IMPORTANT: Calculate new quantity from CURRENT state, not stale item object
     setItems(prevItems => {
+      const currentItem = prevItems.find(i => i.id === item.id);
+      if (!currentItem) return prevItems;
+      
+      // Calculate from current state quantity, not from stale item parameter
+      updatedQuantity = Math.max(1, (currentItem.quantity || 1) + delta);
+      
+      console.log(`Quantity change: ${item.item_name} from ${currentItem.quantity} to ${updatedQuantity}`);
+      
       const newItems = prevItems.map(i => {
         if (i.id === item.id) {
           console.log(`Updating item ${i.id} quantity to ${updatedQuantity}`);
