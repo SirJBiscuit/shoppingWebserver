@@ -432,9 +432,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               {/* Quantity Controls */}
               <div className="flex items-center gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg sm:rounded-xl px-2 sm:px-3 py-1.5 sm:py-2 shadow-md">
                 <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
+                  onClick={() => {
                     if (onQuantityChange) {
                       onQuantityChange(nextItem, -1);
                     }
@@ -447,9 +445,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   {formatQuantityPlain(nextItem.quantity || 1)} {nextItem.unit || ''}
                 </span>
                 <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
+                  onClick={() => {
                     if (onQuantityChange) {
                       onQuantityChange(nextItem, 1);
                     }

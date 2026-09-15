@@ -741,13 +741,16 @@ const Dashboard = () => {
     // Calculate new quantity first
     const updatedQuantity = Math.max(1, (item.quantity || 1) + delta);
     
-    // Optimistic update - update UI immediately
-    setItems(prevItems => prevItems.map(i => {
-      if (i.id === item.id) {
-        return { ...i, quantity: updatedQuantity };
-      }
-      return i;
-    }));
+    // Optimistic update - update UI immediately with functional update
+    setItems(prevItems => {
+      const newItems = prevItems.map(i => {
+        if (i.id === item.id) {
+          return { ...i, quantity: updatedQuantity };
+        }
+        return i;
+      });
+      return newItems;
+    });
     
     // Update server in background
     try {
