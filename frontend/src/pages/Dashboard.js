@@ -2029,6 +2029,7 @@ const Dashboard = () => {
                 return nextItem ? (
                   <div data-tutorial="looking-for-next">
                     <NextItemSuggestion 
+                    key={`${nextItem.id}-${nextItem.quantity}`}
                     nextItem={nextItem} 
                     sameAisleItems={sameAisleItems}
                     onCheck={(item) => handleCheckItem(item || nextItem)}
