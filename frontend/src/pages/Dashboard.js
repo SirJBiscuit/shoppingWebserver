@@ -761,10 +761,13 @@ const Dashboard = () => {
     // Calculate new quantity first
     const updatedQuantity = Math.max(1, (item.quantity || 1) + delta);
     
+    console.log(`Quantity change: ${item.item_name} from ${item.quantity} to ${updatedQuantity}`);
+    
     // Optimistic update - update UI immediately with functional update
     setItems(prevItems => {
       const newItems = prevItems.map(i => {
         if (i.id === item.id) {
+          console.log(`Updating item ${i.id} quantity to ${updatedQuantity}`);
           return { ...i, quantity: updatedQuantity };
         }
         return i;
@@ -772,12 +775,12 @@ const Dashboard = () => {
       return newItems;
     });
     
-    // Update server in background
+    // Update server in background - use only the quantity field
     try {
       await shoppingAPI.updateItem(activeList.id, item.id, {
-        ...item,
         quantity: updatedQuantity
       });
+      console.log(`Server updated: ${item.item_name} quantity = ${updatedQuantity}`);
     } catch (err) {
       console.error('Error updating quantity:', err);
       error('Failed to update quantity');
