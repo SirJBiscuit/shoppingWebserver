@@ -3,22 +3,42 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Calendar, GitCommit, User, Tag, TrendingUp, 
   Sparkles, Zap, Bug, Settings, FileText, Package,
-  ChevronDown, ChevronUp, Filter, Search, Download
+  ChevronDown, ChevronUp, Filter, Search, Download, Shield, Users
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const ChangelogViewer = ({ isOpen, onClose }) => {
+  const { user } = useAuth();
   const [changelog, setChangelog] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, feat, fix, perf, docs
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCommit, setExpandedCommit] = useState(null);
   const [viewMode, setViewMode] = useState('timeline'); // timeline, grouped
+  const [userView, setUserView] = useState(true); // true = user-friendly, false = admin detailed
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       loadChangelog();
+      checkAdminStatus();
     }
   }, [isOpen]);
+
+  const checkAdminStatus = async () => {
+    try {
+      const response = await fetch('/api/system/check-updates', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      if (response.ok) {
+        setIsAdmin(true);
+      }
+    } catch (error) {
+      setIsAdmin(false);
+    }
+  };
 
   const loadChangelog = async () => {
     try {
@@ -50,6 +70,26 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
     if (lower.startsWith('test:')) return 'test';
     if (lower.startsWith('chore:')) return 'chore';
     return 'other';
+  };
+
+  // Convert technical commit message to user-friendly description
+  const formatUserFriendly = (message, type) => {
+    // Remove prefix (feat:, fix:, etc.)
+    let clean = message.replace(/^(feat|fix|perf|docs|style|refactor|test|chore)(\([^)]+\))?:\s*/i, '');
+    
+    // Capitalize first letter
+    clean = clean.charAt(0).toUpperCase() + clean.slice(1);
+    
+    // Add emoji based on type
+    const emoji = {
+      'feat': '✨ New:',
+      'fix': '🐛 Fixed:',
+      'perf': '⚡ Faster:',
+      'docs': '📝 Updated:',
+      'style': '🎨 Improved:'
+    }[type] || '📦 Updated:';
+    
+    return `${emoji} ${clean}`;
   };
 
   const getCommitIcon = (type) => {
@@ -147,19 +187,45 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                <Package className="w-8 h-8" />
+                {userView ? <Sparkles className="w-8 h-8" /> : <Package className="w-8 h-8" />}
               </div>
               <div>
-                <h2 className="text-3xl font-bold">Changelog & Features</h2>
-                <p className="text-primary-100 text-sm">Track every improvement and update</p>
+                <h2 className="text-3xl font-bold">
+                  {userView ? "What's New" : 'Changelog & Features'}
+                </h2>
+                <p className="text-primary-100 text-sm">
+                  {userView ? 'Recent updates and improvements' : 'Complete development history'}
+                </p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Admin Toggle */}
+              {isAdmin && (
+                <button
+                  onClick={() => setUserView(!userView)}
+                  className="flex items-center gap-2 px-3 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-sm font-medium"
+                  title={userView ? 'Switch to Admin View' : 'Switch to User View'}
+                >
+                  {userView ? (
+                    <>
+                      <Shield className="w-4 h-4" />
+                      <span className="hidden sm:inline">Admin View</span>
+                    </>
+                  ) : (
+                    <>
+                      <Users className="w-4 h-4" />
+                      <span className="hidden sm:inline">User View</span>
+                    </>
+                  )}
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
           </div>
 
           {/* Stats */}
@@ -186,22 +252,24 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
         {/* Filters & Search */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
           <div className="flex flex-wrap gap-3 items-center">
-            {/* Filter Buttons */}
-            <div className="flex gap-2">
-              {['all', 'feat', 'fix', 'perf', 'docs'].map(type => (
-                <button
-                  key={type}
-                  onClick={() => setFilter(type)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                    filter === type
-                      ? 'bg-primary-600 text-white shadow-md'
-                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  {type === 'all' ? 'All' : type.charAt(0).toUpperCase() + type.slice(1)}
-                </button>
-              ))}
-            </div>
+            {/* Filter Buttons - Only show in admin view */}
+            {!userView && (
+              <div className="flex gap-2">
+                {['all', 'feat', 'fix', 'perf', 'docs'].map(type => (
+                  <button
+                    key={type}
+                    onClick={() => setFilter(type)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      filter === type
+                        ? 'bg-primary-600 text-white shadow-md'
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {type === 'all' ? 'All' : type.charAt(0).toUpperCase() + type.slice(1)}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Search */}
             <div className="flex-1 min-w-[200px]">
@@ -217,14 +285,16 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
               </div>
             </div>
 
-            {/* Export Button */}
-            <button
-              onClick={exportChangelog}
-              className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm font-medium"
-            >
-              <Download className="w-4 h-4" />
-              Export
-            </button>
+            {/* Export Button - Admin only */}
+            {!userView && (
+              <button
+                onClick={exportChangelog}
+                className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm font-medium"
+              >
+                <Download className="w-4 h-4" />
+                Export
+              </button>
+            )}
           </div>
         </div>
 
@@ -242,7 +312,7 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
             </div>
           ) : viewMode === 'timeline' ? (
             <div className="space-y-4">
-              {filteredChangelog.map((commit, index) => {
+              {(userView ? filteredChangelog.slice(-20).reverse() : filteredChangelog).map((commit, index) => {
                 const type = categorizeCommit(commit.message);
                 const isExpanded = expandedCommit === commit.hash;
                 
@@ -252,8 +322,8 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className={`border-2 rounded-xl p-4 ${getCommitColor(type)} hover:shadow-lg transition-all cursor-pointer`}
-                    onClick={() => setExpandedCommit(isExpanded ? null : commit.hash)}
+                    className={`border-2 rounded-xl p-4 ${getCommitColor(type)} hover:shadow-lg transition-all ${!userView ? 'cursor-pointer' : ''}`}
+                    onClick={() => !userView && setExpandedCommit(isExpanded ? null : commit.hash)}
                   >
                     <div className="flex items-start gap-4">
                       <div className="flex-shrink-0 mt-1">
@@ -263,26 +333,28 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-4 mb-2">
                           <h3 className="font-semibold text-gray-900 dark:text-white leading-tight">
-                            {commit.message.split('\n')[0]}
+                            {userView ? formatUserFriendly(commit.message, type) : commit.message.split('\n')[0]}
                           </h3>
                           <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                             {formatDate(commit.date)}
                           </span>
                         </div>
                         
-                        <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
-                          <span className="flex items-center gap-1">
-                            <User className="w-3 h-3" />
-                            {commit.author}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <GitCommit className="w-3 h-3" />
-                            {commit.hash.substring(0, 7)}
-                          </span>
-                        </div>
+                        {!userView && (
+                          <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
+                            <span className="flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              {commit.author}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <GitCommit className="w-3 h-3" />
+                              {commit.hash.substring(0, 7)}
+                            </span>
+                          </div>
+                        )}
 
                         <AnimatePresence>
-                          {isExpanded && commit.message.includes('\n') && (
+                          {!userView && isExpanded && commit.message.includes('\n') && (
                             <motion.div
                               initial={{ height: 0, opacity: 0 }}
                               animate={{ height: 'auto', opacity: 1 }}
@@ -297,7 +369,7 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
                         </AnimatePresence>
                       </div>
 
-                      {commit.message.includes('\n') && (
+                      {!userView && commit.message.includes('\n') && (
                         <button className="flex-shrink-0 p-1 hover:bg-white/50 dark:hover:bg-black/20 rounded">
                           {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                         </button>
@@ -345,21 +417,27 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
         {/* Footer */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
           <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
-            <span>Showing {filteredChangelog.length} of {changelog.length} updates</span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode('timeline')}
-                className={`px-3 py-1 rounded ${viewMode === 'timeline' ? 'bg-primary-600 text-white' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-              >
-                Timeline
-              </button>
-              <button
-                onClick={() => setViewMode('grouped')}
-                className={`px-3 py-1 rounded ${viewMode === 'grouped' ? 'bg-primary-600 text-white' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-              >
-                Grouped
-              </button>
-            </div>
+            <span>
+              {userView 
+                ? `Showing latest ${Math.min(20, filteredChangelog.length)} updates` 
+                : `Showing ${filteredChangelog.length} of ${changelog.length} updates`}
+            </span>
+            {!userView && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setViewMode('timeline')}
+                  className={`px-3 py-1 rounded ${viewMode === 'timeline' ? 'bg-primary-600 text-white' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                >
+                  Timeline
+                </button>
+                <button
+                  onClick={() => setViewMode('grouped')}
+                  className={`px-3 py-1 rounded ${viewMode === 'grouped' ? 'bg-primary-600 text-white' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                >
+                  Grouped
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </motion.div>
