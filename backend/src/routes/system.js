@@ -606,6 +606,12 @@ router.post('/update/perform', authenticateToken, isAdmin, async (req, res) => {
 
 // Get full changelog from git history
 router.get('/changelog', authenticateToken, async (req, res) => {
+  // TEMPORARY: Disable git commands to prevent crashes
+  // TODO: Re-enable after debugging on server
+  console.log('Changelog endpoint called - returning empty (disabled for debugging)');
+  return res.json({ commits: [], total: 0, disabled: true });
+  
+  /* DISABLED TEMPORARILY
   try {
     // Get git log with custom format: hash|date|message|author
     // Run from project root (one level up from backend)
@@ -650,10 +656,14 @@ router.get('/changelog', authenticateToken, async (req, res) => {
     // Return empty array instead of error to prevent frontend crashes
     res.json({ commits: [], total: 0, error: error.message });
   }
+  */
 });
 
 // Get changelog stats
 router.get('/changelog/stats', authenticateToken, async (req, res) => {
+  // TEMPORARY: Disabled
+  return res.json({ total: 0, features: 0, fixes: 0, performance: 0, docs: 0, other: 0, disabled: true });
+  /* DISABLED
   try {
     const projectRoot = path.join(__dirname, '..', '..');
     const { stdout } = await execPromise(
@@ -692,10 +702,14 @@ router.get('/changelog/stats', authenticateToken, async (req, res) => {
     // Return empty stats instead of error
     res.json({ total: 0, features: 0, fixes: 0, performance: 0, docs: 0, other: 0 });
   }
+  */
 });
 
 // Get recent changes (last N commits)
 router.get('/changelog/recent/:count?', authenticateToken, async (req, res) => {
+  // TEMPORARY: Disabled
+  return res.json({ commits: [], count: 0, disabled: true });
+  /* DISABLED
   try {
     const count = parseInt(req.params.count) || 10;
     const projectRoot = path.join(__dirname, '..', '..');
@@ -726,6 +740,7 @@ router.get('/changelog/recent/:count?', authenticateToken, async (req, res) => {
     // Return empty array instead of error
     res.json({ commits: [], count: 0, error: error.message });
   }
+  */
 });
 
 module.exports = router;
