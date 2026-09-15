@@ -160,6 +160,14 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, dev
 
   // Tablet layout - Same as desktop
   if (device === 'tablet') {
+    console.log('🔵 TABLET NUMPAD: Rendering 3x4 grid layout', {
+      device,
+      screenWidth: window.innerWidth,
+      containerMaxWidth: '300px',
+      gridCols: 3,
+      buttonClasses: 'aspect-square min-h-[60px]'
+    });
+    
     return (
       <motion.div
         drag
@@ -178,7 +186,7 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, dev
       >
         {/* Device Indicator */}
         <div className="text-center mb-1">
-          <span className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded font-medium">TABLET</span>
+          <span className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded font-medium">TABLET 3x4</span>
         </div>
         
         {/* Drag Handle */}
