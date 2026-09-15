@@ -7,6 +7,7 @@ const UpdateNotification = () => {
   const [updateInfo, setUpdateInfo] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [platform, setPlatform] = useState('web');
+  const [recentChanges, setRecentChanges] = useState([]);
 
   useEffect(() => {
     detectPlatform();
@@ -77,6 +78,10 @@ const UpdateNotification = () => {
               message: updateNotification.message || 'New features and improvements available!',
               notificationId: updateNotification.id
             });
+            
+            // Fetch recent changelog
+            fetchRecentChangelog();
+            
             setShowModal(true);
           }
         }
@@ -176,6 +181,69 @@ const UpdateNotification = () => {
     if (platform === 'web-mobile') return 'Mobile Web';
     if (platform === 'web-tablet') return 'Tablet Web';
     return 'Desktop Web';
+  };
+
+  const fetchRecentChangelog = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/system/changelog/recent/5', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Format commits to user-friendly messages
+        const formatted = data.commits.map(commit => {
+          const type = categorizeCommit(commit.message);
+          return formatUserFriendly(commit.message, type);
+        });
+        setRecentChanges(formatted);
+      }
+    } catch (error) {
+      console.error('Error fetching changelog:', error);
+      // Fallback to generic messages
+      setRecentChanges([
+        '✨ New: Performance improvements and bug fixes',
+        '🐛 Fixed: Various issues resolved',
+        '⚡ Faster: Improved app speed'
+      ]);
+    }
+  };
+
+  const categorizeCommit = (message) => {
+    const lower = message.toLowerCase();
+    if (lower.startsWith('feat:') || lower.startsWith('feat(')) return 'feat';
+    if (lower.startsWith('fix:') || lower.startsWith('fix(')) return 'fix';
+    if (lower.startsWith('perf:') || lower.startsWith('perf(')) return 'perf';
+    if (lower.startsWith('docs:') || lower.startsWith('docs(')) return 'docs';
+    if (lower.startsWith('style:') || lower.startsWith('style(')) return 'style';
+    return 'other';
+  };
+
+  const formatUserFriendly = (message, type) => {
+    // Remove prefix (feat:, fix:, etc.)
+    let clean = message.replace(/^(feat|fix|perf|docs|style|refactor|test|chore)(\([^)]+\))?:\s*/i, '');
+    
+    // Capitalize first letter
+    clean = clean.charAt(0).toUpperCase() + clean.slice(1);
+    
+    // Truncate if too long
+    if (clean.length > 60) {
+      clean = clean.substring(0, 57) + '...';
+    }
+    
+    // Add emoji based on type
+    const emoji = {
+      'feat': '✨',
+      'fix': '🐛',
+      'perf': '⚡',
+      'docs': '📝',
+      'style': '🎨'
+    }[type] || '📦';
+    
+    return `${emoji} ${clean}`;
   };
 
   if (!showModal || !updateInfo) return null;
@@ -295,7 +363,7 @@ const UpdateNotification = () => {
               </div>
             </motion.div>
 
-            {/* Features list */}
+            {/* Features list - Real changelog */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -309,18 +377,35 @@ const UpdateNotification = () => {
                 </h3>
               </div>
               <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>Performance improvements and bug fixes</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>New features and enhancements</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>Updated UI and better user experience</span>
-                </li>
+                {recentChanges.length > 0 ? (
+                  recentChanges.map((change, index) => (
+                    <motion.li
+                      key={index}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.6 + index * 0.1 }}
+                      className="flex items-start gap-2"
+                    >
+                      <span className="text-base leading-none mt-0.5">{change.charAt(0)}</span>
+                      <span>{change.substring(2)}</span>
+                    </motion.li>
+                  ))
+                ) : (
+                  <>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>Performance improvements and bug fixes</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>New features and enhancements</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>Updated UI and better user experience</span>
+                    </li>
+                  </>
+                )}
               </ul>
             </motion.div>
 
