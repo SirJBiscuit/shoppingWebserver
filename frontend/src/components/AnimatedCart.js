@@ -22,38 +22,32 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
     }
   }, [items.length, initialized]);
 
-  // Only animate NEW items (not on reload)
-  useEffect(() => {
-    if (!initialized) return; // Skip initial load
-    
-    const itemIds = items.map(i => i.id).join(',');
-    const storedIds = sessionStorage.getItem('cart_item_ids') || '';
-    
-    if (itemIds !== storedIds) {
-      // Find new items
-      const storedIdArray = storedIds.split(',').filter(Boolean);
-      const newItems = items.filter(item => !storedIdArray.includes(item.id.toString()));
-      
-      // Animate only new items
-      newItems.forEach((newItem, index) => {
-        setTimeout(() => {
-          const flyingItem = {
-            id: `flying-${newItem.id}-${Date.now()}`,
-            icon: newItem.item_icon || '📦',
-            name: newItem.item_name,
-          };
-          
-          setFlyingItems(prev => [...prev, flyingItem]);
-          
-          setTimeout(() => {
-            setFlyingItems(prev => prev.filter(item => item.id !== flyingItem.id));
-          }, 1000);
-        }, index * 100);
-      });
-      
-      sessionStorage.setItem('cart_item_ids', itemIds);
-    }
-  }, [items, initialized]);
+  // DISABLED: AnimatedCart's internal flying animations
+  // We now use CartAnimationContext for all flying animations
+  // This prevents animation spam when switching lists
+  // useEffect(() => {
+  //   if (!initialized) return;
+  //   const itemIds = items.map(i => i.id).join(',');
+  //   const storedIds = sessionStorage.getItem('cart_item_ids') || '';
+  //   if (itemIds !== storedIds) {
+  //     const storedIdArray = storedIds.split(',').filter(Boolean);
+  //     const newItems = items.filter(item => !storedIdArray.includes(item.id.toString()));
+  //     newItems.forEach((newItem, index) => {
+  //       setTimeout(() => {
+  //         const flyingItem = {
+  //           id: `flying-${newItem.id}-${Date.now()}`,
+  //           icon: newItem.item_icon || '📦',
+  //           name: newItem.item_name,
+  //         };
+  //         setFlyingItems(prev => [...prev, flyingItem]);
+  //         setTimeout(() => {
+  //           setFlyingItems(prev => prev.filter(item => item.id !== flyingItem.id));
+  //         }, 1000);
+  //       }, index * 100);
+  //     });
+  //     sessionStorage.setItem('cart_item_ids', itemIds);
+  //   }
+  // }, [items, initialized]);
 
   return (
     <div className="relative" data-animated-cart-target>
