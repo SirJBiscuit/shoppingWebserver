@@ -51,13 +51,13 @@ const LevelingSystem = ({ userId }) => {
     setTotalXP(newTotalXP);
     saveProgress(newLevel, newXP, newTotalXP);
     
-    // Add achievement notification
-    if (reason) {
-      setRecentAchievements(prev => [...prev, { reason, xp: amount, time: Date.now() }]);
-      setTimeout(() => {
-        setRecentAchievements(prev => prev.filter(a => a.time !== Date.now()));
-      }, 3000);
-    }
+    // OLD XP notification system - DISABLED (using XPNotificationContainer instead)
+    // if (reason) {
+    //   setRecentAchievements(prev => [...prev, { reason, xp: amount, time: Date.now() }]);
+    //   setTimeout(() => {
+    //     setRecentAchievements(prev => prev.filter(a => a.time !== Date.now()));
+    //   }, 3000);
+    // }
   };
 
   const getProgressPercentage = () => {
@@ -187,8 +187,8 @@ const LevelingSystem = ({ userId }) => {
         )}
       </AnimatePresence>
 
-      {/* XP Notifications */}
-      <div className="fixed bottom-4 right-4 z-40 space-y-2">
+      {/* OLD XP Notifications - DISABLED (using XPNotificationContainer instead) */}
+      {/* <div className="fixed bottom-4 right-4 z-40 space-y-2">
         <AnimatePresence>
           {recentAchievements.map((achievement) => (
             <motion.div
@@ -206,7 +206,7 @@ const LevelingSystem = ({ userId }) => {
             </motion.div>
           ))}
         </AnimatePresence>
-      </div>
+      </div> */}
     </>
   );
 };
