@@ -13,16 +13,32 @@ export const useCartAnimation = () => {
 export const CartAnimationProvider = ({ children }) => {
   const [flyingItems, setFlyingItems] = useState([]);
   const [flyingCheckmarks, setFlyingCheckmarks] = useState([]);
+  const [animationsBlocked, setAnimationsBlocked] = useState(false);
 
   const triggerFlyingAnimation = (item, startElement) => {
     if (!startElement) return;
+    
+    // Block animations during list switches
+    if (animationsBlocked) {
+      console.log('Animation blocked during list switch');
+      return;
+    }
+
+    const rect = startElement.getBoundingClientRect();
+    
+    // Validate that element is actually visible and positioned
+    // Prevent animations from corner (0,0) or off-screen elements
+    if (rect.left < 0 || rect.top < 0 || rect.width === 0 || rect.height === 0) {
+      console.log('Skipping animation - element not properly positioned:', rect);
+      return;
+    }
 
     const flyingItem = {
       id: `flying-${item.id || Date.now()}-${Math.random()}`,
       icon: item.item_icon || '📦',
       name: item.item_name || item.name,
-      startX: startElement.getBoundingClientRect().left,
-      startY: startElement.getBoundingClientRect().top,
+      startX: rect.left,
+      startY: rect.top,
     };
 
     setFlyingItems(prev => [...prev, flyingItem]);
@@ -61,6 +77,12 @@ export const CartAnimationProvider = ({ children }) => {
   const clearAnimations = () => {
     setFlyingItems([]);
     setFlyingCheckmarks([]);
+    
+    // Block new animations for 300ms to let DOM update
+    setAnimationsBlocked(true);
+    setTimeout(() => {
+      setAnimationsBlocked(false);
+    }, 300);
   };
 
   return (

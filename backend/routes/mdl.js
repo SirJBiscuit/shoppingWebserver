@@ -410,6 +410,78 @@ router.get('/location', authenticateToken, async (req, res) => {
 });
 
 // ============================================================================
+// USER PREFERENCES
+// ============================================================================
+
+// Save user preference
+router.post('/preferences', authenticateToken, async (req, res) => {
+  try {
+    const { key, value } = req.body;
+    const userId = req.user.id;
+    
+    await pool.query(`
+      INSERT INTO mdl_user_preferences (user_id, preference_key, preference_value, updated_at)
+      VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+      ON CONFLICT (user_id, preference_key)
+      DO UPDATE SET
+        preference_value = EXCLUDED.preference_value,
+        updated_at = CURRENT_TIMESTAMP
+    `, [userId, key, value]);
+    
+    res.json({ success: true, message: 'Preference saved' });
+  } catch (error) {
+    console.error('Error saving preference:', error);
+    res.status(500).json({ error: 'Failed to save preference' });
+  }
+});
+
+// Get user preference
+router.get('/preferences/:key', authenticateToken, async (req, res) => {
+  try {
+    const { key } = req.params;
+    const userId = req.user.id;
+    
+    const result = await pool.query(`
+      SELECT preference_value
+      FROM mdl_user_preferences
+      WHERE user_id = $1 AND preference_key = $2
+    `, [userId, key]);
+    
+    if (result.rows.length === 0) {
+      return res.json({ value: null });
+    }
+    
+    res.json({ value: result.rows[0].preference_value });
+  } catch (error) {
+    console.error('Error getting preference:', error);
+    res.status(500).json({ error: 'Failed to get preference' });
+  }
+});
+
+// Get all user preferences
+router.get('/preferences', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const result = await pool.query(`
+      SELECT preference_key, preference_value
+      FROM mdl_user_preferences
+      WHERE user_id = $1
+    `, [userId]);
+    
+    const preferences = {};
+    result.rows.forEach(row => {
+      preferences[row.preference_key] = row.preference_value;
+    });
+    
+    res.json({ preferences });
+  } catch (error) {
+    console.error('Error getting preferences:', error);
+    res.status(500).json({ error: 'Failed to get preferences' });
+  }
+});
+
+// ============================================================================
 // ADMIN ENDPOINTS
 // ============================================================================
 

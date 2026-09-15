@@ -54,6 +54,7 @@ import { useDeviceType } from '../hooks/useDeviceType';
 import ConsoleViewer from '../components/ConsoleViewer';
 import useScrollSound from '../hooks/useScrollSound';
 import { playSound } from '../utils/soundEffects';
+import { savePreference, getPreference } from '../api/mdl';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -226,12 +227,15 @@ const Dashboard = () => {
       if (isRecoveringFromError.current) {
         console.log('Skipping load - recovering from error');
         isRecoveringFromError.current = false;
+        // Save to both MDL and localStorage (MDL is user-specific and persists)
+        savePreference('last_active_list_id', activeList.id.toString());
         localStorage.setItem('lastActiveListId', activeList.id.toString());
         return;
       }
       
       loadListItems(activeList.id);
-      // Remember last used list
+      // Remember last used list in MDL (user-specific, persists across devices and cache clears)
+      savePreference('last_active_list_id', activeList.id.toString());
       localStorage.setItem('lastActiveListId', activeList.id.toString());
     } else if (activeList) {
       console.error('Active list has no ID:', activeList);
@@ -280,15 +284,24 @@ const Dashboard = () => {
       
       // Only set activeList if we don't have one yet OR if forced (initial load)
       if (!activeList || forceSetActive) {
-        // Try to restore last used list from localStorage
-        const lastListId = localStorage.getItem('lastActiveListId');
+        // Try to restore last used list from MDL (user-specific, persists across devices)
+        let lastListId = await getPreference('last_active_list_id');
+        
+        // Fallback to localStorage if MDL doesn't have it yet
+        if (!lastListId) {
+          lastListId = localStorage.getItem('lastActiveListId');
+          // Migrate to MDL if found in localStorage
+          if (lastListId) {
+            await savePreference('last_active_list_id', lastListId);
+          }
+        }
+        
         let listToActivate = null;
         
         if (lastListId) {
           listToActivate = response.data.find(l => l.id.toString() === lastListId && l.status === 'active');
           if (!listToActivate) {
-            console.warn(`Cached list ID ${lastListId} not found in available lists, clearing cache`);
-            localStorage.removeItem('lastActiveListId');
+            console.warn(`Cached list ID ${lastListId} not found in available lists`);
           }
         }
         
