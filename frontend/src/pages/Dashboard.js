@@ -1870,14 +1870,19 @@ const Dashboard = () => {
                     <input
                       type="text"
                       value={newItemPrice}
-                      onFocus={() => setShowPriceNumpad(true)}
+                      onFocus={() => {
+                        // Only show numpad on mobile/tablet
+                        if (isMobile || isTablet) {
+                          setShowPriceNumpad(true);
+                        }
+                      }}
                       onChange={(e) => {
                         setNewItemPrice(e.target.value);
                         setManualPriceSet(true); // Mark that user manually changed price
                       }}
                       placeholder="Price (e.g., 3.99)"
                       className="input-field"
-                      readOnly
+                      readOnly={isMobile || isTablet}
                     />
                   </div>
                   <select
