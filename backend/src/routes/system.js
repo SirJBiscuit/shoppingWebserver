@@ -600,4 +600,110 @@ router.post('/update/perform', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
+// ============================================
+// CHANGELOG & FEATURE TRACKER
+// ============================================
+
+// Get full changelog from git history
+router.get('/changelog', authenticateToken, async (req, res) => {
+  try {
+    // Get git log with custom format: hash|date|message|author
+    const { stdout } = await execPromise(
+      'git log --pretty=format:"%H|%ai|%s|%an" --reverse'
+    );
+    
+    const commits = stdout
+      .split('\n')
+      .filter(line => line.trim())
+      .map(line => {
+        const [hash, date, message, author] = line.split('|');
+        return {
+          hash,
+          date,
+          message,
+          author
+        };
+      });
+    
+    res.json({
+      commits,
+      total: commits.length
+    });
+  } catch (error) {
+    console.error('Error getting changelog:', error);
+    res.status(500).json({ error: 'Failed to get changelog' });
+  }
+});
+
+// Get changelog stats
+router.get('/changelog/stats', authenticateToken, async (req, res) => {
+  try {
+    const { stdout } = await execPromise(
+      'git log --pretty=format:"%s" --reverse'
+    );
+    
+    const messages = stdout.split('\n').filter(line => line.trim());
+    
+    const stats = {
+      total: messages.length,
+      features: messages.filter(m => m.toLowerCase().startsWith('feat')).length,
+      fixes: messages.filter(m => m.toLowerCase().startsWith('fix')).length,
+      performance: messages.filter(m => m.toLowerCase().startsWith('perf')).length,
+      docs: messages.filter(m => m.toLowerCase().startsWith('docs')).length,
+      other: 0
+    };
+    
+    stats.other = stats.total - stats.features - stats.fixes - stats.performance - stats.docs;
+    
+    // Get first and last commit dates
+    const { stdout: firstDate } = await execPromise('git log --reverse --pretty=format:"%ai" | head -1');
+    const { stdout: lastDate } = await execPromise('git log --pretty=format:"%ai" | head -1');
+    
+    stats.firstCommit = firstDate.trim();
+    stats.lastCommit = lastDate.trim();
+    
+    // Calculate days of development
+    const first = new Date(stats.firstCommit);
+    const last = new Date(stats.lastCommit);
+    stats.daysOfDevelopment = Math.floor((last - first) / (1000 * 60 * 60 * 24));
+    
+    res.json(stats);
+  } catch (error) {
+    console.error('Error getting changelog stats:', error);
+    res.status(500).json({ error: 'Failed to get changelog stats' });
+  }
+});
+
+// Get recent changes (last N commits)
+router.get('/changelog/recent/:count?', authenticateToken, async (req, res) => {
+  try {
+    const count = parseInt(req.params.count) || 10;
+    
+    const { stdout } = await execPromise(
+      `git log --pretty=format:"%H|%ai|%s|%an" -${count}`
+    );
+    
+    const commits = stdout
+      .split('\n')
+      .filter(line => line.trim())
+      .map(line => {
+        const [hash, date, message, author] = line.split('|');
+        return {
+          hash,
+          date,
+          message,
+          author
+        };
+      });
+    
+    res.json({
+      commits,
+      count: commits.length
+    });
+  } catch (error) {
+    console.error('Error getting recent changes:', error);
+    res.status(500).json({ error: 'Failed to get recent changes' });
+  }
+});
+
 module.exports = router;

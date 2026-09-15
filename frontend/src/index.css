@@ -194,4 +194,36 @@
     animation: fadeIn 0.4s ease-out forwards;
     opacity: 0;
   }
+
+  /* Custom scrollbar for changelog */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800 rounded-lg;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-gradient-to-b from-primary-400 to-primary-600 rounded-lg;
+    transition: all 0.3s ease;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply from-primary-500 to-primary-700;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:active {
+    @apply from-primary-600 to-primary-800;
+  }
+
+  /* Firefox scrollbar */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(59 130 246) rgb(243 244 246);
+  }
+
+  .dark .custom-scrollbar {
+    scrollbar-color: rgb(59 130 246) rgb(31 41 55);
+  }
 }

@@ -52,6 +52,7 @@ import { formatQuantityPlain } from '../utils/formatQuantity';
 import RichNoteEditor from '../components/RichNoteEditor';
 import { useDeviceType } from '../hooks/useDeviceType';
 import ConsoleViewer from '../components/ConsoleViewer';
+import ChangelogViewer from '../components/ChangelogViewer';
 import useScrollSound from '../hooks/useScrollSound';
 import { playSound } from '../utils/soundEffects';
 import { savePreference, getPreference } from '../api/mdl';
@@ -127,6 +128,7 @@ const Dashboard = () => {
   const [editingNextItem, setEditingNextItem] = useState(null);
   const [itemForNote, setItemForNote] = useState(null);
   const [noteText, setNoteText] = useState('');
+  const [showChangelog, setShowChangelog] = useState(false);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -1406,7 +1408,11 @@ const Dashboard = () => {
           {/* Simple Top Bar for Notifications and Logout */}
           <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 pl-16 pr-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
             {/* Version Indicator - Left Side (with padding for mobile menu button) */}
-            <div className="flex items-center space-x-2 text-xs sm:text-sm">
+            <button
+              onClick={() => setShowChangelog(true)}
+              className="flex items-center space-x-2 text-xs sm:text-sm hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-colors"
+              title="View Changelog & Features"
+            >
               {versionInfo.updateAvailable ? (
                 <div className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 animate-pulse">
                   <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -1423,7 +1429,7 @@ const Dashboard = () => {
               <span className="text-gray-500 dark:text-gray-400 font-mono hidden md:inline">
                 v{versionInfo.version}
               </span>
-            </div>
+            </button>
 
             {/* Right Side - Help, Optimization Toggle, Notifications and Logout */}
             <div className="flex items-center space-x-2 sm:space-x-4" data-tutorial="top-toolbar">
@@ -2622,6 +2628,12 @@ const Dashboard = () => {
 
       {/* Update Notification - Shows when new version is available */}
       <UpdateNotification />
+
+      {/* Changelog & Feature Tracker */}
+      <ChangelogViewer 
+        isOpen={showChangelog} 
+        onClose={() => setShowChangelog(false)} 
+      />
     </PageTransition>
   );
 };
