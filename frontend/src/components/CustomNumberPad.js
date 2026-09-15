@@ -70,7 +70,7 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, dev
       whileTap="tap"
       whileHover="hover"
       onClick={onClick}
-      className="aspect-square min-h-[60px] rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-2xl font-bold shadow-lg active:shadow-md transition-shadow"
+      className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-2xl font-bold shadow-lg active:shadow-md transition-shadow"
     >
       {number}
     </motion.button>
@@ -89,7 +89,7 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, dev
         whileTap="tap"
         whileHover="hover"
         onClick={onClick}
-        className={`aspect-square min-h-[60px] rounded-xl bg-gradient-to-br ${variants[variant]} text-white font-bold shadow-lg active:shadow-md transition-shadow flex items-center justify-center`}
+        className={`w-16 h-16 rounded-xl bg-gradient-to-br ${variants[variant]} text-white font-bold shadow-lg active:shadow-md transition-shadow flex items-center justify-center`}
       >
         {Icon ? <Icon className="w-6 h-6" /> : children}
       </motion.button>
