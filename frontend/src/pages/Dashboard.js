@@ -295,17 +295,26 @@ const Dashboard = () => {
       
       // Only set activeList if we don't have one yet OR if forced (initial load)
       if (!activeList || forceSetActive) {
-        // Try to restore last used list from MDL (user-specific, persists across devices)
-        let lastListId = await getPreference('last_active_list_id');
+        // FAST PATH: Use localStorage immediately (instant)
+        let lastListId = localStorage.getItem('lastActiveListId');
         
-        // Fallback to localStorage if MDL doesn't have it yet
-        if (!lastListId) {
-          lastListId = localStorage.getItem('lastActiveListId');
-          // Migrate to MDL if found in localStorage
-          if (lastListId) {
-            await savePreference('last_active_list_id', lastListId);
+        // BACKGROUND: Sync with MDL (non-blocking)
+        getPreference('last_active_list_id').then(mdlListId => {
+          if (mdlListId && mdlListId !== lastListId) {
+            // MDL has different value, use it and update localStorage
+            localStorage.setItem('lastActiveListId', mdlListId);
+            // If we already loaded a different list, switch to MDL preference
+            const mdlList = response.data.find(l => l.id.toString() === mdlListId && l.status === 'active');
+            if (mdlList && (!activeList || activeList.id.toString() !== mdlListId)) {
+              setActiveList(mdlList);
+            }
+          } else if (!mdlListId && lastListId) {
+            // Migrate localStorage to MDL in background
+            savePreference('last_active_list_id', lastListId).catch(err => 
+              console.warn('Failed to sync preference to MDL:', err)
+            );
           }
-        }
+        }).catch(err => console.warn('MDL preference fetch failed, using localStorage:', err));
         
         let listToActivate = null;
         
