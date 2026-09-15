@@ -7,8 +7,11 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
   const [flyingItems, setFlyingItems] = useState([]);
   const [initialized, setInitialized] = useState(false);
   
-  // Calculate total cost
-  const totalCost = items.reduce((sum, item) => sum + ((item.price || 0) * item.quantity), 0);
+  // Only show checked items in the cart
+  const checkedItems = items.filter(item => item.is_checked);
+  
+  // Calculate total cost of checked items only
+  const totalCost = checkedItems.reduce((sum, item) => sum + ((item.price || 0) * item.quantity), 0);
 
   // Initialize on first load - prevent reload animations
   useEffect(() => {
@@ -87,13 +90,13 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
               className="relative"
             >
               <ShoppingCart className="w-8 h-8 text-primary-600 dark:text-primary-400" />
-              {items.length > 0 && (
+              {checkedItems.length > 0 && (
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   className="absolute -top-2 -right-2 bg-primary-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center"
                 >
-                  {items.length}
+                  {checkedItems.length}
                 </motion.div>
               )}
             </motion.div>
@@ -137,15 +140,15 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
                   
                   {/* Items in cart */}
                   <div className="p-6 pt-8 max-h-[300px] overflow-y-auto custom-scrollbar">
-                    {items.length === 0 ? (
+                    {checkedItems.length === 0 ? (
                       <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                         <ShoppingCart className="w-20 h-20 mx-auto mb-3 opacity-20" />
                         <p className="text-sm font-medium">Cart is empty</p>
-                        <p className="text-xs mt-1">Add items to see them here!</p>
+                        <p className="text-xs mt-1">Check off items to add them to cart!</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-3 gap-3">
-                        {items.map((item, index) => (
+                        {checkedItems.map((item, index) => (
                           <motion.div
                             key={`cart-item-${item.id}-${index}`}
                             initial={{ scale: 0, rotate: -180 }}
@@ -162,9 +165,7 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
                                 ease: "easeInOut"
                               }
                             }}
-                            className={`relative group ${
-                              item.is_checked ? 'opacity-40' : ''
-                            }`}
+                            className="relative group"
                             style={{
                               transform: `translateZ(${20 + (index % 3) * 10}px)`,
                             }}
@@ -172,7 +173,7 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
                             {/* Item card */}
                             <div 
                               onClick={() => playSound('shake')}
-                              className="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-lg border-2 border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform cursor-pointer relative"
+                              className="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-lg border-2 border-green-400 dark:border-green-600 hover:scale-110 transition-transform cursor-pointer relative"
                             >
                               <div className="text-4xl text-center mb-1">
                                 {item.item_icon || '📦'}
@@ -188,12 +189,10 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
                                 </div>
                               )}
                               
-                              {/* Checked overlay */}
-                              {item.is_checked && (
-                                <div className="absolute inset-0 bg-green-500 bg-opacity-20 rounded-lg flex items-center justify-center">
-                                  <Check className="w-8 h-8 text-green-600" />
-                                </div>
-                              )}
+                              {/* Check badge to show it's in cart */}
+                              <div className="absolute -bottom-1 -right-1 bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-lg">
+                                <Check className="w-3 h-3" />
+                              </div>
                             </div>
                             
                             {/* Price - Below card */}
