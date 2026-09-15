@@ -160,15 +160,17 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, dev
     );
   }
 
-  // Tablet layout - Same as desktop
+  // Tablet layout - CUSTOM ABSOLUTE POSITIONING (no grid/flex issues)
   if (device === 'tablet') {
-    console.log('🔵 TABLET NUMPAD: Rendering 3x4 grid layout', {
+    console.log('🔵 TABLET NUMPAD: Rendering CUSTOM 3x4 layout with absolute positioning', {
       device,
       screenWidth: window.innerWidth,
-      containerMaxWidth: '300px',
-      gridCols: 3,
-      buttonClasses: 'aspect-square min-h-[60px]'
+      buttonSize: '64px',
+      gap: '8px'
     });
+    
+    const btnSize = 64;
+    const gap = 8;
     
     return (
       <motion.div
@@ -181,14 +183,15 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, dev
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border-2 border-blue-200 dark:border-blue-800 
-                   w-[240px]
-                   p-3 select-none touch-none"
-        style={{ cursor: 'grab' }}
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border-2 border-blue-200 dark:border-blue-800 p-3 select-none touch-none"
+        style={{ 
+          cursor: 'grab',
+          width: `${btnSize * 3 + gap * 2 + 24}px` // 3 buttons + 2 gaps + padding
+        }}
       >
         {/* Device Indicator */}
         <div className="text-center mb-1">
-          <span className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded font-medium">TABLET 3x4</span>
+          <span className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded font-medium">TABLET CUSTOM</span>
         </div>
         
         {/* Drag Handle */}
@@ -207,38 +210,63 @@ const CustomNumberPad = ({ value, onChange, onSave, onCancel, maxDigits = 6, dev
           </div>
         </div>
 
-        {/* Number Pad - 3x4 Grid */}
-        <div className="grid grid-cols-3 gap-2 mb-2 p-1">
+        {/* Number Pad - ABSOLUTE POSITIONING */}
+        <div className="relative mb-2" style={{ height: `${btnSize * 4 + gap * 3}px` }}>
           {/* Row 1: 7, 8, 9 */}
-          <NumberButton number="7" onClick={() => handleNumberClick('7')} />
-          <NumberButton number="8" onClick={() => handleNumberClick('8')} />
-          <NumberButton number="9" onClick={() => handleNumberClick('9')} />
+          <div style={{ position: 'absolute', left: 0, top: 0 }}>
+            <NumberButton number="7" onClick={() => handleNumberClick('7')} />
+          </div>
+          <div style={{ position: 'absolute', left: `${btnSize + gap}px`, top: 0 }}>
+            <NumberButton number="8" onClick={() => handleNumberClick('8')} />
+          </div>
+          <div style={{ position: 'absolute', left: `${(btnSize + gap) * 2}px`, top: 0 }}>
+            <NumberButton number="9" onClick={() => handleNumberClick('9')} />
+          </div>
           
           {/* Row 2: 4, 5, 6 */}
-          <NumberButton number="4" onClick={() => handleNumberClick('4')} />
-          <NumberButton number="5" onClick={() => handleNumberClick('5')} />
-          <NumberButton number="6" onClick={() => handleNumberClick('6')} />
+          <div style={{ position: 'absolute', left: 0, top: `${btnSize + gap}px` }}>
+            <NumberButton number="4" onClick={() => handleNumberClick('4')} />
+          </div>
+          <div style={{ position: 'absolute', left: `${btnSize + gap}px`, top: `${btnSize + gap}px` }}>
+            <NumberButton number="5" onClick={() => handleNumberClick('5')} />
+          </div>
+          <div style={{ position: 'absolute', left: `${(btnSize + gap) * 2}px`, top: `${btnSize + gap}px` }}>
+            <NumberButton number="6" onClick={() => handleNumberClick('6')} />
+          </div>
           
           {/* Row 3: 1, 2, 3 */}
-          <NumberButton number="1" onClick={() => handleNumberClick('1')} />
-          <NumberButton number="2" onClick={() => handleNumberClick('2')} />
-          <NumberButton number="3" onClick={() => handleNumberClick('3')} />
+          <div style={{ position: 'absolute', left: 0, top: `${(btnSize + gap) * 2}px` }}>
+            <NumberButton number="1" onClick={() => handleNumberClick('1')} />
+          </div>
+          <div style={{ position: 'absolute', left: `${btnSize + gap}px`, top: `${(btnSize + gap) * 2}px` }}>
+            <NumberButton number="2" onClick={() => handleNumberClick('2')} />
+          </div>
+          <div style={{ position: 'absolute', left: `${(btnSize + gap) * 2}px`, top: `${(btnSize + gap) * 2}px` }}>
+            <NumberButton number="3" onClick={() => handleNumberClick('3')} />
+          </div>
           
           {/* Row 4: ., 0, ← */}
-          <ActionButton onClick={handleDecimalClick}>
-            <span className="text-xl">.</span>
-          </ActionButton>
-          <NumberButton number="0" onClick={() => handleNumberClick('0')} />
-          <ActionButton icon={Delete} onClick={handleBackspace} />
+          <div style={{ position: 'absolute', left: 0, top: `${(btnSize + gap) * 3}px` }}>
+            <ActionButton onClick={handleDecimalClick}>
+              <span className="text-xl">.</span>
+            </ActionButton>
+          </div>
+          <div style={{ position: 'absolute', left: `${btnSize + gap}px`, top: `${(btnSize + gap) * 3}px` }}>
+            <NumberButton number="0" onClick={() => handleNumberClick('0')} />
+          </div>
+          <div style={{ position: 'absolute', left: `${(btnSize + gap) * 2}px`, top: `${(btnSize + gap) * 3}px` }}>
+            <ActionButton icon={Delete} onClick={handleBackspace} />
+          </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-3 gap-2">
-          <ActionButton onClick={handleClear} variant="default">
-            <span className="text-sm font-bold">CLR</span>
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <ActionButton variant="danger" onClick={onCancel}>
+            Cancel
           </ActionButton>
-          <ActionButton icon={X} onClick={onCancel} variant="danger" />
-          <ActionButton icon={Check} onClick={onSave} variant="success" />
+          <ActionButton variant="success" onClick={onSave}>
+            Save
+          </ActionButton>
         </div>
       </motion.div>
     );
