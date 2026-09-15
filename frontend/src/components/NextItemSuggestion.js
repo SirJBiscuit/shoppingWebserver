@@ -39,20 +39,21 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
         userAgent: navigator.userAgent
       });
       
-      // Simple logic: Only tiny phones (<500px) get mobile layout
-      // Everything else with touch gets tablet layout
-      // Non-touch devices get desktop layout
+      // Device detection based on screen width AND touch capability
+      // Mobile: < 500px with touch
+      // Tablet: 500-1023px with touch
+      // Desktop: >= 1024px (regardless of touch)
       
       if (width < 500 && isTouchDevice) {
-        console.log('📱 Detected: MOBILE (tiny phone < 500px)');
+        console.log('📱 Detected: MOBILE (< 500px with touch)');
         setDeviceType('mobile');
       }
-      else if (isTouchDevice) {
-        console.log('📱 Detected: TABLET (touch device >= 500px)');
+      else if (width >= 500 && width < 1024 && isTouchDevice) {
+        console.log('📱 Detected: TABLET (500-1023px with touch)');
         setDeviceType('tablet');
       }
       else {
-        console.log('🖥️ Detected: DESKTOP (no touch)');
+        console.log('🖥️ Detected: DESKTOP (>= 1024px or no touch)');
         setDeviceType('desktop');
       }
     };
