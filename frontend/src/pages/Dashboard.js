@@ -38,6 +38,7 @@ import CopyItemModal from '../components/CopyItemModal';
 import SaveTemplateModal from '../components/SaveTemplateModal';
 import NextItemSuggestion from '../components/NextItemSuggestion';
 import EditItemModal from '../components/EditItemModal';
+import CustomNumberPad from '../components/CustomNumberPad';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { XPNotificationContainer, showXPNotification } from '../components/XPNotification';
@@ -49,6 +50,7 @@ import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils
 import { getAutocompleteSuggestions } from '../utils/autocomplete';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import RichNoteEditor from '../components/RichNoteEditor';
+import { useDeviceType } from '../hooks/useDeviceType';
 import ConsoleViewer from '../components/ConsoleViewer';
 import useScrollSound from '../hooks/useScrollSound';
 import { playSound } from '../utils/soundEffects';
@@ -56,6 +58,7 @@ import { playSound } from '../utils/soundEffects';
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { isMobile, isTablet } = useDeviceType();
   const { triggerFlyingAnimation, triggerCheckmarkAnimation, clearAnimations } = useCartAnimation();
   const { optimizationMode, toggleOptimization } = useOptimization();
   const addButtonRef = useRef(null);
@@ -75,6 +78,7 @@ const Dashboard = () => {
   const [newItemSize, setNewItemSize] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
   const [manualPriceSet, setManualPriceSet] = useState(false); // Track if user manually set price
+  const [showPriceNumpad, setShowPriceNumpad] = useState(false);
   const [newItemCategory, setNewItemCategory] = useState('');
   const [newItemIcon, setNewItemIcon] = useState('');
   const [suggestions, setSuggestions] = useState([]);
@@ -1862,16 +1866,20 @@ const Dashboard = () => {
                     placeholder="Size (e.g., 1lb, 16oz)"
                     className="input-field"
                   />
-                  <input
-                    type="text"
-                    value={newItemPrice}
-                    onChange={(e) => {
-                      setNewItemPrice(e.target.value);
-                      setManualPriceSet(true); // Mark that user manually changed price
-                    }}
-                    placeholder="Price (e.g., 3.99)"
-                    className="input-field"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={newItemPrice}
+                      onFocus={() => setShowPriceNumpad(true)}
+                      onChange={(e) => {
+                        setNewItemPrice(e.target.value);
+                        setManualPriceSet(true); // Mark that user manually changed price
+                      }}
+                      placeholder="Price (e.g., 3.99)"
+                      className="input-field"
+                      readOnly
+                    />
+                  </div>
                   <select
                     value={newItemCategory}
                     onChange={(e) => setNewItemCategory(e.target.value)}
@@ -1894,6 +1902,32 @@ const Dashboard = () => {
                   </button>
                 </div>
               </form>
+              )}
+              
+              {/* Price Numpad Modal */}
+              {showPriceNumpad && (isMobile || isTablet) && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center">
+                  {/* Backdrop */}
+                  <div 
+                    className="absolute inset-0 bg-black/50"
+                    onClick={() => setShowPriceNumpad(false)}
+                  />
+                  
+                  {/* Numpad */}
+                  <div className="relative z-[101]">
+                    <CustomNumberPad
+                      value={newItemPrice}
+                      onChange={(value) => {
+                        setNewItemPrice(value);
+                        setManualPriceSet(true);
+                      }}
+                      device={isMobile ? 'mobile' : 'tablet'}
+                      onSave={() => setShowPriceNumpad(false)}
+                      onCancel={() => setShowPriceNumpad(false)}
+                      maxDigits={6}
+                    />
+                  </div>
+                </div>
               )}
               </div>
               {/* End Add Item Section */}
