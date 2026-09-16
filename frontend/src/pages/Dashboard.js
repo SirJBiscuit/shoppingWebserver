@@ -758,41 +758,49 @@ const Dashboard = () => {
 
   // Quick quantity change - Optimistic update for instant feedback
   const handleQuantityChange = async (item, delta) => {
+    console.log(`🔵 handleQuantityChange called - item: ${item.item_name}, delta: ${delta}, current qty: ${item.quantity}`);
+    
     let updatedQuantity;
     
     // Optimistic update - update UI immediately with functional update
     // IMPORTANT: Calculate new quantity from CURRENT state, not stale item object
     setItems(prevItems => {
+      console.log(`🟢 setItems callback - prevItems count: ${prevItems.length}`);
       const currentItem = prevItems.find(i => i.id === item.id);
-      if (!currentItem) return prevItems;
+      if (!currentItem) {
+        console.log(`🔴 Item not found in prevItems!`);
+        return prevItems;
+      }
       
       // Calculate from current state quantity, not from stale item parameter
       updatedQuantity = Math.max(1, (currentItem.quantity || 1) + delta);
       
-      console.log(`Quantity change: ${item.item_name} from ${currentItem.quantity} to ${updatedQuantity}`);
+      console.log(`🟡 Quantity change: ${item.item_name} from ${currentItem.quantity} to ${updatedQuantity}`);
       
       const newItems = prevItems.map(i => {
         if (i.id === item.id) {
-          console.log(`Updating item ${i.id} quantity to ${updatedQuantity}`);
+          console.log(`🟣 Updating item ${i.id} quantity to ${updatedQuantity}`);
           return { ...i, quantity: updatedQuantity };
         }
         return i;
       });
+      console.log(`🟢 Returning new items array`);
       return newItems;
     });
     
-    // Update server in background - use only the quantity field
-    try {
-      await shoppingAPI.updateItem(activeList.id, item.id, {
-        quantity: updatedQuantity
-      });
-      console.log(`Server updated: ${item.item_name} quantity = ${updatedQuantity}`);
-    } catch (err) {
-      console.error('Error updating quantity:', err);
+    console.log(`🔵 State update queued, now calling API with quantity: ${updatedQuantity}`);
+    
+    // Update server in background - DON'T await to prevent blocking
+    shoppingAPI.updateItem(activeList.id, item.id, {
+      quantity: updatedQuantity
+    }).then(() => {
+      console.log(`✅ Server updated: ${item.item_name} quantity = ${updatedQuantity}`);
+    }).catch(err => {
+      console.error('❌ Error updating quantity:', err);
       error('Failed to update quantity');
       // Revert on error
-      await loadListItems(activeList.id);
-    }
+      loadListItems(activeList.id);
+    });
   };
 
   // Defer item - don't need right now
@@ -2029,7 +2037,6 @@ const Dashboard = () => {
                 return nextItem ? (
                   <div data-tutorial="looking-for-next">
                     <NextItemSuggestion 
-                    key={`${nextItem.id}-${nextItem.quantity}`}
                     nextItem={nextItem} 
                     sameAisleItems={sameAisleItems}
                     onCheck={(item) => handleCheckItem(item || nextItem)}
