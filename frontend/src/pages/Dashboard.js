@@ -8,7 +8,7 @@ import { shoppingAPI, itemsAPI, suggestionsAPI, inventoryAPI, pantryAPI, categor
 import stagingAPI from '../services/stagingAPI';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, CheckCircle,
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight, FileText, Zap, MapPin
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight, FileText, Zap, MapPin, List
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
@@ -37,6 +37,7 @@ import StoreManager from '../components/StoreManager';
 import CopyItemModal from '../components/CopyItemModal';
 import SaveTemplateModal from '../components/SaveTemplateModal';
 import NextItemSuggestion from '../components/NextItemSuggestion';
+import CustomPanel from '../components/CustomPanel';
 import EditItemModal from '../components/EditItemModal';
 import CustomNumberPad from '../components/CustomNumberPad';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -121,6 +122,7 @@ const Dashboard = () => {
   const [checkOffCounter, setCheckOffCounter] = useState(0);
   const [itemSearchQuery, setItemSearchQuery] = useState('');
   const [hideNextItem, setHideNextItem] = useState(false);
+  const [showListPanel, setShowListPanel] = useState(false);
   const [skippedItems, setSkippedItems] = useState([]);
   const [skippedItemsHistory, setSkippedItemsHistory] = useState([]);
   const [deletedItemsHistory, setDeletedItemsHistory] = useState([]);
@@ -1449,8 +1451,23 @@ const Dashboard = () => {
               </span>
             </button>
 
-            {/* Right Side - Help, Optimization Toggle, Notifications and Logout */}
+            {/* Right Side - View List, Help, Optimization Toggle, Notifications and Logout */}
             <div className="flex items-center space-x-2 sm:space-x-4" data-tutorial="top-toolbar">
+              {/* View List Button */}
+              <button
+                onClick={() => setShowListPanel(true)}
+                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-all duration-200 shadow-md hover:shadow-lg"
+                title="View Shopping List"
+              >
+                <List className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline font-medium text-sm">List</span>
+                {items.length > 0 && (
+                  <span className="bg-white text-blue-600 px-1.5 py-0.5 rounded-full text-xs font-bold">
+                    {items.length}
+                  </span>
+                )}
+              </button>
+              
               {/* Help Button */}
               <HelpButton userId={user?.id || user?.username} />
               
@@ -2652,6 +2669,100 @@ const Dashboard = () => {
         isOpen={showChangelog} 
         onClose={() => setShowChangelog(false)} 
       />
+
+      {/* Shopping List Slide-Out Panel */}
+      <CustomPanel
+        isOpen={showListPanel}
+        onClose={() => setShowListPanel(false)}
+        title={`${activeList?.name || 'Shopping List'} (${items.length} items)`}
+        scrollable={true}
+        actions={[
+          {
+            label: 'Add Item',
+            icon: Plus,
+            onClick: () => {
+              setShowListPanel(false);
+              // Focus on add item input after panel closes
+              setTimeout(() => {
+                document.querySelector('input[placeholder*="Add"]')?.focus();
+              }, 300);
+            },
+            color: 'bg-green-500 hover:bg-green-600'
+          },
+          {
+            label: 'Clear Checked',
+            icon: Trash2,
+            onClick: async () => {
+              const checkedItems = items.filter(item => item.is_checked);
+              if (checkedItems.length === 0) {
+                info('No checked items to clear');
+                return;
+              }
+              for (const item of checkedItems) {
+                await deleteItem(item.id);
+              }
+              success(`Cleared ${checkedItems.length} checked items`);
+            },
+            color: 'bg-red-500 hover:bg-red-600'
+          }
+        ]}
+      >
+        {/* Stats Header */}
+        <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {items.length}
+              </div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">
+                Total Items
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {items.filter(i => i.is_checked).length}
+              </div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">
+                Found
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                ${items.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 1), 0).toFixed(2)}
+              </div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">
+                Total
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* List Content */}
+        <div className="p-4">
+          <ItemList
+            items={getFilteredItems()}
+            onToggleCheck={handleCheckItem}
+            onDelete={deleteItem}
+            onEdit={handleEditItem}
+            onQuantityChange={handleQuantityChange}
+            onCopyMove={(item) => {
+              setItemToCopy(item);
+              setShowCopyItemModal(true);
+            }}
+            onAddNote={(item) => {
+              setItemForNote(item);
+              setNoteText(item.notes || '');
+            }}
+            onRemoveNote={(item) => {
+              handleRemoveNote(item.id);
+            }}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            hideCategories={hideCategories}
+            storeName={activeList?.store_name}
+          />
+        </div>
+      </CustomPanel>
     </PageTransition>
   );
 };
