@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, Plus, Minus, Eye, FileText, AlertCircle, Store, HelpCircle, DollarSign, ArrowLeft } from 'lucide-react';
+import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, Plus, Minus, Eye, FileText, AlertCircle, Store, HelpCircle, DollarSign, ArrowLeft, MoreHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
 import FormattedNote from './FormattedNote';
 import CustomNumberPad from './CustomNumberPad';
 import CustomKeypad from './CustomKeypad';
+import RadialActionMenu from './RadialActionMenu';
 
 const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onBack, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onRemoveNote, onMarkUnavailable, onChangeStore, triggerCheckmarkAnimation, onPriceUpdate, triggerFlyingAnimation }) => {
   const [showGuide, setShowGuide] = useState(() => {
@@ -891,121 +892,42 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
             </div>
           )}
           
-          {/* Primary Action Buttons - 2x2 grid on mobile, 4 columns on desktop */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {/* Edit button */}
-            {onEdit && (
-              <button
-                onClick={() => onEdit(nextItem)}
-                className="flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
-                title="Edit item"
-              >
-                <Edit2 className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="text-xs sm:text-sm">Edit</span>
-              </button>
-            )}
-            
-            {/* Go To button */}
-            {onJumpToItem && (
-              <button
-                onClick={() => onJumpToItem(nextItem)}
-                className="flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
-                title="Jump to item in list"
-              >
-                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="text-xs sm:text-sm">Go To</span>
-              </button>
-            )}
-            
-            {/* Back button */}
-            <button
-              onClick={onBack}
-              disabled={!onBack}
-              className={`flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px] ${
-                onBack 
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                  : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 cursor-not-allowed'
-              }`}
-              title="Go back to previous skipped item"
-            >
-              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="text-xs sm:text-sm">Back</span>
-            </button>
-            
-            {/* Skip button */}
+          {/* Quick Actions - Clean Layout */}
+          <div className="flex items-center justify-center gap-3">
+            {/* Skip Button */}
             {onSkip && (
-              <button
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.05 }}
                 onClick={() => onSkip(nextItem)}
-                className="flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-br from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-shadow min-h-[44px]"
                 title="Skip to next item"
               >
-                <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="text-xs sm:text-sm">Skip</span>
-              </button>
+                <SkipForward className="w-5 h-5" />
+                <span className="text-sm sm:text-base">Skip</span>
+              </motion.button>
             )}
+            
+            {/* Radial Action Menu - All Other Actions */}
+            <RadialActionMenu
+              primaryAction={{
+                icon: MoreHorizontal,
+                label: 'More Actions',
+                className: 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800'
+              }}
+              actions={[
+                onEdit && { icon: Edit2, label: 'Edit', onClick: () => onEdit(nextItem), color: 'bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700', show: true },
+                onJumpToItem && { icon: ArrowRight, label: 'Go To', onClick: () => onJumpToItem(nextItem), color: 'bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700', show: true },
+                { icon: ArrowLeft, label: 'Back', onClick: onBack, color: onBack ? 'bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800' : 'bg-gradient-to-br from-gray-400 to-gray-500', show: true },
+                onUndo && { icon: Undo, label: 'Undo', onClick: onUndo, color: onUndo ? 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800' : 'bg-gradient-to-br from-gray-400 to-gray-500', show: true },
+                onDeferItem && { icon: X, label: 'Remove', onClick: () => onDeferItem(nextItem), color: 'bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700', show: true },
+                onAddNote && { icon: FileText, label: 'Note', onClick: () => onAddNote(nextItem), color: 'bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700', show: true },
+                onMarkUnavailable && { icon: AlertCircle, label: 'N/A', onClick: () => onMarkUnavailable(nextItem), color: 'bg-gradient-to-br from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800', show: true },
+                onChangeStore && { icon: Store, label: 'Change Store', onClick: () => onChangeStore(nextItem), color: 'bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700', show: true }
+              ].filter(Boolean)}
+              size="md"
+            />
           </div>
-
-          {/* Secondary Action Buttons - 2x2 grid on mobile */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {/* Undo button */}
-            <button
-              onClick={onUndo}
-              disabled={!onUndo}
-              className={`flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px] ${
-                onUndo 
-                  ? 'bg-gray-600 hover:bg-gray-700 text-white' 
-                  : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 cursor-not-allowed'
-              }`}
-              title="Restore last removed item"
-            >
-              <Undo className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="text-xs sm:text-sm">Undo</span>
-            </button>
-            
-            {onDeferItem && (
-              <button
-                onClick={() => onDeferItem(nextItem)}
-                className="flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
-                title="Remove item from list"
-              >
-                <X className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="text-xs sm:text-sm">Remove</span>
-              </button>
-            )}
-            
-            {onAddNote && (
-              <button
-                onClick={() => onAddNote(nextItem)}
-                className="flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
-                title="Add note to item"
-              >
-                <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="text-xs sm:text-sm">Note</span>
-              </button>
-            )}
-            
-            {onMarkUnavailable && (
-              <button
-                onClick={() => onMarkUnavailable(nextItem)}
-                className="flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
-                title="Mark as unavailable"
-              >
-                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="text-xs sm:text-sm">N/A</span>
-              </button>
-            )}
-          </div>
-          
-          {/* Tertiary Actions */}
-          {onChangeStore && (
-            <button
-              onClick={() => onChangeStore(nextItem)}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 sm:py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
-            >
-              <Store className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>Change Store</span>
-            </button>
-          )}
         </div>
 
         {/* Same Aisle Items - Grouped for efficiency */}
