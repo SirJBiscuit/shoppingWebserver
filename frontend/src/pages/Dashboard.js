@@ -2683,6 +2683,7 @@ const Dashboard = () => {
         onClose={() => setShowListPanel(false)}
         title={`Active Shopping List: ${activeList?.name || 'My List'}`}
         scrollable={true}
+        showBackdrop={false}
         actions={[
           {
             label: 'Add Item',
