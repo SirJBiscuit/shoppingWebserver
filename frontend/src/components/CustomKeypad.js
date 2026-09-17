@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check } from 'lucide-react';
-import Draggable from 'react-draggable';
+import { X, Check, Move } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 /**
  * CustomKeypad - A reusable, responsive keypad component
@@ -96,6 +96,24 @@ const CustomKeypad = ({
     }
   };
 
+  // Animation variants matching CustomNumberPad
+  const buttonVariants = {
+    tap: { scale: 0.95 },
+    hover: { scale: 1.05 }
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0, scale: 0.9 },
+    visible: { opacity: 1, scale: 1 },
+    exit: { opacity: 0, scale: 0.9 }
+  };
+
+  const mobileVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: 20 }
+  };
+
   // Grid column classes based on device
   const getGridClass = () => {
     if (deviceType === 'mobile') {
@@ -136,21 +154,24 @@ const CustomKeypad = ({
         <div className={`grid ${getGridClass()} gap-2 mb-3`}>
           {buttons.map((button, index) => {
             const isHighlighted = highlightValue && button.value === highlightValue;
-            const buttonClass = button.className || 'bg-white dark:bg-gray-700 hover:bg-purple-100 dark:hover:bg-purple-900 border-2 border-purple-200 dark:border-purple-600';
+            const buttonClass = button.className || 'bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700';
             const highlightClass = isHighlighted 
-              ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 ring-2 ring-amber-400' 
+              ? 'bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 ring-2 ring-amber-400' 
               : buttonClass;
             
             return (
-              <button
+              <motion.button
                 key={button.value || index}
+                variants={buttonVariants}
+                whileTap="tap"
+                whileHover="hover"
                 onClick={() => handleButtonClick(button.value)}
-                className={`px-2 py-2 sm:px-3 sm:py-2.5 rounded-lg font-bold text-purple-900 dark:text-purple-100 transition-all min-h-[44px] ${highlightClass}`}
+                className={`px-2 py-2 sm:px-3 sm:py-2.5 rounded-xl text-white font-bold shadow-lg active:shadow-md transition-shadow min-h-[44px] ${highlightClass}`}
                 title={isHighlighted ? `${highlightHint} - ${button.label}` : button.label}
               >
                 {button.icon && <span className="mr-1">{button.icon}</span>}
                 {button.label}
-              </button>
+              </motion.button>
             );
           })}
         </div>
@@ -172,14 +193,17 @@ const CustomKeypad = ({
               maxLength={maxLength}
               className="flex-1 px-3 py-2.5 sm:py-2 border-2 border-purple-300 dark:border-purple-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white min-h-[44px] focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
             />
-            <button
+            <motion.button
+              variants={buttonVariants}
+              whileTap="tap"
+              whileHover={!customInput ? undefined : "hover"}
               onClick={handleCustomSubmit}
               disabled={!customInput}
-              className="px-4 py-2.5 sm:py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-colors min-h-[44px] flex items-center justify-center gap-2"
+              className="px-4 py-2.5 sm:py-2 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white rounded-xl font-semibold shadow-lg active:shadow-md transition-shadow min-h-[44px] flex items-center justify-center gap-2"
             >
               <Check className="w-4 h-4" />
               <span>Submit</span>
-            </button>
+            </motion.button>
           </div>
         )}
 
@@ -198,15 +222,24 @@ const CustomKeypad = ({
     return (
       <>
         {/* Backdrop */}
-        <div 
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           className="fixed inset-0 bg-black/50 z-[100]"
           onClick={handleClose}
         />
         
         {/* Bottom Sheet */}
-        <div className="fixed bottom-0 left-0 right-0 z-[101] animate-slide-up">
+        <motion.div 
+          variants={mobileVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          className="fixed bottom-0 left-0 right-0 z-[101]"
+        >
           {renderKeypadContent()}
-        </div>
+        </motion.div>
       </>
     );
   }
@@ -216,15 +249,24 @@ const CustomKeypad = ({
     return (
       <>
         {/* Backdrop */}
-        <div 
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           className="fixed inset-0 bg-black/50 z-[100]"
           onClick={handleClose}
         />
         
         {/* Centered Modal */}
-        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-[90vw] max-w-2xl">
+        <motion.div 
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-[90vw] max-w-2xl"
+        >
           {renderKeypadContent()}
-        </div>
+        </motion.div>
       </>
     );
   }
@@ -233,23 +275,44 @@ const CustomKeypad = ({
   return (
     <>
       {/* Backdrop */}
-      <div 
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black/30 z-[100]"
         onClick={handleClose}
       />
       
       {/* Draggable Widget */}
-      <Draggable
-        handle=".drag-handle"
-        bounds="parent"
-        defaultPosition={{ x: 0, y: 0 }}
+      <motion.div
+        drag
+        dragConstraints={{
+          left: -window.innerWidth / 2 + 300,
+          right: window.innerWidth / 2 - 300,
+          top: -window.innerHeight / 2 + 200,
+          bottom: window.innerHeight / 2 - 200
+        }}
+        dragElastic={0.1}
+        dragMomentum={false}
+        dragTransition={{ bounceStiffness: 600, bounceDamping: 30 }}
+        whileDrag={{ scale: 1.02, cursor: 'grabbing' }}
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-[600px] max-w-[90vw] select-none touch-none"
+        style={{ cursor: 'grab' }}
       >
-        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-[600px] max-w-[90vw] cursor-move">
-          <div className="drag-handle">
-            {renderKeypadContent()}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border-2 border-purple-300 dark:border-purple-700 overflow-hidden">
+          {/* Drag Handle */}
+          <div className="flex items-center justify-center py-2 bg-purple-100 dark:bg-purple-900/30 border-b border-purple-200 dark:border-purple-700">
+            <Move className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            <span className="ml-2 text-xs text-purple-700 dark:text-purple-300 font-medium">Drag to move</span>
           </div>
+          
+          {renderKeypadContent()}
         </div>
-      </Draggable>
+      </motion.div>
     </>
   );
 };
