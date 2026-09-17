@@ -44,6 +44,11 @@ import CustomNumberPad from '../components/CustomNumberPad';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { XPNotificationContainer, showXPNotification } from '../components/XPNotification';
+import CustomSearchBar from '../components/CustomSearchBar';
+import CustomSwipeActions from '../components/CustomSwipeActions';
+import CustomContextMenu from '../components/CustomContextMenu';
+import CustomNotification from '../components/CustomNotification';
+import { useNotification } from '../hooks/useNotification';
 import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 import { sortItemsByStoreAisle } from '../data/storeLayouts';
@@ -69,6 +74,7 @@ const Dashboard = () => {
   const isRecoveringFromError = useRef(false);
   const [versionInfo, setVersionInfo] = useState({ version: 'Loading...', updateAvailable: false });
   const { toasts, hideToast, success, error, warning, info } = useToast();
+  const { notification, hideNotification, success: notifySuccess, error: notifyError, ask, confirm, confirmDelete } = useNotification();
   
   // Disable scroll sounds (too annoying)
   useScrollSound(false);
@@ -2780,6 +2786,9 @@ const Dashboard = () => {
           />
         </div>
       </CustomPanel>
+
+      {/* Custom Notification System */}
+      <CustomNotification {...notification} onClose={hideNotification} />
     </PageTransition>
   );
 };
