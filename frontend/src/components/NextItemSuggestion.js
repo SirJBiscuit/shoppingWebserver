@@ -5,6 +5,7 @@ import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
 import FormattedNote from './FormattedNote';
 import CustomNumberPad from './CustomNumberPad';
+import CustomKeypad from './CustomKeypad';
 
 const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onBack, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onRemoveNote, onMarkUnavailable, onChangeStore, triggerCheckmarkAnimation, onPriceUpdate, triggerFlyingAnimation }) => {
   const [showGuide, setShowGuide] = useState(() => {
@@ -559,6 +560,19 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                   {isChecked ? 'Found!' : 'Mark Found'}
                 </span>
               </motion.button>
+              
+              {/* Aisle button - next to Mark Found */}
+              {storeName && (
+                <motion.button
+                  onClick={() => setShowAisleReport(true)}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg min-h-[44px]"
+                  whileTap={{ scale: 0.95 }}
+                  title="Report which aisle you found this in"
+                >
+                  <MapPin className="w-5 h-5" />
+                  <span className="font-bold text-sm sm:text-base">Aisle</span>
+                </motion.button>
+              )}
             </div>
             
             {/* Store, Category, Price, Aisle Row - REORDERED */}
@@ -625,74 +639,28 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               )}
             </div>
             
-            {/* Aisle Reporting UI - Responsive for mobile, tablet, desktop */}
+            {/* Aisle Reporting Keypad - Using CustomKeypad component */}
             {showAisleReport && storeName && (
-              <div className="mt-3 p-3 sm:p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border-2 border-purple-300 dark:border-purple-700">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="text-sm sm:text-base font-semibold text-purple-900 dark:text-purple-100">
-                      Which aisle did you find this in?
-                    </p>
-                    {predictedAisle && (
-                      <p className="text-xs text-purple-700 dark:text-purple-300 mt-1">
-                        We predicted: Aisle {predictedAisle}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => {
-                      setShowAisleReport(false);
-                      setCustomAisle('');
-                    }}
-                    className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 p-1"
-                    aria-label="Close aisle reporting"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                
-                {/* Quick Number Buttons 1-20 - Responsive grid */}
-                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-2 mb-3">
-                  {[...Array(20)].map((_, i) => (
-                    <button
-                      key={i + 1}
-                      onClick={() => reportAisle(i + 1)}
-                      className={`px-2 py-2 sm:px-3 sm:py-2.5 bg-white dark:bg-gray-800 hover:bg-purple-100 dark:hover:bg-purple-900 border-2 rounded-lg font-bold text-purple-900 dark:text-purple-100 transition-colors min-h-[44px] ${
-                        predictedAisle === i + 1 
-                          ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20' 
-                          : 'border-purple-200 dark:border-purple-700'
-                      }`}
-                      title={predictedAisle === i + 1 ? 'Predicted aisle' : `Aisle ${i + 1}`}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
-                </div>
-                
-                {/* Custom Input - Touch-friendly */}
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="number"
-                    value={customAisle}
-                    onChange={(e) => setCustomAisle(e.target.value)}
-                    placeholder="Other aisle number..."
-                    className="flex-1 px-3 py-2.5 sm:py-2 border-2 border-purple-300 dark:border-purple-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white min-h-[44px]"
-                    inputMode="numeric"
-                  />
-                  <button
-                    onClick={() => customAisle && reportAisle(customAisle)}
-                    disabled={!customAisle}
-                    className="px-4 py-2.5 sm:py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-colors min-h-[44px]"
-                  >
-                    Submit
-                  </button>
-                </div>
-                
-                {/* Helper text */}
-                <p className="text-xs text-purple-600 dark:text-purple-400 mt-2">
-                  💡 Reporting helps improve predictions for everyone!
-                </p>
-              </div>
+              <CustomKeypad
+                title="Which aisle did you find this in?"
+                buttons={[...Array(20)].map((_, i) => ({
+                  label: (i + 1).toString(),
+                  value: (i + 1).toString()
+                }))}
+                gridCols={{ mobile: 4, tablet: 5, desktop: 10 }}
+                placeholder="Other aisle number..."
+                inputType="number"
+                inputMode="numeric"
+                maxLength={3}
+                highlightValue={predictedAisle?.toString()}
+                highlightHint={predictedAisle ? `We predicted: Aisle ${predictedAisle}` : null}
+                onSave={(aisleNumber) => {
+                  reportAisle(aisleNumber);
+                  setShowAisleReport(false);
+                }}
+                onCancel={() => setShowAisleReport(false)}
+                device={deviceType}
+              />
             )}
 
             {/* Note Display */}
@@ -1026,34 +994,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
                 <span className="text-xs sm:text-sm">N/A</span>
               </button>
             )}
-            
-            {/* Found in Aisle button - only show if store is set */}
-            {storeName && (
-              <button
-                onClick={() => setShowAisleReport(true)}
-                className="flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
-                title="Report which aisle you found this in"
-              >
-                <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="text-xs sm:text-sm">Aisle</span>
-              </button>
-            )}
           </div>
-          
-          {/* Aisle Reporting Button - Only show if store is set */}
-          {storeName && !nextItem.aisle && (
-            <button
-              onClick={() => setShowAisleReport(!showAisleReport)}
-              className={`w-full flex items-center justify-center gap-2 px-3 py-2 sm:py-2.5 rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px] ${
-                showAisleReport 
-                  ? 'bg-purple-700 hover:bg-purple-800 text-white' 
-                  : 'bg-purple-600 hover:bg-purple-700 text-white'
-              }`}
-            >
-              <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>{showAisleReport ? 'Cancel Aisle Report' : 'Found in Aisle'}</span>
-            </button>
-          )}
           
           {/* Tertiary Actions */}
           {onChangeStore && (
