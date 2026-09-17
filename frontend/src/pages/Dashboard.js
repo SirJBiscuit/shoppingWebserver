@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useCartAnimation } from '../contexts/CartAnimationContext';
 import { useOptimization } from '../contexts/OptimizationContext';
@@ -2749,23 +2750,32 @@ const Dashboard = () => {
             items={getFilteredItems()}
             onToggleCheck={handleCheckItem}
             onDelete={deleteItem}
-            onEdit={handleEditItem}
-            onQuantityChange={handleQuantityChange}
-            onCopyMove={(item) => {
-              setItemToCopy(item);
-              setShowCopyItemModal(true);
-            }}
-            onAddNote={(item) => {
-              setItemForNote(item);
-              setNoteText(item.notes || '');
-            }}
-            onRemoveNote={(item) => {
-              handleRemoveNote(item.id);
-            }}
-            sortBy={sortBy}
-            sortOrder={sortOrder}
+            onCopyMove={handleCopyMove}
+            triggerAnimation={triggerFlyingAnimation}
+            nextItemId={getNextItem()?.id}
             hideCategories={hideCategories}
             storeName={activeList?.store_name}
+            onLookForThis={handleLookForThis}
+            onEdit={async (updatedItem) => {
+              try {
+                const updateData = {
+                  item_name: updatedItem.item_name,
+                  quantity: updatedItem.quantity,
+                  unit: updatedItem.unit,
+                  price: updatedItem.price,
+                  category: updatedItem.category,
+                  item_icon: updatedItem.item_icon,
+                  notes: updatedItem.notes
+                };
+                
+                const response = await shoppingAPI.updateItem(activeList.id, updatedItem.id, updateData);
+                await loadListItems(activeList.id);
+                success('Item updated successfully');
+              } catch (err) {
+                console.error('Error updating item:', err);
+                error('Failed to update item');
+              }
+            }}
           />
         </div>
       </CustomPanel>
