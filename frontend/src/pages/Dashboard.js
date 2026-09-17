@@ -1022,8 +1022,12 @@ const Dashboard = () => {
         window.addXP(XP_REWARDS.ADD_ITEM, 'Added item to list');
         showXPNotification(XP_REWARDS.ADD_ITEM, 'Item added!');
       }
+      
+      // Show success notification
+      notifySuccess(`${itemName} added to your list!`, 'Item Added');
     } catch (error) {
       console.error('Error adding item:', error);
+      notifyError('Failed to add item. Please try again.', 'Error');
     }
   };
 
@@ -1893,9 +1897,21 @@ const Dashboard = () => {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (window.confirm(`Delete "${result.name}" from history?`)) {
-                                  deleteItemHistory(result.id);
-                                }
+                                ask(
+                                  `Delete "${result.name}" from history?`,
+                                  [
+                                    {
+                                      label: 'Delete',
+                                      onClick: () => deleteItemHistory(result.id),
+                                      color: 'bg-red-500 hover:bg-red-600 text-white'
+                                    },
+                                    {
+                                      label: 'Cancel',
+                                      variant: 'outline'
+                                    }
+                                  ],
+                                  'Delete Item History'
+                                );
                               }}
                               className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
                               title="Delete from history"
