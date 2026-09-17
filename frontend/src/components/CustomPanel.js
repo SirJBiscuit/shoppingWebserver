@@ -223,15 +223,35 @@ const CustomPanel = ({
             initial="hidden"
             animate="visible"
             exit="exit"
-            drag={canDrag}
-            dragConstraints={{
-              left: -window.innerWidth / 2,
-              right: window.innerWidth / 2,
-              top: -window.innerHeight / 2,
-              bottom: window.innerHeight / 2
-            }}
-            dragElastic={0.1}
+            drag={canDrag || (deviceType === 'mobile' && (actualMode === 'slide-up' || actualMode === 'slide-right'))}
+            dragConstraints={
+              canDrag 
+                ? {
+                    left: -window.innerWidth / 2,
+                    right: window.innerWidth / 2,
+                    top: -window.innerHeight / 2,
+                    bottom: window.innerHeight / 2
+                  }
+                : actualMode === 'slide-up'
+                ? { top: 0, bottom: 0, left: 0, right: 0 }
+                : actualMode === 'slide-right'
+                ? { top: 0, bottom: 0, left: 0, right: 0 }
+                : {}
+            }
+            dragElastic={deviceType === 'mobile' ? 0.2 : 0.1}
             dragMomentum={false}
+            dragDirectionLock={deviceType === 'mobile'}
+            onDragEnd={(event, info) => {
+              // Swipe to close on mobile
+              if (deviceType === 'mobile') {
+                const threshold = 100; // pixels
+                if (actualMode === 'slide-up' && info.offset.y > threshold) {
+                  onClose();
+                } else if (actualMode === 'slide-right' && info.offset.x > threshold) {
+                  onClose();
+                }
+              }
+            }}
             className={`
               ${positionClasses[actualMode]}
               bg-white dark:bg-gray-800
@@ -248,6 +268,13 @@ const CustomPanel = ({
               maxHeight: actualMode === 'overlay' ? '90vh' : undefined
             }}
           >
+            {/* Mobile Swipe Indicator */}
+            {deviceType === 'mobile' && actualMode === 'slide-up' && (
+              <div className="flex justify-center py-2">
+                <div className="w-12 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
+              </div>
+            )}
+
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
               {/* Drag Handle (if draggable) */}
