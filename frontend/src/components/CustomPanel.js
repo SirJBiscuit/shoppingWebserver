@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Maximize2, Minimize2, GripVertical } from 'lucide-react';
 
 /**
- * CustomPanel - A reusable, multi-mode panel component
+ * CustomPanel - A reusable, multi-mode panel component with automatic device detection
  * 
  * Modes:
  * - 'slide-left': Slides in from left side
@@ -13,11 +13,14 @@ import { X, ChevronLeft, ChevronRight, Maximize2, Minimize2, GripVertical } from
  * - 'overlay': Centered overlay with backdrop
  * - 'corner': Small corner panel (bottom-right)
  * - 'fullscreen': Full screen takeover
+ * - 'auto': Automatically chooses best mode for device (slide-up on mobile, slide-right on tablet/desktop)
  * 
  * Features:
- * - Draggable (optional)
+ * - Auto device detection (mobile, tablet, desktop)
+ * - Responsive behavior per device type
+ * - Draggable (optional, auto-disabled on mobile)
  * - Scrollable (optional)
- * - Resizable (optional)
+ * - Resizable (optional, auto-disabled on mobile)
  * - Auto-close on backdrop click
  * - Smooth animations
  * - Touch-friendly
@@ -26,23 +29,24 @@ import { X, ChevronLeft, ChevronRight, Maximize2, Minimize2, GripVertical } from
  * @param {Object} props
  * @param {boolean} props.isOpen - Panel open state
  * @param {function} props.onClose - Close callback
- * @param {string} props.mode - Panel mode (see above)
+ * @param {string} props.mode - Panel mode or 'auto' for automatic (default: 'auto')
  * @param {string} props.title - Panel title
  * @param {ReactNode} props.children - Panel content
  * @param {string} props.width - Width: 'sm', 'md', 'lg', 'xl', 'full' or custom px
  * @param {string} props.height - Height: 'auto', 'sm', 'md', 'lg', 'full' or custom px
  * @param {boolean} props.scrollable - Enable scrolling (default: true)
- * @param {boolean} props.draggable - Enable dragging (default: false)
- * @param {boolean} props.resizable - Enable resizing (default: false)
+ * @param {boolean} props.draggable - Enable dragging (default: false, auto-disabled on mobile)
+ * @param {boolean} props.resizable - Enable resizing (default: false, auto-disabled on mobile)
  * @param {boolean} props.showBackdrop - Show backdrop (default: true)
  * @param {boolean} props.closeOnBackdrop - Close on backdrop click (default: true)
  * @param {string} props.className - Additional CSS classes
  * @param {Object} props.actions - Action buttons [{ label, icon, onClick, color }]
+ * @param {string} props.device - Override device detection: 'mobile', 'tablet', 'desktop'
  */
 const CustomPanel = ({
   isOpen = false,
   onClose,
-  mode = 'slide-right',
+  mode = 'auto',
   title,
   children,
   width = 'md',
@@ -53,11 +57,54 @@ const CustomPanel = ({
   showBackdrop = true,
   closeOnBackdrop = true,
   className = '',
-  actions = []
+  actions = [],
+  device: deviceOverride
 }) => {
   const [isMaximized, setIsMaximized] = useState(false);
   const [panelWidth, setPanelWidth] = useState(width);
   const [panelHeight, setPanelHeight] = useState(height);
+  
+  // Auto-detect device type
+  const [deviceType, setDeviceType] = useState(() => {
+    if (deviceOverride) return deviceOverride;
+    const width = window.innerWidth;
+    if (width < 768) return 'mobile';
+    if (width < 1024) return 'tablet';
+    return 'desktop';
+  });
+
+  useEffect(() => {
+    if (deviceOverride) {
+      setDeviceType(deviceOverride);
+      return;
+    }
+
+    const handleResize = () => {
+      const width = window.innerWidth;
+      if (width < 768) setDeviceType('mobile');
+      else if (width < 1024) setDeviceType('tablet');
+      else setDeviceType('desktop');
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [deviceOverride]);
+
+  // Determine actual mode based on device type
+  const getActualMode = () => {
+    if (mode !== 'auto') return mode;
+    
+    // Auto mode: choose best mode for device
+    if (deviceType === 'mobile') return 'slide-up';
+    if (deviceType === 'tablet') return 'slide-right';
+    return 'slide-right'; // desktop
+  };
+
+  const actualMode = getActualMode();
+  
+  // Disable draggable and resizable on mobile
+  const canDrag = draggable && deviceType !== 'mobile';
+  const canResize = resizable && deviceType !== 'mobile';
 
   // Width presets
   const widthPresets = {
@@ -79,11 +126,17 @@ const CustomPanel = ({
 
   const getWidth = () => {
     if (isMaximized) return '100vw';
+    // Mobile: always full width for slide-up
+    if (deviceType === 'mobile' && actualMode === 'slide-up') return '100vw';
+    // Tablet: slightly narrower
+    if (deviceType === 'tablet' && actualMode === 'slide-right') return widthPresets['lg'];
     return widthPresets[panelWidth] || panelWidth;
   };
 
   const getHeight = () => {
     if (isMaximized) return '100vh';
+    // Mobile: auto height for slide-up (max 80vh)
+    if (deviceType === 'mobile' && actualMode === 'slide-up') return heightPresets['lg'];
     return heightPresets[panelHeight] || panelHeight;
   };
 
@@ -166,11 +219,11 @@ const CustomPanel = ({
 
           {/* Panel */}
           <motion.div
-            variants={variants[mode]}
+            variants={variants[actualMode]}
             initial="hidden"
             animate="visible"
             exit="exit"
-            drag={draggable}
+            drag={canDrag}
             dragConstraints={{
               left: -window.innerWidth / 2,
               right: window.innerWidth / 2,
@@ -180,24 +233,25 @@ const CustomPanel = ({
             dragElastic={0.1}
             dragMomentum={false}
             className={`
-              ${positionClasses[mode]}
+              ${positionClasses[actualMode]}
               bg-white dark:bg-gray-800
               shadow-2xl
               z-[201]
-              ${draggable ? 'cursor-move' : ''}
+              ${canDrag ? 'cursor-move' : ''}
+              ${deviceType === 'mobile' ? 'rounded-t-2xl' : 'rounded-xl'}
               ${className}
             `}
             style={{
-              width: mode === 'slide-left' || mode === 'slide-right' || mode === 'overlay' ? getWidth() : undefined,
-              height: mode === 'slide-up' || mode === 'slide-down' || mode === 'overlay' ? getHeight() : undefined,
-              maxWidth: mode === 'overlay' ? '90vw' : undefined,
-              maxHeight: mode === 'overlay' ? '90vh' : undefined
+              width: actualMode === 'slide-left' || actualMode === 'slide-right' || actualMode === 'overlay' ? getWidth() : undefined,
+              height: actualMode === 'slide-up' || actualMode === 'slide-down' || actualMode === 'overlay' ? getHeight() : undefined,
+              maxWidth: actualMode === 'overlay' ? '90vw' : undefined,
+              maxHeight: actualMode === 'overlay' ? '90vh' : undefined
             }}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
               {/* Drag Handle (if draggable) */}
-              {draggable && (
+              {canDrag && (
                 <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
                   <GripVertical className="w-4 h-4" />
                 </div>
@@ -211,7 +265,7 @@ const CustomPanel = ({
               {/* Header Actions */}
               <div className="flex items-center gap-2">
                 {/* Maximize/Minimize */}
-                {resizable && (
+                {canResize && (
                   <button
                     onClick={toggleMaximize}
                     className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -240,15 +294,18 @@ const CustomPanel = ({
             <div
               className={`
                 ${scrollable ? 'overflow-y-auto' : 'overflow-hidden'}
-                ${mode === 'fullscreen' ? 'h-[calc(100vh-60px)]' : ''}
-                ${mode === 'slide-left' || mode === 'slide-right' ? 'h-[calc(100vh-60px)]' : ''}
+                ${actualMode === 'fullscreen' ? 'h-[calc(100vh-60px)]' : ''}
+                ${actualMode === 'slide-left' || actualMode === 'slide-right' ? 'h-[calc(100vh-60px)]' : ''}
+                ${deviceType === 'mobile' ? 'pb-safe' : ''}
               `}
               style={{
-                height: mode === 'overlay' || mode === 'slide-up' || mode === 'slide-down' 
+                height: actualMode === 'overlay' || actualMode === 'slide-up' || actualMode === 'slide-down' 
                   ? 'auto' 
                   : undefined,
-                maxHeight: mode === 'overlay' 
+                maxHeight: actualMode === 'overlay' 
                   ? 'calc(90vh - 60px)' 
+                  : actualMode === 'slide-up' && deviceType === 'mobile'
+                  ? 'calc(80vh - 60px)'
                   : undefined
               }}
             >
