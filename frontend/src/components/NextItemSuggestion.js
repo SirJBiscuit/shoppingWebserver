@@ -193,6 +193,7 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
       const token = localStorage.getItem('token');
       const storeId = encodeURIComponent(storeName || 'unknown');
       
+      // Report to MDL system for learning
       await fetch('/api/mdl/aisle/report', {
         method: 'POST',
         headers: {
@@ -208,9 +209,25 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
         })
       });
       
-      // Update the item's aisle field if onPriceUpdate exists (reuse for aisle update)
+      // Update the item's aisle field in the database
       if (onPriceUpdate) {
-        await onPriceUpdate(nextItem, { aisle: aisleNumber });
+        // onPriceUpdate signature is (itemId, price), but we can use it for aisle too
+        // We need to update the item directly via API
+        const response = await fetch(`/api/shopping/lists/${nextItem.shopping_list_id}/items/${nextItem.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            aisle_number: parseInt(aisleNumber)
+          })
+        });
+        
+        if (response.ok) {
+          // Update local state
+          nextItem.aisle = parseInt(aisleNumber);
+        }
       }
       
       // Show success message
@@ -220,9 +237,9 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
       setShowAisleReport(false);
       setCustomAisle('');
       
-      // Refresh predicted aisle
-      setPredictedAisle(parseInt(aisleNumber));
-      setAisleConfidence(1.0);
+      // Update displayed aisle
+      setPredictedAisle(null); // Clear prediction since we now have confirmed aisle
+      setAisleConfidence(null);
     } catch (error) {
       console.error('Error reporting aisle:', error);
     }
@@ -973,6 +990,18 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               >
                 <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="text-xs sm:text-sm">N/A</span>
+              </button>
+            )}
+            
+            {/* Found in Aisle button - only show if store is set */}
+            {storeName && (
+              <button
+                onClick={() => setShowAisleReport(true)}
+                className="flex items-center justify-center gap-1 px-2 py-2 sm:py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors text-xs sm:text-sm min-h-[44px]"
+                title="Report which aisle you found this in"
+              >
+                <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="text-xs sm:text-sm">Aisle</span>
               </button>
             )}
           </div>
