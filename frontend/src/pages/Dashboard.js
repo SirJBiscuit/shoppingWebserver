@@ -1451,23 +1451,8 @@ const Dashboard = () => {
               </span>
             </button>
 
-            {/* Right Side - View List, Help, Optimization Toggle, Notifications and Logout */}
+            {/* Right Side - Help, Optimization Toggle, Notifications and Logout */}
             <div className="flex items-center space-x-2 sm:space-x-4" data-tutorial="top-toolbar">
-              {/* View List Button */}
-              <button
-                onClick={() => setShowListPanel(true)}
-                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-all duration-200 shadow-md hover:shadow-lg"
-                title="View Shopping List"
-              >
-                <List className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline font-medium text-sm">List</span>
-                {items.length > 0 && (
-                  <span className="bg-white text-blue-600 px-1.5 py-0.5 rounded-full text-xs font-bold">
-                    {items.length}
-                  </span>
-                )}
-              </button>
-              
               {/* Help Button */}
               <HelpButton userId={user?.id || user?.username} />
               
@@ -2670,11 +2655,32 @@ const Dashboard = () => {
         onClose={() => setShowChangelog(false)} 
       />
 
-      {/* Shopping List Slide-Out Panel */}
+      {/* Floating Active Shopping List Button */}
+      <motion.button
+        onClick={() => setShowListPanel(true)}
+        className="fixed right-4 sm:right-6 bottom-20 sm:bottom-6 z-50 flex flex-col items-center justify-center gap-1 px-4 py-3 sm:px-5 sm:py-4 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        title="Active Shopping List"
+      >
+        <List className="w-6 h-6 sm:w-7 sm:h-7" />
+        {items.length > 0 && (
+          <motion.span
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg"
+          >
+            {items.length}
+          </motion.span>
+        )}
+        <span className="text-[10px] sm:text-xs font-semibold whitespace-nowrap">Active List</span>
+      </motion.button>
+
+      {/* Active Shopping List Tab - Slide-Out Panel */}
       <CustomPanel
         isOpen={showListPanel}
         onClose={() => setShowListPanel(false)}
-        title={`${activeList?.name || 'Shopping List'} (${items.length} items)`}
+        title={`Active Shopping List: ${activeList?.name || 'My List'}`}
         scrollable={true}
         actions={[
           {
