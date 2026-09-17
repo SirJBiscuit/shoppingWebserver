@@ -102,7 +102,7 @@ const RadialActionMenu = ({
   };
 
   return (
-    <div className="relative inline-block">
+    <>
       {/* Primary Action Button */}
       <motion.button
         variants={primaryVariants}
@@ -136,20 +136,31 @@ const RadialActionMenu = ({
         )}
       </motion.button>
 
-      {/* Radial Action Buttons */}
+      {/* Overlay Widget */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            exit="hidden"
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-            style={{ 
-              width: config.radius * 2 + config.button, 
-              height: config.radius * 2 + config.button 
-            }}
-          >
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100]"
+            />
+
+            {/* Radial Action Buttons Container */}
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[101]"
+              style={{ 
+                width: config.radius * 2 + config.button, 
+                height: config.radius * 2 + config.button 
+              }}
+            >
             {visibleActions.map((action, index) => {
               const pos = getButtonPosition(index);
               const Icon = action.icon;
@@ -194,25 +205,10 @@ const RadialActionMenu = ({
               );
             })}
           </motion.div>
+          </>
         )}
       </AnimatePresence>
-
-      {/* Labels on Hover (Optional) */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none"
-          >
-            <div className="bg-black/75 text-white text-xs px-3 py-1 rounded-full whitespace-nowrap">
-              {primaryAction.label}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    </>
   );
 };
 
