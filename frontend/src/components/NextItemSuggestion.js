@@ -192,9 +192,10 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
     try {
       const token = localStorage.getItem('token');
       const storeId = encodeURIComponent(storeName || 'unknown');
+      const aisleNum = parseInt(aisleNumber);
       
       // Report to MDL system for learning
-      await fetch('/api/mdl/aisle/report', {
+      const mdlResponse = await fetch('/api/mdl/aisle/report', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -202,44 +203,58 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
         },
         body: JSON.stringify({
           itemName: nextItem.item_name,
-          aisleNumber: parseInt(aisleNumber),
+          aisleNumber: aisleNum,
           storeId: storeId,
-          wasCorrect: predictedAisle ? (parseInt(aisleNumber) === parseInt(predictedAisle)) : null,
+          wasCorrect: predictedAisle ? (aisleNum === parseInt(predictedAisle)) : null,
           categoryId: nextItem.category
         })
       });
       
-      // Update the item's aisle field in the database
-      if (onPriceUpdate) {
-        // onPriceUpdate signature is (itemId, price), but we can use it for aisle too
-        // We need to update the item directly via API
-        const response = await fetch(`/api/shopping/lists/${nextItem.shopping_list_id}/items/${nextItem.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            aisle_number: parseInt(aisleNumber)
-          })
-        });
-        
-        if (response.ok) {
-          // Update local state
-          nextItem.aisle = parseInt(aisleNumber);
-        }
+      if (!mdlResponse.ok) {
+        console.warn('MDL aisle report failed, but continuing with item update');
       }
       
-      // Show success message
-      playSound('success');
+      // Update the item's aisle field in the database
+      const response = await fetch(`/api/shopping/lists/${nextItem.shopping_list_id}/items/${nextItem.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          aisle_number: aisleNum
+        })
+      });
       
-      // Close the reporting UI
-      setShowAisleReport(false);
-      setCustomAisle('');
-      
-      // Update displayed aisle
-      setPredictedAisle(null); // Clear prediction since we now have confirmed aisle
-      setAisleConfidence(null);
+      if (response.ok) {
+        // Update local state
+        nextItem.aisle = aisleNum;
+        
+        // Show success message with feedback
+        playSound('success');
+        
+        // Show different messages based on prediction accuracy
+        if (predictedAisle && aisleNum === parseInt(predictedAisle)) {
+          // User confirmed our prediction
+          console.log(`✅ Prediction confirmed! Aisle ${aisleNum} was correct`);
+        } else if (predictedAisle) {
+          // User corrected our prediction
+          console.log(`📍 Aisle updated from ${predictedAisle} to ${aisleNum}`);
+        } else {
+          // First time reporting this item
+          console.log(`📍 Aisle ${aisleNum} saved for ${nextItem.item_name}`);
+        }
+        
+        // Close the reporting UI
+        setShowAisleReport(false);
+        setCustomAisle('');
+        
+        // Update displayed aisle
+        setPredictedAisle(null); // Clear prediction since we now have confirmed aisle
+        setAisleConfidence(null);
+      } else {
+        console.error('Failed to update item aisle');
+      }
     } catch (error) {
       console.error('Error reporting aisle:', error);
     }
@@ -610,54 +625,73 @@ const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, on
               )}
             </div>
             
-            {/* Aisle Reporting UI */}
+            {/* Aisle Reporting UI - Responsive for mobile, tablet, desktop */}
             {showAisleReport && storeName && (
-              <div className="mt-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border-2 border-purple-300 dark:border-purple-700">
+              <div className="mt-3 p-3 sm:p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border-2 border-purple-300 dark:border-purple-700">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-semibold text-purple-900 dark:text-purple-100">
-                    Which aisle did you find this in?
-                  </p>
+                  <div>
+                    <p className="text-sm sm:text-base font-semibold text-purple-900 dark:text-purple-100">
+                      Which aisle did you find this in?
+                    </p>
+                    {predictedAisle && (
+                      <p className="text-xs text-purple-700 dark:text-purple-300 mt-1">
+                        We predicted: Aisle {predictedAisle}
+                      </p>
+                    )}
+                  </div>
                   <button
                     onClick={() => {
                       setShowAisleReport(false);
                       setCustomAisle('');
                     }}
-                    className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200"
+                    className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 p-1"
+                    aria-label="Close aisle reporting"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
                 
-                {/* Quick Number Buttons 1-20 */}
-                <div className="grid grid-cols-5 gap-2 mb-3">
+                {/* Quick Number Buttons 1-20 - Responsive grid */}
+                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-2 mb-3">
                   {[...Array(20)].map((_, i) => (
                     <button
                       key={i + 1}
                       onClick={() => reportAisle(i + 1)}
-                      className="px-3 py-2 bg-white dark:bg-gray-800 hover:bg-purple-100 dark:hover:bg-purple-900 border-2 border-purple-200 dark:border-purple-700 rounded-lg font-bold text-purple-900 dark:text-purple-100 transition-colors"
+                      className={`px-2 py-2 sm:px-3 sm:py-2.5 bg-white dark:bg-gray-800 hover:bg-purple-100 dark:hover:bg-purple-900 border-2 rounded-lg font-bold text-purple-900 dark:text-purple-100 transition-colors min-h-[44px] ${
+                        predictedAisle === i + 1 
+                          ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20' 
+                          : 'border-purple-200 dark:border-purple-700'
+                      }`}
+                      title={predictedAisle === i + 1 ? 'Predicted aisle' : `Aisle ${i + 1}`}
                     >
                       {i + 1}
                     </button>
                   ))}
                 </div>
                 
-                {/* Custom Input */}
-                <div className="flex gap-2">
+                {/* Custom Input - Touch-friendly */}
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="number"
                     value={customAisle}
                     onChange={(e) => setCustomAisle(e.target.value)}
                     placeholder="Other aisle number..."
-                    className="flex-1 px-3 py-2 border-2 border-purple-300 dark:border-purple-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    className="flex-1 px-3 py-2.5 sm:py-2 border-2 border-purple-300 dark:border-purple-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white min-h-[44px]"
+                    inputMode="numeric"
                   />
                   <button
                     onClick={() => customAisle && reportAisle(customAisle)}
                     disabled={!customAisle}
-                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg font-semibold transition-colors"
+                    className="px-4 py-2.5 sm:py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-colors min-h-[44px]"
                   >
                     Submit
                   </button>
                 </div>
+                
+                {/* Helper text */}
+                <p className="text-xs text-purple-600 dark:text-purple-400 mt-2">
+                  💡 Reporting helps improve predictions for everyone!
+                </p>
               </div>
             )}
 
