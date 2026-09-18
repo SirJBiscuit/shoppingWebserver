@@ -8,6 +8,11 @@ import {
   exportWidgetConfig,
   importWidgetConfig
 } from '../utils/widgetConfig';
+import { 
+  resetToDefault, 
+  isModifiedFromDefault,
+  getDefaultPreset 
+} from '../utils/defaultPresets';
 
 /**
  * useWidget - Hook for managing widget configurations
@@ -118,6 +123,24 @@ export const useWidget = (initialType, initialConfig = {}) => {
     };
   }, [config]);
 
+  // Reset to default preset
+  const resetToDefaultPreset = useCallback(() => {
+    const defaultConfig = resetToDefault(config.type);
+    setConfig(defaultConfig);
+    setHistory([defaultConfig]);
+    setHistoryIndex(0);
+  }, [config.type]);
+
+  // Check if modified from default
+  const isModified = useCallback(() => {
+    return isModifiedFromDefault(config);
+  }, [config]);
+
+  // Get default for comparison
+  const getDefault = useCallback(() => {
+    return getDefaultPreset(config.type);
+  }, [config.type]);
+
   return {
     config,
     updateConfig,
@@ -127,6 +150,9 @@ export const useWidget = (initialType, initialConfig = {}) => {
     undo,
     redo,
     reset,
+    resetToDefaultPreset,
+    isModified,
+    getDefault,
     validate,
     exportConfig,
     importConfig,
