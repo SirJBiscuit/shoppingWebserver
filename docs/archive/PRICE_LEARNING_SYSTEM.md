@@ -29,7 +29,7 @@ The price learning system tracks and suggests prices for items to improve shoppi
 - **Display**: Shows quantity prominently with warning to verify
 - **Input Methods**:
   - Suggested price button (if `nextItem.price` exists)
-  - Increment/decrement buttons (+/- $0.50, $1, $5)
+  - Increment/decrement buttons (+/- $0.50, $1, $5) we removed this
   - Manual input (collapsed by default)
 - **Visual Feedback**: 
   - Large price display
