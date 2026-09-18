@@ -7,25 +7,31 @@ import { Menu, X } from 'lucide-react';
  * 
  * Features:
  * - Radial layout with smooth animations
- * - Primary action in center
- * - Secondary actions arranged in circle
+ * - Opens at button position (no screen dimming)
+ * - Text labels with icons for clarity
  * - Touch-friendly
  * - Responsive sizing
  * - Auto-closes after action
+ * - No backdrop/dimming by default
  * 
  * @param {Object} props
  * @param {Object} props.primaryAction - Main action button { icon, label, onClick, className }
  * @param {Array} props.actions - Secondary actions [{ icon, label, onClick, color?, show? }]
  * @param {boolean} props.autoClose - Auto-close after action (default: true)
  * @param {string} props.size - Size: 'sm', 'md', 'lg' (default: 'md')
+ * @param {boolean} props.showBackdrop - Show dimming backdrop (default: false)
+ * @param {boolean} props.showLabels - Show text labels on buttons (default: true)
  */
 const RadialActionMenu = ({ 
   primaryAction, 
   actions = [], 
   autoClose = true,
-  size = 'md'
+  size = 'md',
+  showBackdrop = false,
+  showLabels = true
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [buttonPosition, setButtonPosition] = useState({ x: 0, y: 0 });
 
   const sizes = {
     sm: { button: 48, radius: 80, icon: 'w-4 h-4' },
@@ -46,7 +52,14 @@ const RadialActionMenu = ({
     }
   };
 
-  const handlePrimaryClick = () => {
+  const handlePrimaryClick = (e) => {
+    // Get button position for menu placement
+    const rect = e.currentTarget.getBoundingClientRect();
+    setButtonPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2
+    });
+
     if (isOpen && primaryAction.onClick) {
       primaryAction.onClick();
       if (autoClose) {
@@ -140,25 +153,38 @@ const RadialActionMenu = ({
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsOpen(false)}
-              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100]"
-            />
+            {/* Optional Backdrop (off by default) */}
+            {showBackdrop && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsOpen(false)}
+                className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[100]"
+              />
+            )}
 
-            {/* Radial Action Buttons Container */}
+            {/* Click-away listener (invisible) */}
+            {!showBackdrop && (
+              <div
+                onClick={() => setIsOpen(false)}
+                className="fixed inset-0 z-[100]"
+              />
+            )}
+
+            {/* Radial Action Buttons Container - Opens at button position */}
             <motion.div
               variants={containerVariants}
               initial="hidden"
               animate="visible"
               exit="hidden"
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[101]"
+              className="fixed pointer-events-none z-[101]"
               style={{ 
+                left: buttonPosition.x,
+                top: buttonPosition.y,
                 width: config.radius * 2 + config.button, 
-                height: config.radius * 2 + config.button 
+                height: config.radius * 2 + config.button,
+                transform: 'translate(-50%, -50%)'
               }}
             >
             {visibleActions.map((action, index) => {
@@ -167,41 +193,61 @@ const RadialActionMenu = ({
               const colorClass = action.color || 'bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700';
 
               return (
-                <motion.button
+                <motion.div
                   key={index}
                   custom={index}
                   variants={buttonVariants}
                   initial="hidden"
                   animate="visible"
                   exit="hidden"
-                  whileHover="hover"
-                  whileTap="tap"
-                  onClick={() => handleActionClick(action)}
-                  className={`
-                    ${colorClass}
-                    text-white rounded-full shadow-lg hover:shadow-xl
-                    flex flex-col items-center justify-center
-                    transition-shadow
-                    absolute pointer-events-auto
-                  `}
+                  className="absolute pointer-events-auto"
                   style={{
-                    width: config.button,
-                    height: config.button,
-                    minWidth: config.button,
-                    minHeight: config.button,
                     left: `calc(50% + ${pos.x}px)`,
                     top: `calc(50% + ${pos.y}px)`,
                     transform: 'translate(-50%, -50%)'
                   }}
-                  title={action.label}
                 >
-                  {Icon && <Icon className={config.icon} />}
-                  {action.badge && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                      {action.badge}
-                    </span>
+                  <motion.button
+                    whileHover="hover"
+                    whileTap="tap"
+                    onClick={() => handleActionClick(action)}
+                    className={`
+                      ${colorClass}
+                      text-white rounded-full shadow-lg hover:shadow-xl
+                      flex flex-col items-center justify-center gap-1
+                      transition-all
+                      relative
+                    `}
+                    style={{
+                      width: config.button,
+                      height: config.button,
+                      minWidth: config.button,
+                      minHeight: config.button
+                    }}
+                    title={action.label}
+                  >
+                    {Icon && <Icon className={config.icon} />}
+                    {action.badge && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                        {action.badge}
+                      </span>
+                    )}
+                  </motion.button>
+                  
+                  {/* Text Label */}
+                  {showLabels && action.label && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.05 + 0.1 }}
+                      className="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap"
+                    >
+                      <span className="bg-gray-900/90 dark:bg-gray-800/90 text-white text-xs px-2 py-1 rounded-lg shadow-lg backdrop-blur-sm">
+                        {action.label}
+                      </span>
+                    </motion.div>
                   )}
-                </motion.button>
+                </motion.div>
               );
             })}
           </motion.div>
