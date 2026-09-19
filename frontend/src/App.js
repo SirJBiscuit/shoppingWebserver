@@ -9,7 +9,7 @@ import { OptimizationProvider } from './contexts/OptimizationContext';
 import FlyingItemAnimation from './components/FlyingItemAnimation';
 // import MobileBottomNav from './components/MobileBottomNav'; // Disabled for now
 import AdminToolbar from './components/AdminToolbar';
-import UpdateChecker from './components/UpdateChecker';
+import UpdateChecker from './backburner/components/UpdateChecker';
 import UpdateNotification from './components/UpdateNotification';
 
 // Lazy load pages for better performance

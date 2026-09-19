@@ -12,8 +12,8 @@ import Sidebar from '../components/Sidebar';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import FeatureManagementVisual from '../components/admin/FeatureManagementVisual';
-import UserManagement from '../components/UserManagement';
-import DashboardEditor from '../components/DashboardEditor';
+import UserManagement from '../backburner/components/UserManagement';
+import DashboardEditor from '../backburner/components/DashboardEditor';
 import SoundSettings from '../components/SoundSettings';
 
 const AdminNew = () => {
