@@ -141,12 +141,12 @@ const Sidebar = ({ onAction }) => {
   const mainNavItems = [
     { path: '/', icon: ShoppingCart, label: 'Dashboard', color: 'text-blue-600', feature: 'shopping_lists' },
     { path: '/staging', icon: Package, label: 'After Shop', color: 'text-yellow-600', feature: 'pantry', badge: '🛒' },
-    { path: '/pantry-new', icon: Home, label: 'Home Inventory', color: 'text-green-600', feature: 'pantry' },
+    { path: '/pantry', icon: Home, label: 'Home Inventory', color: 'text-green-600', feature: 'pantry' },
     { path: '/recipes', icon: ChefHat, label: 'Recipe Book', color: 'text-orange-600', feature: 'recipes' },
-    { path: '/meal-plan', icon: Calendar, label: 'Meal Planner', color: 'text-purple-600', feature: 'meal_planner' },
-    { path: '/stats', icon: BarChart3, label: 'Statistics', color: 'text-pink-600', feature: 'statistics' },
-    { path: '/discover', icon: Search, label: 'Recipe Discovery', color: 'text-teal-600', feature: 'recipe_discovery' },
-    { path: '/history', icon: History, label: 'Activity History', color: 'text-indigo-600', feature: 'activity_history' },
+    // { path: '/meal-plan', icon: Calendar, label: 'Meal Planner', color: 'text-purple-600', feature: 'meal_planner' }, // Disabled
+    // { path: '/stats', icon: BarChart3, label: 'Statistics', color: 'text-pink-600', feature: 'statistics' }, // Disabled
+    // { path: '/discover', icon: Search, label: 'Recipe Discovery', color: 'text-teal-600', feature: 'recipe_discovery' }, // Disabled
+    // { path: '/history', icon: History, label: 'Activity History', color: 'text-indigo-600', feature: 'activity_history' }, // Disabled
   ];
 
   const toolItems = [
@@ -396,14 +396,14 @@ const Sidebar = ({ onAction }) => {
 
         {/* Footer Actions */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-          {/* Premium Button */}
-          <button
+          {/* Premium Button - DISABLED */}
+          {/* <button
             onClick={() => handleNavClick('/premium')}
             className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 shadow-lg hover:shadow-xl"
           >
             <Crown className="w-5 h-5" />
             <span className="font-medium text-sm">Upgrade to Premium</span>
-          </button>
+          </button> */}
           <ClearCacheButton />
           <button
             onClick={toggleTheme}
