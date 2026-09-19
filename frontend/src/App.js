@@ -33,7 +33,7 @@ const AdminTraining = lazy(() => import('./pages/AdminTraining'));
 const Subscription = lazy(() => import('./pages/Subscription'));
 const Premium = lazy(() => import('./pages/Premium'));
 const IconCollectionGallery = lazy(() => import('./components/IconCollectionGallery'));
-const CustomizationHub = lazy(() => import('./components/CustomizationHub'));
+const CustomizationHub = lazy(() => import('./backburner/components/CustomizationHub'));
 const IconUploadPanel = lazy(() => import('./components/admin/IconUploadPanel'));
 const AdminBetaDashboard = lazy(() => import('./pages/AdminBetaDashboard'));
 
