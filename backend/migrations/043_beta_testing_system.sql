@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS beta_testers (
   user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
   beta_code_id INTEGER REFERENCES beta_testing_codes(id) ON DELETE SET NULL,
   beta_username VARCHAR(100) NOT NULL,
+  display_name VARCHAR(150) NOT NULL,
   country VARCHAR(100) NOT NULL,
   state VARCHAR(100) NOT NULL,
   accepted_data_policy BOOLEAN DEFAULT false,
@@ -42,6 +43,7 @@ CREATE TABLE IF NOT EXISTS beta_testers (
 CREATE INDEX idx_beta_testers_user ON beta_testers(user_id);
 CREATE INDEX idx_beta_testers_location ON beta_testers(country, state);
 CREATE INDEX idx_beta_testers_code ON beta_testers(beta_code_id);
+CREATE INDEX idx_beta_testers_display_name ON beta_testers(display_name);
 
 -- ============================================================================
 -- 3. LAYOUT CONFIGURATIONS TABLE
@@ -365,6 +367,8 @@ COMMENT ON COLUMN beta_testing_codes.code IS 'Unique beta access code in format 
 COMMENT ON COLUMN beta_testing_codes.max_uses IS 'Maximum number of times this code can be used';
 COMMENT ON COLUMN beta_testing_codes.current_uses IS 'Current number of times this code has been used';
 
+COMMENT ON COLUMN beta_testers.beta_username IS 'Username for login (system identifier)';
+COMMENT ON COLUMN beta_testers.display_name IS 'Nickname for admin identification and feedback display (e.g., "John", "TechGuru", "BetaTester01")';
 COMMENT ON COLUMN beta_testers.country IS 'Country for location-based store training data';
 COMMENT ON COLUMN beta_testers.state IS 'State/Province for location-based store training data';
 COMMENT ON COLUMN beta_testers.accepted_data_policy IS 'Whether user accepted data usage policy';

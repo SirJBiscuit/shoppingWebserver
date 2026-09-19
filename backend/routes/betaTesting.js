@@ -268,13 +268,14 @@ router.post('/register', async (req, res) => {
       username, 
       password, 
       betaUsername,
+      displayName,
       country, 
       state, 
       acceptedDataPolicy 
     } = req.body;
 
     // Validate required fields
-    if (!code || !username || !password || !betaUsername || !country || !state) {
+    if (!code || !username || !password || !betaUsername || !displayName || !country || !state) {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
@@ -330,9 +331,9 @@ router.post('/register', async (req, res) => {
     // Create beta tester record
     await client.query(
       `INSERT INTO beta_testers (
-        user_id, beta_code_id, beta_username, country, state, accepted_data_policy
-      ) VALUES ($1, $2, $3, $4, $5, $6)`,
-      [userId, codeId, betaUsername, country, state, acceptedDataPolicy]
+        user_id, beta_code_id, beta_username, display_name, country, state, accepted_data_policy
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [userId, codeId, betaUsername, displayName, country, state, acceptedDataPolicy]
     );
 
     // Increment code usage
