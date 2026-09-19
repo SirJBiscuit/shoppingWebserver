@@ -97,26 +97,36 @@ app.use((err, req, res, next) => {
 
 // Run migrations on startup
 const runMigrations = async () => {
-  try {
-    const fs = require('fs');
-    const path = require('path');
-    const db = require('./database/db');
-    
-    const migrationPath = path.join(__dirname, '../migrations/add_sound_system.sql');
-    
-    // Check if migration file exists
-    if (fs.existsSync(migrationPath)) {
-      console.log('Running sound system migration...');
-      const migration = fs.readFileSync(migrationPath, 'utf8');
-      await db.query(migration);
-      console.log('✅ Sound system migration completed');
-    }
-  } catch (error) {
-    // Ignore errors if tables already exist
-    if (error.message && error.message.includes('already exists')) {
-      console.log('Sound system tables already exist, skipping migration');
-    } else {
-      console.warn('Migration warning:', error.message);
+  const fs = require('fs');
+  const path = require('path');
+  const db = require('./database/db');
+  
+  const migrations = [
+    { file: 'add_sound_system.sql', name: 'Sound System' },
+    { file: '043_beta_testing_system.sql', name: 'Beta Testing System' },
+    { file: '044_beta_feedback_system.sql', name: 'Beta Feedback System' }
+  ];
+
+  for (const migration of migrations) {
+    try {
+      const migrationPath = path.join(__dirname, '../migrations', migration.file);
+      
+      // Check if migration file exists
+      if (fs.existsSync(migrationPath)) {
+        console.log(`Running ${migration.name} migration...`);
+        const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+        await db.query(migrationSQL);
+        console.log(`✅ ${migration.name} migration completed`);
+      } else {
+        console.log(`⚠️  ${migration.name} migration file not found, skipping`);
+      }
+    } catch (error) {
+      // Ignore errors if tables already exist
+      if (error.message && error.message.includes('already exists')) {
+        console.log(`${migration.name} tables already exist, skipping migration`);
+      } else {
+        console.warn(`${migration.name} migration warning:`, error.message);
+      }
     }
   }
 };
