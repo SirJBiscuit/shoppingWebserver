@@ -91,13 +91,13 @@ const AnimatedRoutes = () => {
         <Route path="/pantry-new" element={<PrivateRoute><PantryNewV2 /></PrivateRoute>} />
         <Route path="/pantry-old" element={<PrivateRoute><PantryNew /></PrivateRoute>} />
         <Route path="/staging" element={<PrivateRoute><StagingArea /></PrivateRoute>} />
-        <Route path="/meal-plan" element={<PrivateRoute><MealPlan /></PrivateRoute>} />
-        <Route path="/stats" element={<PrivateRoute><Statistics /></PrivateRoute>} />
-        <Route path="/discover" element={<PrivateRoute><RecipeDiscover /></PrivateRoute>} />
+        {/* <Route path="/meal-plan" element={<PrivateRoute><MealPlan /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
+        {/* <Route path="/stats" element={<PrivateRoute><Statistics /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
+        {/* <Route path="/discover" element={<PrivateRoute><RecipeDiscover /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
         <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
         <Route path="/subscription" element={<PrivateRoute><Subscription /></PrivateRoute>} />
         <Route path="/premium" element={<PrivateRoute><Premium /></PrivateRoute>} />
-        <Route path="/history" element={<PrivateRoute><History /></PrivateRoute>} />
+        {/* <Route path="/history" element={<PrivateRoute><History /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
         <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
         <Route path="/admin/customize" element={<PrivateRoute><AdminCustomization /></PrivateRoute>} />
         <Route path="/admin/training" element={<PrivateRoute><AdminTraining /></PrivateRoute>} />
