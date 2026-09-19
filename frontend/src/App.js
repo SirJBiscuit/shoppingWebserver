@@ -35,6 +35,7 @@ const Premium = lazy(() => import('./pages/Premium'));
 const IconCollectionGallery = lazy(() => import('./components/IconCollectionGallery'));
 const CustomizationHub = lazy(() => import('./components/CustomizationHub'));
 const IconUploadPanel = lazy(() => import('./components/admin/IconUploadPanel'));
+const AdminBetaDashboard = lazy(() => import('./pages/AdminBetaDashboard'));
 
 // Loading component
 const PageLoader = () => (
@@ -100,6 +101,7 @@ const AnimatedRoutes = () => {
         <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
         <Route path="/admin/customize" element={<PrivateRoute><AdminCustomization /></PrivateRoute>} />
         <Route path="/admin/training" element={<PrivateRoute><AdminTraining /></PrivateRoute>} />
+        <Route path="/admin/beta" element={<PrivateRoute><AdminBetaDashboard /></PrivateRoute>} />
         <Route path="/icons" element={<PrivateRoute><IconCollectionGallery /></PrivateRoute>} />
         <Route path="/customize" element={<PrivateRoute><CustomizationHub /></PrivateRoute>} />
         <Route path="/admin/icons" element={<PrivateRoute><IconUploadPanel /></PrivateRoute>} />

@@ -32,6 +32,9 @@ const mdlRoutes = require('./routes/mdl');
 const adminTrainingRoutes = require('./routes/admin/training');
 const priceTrainingRoutes = require('./routes/admin/priceTraining');
 const priceTrendsRoutes = require('./routes/priceTrends');
+const betaTestingRoutes = require('./routes/betaTesting');
+const betaFeedbackRoutes = require('./routes/betaFeedback');
+const layoutsRoutes = require('./routes/layouts');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -79,6 +82,9 @@ app.use('/api/mdl', mdlRoutes);
 app.use('/api/admin/training', adminTrainingRoutes);
 app.use('/api/admin/price-training', priceTrainingRoutes);
 app.use('/api/price-trends', priceTrendsRoutes);
+app.use('/api/beta', betaTestingRoutes);
+app.use('/api/beta/feedback', betaFeedbackRoutes);
+app.use('/api/layouts', layoutsRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

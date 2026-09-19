@@ -17,29 +17,31 @@ import { Loader, AlertCircle, FlaskConical } from 'lucide-react';
 
 // Lazy load all possible components
 const componentMap = {
-  // Admin Components
-  StatsOverview: lazy(() => import('./admin/StatsOverview')),
+  // Admin Components (EXIST)
   BetaAnalyticsCFS: lazy(() => import('./admin/BetaAnalyticsCFS')),
   BetaCodeManagerCFS: lazy(() => import('./admin/BetaCodeManagerCFS')),
   BetaTesterManagementCFS: lazy(() => import('./admin/BetaTesterManagementCFS')),
   BetaFeedbackDashboardCFS: lazy(() => import('./admin/BetaFeedbackDashboardCFS')),
-  UserManagement: lazy(() => import('./admin/UserManagement')),
-  SystemSettings: lazy(() => import('./admin/SystemSettings')),
+  
+  // Admin Components (PLACEHOLDERS)
+  StatsOverview: () => <PlaceholderSection title="Stats Overview" description="System statistics and metrics" />,
+  UserManagement: () => <PlaceholderSection title="User Management" description="Manage users and permissions" />,
+  SystemSettings: () => <PlaceholderSection title="System Settings" description="Configure system settings" />,
 
-  // Beta Tester Components
+  // Beta Tester Components (EXIST)
   BetaFeedbackWidget: lazy(() => import('./beta/BetaFeedbackWidget')),
   ContributionStats: lazy(() => import('./beta/ContributionStats')),
   ThankYouMessages: lazy(() => import('./beta/ThankYouMessages')),
 
-  // User Components
-  ShoppingList: lazy(() => import('./ShoppingList')),
-  QuickAdd: lazy(() => import('./QuickAdd')),
-  RecentItems: lazy(() => import('./RecentItems')),
-  SmartSuggestions: lazy(() => import('./SmartSuggestions')),
+  // User Components (PLACEHOLDERS)
+  ShoppingList: () => <PlaceholderSection title="Shopping List" description="Your current shopping list" />,
+  QuickAdd: () => <PlaceholderSection title="Quick Add" description="Quickly add items to your list" />,
+  RecentItems: () => <PlaceholderSection title="Recent Items" description="Recently added items" />,
+  SmartSuggestions: () => <PlaceholderSection title="Smart Suggestions" description="AI-powered shopping suggestions" />,
 
-  // Guest Components
-  WelcomeMessage: lazy(() => import('./WelcomeMessage')),
-  DemoShoppingList: lazy(() => import('./DemoShoppingList'))
+  // Guest Components (PLACEHOLDERS)
+  WelcomeMessage: () => <PlaceholderSection title="Welcome" description="Welcome to the shopping app" />,
+  DemoShoppingList: () => <PlaceholderSection title="Demo List" description="Try out the shopping list features" />
 };
 
 const DynamicLayout = ({ children }) => {
