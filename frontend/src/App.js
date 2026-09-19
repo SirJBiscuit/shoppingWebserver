@@ -85,25 +85,25 @@ const AnimatedRoutes = () => {
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-        <Route path="/recipes" element={<PrivateRoute><RecipesNew /></PrivateRoute>} />
-        <Route path="/recipes-old" element={<PrivateRoute><Recipes /></PrivateRoute>} />
+        {/* <Route path="/recipes" element={<PrivateRoute><RecipesNew /></PrivateRoute>} /> */} {/* Disabled - backburner, will redo */}
+        <Route path="/recipes" element={<PrivateRoute><Recipes /></PrivateRoute>} /> {/* Using current Recipes for now */}
         <Route path="/pantry" element={<PrivateRoute><PantryEnhanced /></PrivateRoute>} />
-        <Route path="/pantry-new" element={<PrivateRoute><PantryNewV2 /></PrivateRoute>} />
-        <Route path="/pantry-old" element={<PrivateRoute><PantryNew /></PrivateRoute>} />
+        {/* <Route path="/pantry-new" element={<PrivateRoute><PantryNewV2 /></PrivateRoute>} /> */} {/* Disabled - backburner */}
+        {/* <Route path="/pantry-old" element={<PrivateRoute><PantryNew /></PrivateRoute>} /> */} {/* Disabled - backburner */}
         <Route path="/staging" element={<PrivateRoute><StagingArea /></PrivateRoute>} />
         {/* <Route path="/meal-plan" element={<PrivateRoute><MealPlan /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
         {/* <Route path="/stats" element={<PrivateRoute><Statistics /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
         {/* <Route path="/discover" element={<PrivateRoute><RecipeDiscover /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
         <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
-        <Route path="/subscription" element={<PrivateRoute><Subscription /></PrivateRoute>} />
-        <Route path="/premium" element={<PrivateRoute><Premium /></PrivateRoute>} />
+        {/* <Route path="/subscription" element={<PrivateRoute><Subscription /></PrivateRoute>} /> */} {/* Disabled - not ready */}
+        {/* <Route path="/premium" element={<PrivateRoute><Premium /></PrivateRoute>} /> */} {/* Disabled - not ready */}
         {/* <Route path="/history" element={<PrivateRoute><History /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
         <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
         <Route path="/admin/customize" element={<PrivateRoute><AdminCustomization /></PrivateRoute>} />
         <Route path="/admin/training" element={<PrivateRoute><AdminTraining /></PrivateRoute>} />
         <Route path="/admin/beta" element={<PrivateRoute><AdminBetaDashboard /></PrivateRoute>} />
         <Route path="/icons" element={<PrivateRoute><IconCollectionGallery /></PrivateRoute>} />
-        <Route path="/customize" element={<PrivateRoute><CustomizationHub /></PrivateRoute>} />
+        {/* <Route path="/customize" element={<PrivateRoute><CustomizationHub /></PrivateRoute>} /> */} {/* Disabled - backburner, replaced by AES */}
         <Route path="/admin/icons" element={<PrivateRoute><IconUploadPanel /></PrivateRoute>} />
         </Routes>
       </Suspense>
