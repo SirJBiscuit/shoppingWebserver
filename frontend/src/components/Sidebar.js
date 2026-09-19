@@ -3,12 +3,14 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   ShoppingCart, ChefHat, Package, Calendar, BarChart3, 
   Settings, Shield, History, Search, Mic, Scan, Share2,
-  Menu, X, Bell, Moon, Sun, Crown, Store, Sparkles, Home, GraduationCap
+  Menu, X, Bell, Moon, Sun, Crown, Store, Sparkles, Home, GraduationCap,
+  Book, DollarSign, Star, Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useFeatureFlags } from '../context/FeatureFlagContext';
+import { usePreviewMode } from '../contexts/PreviewModeContext';
 import ClearCacheButton from './ClearCacheButton';
 
 const Sidebar = ({ onAction }) => {
@@ -17,9 +19,10 @@ const Sidebar = ({ onAction }) => {
   const { user, loading } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { hasFeature } = useFeatureFlags();
+  const { effectiveRole, canAccess } = usePreviewMode();
   const [isOpen, setIsOpen] = useState(window.innerWidth >= 1024);
   const [expiringCount, setExpiringCount] = useState(0);
-  const [versionInfo, setVersionInfo] = useState({ version: '...', updateAvailable: false });
+  const [sidebarPages, setSidebarPages] = useState([]);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
 
   // Handle window resize
@@ -60,6 +63,30 @@ const Sidebar = ({ onAction }) => {
     }
   }, [user, loading]);
 
+  // Fetch sidebar pages from API
+  useEffect(() => {
+    const fetchSidebarPages = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/sidebar/pages/visible', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setSidebarPages(data);
+        }
+      } catch (error) {
+        console.error('Error fetching sidebar pages:', error);
+      }
+    };
+
+    if (user && !loading) {
+      fetchSidebarPages();
+    }
+  }, [user, loading, effectiveRole]);
+
   // Fetch expiring items count
   useEffect(() => {
     const fetchExpiringCount = async () => {
@@ -89,6 +116,28 @@ const Sidebar = ({ onAction }) => {
     return null;
   }
 
+  // Icon mapping for sidebar pages
+  const iconMap = {
+    'Home': Home,
+    'ShoppingCart': ShoppingCart,
+    'Book': Book,
+    'DollarSign': DollarSign,
+    'BarChart': BarChart3,
+    'Star': Star,
+    'Shield': Shield,
+    'Users': Users,
+    'Settings': Settings,
+    'Package': Package,
+    'ChefHat': ChefHat,
+    'Calendar': Calendar,
+    'Search': Search,
+    'History': History,
+    'Store': Store,
+    'Sparkles': Sparkles,
+    'GraduationCap': GraduationCap
+  };
+
+  // Legacy items (will be phased out as API pages are configured)
   const mainNavItems = [
     { path: '/', icon: ShoppingCart, label: 'Dashboard', color: 'text-blue-600', feature: 'shopping_lists' },
     { path: '/staging', icon: Package, label: 'After Shop', color: 'text-yellow-600', feature: 'pantry', badge: '🛒' },
@@ -225,28 +274,56 @@ const Sidebar = ({ onAction }) => {
             <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
               Main Menu
             </h3>
-            {mainNavItems
-              .filter(item => !item.feature || hasFeature(item.feature))
-              .map((item) => (
-              <button
-                key={item.path}
-                onClick={() => handleNavClick(item.path)}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative ${
-                  isActive(item.path)
-                    ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 shadow-sm'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-              >
-                <item.icon className={`w-5 h-5 ${isActive(item.path) ? item.color : ''}`} />
-                <span className="font-medium text-sm">{item.label}</span>
-                {/* Expiring Soon Badge for Home Inventory */}
-                {item.path === '/pantry-new' && expiringCount > 0 && (
-                  <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse">
-                    {expiringCount}
-                  </span>
-                )}
-              </button>
-            ))}
+            {/* API-driven pages (if available) */}
+            {sidebarPages.length > 0 ? (
+              sidebarPages.map((page) => {
+                const Icon = iconMap[page.icon_name] || Home;
+                return (
+                  <button
+                    key={page.id}
+                    onClick={() => handleNavClick(page.page_path)}
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative ${
+                      isActive(page.page_path)
+                        ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 shadow-sm'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    <Icon className={`w-5 h-5 ${isActive(page.page_path) ? 'text-primary-600' : ''}`} />
+                    <span className="font-medium text-sm">{page.page_name}</span>
+                    {/* Expiring Soon Badge for Home Inventory */}
+                    {page.page_path === '/pantry-new' && expiringCount > 0 && (
+                      <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse">
+                        {expiringCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })
+            ) : (
+              /* Fallback to legacy items */
+              mainNavItems
+                .filter(item => !item.feature || hasFeature(item.feature))
+                .map((item) => (
+                <button
+                  key={item.path}
+                  onClick={() => handleNavClick(item.path)}
+                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative ${
+                    isActive(item.path)
+                      ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 shadow-sm'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <item.icon className={`w-5 h-5 ${isActive(item.path) ? item.color : ''}`} />
+                  <span className="font-medium text-sm">{item.label}</span>
+                  {/* Expiring Soon Badge for Home Inventory */}
+                  {item.path === '/pantry-new' && expiringCount > 0 && (
+                    <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse">
+                      {expiringCount}
+                    </span>
+                  )}
+                </button>
+              ))
+            )}
           </div>
 
           {/* Quick Tools */}
