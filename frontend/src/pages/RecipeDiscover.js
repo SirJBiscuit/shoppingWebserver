@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { shoppingAPI, pantryAPI, recipesAPI } from '../services/api';
 import { ArrowLeft, Search, ExternalLink, Clock, Users, ChefHat } from 'lucide-react';
-import RecipeDiscovery from '../components/RecipeDiscovery';
+// import RecipeDiscovery from '../components/RecipeDiscovery'; // Disabled - component doesn't exist
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import Sidebar from '../components/Sidebar';

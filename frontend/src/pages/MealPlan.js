@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { recipesAPI, shoppingAPI } from '../services/api';
 import { Calendar, ArrowLeft, ShoppingCart } from 'lucide-react';
-import MealPlanner from '../components/MealPlanner';
+// import MealPlanner from '../components/MealPlanner'; // Disabled - component doesn't exist
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import Sidebar from '../components/Sidebar';
