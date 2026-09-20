@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
 import EditItemModal from './EditItemModal';
-import ItemTooltip from './ItemTooltip';
+// import ItemTooltip from './ItemTooltip'; // Component doesn't exist
 import SmartSuggestionTooltip from './SmartSuggestionTooltip';
 import { detectIcon, detectCategory } from '../utils/categoryDetector';
 import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts';
@@ -405,32 +405,30 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   </div>
 
                   <div className="flex-1">
-                    <ItemTooltip item={item}>
-                      <p
-                        className={`font-medium flex items-center flex-wrap gap-2 ${
-                          item.is_checked ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'
-                        }`}
-                      >
-                        <span>{item.item_name}</span>
-                        {item.count > 1 && (
-                          <span className="px-2 py-0.5 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 text-xs font-bold rounded-full">
-                            x{formatQuantityPlain(item.count)}
-                          </span>
-                        )}
-                        {/* Pantry Status Badge */}
-                        {inventoryCheck && !item.is_checked && (
-                          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full flex items-center gap-1 ${
-                            inventoryCheck.isExpired
-                              ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-                              : inventoryCheck.isExpiringSoon
-                              ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'
-                              : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                          }`}>
-                            {inventoryCheck.isExpired ? '🔴 Expired' : inventoryCheck.isExpiringSoon ? '🟠 Expiring Soon' : '🟢 In Stock'}
-                          </span>
-                        )}
-                      </p>
-                    </ItemTooltip>
+                    <p
+                      className={`font-medium flex items-center flex-wrap gap-2 ${
+                        item.is_checked ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'
+                      }`}
+                    >
+                      <span>{item.item_name}</span>
+                      {item.count > 1 && (
+                        <span className="px-2 py-0.5 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 text-xs font-bold rounded-full">
+                          x{formatQuantityPlain(item.count)}
+                        </span>
+                      )}
+                      {/* Pantry Status Badge */}
+                      {inventoryCheck && !item.is_checked && (
+                        <span className={`px-2 py-0.5 text-xs font-semibold rounded-full flex items-center gap-1 ${
+                          inventoryCheck.isExpired
+                            ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                            : inventoryCheck.isExpiringSoon
+                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'
+                            : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                        }`}>
+                          {inventoryCheck.isExpired ? '🔴 Expired' : inventoryCheck.isExpiringSoon ? '🟠 Expiring Soon' : '🟢 In Stock'}
+                        </span>
+                      )}
+                    </p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm text-gray-500 dark:text-gray-400">
                         {formatQuantityPlain(item.totalQuantity)} {item.unit}
