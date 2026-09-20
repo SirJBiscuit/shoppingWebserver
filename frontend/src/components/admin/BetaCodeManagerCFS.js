@@ -5,8 +5,11 @@ import {
   Copy, Trash2, Edit, Eye, EyeOff, Clock, AlertCircle, Zap
 } from 'lucide-react';
 import api from '../../services/api';
+import { useNotification } from '../../hooks/useNotification';
+import CustomNotification from '../CustomNotification';
 
 const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) => {
+  const { notification, hideNotification, confirm, confirmDelete } = useNotification();
   const [codes, setCodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -71,28 +74,36 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
     }
   };
 
-  const handleDeactivateCode = async (codeId) => {
-    if (!confirm('Are you sure you want to deactivate this code?')) return;
-
-    try {
-      await api.post(`/beta/codes/${codeId}/deactivate`);
-      setCodes(codes.map(c => c.id === codeId ? { ...c, is_active: false } : c));
-    } catch (error) {
-      console.error('Error deactivating code:', error);
-      alert('Failed to deactivate code');
-    }
+  const handleDeactivateCode = (codeId) => {
+    confirm(
+      'Are you sure you want to deactivate this code?',
+      async () => {
+        try {
+          await api.post(`/beta/codes/${codeId}/deactivate`);
+          setCodes(codes.map(c => c.id === codeId ? { ...c, is_active: false } : c));
+        } catch (error) {
+          console.error('Error deactivating code:', error);
+          alert('Failed to deactivate code');
+        }
+      },
+      null,
+      'Deactivate Code'
+    );
   };
 
-  const handleDeleteCode = async (codeId) => {
-    if (!confirm('Are you sure you want to delete this code? This cannot be undone.')) return;
-
-    try {
-      await api.delete(`/beta/codes/${codeId}`);
-      setCodes(codes.filter(c => c.id !== codeId));
-    } catch (error) {
-      console.error('Error deleting code:', error);
-      alert(error.response?.data?.error || 'Failed to delete code');
-    }
+  const handleDeleteCode = (codeId) => {
+    confirmDelete(
+      'this code',
+      async () => {
+        try {
+          await api.delete(`/beta/codes/${codeId}`);
+          setCodes(codes.filter(c => c.id !== codeId));
+        } catch (error) {
+          console.error('Error deleting code:', error);
+          alert(error.response?.data?.error || 'Failed to delete code');
+        }
+      }
+    );
   };
 
   const handleCopyCode = (code) => {
@@ -460,6 +471,8 @@ const CodeCard = ({ code, onCopy, onDeactivate, onDelete, copiedCode }) => {
           )}
         </div>
       </div>
+      
+      <CustomNotification {...notification} onClose={hideNotification} />
     </motion.div>
   );
 };

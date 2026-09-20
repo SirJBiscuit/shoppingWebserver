@@ -6,8 +6,11 @@ import {
   ThumbsUp, TrendingUp, AlertCircle, Zap, Package, Smile
 } from 'lucide-react';
 import api from '../../services/api';
+import { useNotification } from '../../hooks/useNotification';
+import CustomNotification from '../CustomNotification';
 
 const BetaFeedbackDashboardCFS = ({ config = {}, isEditing = false, onConfigChange }) => {
+  const { notification, hideNotification, confirmDelete } = useNotification();
   const [feedback, setFeedback] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedFeedback, setSelectedFeedback] = useState(null);
@@ -89,16 +92,19 @@ const BetaFeedbackDashboardCFS = ({ config = {}, isEditing = false, onConfigChan
     }
   };
 
-  const handleDeleteFeedback = async (feedbackId) => {
-    if (!confirm('Are you sure you want to delete this feedback? This cannot be undone.')) return;
-
-    try {
-      await api.delete(`/beta/feedback/admin/${feedbackId}`);
-      setFeedback(feedback.filter(f => f.id !== feedbackId));
-    } catch (error) {
-      console.error('Error deleting feedback:', error);
-      alert('Failed to delete feedback');
-    }
+  const handleDeleteFeedback = (feedbackId) => {
+    confirmDelete(
+      'this feedback',
+      async () => {
+        try {
+          await api.delete(`/beta/feedback/admin/${feedbackId}`);
+          setFeedback(feedback.filter(f => f.id !== feedbackId));
+        } catch (error) {
+          console.error('Error deleting feedback:', error);
+          alert('Failed to delete feedback');
+        }
+      }
+    );
   };
 
   // Filter and sort feedback
@@ -650,6 +656,8 @@ const FeedbackDetailsModal = ({ feedback, onClose }) => {
           Close
         </button>
       </motion.div>
+      
+      <CustomNotification {...notification} onClose={hideNotification} />
     </div>
   );
 };

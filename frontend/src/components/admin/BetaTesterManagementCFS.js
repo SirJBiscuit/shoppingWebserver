@@ -6,8 +6,11 @@ import {
   Filter, Search, ChevronDown, Eye, Gift, AlertCircle
 } from 'lucide-react';
 import api from '../../services/api';
+import { useNotification } from '../../hooks/useNotification';
+import CustomNotification from '../CustomNotification';
 
 const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChange }) => {
+  const { notification, hideNotification, confirm, confirmDelete } = useNotification();
   const [testers, setTesters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTester, setSelectedTester] = useState(null);
@@ -84,30 +87,38 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
     }
   };
 
-  const handleConvertToUser = async (testerId) => {
-    if (!confirm('Convert this beta tester to a full user? They will lose beta tester status.')) return;
-
-    try {
-      await api.post(`/beta/admin/testers/${testerId}/convert`);
-      setTesters(testers.filter(t => t.id !== testerId));
-      alert('Beta tester converted to full user successfully!');
-    } catch (error) {
-      console.error('Error converting tester:', error);
-      alert('Failed to convert tester');
-    }
+  const handleConvertToUser = (testerId) => {
+    confirm(
+      'Convert this beta tester to a full user? They will lose beta tester status.',
+      async () => {
+        try {
+          await api.post(`/beta/admin/testers/${testerId}/convert`);
+          setTesters(testers.filter(t => t.id !== testerId));
+          alert('Beta tester converted to full user successfully!');
+        } catch (error) {
+          console.error('Error converting tester:', error);
+          alert('Failed to convert tester');
+        }
+      },
+      null,
+      'Convert to Full User'
+    );
   };
 
-  const handleRemoveTester = async (testerId) => {
-    if (!confirm('Remove this beta tester? This will delete their account.')) return;
-
-    try {
-      await api.delete(`/beta/admin/testers/${testerId}`);
-      setTesters(testers.filter(t => t.id !== testerId));
-      alert('Beta tester removed successfully!');
-    } catch (error) {
-      console.error('Error removing tester:', error);
-      alert('Failed to remove tester');
-    }
+  const handleRemoveTester = (testerId) => {
+    confirmDelete(
+      'this beta tester',
+      async () => {
+        try {
+          await api.delete(`/beta/admin/testers/${testerId}`);
+          setTesters(testers.filter(t => t.id !== testerId));
+          alert('Beta tester removed successfully!');
+        } catch (error) {
+          console.error('Error removing tester:', error);
+          alert('Failed to remove tester');
+        }
+      }
+    );
   };
 
   // Filter and sort testers
@@ -627,6 +638,8 @@ const TesterDetailsModal = ({ tester, qualityScore, activityLevel, onClose }) =>
           Close
         </button>
       </motion.div>
+      
+      <CustomNotification {...notification} onClose={hideNotification} />
     </div>
   );
 };
