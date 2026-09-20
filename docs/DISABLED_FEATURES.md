@@ -2,7 +2,7 @@
 
 This document tracks all features and routes that have been temporarily disabled during the migration to new systems (AES, CFS, Beta System).
 
-**Last Updated:** September 19, 2026
+**Last Updated:** September 20, 2026
 
 ---
 
@@ -57,6 +57,26 @@ These routes are disabled because the features aren't fully implemented yet.
 | `UserManagement` | `backburner/components/` | ❌ Disabled | Old version | UserManagementCFS (new) |
 
 **Note:** AdminToolbar no longer shows "Dashboard Editor" button - replaced by AES toggle.
+
+### Missing Components (Build Fixes)
+These components were imported but files don't exist. Disabled to allow clean builds.
+
+| Component | Imported By | Status | Reason | Rebuild With |
+|-----------|-------------|--------|--------|--------------|
+| `ItemTooltip` | `ItemList.js` | ❌ Disabled | File doesn't exist | CFS Tooltip System |
+| `SmartSuggestionTooltip` | `ItemList.js` | ❌ Disabled | File doesn't exist | MDL + CFS |
+| `RecipeCardMini` | `ShoppingListRecipes.js` | ✅ Replaced | Used `RecipeCard` instead | N/A |
+| `ClearCacheButton` | `Sidebar.js` | ❌ Disabled | File doesn't exist | CFS Button |
+| `ItemHistoryWidget` | `EditItemModal.js` | ❌ Disabled | File doesn't exist | MDL History Widget |
+| `ConfirmModal` | `SoundSettings.js`, `PriceReviewCard.js` | ❌ Disabled | File doesn't exist | CFS Modal System |
+
+**Impact:**
+- ItemList: No tooltips on item names (minor UX loss)
+- ItemList: No smart suggestion tooltips (will rebuild with MDL)
+- ShoppingListRecipes: Using standard RecipeCard (works fine)
+- Sidebar: No cache clear button (minor feature loss)
+- EditItemModal: No item history widget (will rebuild with MDL)
+- SoundSettings/PriceReviewCard: No confirm modals (temporary - will use CFS)
 
 ---
 
@@ -180,6 +200,17 @@ Before re-enabling any route:
 
 ## 🔄 Change Log
 
+### September 20, 2026 - Build Fix Session
+**Disabled Missing Components (Build Errors):**
+- ❌ Disabled `ItemTooltip` in `ItemList.js` (file doesn't exist)
+- ❌ Disabled `SmartSuggestionTooltip` in `ItemList.js` (file doesn't exist)
+- ✅ Replaced `RecipeCardMini` with `RecipeCard` in `ShoppingListRecipes.js`
+- ❌ Disabled `ClearCacheButton` in `Sidebar.js` (file doesn't exist)
+- ❌ Disabled `ItemHistoryWidget` in `EditItemModal.js` (file doesn't exist)
+- ❌ Disabled `ConfirmModal` in `SoundSettings.js` and `PriceReviewCard.js` (file doesn't exist)
+
+**Reason:** Legacy code incompatible with AES/CFS/MDL systems. Will rebuild with new architecture.
+
 ### September 19, 2026
 - ❌ Disabled `/meal-plan` (Meal Prep/Calendar)
 - ❌ Disabled `/stats` (Statistics)
@@ -201,4 +232,5 @@ Before re-enabling any route:
 - **Disabled Routes:** 10
 - **Active Routes:** 13
 - **Backburner Components:** 7
-- **Ready for Rebuild:** 4 features (Phase 1-2)
+- **Missing Components Disabled:** 6
+- **Ready for Rebuild:** 4 features (Phase 1-2) + 6 components
