@@ -3,7 +3,7 @@ import { Volume2, VolumeX, Play, Upload, Trash2, X } from 'lucide-react';
 import soundsAPI from '../services/soundsAPI';
 import { useToast } from '../hooks/useToast';
 import soundManager from '../utils/soundEffects';
-import ConfirmModal from './ConfirmModal';
+// import ConfirmModal from './ConfirmModal'; // Will integrate CFS system
 
 const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
   const [sounds, setSounds] = useState([]);
@@ -405,7 +405,7 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
     return (
       <>
         {renderContent()}
-        <ConfirmModal
+        {/* <ConfirmModal
           isOpen={deleteConfirm !== null}
           onClose={() => setDeleteConfirm(null)}
           onConfirm={() => handleDelete(deleteConfirm.id)}
@@ -413,7 +413,8 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
           message={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
           confirmText="Delete"
           confirmStyle="danger"
-        />
+        /> */}
+        {/* Will integrate CFS system */}
       </>
     );
   }
@@ -426,7 +427,7 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
           {renderContent()}
         </div>
       </div>
-      <ConfirmModal
+      {/* <ConfirmModal
         isOpen={deleteConfirm !== null}
         onClose={() => setDeleteConfirm(null)}
         onConfirm={() => handleDelete(deleteConfirm.id)}
@@ -434,7 +435,8 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
         message={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
         confirmText="Delete"
         confirmStyle="danger"
-      />
+      /> */}
+      {/* Will integrate CFS system */}
     </>
   );
 };

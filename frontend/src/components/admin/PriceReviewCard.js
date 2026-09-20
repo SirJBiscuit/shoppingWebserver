@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Check, X, Edit2, User, Store, Calendar, AlertTriangle, DollarSign } from 'lucide-react';
-import ConfirmModal from '../ConfirmModal';
+// import ConfirmModal from '../ConfirmModal'; // Will integrate CFS system
 
 const PriceReviewCard = ({ price, onApprove, onReject, onEdit, showActions = true }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -227,8 +227,8 @@ const PriceReviewCard = ({ price, onApprove, onReject, onEdit, showActions = tru
         )}
       </div>
 
-      {/* Reject Modal */}
-      <ConfirmModal
+      {/* Reject Modal - DISABLED (will use CFS system) */}
+      {/* <ConfirmModal
         isOpen={showRejectModal}
         onClose={() => {
           setShowRejectModal(false);
@@ -251,7 +251,7 @@ const PriceReviewCard = ({ price, onApprove, onReject, onEdit, showActions = tru
             rows="4"
           />
         </div>
-      </ConfirmModal>
+      </ConfirmModal> */}
     </>
   );
 };
