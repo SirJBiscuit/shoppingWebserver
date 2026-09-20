@@ -3,7 +3,7 @@ import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye } fr
 import { motion } from 'framer-motion';
 import EditItemModal from './EditItemModal';
 // import ItemTooltip from './ItemTooltip'; // Component doesn't exist
-import SmartSuggestionTooltip from './SmartSuggestionTooltip';
+// import SmartSuggestionTooltip from './SmartSuggestionTooltip'; // Component doesn't exist
 import { detectIcon, detectCategory } from '../utils/categoryDetector';
 import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts';
 import { formatQuantityPlain } from '../utils/formatQuantity';
@@ -311,8 +311,8 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
 
   return (
     <div className="space-y-2">
-      {/* Already Have It Tooltip */}
-      {inventoryCheck && showSuggestion && !item.is_checked && (
+      {/* Already Have It Tooltip - DISABLED (component doesn't exist) */}
+      {/* {inventoryCheck && showSuggestion && !item.is_checked && (
         <SmartSuggestionTooltip
           type="already-have"
           item={{ name: item.item_name }}
@@ -325,10 +325,10 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
           onAction={handleSuggestionAction}
           onDismiss={() => setShowSuggestion(false)}
         />
-      )}
+      )} */}
 
-      {/* Smart Reorder Suggestion Tooltip */}
-      {!inventoryCheck && smartSuggestion && showSuggestion && !item.is_checked && (
+      {/* Smart Reorder Suggestion Tooltip - DISABLED (component doesn't exist) */}
+      {/* {!inventoryCheck && smartSuggestion && showSuggestion && !item.is_checked && (
         <SmartSuggestionTooltip
           type="smart-reorder"
           item={{ name: item.item_name }}
@@ -346,7 +346,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
           }}
           onDismiss={() => setShowSuggestion(false)}
         />
-      )}
+      )} */}
       
       {/* Item Card */}
               <div
