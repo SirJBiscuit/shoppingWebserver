@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChefHat, X, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import RecipeCardMini from './RecipeCardMini';
+import RecipeCard from './recipe/RecipeCard';
 import RecipeModal from './RecipeModal';
 import { recipesAPI } from '../services/api';
 
@@ -78,10 +78,9 @@ const ShoppingListRecipes = ({ listId }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <AnimatePresence>
             {recipes.map((recipe) => (
-              <RecipeCardMini
+              <RecipeCard
                 key={recipe.id}
                 recipe={recipe}
-                showProgress={true}
                 onView={() => handleViewRecipe(recipe)}
               />
             ))}
