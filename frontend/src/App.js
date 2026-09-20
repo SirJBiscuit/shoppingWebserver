@@ -9,7 +9,7 @@ import { OptimizationProvider } from './contexts/OptimizationContext';
 import FlyingItemAnimation from './components/FlyingItemAnimation';
 // import MobileBottomNav from './components/MobileBottomNav'; // Disabled for now
 import AdminToolbar from './components/AdminToolbar';
-import UpdateChecker from './backburner/components/UpdateChecker';
+// import UpdateChecker from './backburner/components/UpdateChecker'; // Disabled - backburner component
 import UpdateNotification from './components/UpdateNotification';
 
 // Lazy load pages for better performance
@@ -119,7 +119,7 @@ function App() {
           <OptimizationProvider>
             <CartAnimationProvider>
               <Router>
-                <UpdateChecker />
+                {/* <UpdateChecker /> */} {/* Disabled - backburner component */}
                 <UpdateNotification />
                 <AdminToolbar />
                 <AnimatedRoutes />

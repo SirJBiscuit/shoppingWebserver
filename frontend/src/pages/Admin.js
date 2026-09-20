@@ -12,8 +12,8 @@ import Sidebar from '../components/Sidebar';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import FeatureManagementVisual from '../components/admin/FeatureManagementVisual';
-import UserManagement from '../backburner/components/UserManagement';
-import DashboardEditor from '../backburner/components/DashboardEditor';
+// import UserManagement from '../backburner/components/UserManagement'; // Disabled - will rebuild with CFS
+// import DashboardEditor from '../backburner/components/DashboardEditor'; // Disabled - replaced by AES
 import SoundSettings from '../components/SoundSettings';
 
 const AdminNew = () => {
@@ -462,10 +462,17 @@ const AdminNew = () => {
               </div>
             )}
 
-            {/* User Management Tab */}
+            {/* User Management Tab - DISABLED (will rebuild with CFS) */}
             {activeTab === 'users' && (
               <div className="card">
-                <UserManagement />
+                {/* <UserManagement /> */}
+                <div className="text-center py-12">
+                  <Users className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-xl font-semibold mb-2">User Management</h3>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    This feature is being rebuilt with the new CFS system.
+                  </p>
+                </div>
               </div>
             )}
 
