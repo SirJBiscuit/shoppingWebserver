@@ -11,7 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useFeatureFlags } from '../context/FeatureFlagContext';
 import { usePreviewMode } from '../contexts/PreviewModeContext';
-import ClearCacheButton from './ClearCacheButton';
+// import ClearCacheButton from './ClearCacheButton'; // Component doesn't exist
 
 const Sidebar = ({ onAction }) => {
   const navigate = useNavigate();
@@ -404,7 +404,7 @@ const Sidebar = ({ onAction }) => {
             <Crown className="w-5 h-5" />
             <span className="font-medium text-sm">Upgrade to Premium</span>
           </button> */}
-          <ClearCacheButton />
+          {/* <ClearCacheButton /> */} {/* Component doesn't exist */}
           <button
             onClick={toggleTheme}
             className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
