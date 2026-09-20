@@ -17,23 +17,23 @@ const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Recipes = lazy(() => import('./pages/Recipes'));
-const RecipesNew = lazy(() => import('./backburner/pages/RecipesNew'));
+// const RecipesNew = lazy(() => import('./backburner/pages/RecipesNew')); // Disabled - backburner
 const PantryEnhanced = lazy(() => import('./pages/PantryEnhanced'));
-const PantryNew = lazy(() => import('./backburner/pages/PantryNew'));
-const PantryNewV2 = lazy(() => import('./backburner/pages/PantryNewV2'));
+// const PantryNew = lazy(() => import('./backburner/pages/PantryNew')); // Disabled - backburner
+// const PantryNewV2 = lazy(() => import('./backburner/pages/PantryNewV2')); // Disabled - backburner
 const StagingArea = lazy(() => import('./pages/StagingArea'));
-const MealPlan = lazy(() => import('./pages/MealPlan'));
-const Statistics = lazy(() => import('./pages/Statistics'));
-const RecipeDiscover = lazy(() => import('./pages/RecipeDiscover'));
+// const MealPlan = lazy(() => import('./pages/MealPlan')); // Disabled
+// const Statistics = lazy(() => import('./pages/Statistics')); // Disabled
+// const RecipeDiscover = lazy(() => import('./pages/RecipeDiscover')); // Disabled
 const Settings = lazy(() => import('./pages/Settings'));
-const History = lazy(() => import('./pages/History'));
+// const History = lazy(() => import('./pages/History')); // Disabled
 const Admin = lazy(() => import('./pages/Admin'));
 const AdminCustomization = lazy(() => import('./pages/AdminCustomization'));
 const AdminTraining = lazy(() => import('./pages/AdminTraining'));
-const Subscription = lazy(() => import('./pages/Subscription'));
-const Premium = lazy(() => import('./pages/Premium'));
+// const Subscription = lazy(() => import('./pages/Subscription')); // Disabled
+// const Premium = lazy(() => import('./pages/Premium')); // Disabled
 const IconCollectionGallery = lazy(() => import('./components/IconCollectionGallery'));
-const CustomizationHub = lazy(() => import('./backburner/components/CustomizationHub'));
+// const CustomizationHub = lazy(() => import('./backburner/components/CustomizationHub')); // Disabled - backburner
 const IconUploadPanel = lazy(() => import('./components/admin/IconUploadPanel'));
 const AdminBetaDashboard = lazy(() => import('./pages/AdminBetaDashboard'));
 
