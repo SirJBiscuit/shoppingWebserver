@@ -1559,40 +1559,38 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* Active List Header - Compact Mobile */}
+                {/* Active List Header - Ultra Compact Mobile */}
                 {activeList && (
-                  <div className="mb-3">
-                    {/* List Name and Actions Row */}
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="text-xl">📋</span>
-                        <span className="text-lg sm:text-xl font-bold text-primary-600 dark:text-primary-400 truncate">
-                          {activeList.name}
-                        </span>
-                        <button
-                          onClick={() => {
-                            setNewListName(activeList.name);
-                            setNewListStore(activeList.store_name || '');
-                            setEditingListName(true);
-                          }}
-                          className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex-shrink-0"
-                          title="Edit list name"
-                        >
-                          <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                        </button>
+                  <div className="mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl flex-shrink-0">📋</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-base sm:text-lg font-bold text-primary-600 dark:text-primary-400 truncate">
+                            {activeList.name}
+                          </span>
+                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
+                            checkedCount === items.length && items.length > 0
+                              ? 'bg-green-500 text-white'
+                              : checkedCount > 0
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gray-400 text-white'
+                          }`}>
+                            {checkedCount}/{items.length}
+                          </span>
+                        </div>
                       </div>
-                      
-                      {/* Compact Item Counter */}
-                      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border-2 transition-all flex-shrink-0 ${
-                        checkedCount === items.length && items.length > 0
-                          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-500'
-                          : checkedCount > 0
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-500'
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-400'
-                      }`}>
-                        <span className="text-base sm:text-lg font-bold">{checkedCount}/{items.length}</span>
-                        <span className="text-xs font-normal hidden sm:inline">items</span>
-                      </div>
+                      <button
+                        onClick={() => {
+                          setNewListName(activeList.name);
+                          setNewListStore(activeList.store_name || '');
+                          setEditingListName(true);
+                        }}
+                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex-shrink-0"
+                        title="Edit list name"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                      </button>
                     </div>
                   </div>
                 )}
@@ -2715,14 +2713,6 @@ const Dashboard = () => {
         <CalculatorWidget 
           onClose={() => setShowCalculator(false)}
           device={isMobile ? 'mobile' : 'tablet'}
-        />
-      )}
-
-      {/* Backdrop for Apps Menu (Mobile) */}
-      {showAppsMenu && (
-        <div 
-          className="fixed inset-0 z-40 bg-black/20"
-          onClick={() => setShowAppsMenu(false)}
         />
       )}
 

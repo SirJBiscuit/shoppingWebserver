@@ -1,19 +1,22 @@
-import React, { useState } from 'react';
-import { X, Plus, Minus, Divide, Percent, Delete } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Plus, Minus, Divide, Percent, Delete, GripVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
- * CalculatorWidget - Simple calculator for shopping budget calculations
+ * CalculatorWidget - Compact draggable calculator for shopping budget calculations
  * 
  * Features:
  * - Basic arithmetic (+, -, ×, ÷)
  * - Percentage calculations
  * - Clear and delete
- * - Running total display
- * - Mobile-friendly bottom sheet
- * - Tablet/desktop centered modal
+ * - Draggable positioning
+ * - Compact green theme
+ * - No backdrop overlay
  */
 const CalculatorWidget = ({ onClose, device = 'mobile' }) => {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragConstraintsRef = useRef(null);
   const [display, setDisplay] = useState('0');
   const [previousValue, setPreviousValue] = useState(null);
   const [operation, setOperation] = useState(null);
@@ -244,54 +247,84 @@ const CalculatorWidget = ({ onClose, device = 'mobile' }) => {
     </div>
   );
 
-  // Mobile: Bottom sheet
-  if (device === 'mobile') {
-    return (
-      <AnimatePresence>
-        {/* Backdrop */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 z-[100]"
-          onClick={onClose}
-        />
-        
-        {/* Bottom Sheet */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          className="fixed bottom-0 left-0 right-0 z-[101] max-h-[90vh] overflow-y-auto"
-        >
-          {renderCalculator()}
-        </motion.div>
-      </AnimatePresence>
-    );
-  }
-
-  // Tablet/Desktop: Centered modal
+  // Compact draggable calculator (no backdrop)
   return (
-    <AnimatePresence>
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 z-[100]"
-        onClick={onClose}
-      />
-      
-      {/* Centered Modal */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-[90vw] max-w-md"
-      >
-        {renderCalculator()}
-      </motion.div>
-    </AnimatePresence>
+    <motion.div
+      drag
+      dragMomentum={false}
+      dragElastic={0}
+      dragConstraints={{ left: -200, right: 200, top: -300, bottom: 300 }}
+      initial={{ opacity: 0, scale: 0.8, x: device === 'mobile' ? 0 : 100, y: device === 'mobile' ? 100 : 0 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.8 }}
+      onDragStart={() => setIsDragging(true)}
+      onDragEnd={() => setIsDragging(false)}
+      className="fixed top-20 right-4 z-[100] w-[280px] sm:w-[320px] cursor-move"
+      style={{ touchAction: 'none' }}
+    >
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border-2 border-green-500 dark:border-green-600 overflow-hidden">
+        {/* Draggable Header */}
+        <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-green-500 to-green-600 cursor-grab active:cursor-grabbing">
+          <div className="flex items-center gap-2">
+            <GripVertical className="w-4 h-4 text-white/70" />
+            <h3 className="text-sm font-bold text-white">💰 Calculator</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-white/90 hover:text-white p-1 transition-colors hover:bg-white/20 rounded"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Display */}
+        <div className="px-3 py-2 bg-gray-50 dark:bg-gray-900">
+          {operation && previousValue !== null && (
+            <div className="text-right text-xs text-gray-500 dark:text-gray-400">
+              {previousValue} {operation}
+            </div>
+          )}
+          <div className="text-right text-2xl font-bold text-gray-900 dark:text-white">
+            ${parseFloat(display).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+          </div>
+        </div>
+
+        {/* Compact Buttons */}
+        <div className="p-2">
+          <div className="grid grid-cols-4 gap-1.5">
+            {/* Row 1 */}
+            <button onClick={handleClear} className="col-span-2 py-2 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-lg font-semibold text-sm shadow">C</button>
+            <button onClick={handleDelete} className="py-2 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white rounded-lg font-semibold shadow"><Delete className="w-4 h-4 mx-auto" /></button>
+            <button onClick={() => handleOperation('÷')} className="py-2 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white rounded-lg font-semibold shadow">÷</button>
+            
+            {/* Row 2 */}
+            {[7, 8, 9].map(num => (
+              <button key={num} onClick={() => handleNumber(num)} className="py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 active:bg-gray-400 dark:active:bg-gray-500 text-gray-900 dark:text-white rounded-lg font-semibold shadow">{num}</button>
+            ))}
+            <button onClick={() => handleOperation('×')} className="py-2 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white rounded-lg font-semibold shadow">×</button>
+            
+            {/* Row 3 */}
+            {[4, 5, 6].map(num => (
+              <button key={num} onClick={() => handleNumber(num)} className="py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 active:bg-gray-400 dark:active:bg-gray-500 text-gray-900 dark:text-white rounded-lg font-semibold shadow">{num}</button>
+            ))}
+            <button onClick={() => handleOperation('-')} className="py-2 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white rounded-lg font-semibold shadow">−</button>
+            
+            {/* Row 4 */}
+            {[1, 2, 3].map(num => (
+              <button key={num} onClick={() => handleNumber(num)} className="py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 active:bg-gray-400 dark:active:bg-gray-500 text-gray-900 dark:text-white rounded-lg font-semibold shadow">{num}</button>
+            ))}
+            <button onClick={() => handleOperation('+')} className="py-2 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white rounded-lg font-semibold shadow">+</button>
+            
+            {/* Row 5 */}
+            <button onClick={() => handleOperation('%')} className="py-2 bg-purple-500 hover:bg-purple-600 active:bg-purple-700 text-white rounded-lg font-semibold shadow">%</button>
+            <button onClick={() => handleNumber(0)} className="py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 active:bg-gray-400 dark:active:bg-gray-500 text-gray-900 dark:text-white rounded-lg font-semibold shadow">0</button>
+            <button onClick={handleDecimal} className="py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 active:bg-gray-400 dark:active:bg-gray-500 text-gray-900 dark:text-white rounded-lg font-semibold shadow">.</button>
+            <button onClick={handleEquals} className="py-2 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white rounded-lg font-bold shadow">=</button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 };
 
