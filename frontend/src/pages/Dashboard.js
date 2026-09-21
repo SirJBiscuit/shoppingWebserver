@@ -1558,47 +1558,47 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* Active List Header - Improved Mobile */}
+                {/* Active List Header - Compact Mobile */}
                 {activeList && (
-                  <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="flex-1 w-full sm:w-auto">
-                      <div className="text-xl sm:text-2xl font-bold text-primary-600 dark:text-primary-400 flex items-center gap-2 flex-wrap">
-                        <span className="inline-block text-2xl">📋</span>
-                        <span className="break-words">{activeList.name}</span>
+                  <div className="mb-3">
+                    {/* List Name and Actions Row */}
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="text-xl">📋</span>
+                        <span className="text-lg sm:text-xl font-bold text-primary-600 dark:text-primary-400 truncate">
+                          {activeList.name}
+                        </span>
                         <button
                           onClick={() => {
                             setNewListName(activeList.name);
                             setNewListStore(activeList.store_name || '');
                             setEditingListName(true);
                           }}
-                          className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                          className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex-shrink-0"
                           title="Edit list name"
                         >
                           <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                         </button>
-                        {/* Calculator Widget Button */}
                         <button
                           onClick={() => setShowCalculator(true)}
-                          className="p-1.5 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                          className="p-1 hover:bg-green-100 dark:hover:bg-green-900/30 rounded transition-colors flex-shrink-0"
                           title="Open Calculator"
                         >
                           <DollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
                         </button>
                       </div>
-                    </div>
-                    
-                    {/* Item Counter */}
-                    <div className={`text-lg font-bold px-4 py-2 rounded-lg shadow-md border-2 transition-all ${
-                      checkedCount === items.length && items.length > 0
-                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-500'
-                        : checkedCount > 0
-                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-500'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-400'
-                    }`}>
-                      <span className="text-2xl font-extrabold">{checkedCount}</span>
-                      <span className="mx-1">/</span>
-                      <span className="text-xl">{items.length}</span>
-                      <span className="ml-2 text-sm font-normal">items</span>
+                      
+                      {/* Compact Item Counter */}
+                      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border-2 transition-all flex-shrink-0 ${
+                        checkedCount === items.length && items.length > 0
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-500'
+                          : checkedCount > 0
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-500'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-400'
+                      }`}>
+                        <span className="text-base sm:text-lg font-bold">{checkedCount}/{items.length}</span>
+                        <span className="text-xs font-normal hidden sm:inline">items</span>
+                      </div>
                     </div>
                   </div>
                 )}
