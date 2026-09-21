@@ -9,7 +9,7 @@ import { shoppingAPI, itemsAPI, suggestionsAPI, inventoryAPI, pantryAPI, categor
 import stagingAPI from '../services/stagingAPI';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, CheckCircle,
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight, FileText, Zap, MapPin, List, Wand2
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight, FileText, Zap, MapPin, List, Wand2, Grid
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
@@ -141,6 +141,7 @@ const Dashboard = () => {
   const [showChangelog, setShowChangelog] = useState(false);
   const [aesEditorMode, setAesEditorMode] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [showAppsMenu, setShowAppsMenu] = useState(false);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -2717,17 +2718,46 @@ const Dashboard = () => {
         />
       )}
 
-      {/* Floating Calculator Button */}
-      <motion.button
-        onClick={() => setShowCalculator(true)}
-        className="fixed left-4 sm:left-6 bottom-20 sm:bottom-6 z-50 flex flex-col items-center justify-center gap-1 px-4 py-3 sm:px-5 sm:py-4 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        title="Calculator"
-      >
-        <DollarSign className="w-6 h-6 sm:w-7 sm:h-7" />
-        <span className="text-[10px] sm:text-xs font-semibold whitespace-nowrap">Calculator</span>
-      </motion.button>
+      {/* Floating Apps Menu Button */}
+      <div className="fixed right-4 sm:right-6 bottom-44 sm:bottom-32 z-50">
+        {/* Apps Dropdown Menu */}
+        {showAppsMenu && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden min-w-[160px]"
+          >
+            <button
+              onClick={() => {
+                setShowCalculator(true);
+                setShowAppsMenu(false);
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+            >
+              <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
+              <span className="font-medium text-gray-900 dark:text-white">Calculator</span>
+            </button>
+            {/* Add more apps here later */}
+          </motion.div>
+        )}
+        
+        {/* Apps Button */}
+        <motion.button
+          onClick={() => setShowAppsMenu(!showAppsMenu)}
+          className={`flex flex-col items-center justify-center gap-1 px-4 py-3 sm:px-5 sm:py-4 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 ${
+            showAppsMenu
+              ? 'bg-gradient-to-br from-purple-500 to-purple-600'
+              : 'bg-gradient-to-br from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700'
+          } text-white`}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          title="Apps"
+        >
+          <Grid className="w-6 h-6 sm:w-7 sm:h-7" />
+          <span className="text-[10px] sm:text-xs font-semibold whitespace-nowrap">Apps</span>
+        </motion.button>
+      </div>
 
       {/* Floating Active Shopping List Button */}
       <motion.button
