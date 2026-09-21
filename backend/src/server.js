@@ -47,9 +47,11 @@ app.use(cors());
 app.use(express.json());
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 1000, // Increased for development
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5000, // Allow 5000 requests per 15 minutes (333/min, 5.5/sec) - enough for rapid item adding
   message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 
 app.use('/api/', limiter);

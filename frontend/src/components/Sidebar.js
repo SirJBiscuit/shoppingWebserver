@@ -177,6 +177,14 @@ const Sidebar = ({ onAction }) => {
       adminSpecial: true // Flag for special orange styling
     });
     settingsItems.push({ 
+      path: '/admin/beta', 
+      icon: Sparkles, 
+      label: 'Beta Dashboard', 
+      color: 'text-blue-600',
+      isAdmin: true,
+      adminSpecial: true
+    });
+    settingsItems.push({ 
       path: '/admin/training', 
       icon: GraduationCap, 
       label: 'Training System', 

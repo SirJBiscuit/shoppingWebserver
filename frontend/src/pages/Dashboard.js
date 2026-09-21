@@ -9,7 +9,7 @@ import { shoppingAPI, itemsAPI, suggestionsAPI, inventoryAPI, pantryAPI, categor
 import stagingAPI from '../services/stagingAPI';
 import { 
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, CheckCircle,
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight, FileText, Zap, MapPin, List
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight, FileText, Zap, MapPin, List, Wand2
 } from 'lucide-react';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
@@ -60,6 +60,7 @@ import RichNoteEditor from '../components/RichNoteEditor';
 import { useDeviceType } from '../hooks/useDeviceType';
 import ConsoleViewer from '../components/ConsoleViewer';
 import ChangelogViewer from '../components/ChangelogViewer';
+import CalculatorWidget from '../components/CalculatorWidget';
 import useScrollSound from '../hooks/useScrollSound';
 import { playSound } from '../utils/soundEffects';
 import { savePreference, getPreference } from '../api/mdl';
@@ -138,6 +139,8 @@ const Dashboard = () => {
   const [itemForNote, setItemForNote] = useState(null);
   const [noteText, setNoteText] = useState('');
   const [showChangelog, setShowChangelog] = useState(false);
+  const [aesEditorMode, setAesEditorMode] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
 
   // Load item preferences for autocomplete
   const loadItemPreferences = async () => {
@@ -178,14 +181,12 @@ const Dashboard = () => {
     const initializeApp = async () => {
       await loadLists(true); // Force set active list on initial load
       
-      // NON-CRITICAL: Load everything else after a short delay (non-blocking)
-      setTimeout(() => {
-        loadSuggestions();
-        loadItemPreferences();
-        loadInventory();
-        loadCategories();
-        loadCustomStores();
-      }, 100);
+      // NON-CRITICAL: Load everything else with staggered delays to prevent rate limiting
+      setTimeout(() => loadSuggestions(), 100);
+      setTimeout(() => loadItemPreferences(), 300);
+      setTimeout(() => loadInventory(), 500);
+      setTimeout(() => loadCategories(), 700);
+      setTimeout(() => loadCustomStores(), 900);
     };
     
     initializeApp();
@@ -1014,8 +1015,18 @@ const Dashboard = () => {
       setSearchQuery('');
       setSearchResults([]);
       
-      await loadListItems(activeList.id);
-      await loadSuggestions();
+      // Add item to state immediately (optimistic update)
+      setItems(prevItems => [...prevItems, response.data]);
+      
+      // Debounced reload - only reload after 1 second of no activity
+      // This prevents multiple API calls when adding items rapidly
+      if (window.itemAddDebounceTimer) {
+        clearTimeout(window.itemAddDebounceTimer);
+      }
+      window.itemAddDebounceTimer = setTimeout(async () => {
+        await loadListItems(activeList.id);
+        await loadSuggestions();
+      }, 1000);
       
       // Award XP
       if (window.addXP) {
@@ -1462,6 +1473,24 @@ const Dashboard = () => {
               </span>
             </button>
 
+            {/* AES Editor Mode Toggle (Admin Only) */}
+            {user?.isAdmin && (
+              <button
+                onClick={() => setAesEditorMode(!aesEditorMode)}
+                className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all duration-200 ${
+                  aesEditorMode
+                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title={aesEditorMode ? 'Editor Mode ON (Click to disable)' : 'Editor Mode OFF (Click to enable)'}
+              >
+                <Wand2 className={`w-4 h-4 sm:w-5 sm:h-5 ${aesEditorMode ? 'animate-pulse' : ''}`} />
+                <span className="hidden md:inline font-medium text-sm">
+                  {aesEditorMode ? 'Editor' : 'AES'}
+                </span>
+              </button>
+            )}
+
             {/* Right Side - Help, Optimization Toggle, Notifications and Logout */}
             <div className="flex items-center space-x-2 sm:space-x-4" data-tutorial="top-toolbar">
               {/* Help Button */}
@@ -1529,12 +1558,13 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* Item Counter - Top Right */}
+                {/* Active List Header - Improved Mobile */}
                 {activeList && (
-                  <div className="mb-4 flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="text-2xl font-bold text-primary-600 dark:text-primary-400 flex items-center gap-2">
-                        <span className="inline-block">📋</span> {activeList.name}
+                  <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex-1 w-full sm:w-auto">
+                      <div className="text-xl sm:text-2xl font-bold text-primary-600 dark:text-primary-400 flex items-center gap-2 flex-wrap">
+                        <span className="inline-block text-2xl">📋</span>
+                        <span className="break-words">{activeList.name}</span>
                         <button
                           onClick={() => {
                             setNewListName(activeList.name);
@@ -1545,6 +1575,14 @@ const Dashboard = () => {
                           title="Edit list name"
                         >
                           <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        </button>
+                        {/* Calculator Widget Button */}
+                        <button
+                          onClick={() => setShowCalculator(true)}
+                          className="p-1.5 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                          title="Open Calculator"
+                        >
+                          <DollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
                         </button>
                       </div>
                     </div>
@@ -2018,35 +2056,6 @@ const Dashboard = () => {
                 </div>
               )}
 
-              {/* Item Search Bar */}
-              {items.length > 0 && (
-                <div className="mb-6">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="text"
-                      value={itemSearchQuery}
-                      onChange={(e) => setItemSearchQuery(e.target.value)}
-                      placeholder="Search items in your list..."
-                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary-500 dark:focus:border-primary-400 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all"
-                    />
-                    {itemSearchQuery && (
-                      <button
-                        onClick={() => setItemSearchQuery('')}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    )}
-                  </div>
-                  {itemSearchQuery && (
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                      Found {getFilteredItems().length} of {items.length} items
-                    </p>
-                  )}
-                </div>
-              )}
-
               {/* Next Item Suggestion - Smart aisle-based */}
               {!hideNextItem && items.length > 0 && (() => {
                 const nextItem = getNextItem();
@@ -2093,6 +2102,35 @@ const Dashboard = () => {
                     <ArrowRight className="w-5 h-5" />
                     Show Looking for Next Feature
                   </button>
+                </div>
+              )}
+
+              {/* Item Search Bar - Moved below Looking for Next */}
+              {items.length > 0 && (
+                <div className="mb-6">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <input
+                      type="text"
+                      value={itemSearchQuery}
+                      onChange={(e) => setItemSearchQuery(e.target.value)}
+                      placeholder="Search items in your list..."
+                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary-500 dark:focus:border-primary-400 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all"
+                    />
+                    {itemSearchQuery && (
+                      <button
+                        onClick={() => setItemSearchQuery('')}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                  {itemSearchQuery && (
+                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                      Found {getFilteredItems().length} of {items.length} items
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -2677,6 +2715,14 @@ const Dashboard = () => {
         isOpen={showChangelog} 
         onClose={() => setShowChangelog(false)} 
       />
+
+      {/* Calculator Widget */}
+      {showCalculator && (
+        <CalculatorWidget 
+          onClose={() => setShowCalculator(false)}
+          device={isMobile ? 'mobile' : 'tablet'}
+        />
+      )}
 
       {/* Floating Active Shopping List Button */}
       <motion.button

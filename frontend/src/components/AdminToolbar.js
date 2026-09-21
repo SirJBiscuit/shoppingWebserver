@@ -5,6 +5,11 @@ import { useFeatureFlags } from '../context/FeatureFlagContext';
 // import LiveEditorOverlay from '../backburner/components/LiveEditorOverlay'; // Disabled - replaced by AES System
 
 const AdminToolbar = () => {
+  // DISABLED - Replaced by AES toggle button in Dashboard toolbar
+  // The AES Editor Mode toggle is now integrated directly into the Dashboard top toolbar
+  return null;
+  
+  /* eslint-disable no-unreachable */
   const { user } = useAuth();
   const { hasFeature } = useFeatureFlags();
   // const [showEditor, setShowEditor] = useState(false); // Disabled - replaced by AES System

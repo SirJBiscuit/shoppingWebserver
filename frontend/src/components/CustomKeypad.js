@@ -236,7 +236,7 @@ const CustomKeypad = ({
           initial="hidden"
           animate="visible"
           exit="exit"
-          className="fixed bottom-0 left-0 right-0 z-[101]"
+          className="fixed bottom-0 left-0 right-0 z-[101] max-h-[85vh] overflow-y-auto"
         >
           {renderKeypadContent()}
         </motion.div>
