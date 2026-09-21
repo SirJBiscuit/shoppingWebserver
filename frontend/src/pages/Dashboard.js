@@ -980,7 +980,7 @@ const Dashboard = () => {
       const itemPrice = parseFloat(newItemPrice) || 0;
       const itemIcon = newItemIcon;
       
-      await shoppingAPI.addItem(activeList.id, {
+      const response = await shoppingAPI.addItem(activeList.id, {
         itemName: itemName,
         quantity: newItemQuantity ? parseFloat(newItemQuantity) : 1,
         unit: newItemSize || '',
