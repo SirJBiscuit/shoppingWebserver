@@ -6,6 +6,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { CartAnimationProvider } from './contexts/CartAnimationContext';
 import { FeatureFlagProvider } from './context/FeatureFlagContext';
 import { OptimizationProvider } from './contexts/OptimizationContext';
+import { PreviewModeProvider } from './contexts/PreviewModeContext';
 import FlyingItemAnimation from './components/FlyingItemAnimation';
 // import MobileBottomNav from './components/MobileBottomNav'; // Disabled for now
 import AdminToolbar from './components/AdminToolbar';
@@ -117,16 +118,18 @@ function App() {
       <FeatureFlagProvider>
         <ThemeProvider>
           <OptimizationProvider>
-            <CartAnimationProvider>
-              <Router>
-                {/* <UpdateChecker /> */} {/* Disabled - backburner component */}
-                <UpdateNotification />
-                <AdminToolbar />
-                <AnimatedRoutes />
-                <FlyingItemAnimation />
-                {/* <MobileBottomNav /> */} {/* Disabled for now */}
-              </Router>
-            </CartAnimationProvider>
+            <PreviewModeProvider>
+              <CartAnimationProvider>
+                <Router>
+                  {/* <UpdateChecker /> */} {/* Disabled - backburner component */}
+                  <UpdateNotification />
+                  <AdminToolbar />
+                  <AnimatedRoutes />
+                  <FlyingItemAnimation />
+                  {/* <MobileBottomNav /> */} {/* Disabled for now */}
+                </Router>
+              </CartAnimationProvider>
+            </PreviewModeProvider>
           </OptimizationProvider>
         </ThemeProvider>
       </FeatureFlagProvider>
