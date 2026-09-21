@@ -386,6 +386,8 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
           </div>
         )}
       </AnimatePresence>
+      
+      <CustomNotification {...notification} onClose={hideNotification} />
     </div>
   );
 };
@@ -471,8 +473,6 @@ const CodeCard = ({ code, onCopy, onDeactivate, onDelete, copiedCode }) => {
           )}
         </div>
       </div>
-      
-      <CustomNotification {...notification} onClose={hideNotification} />
     </motion.div>
   );
 };

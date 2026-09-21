@@ -436,6 +436,8 @@ const BetaFeedbackDashboardCFS = ({ config = {}, isEditing = false, onConfigChan
           </div>
         )}
       </AnimatePresence>
+      
+      <CustomNotification {...notification} onClose={hideNotification} />
     </div>
   );
 };
@@ -656,8 +658,6 @@ const FeedbackDetailsModal = ({ feedback, onClose }) => {
           Close
         </button>
       </motion.div>
-      
-      <CustomNotification {...notification} onClose={hideNotification} />
     </div>
   );
 };

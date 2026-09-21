@@ -418,6 +418,8 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
           </div>
         )}
       </AnimatePresence>
+      
+      <CustomNotification {...notification} onClose={hideNotification} />
     </div>
   );
 };
@@ -638,8 +640,6 @@ const TesterDetailsModal = ({ tester, qualityScore, activityLevel, onClose }) =>
           Close
         </button>
       </motion.div>
-      
-      <CustomNotification {...notification} onClose={hideNotification} />
     </div>
   );
 };
