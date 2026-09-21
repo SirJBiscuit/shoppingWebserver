@@ -254,10 +254,10 @@ const CalculatorWidget = ({ onClose, device = 'mobile' }) => {
       dragMomentum={false}
       dragElastic={0.1}
       dragConstraints={{
-        left: -(window.innerWidth - 300),
+        left: -window.innerWidth + 300,
         right: window.innerWidth - 300,
-        top: -(window.innerHeight - 400),
-        bottom: window.innerHeight - 400
+        top: -100,
+        bottom: window.innerHeight - 450
       }}
       initial={{ opacity: 0, scale: 0.8, x: device === 'mobile' ? 0 : 100, y: device === 'mobile' ? 100 : 0 }}
       animate={{ opacity: 1, scale: 1 }}
