@@ -1579,13 +1579,6 @@ const Dashboard = () => {
                         >
                           <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                         </button>
-                        <button
-                          onClick={() => setShowCalculator(true)}
-                          className="p-1 hover:bg-green-100 dark:hover:bg-green-900/30 rounded transition-colors flex-shrink-0"
-                          title="Open Calculator"
-                        >
-                          <DollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
-                        </button>
                       </div>
                       
                       {/* Compact Item Counter */}
@@ -2723,6 +2716,18 @@ const Dashboard = () => {
           device={isMobile ? 'mobile' : 'tablet'}
         />
       )}
+
+      {/* Floating Calculator Button */}
+      <motion.button
+        onClick={() => setShowCalculator(true)}
+        className="fixed left-4 sm:left-6 bottom-20 sm:bottom-6 z-50 flex flex-col items-center justify-center gap-1 px-4 py-3 sm:px-5 sm:py-4 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        title="Calculator"
+      >
+        <DollarSign className="w-6 h-6 sm:w-7 sm:h-7" />
+        <span className="text-[10px] sm:text-xs font-semibold whitespace-nowrap">Calculator</span>
+      </motion.button>
 
       {/* Floating Active Shopping List Button */}
       <motion.button
