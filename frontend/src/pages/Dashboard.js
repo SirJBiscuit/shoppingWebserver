@@ -2718,14 +2718,22 @@ const Dashboard = () => {
         />
       )}
 
+      {/* Backdrop for Apps Menu (Mobile) */}
+      {showAppsMenu && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/20"
+          onClick={() => setShowAppsMenu(false)}
+        />
+      )}
+
       {/* Floating Apps Menu Button */}
       <div className="fixed right-4 sm:right-6 bottom-44 sm:bottom-32 z-50">
         {/* Apps Dropdown Menu */}
         {showAppsMenu && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
             className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden min-w-[160px]"
           >
             <button
@@ -2733,7 +2741,7 @@ const Dashboard = () => {
                 setShowCalculator(true);
                 setShowAppsMenu(false);
               }}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600 transition-colors text-left touch-manipulation"
             >
               <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
               <span className="font-medium text-gray-900 dark:text-white">Calculator</span>
