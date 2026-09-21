@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
-const auth = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const crypto = require('crypto');
 
 // Generate beta code (admin only)
-router.post('/codes/generate', auth, async (req, res) => {
+router.post('/codes/generate', authenticateToken, async (req, res) => {
   try {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Admin access required' });
@@ -19,7 +19,7 @@ router.post('/codes/generate', auth, async (req, res) => {
       `INSERT INTO beta_codes (code, expires_at, max_uses, notes, created_by)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [code, expiresAt, maxUses, notes, req.user.userId]
+      [code, expiresAt, maxUses, notes, req.user.id]
     );
 
     res.json(result.rows[0]);
@@ -30,7 +30,7 @@ router.post('/codes/generate', auth, async (req, res) => {
 });
 
 // Get all beta codes (admin only)
-router.get('/codes', auth, async (req, res) => {
+router.get('/codes', authenticateToken, async (req, res) => {
   try {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Admin access required' });
@@ -86,7 +86,7 @@ router.post('/codes/validate', async (req, res) => {
 });
 
 // Deactivate beta code (admin only)
-router.post('/codes/:id/deactivate', auth, async (req, res) => {
+router.post('/codes/:id/deactivate', authenticateToken, async (req, res) => {
   try {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Admin access required' });
@@ -105,7 +105,7 @@ router.post('/codes/:id/deactivate', auth, async (req, res) => {
 });
 
 // Delete beta code (admin only)
-router.delete('/codes/:id', auth, async (req, res) => {
+router.delete('/codes/:id', authenticateToken, async (req, res) => {
   try {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Admin access required' });
@@ -134,7 +134,7 @@ router.delete('/codes/:id', auth, async (req, res) => {
 });
 
 // Get all beta testers (admin only)
-router.get('/admin/testers', auth, async (req, res) => {
+router.get('/admin/testers', authenticateToken, async (req, res) => {
   try {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Admin access required' });
@@ -161,7 +161,7 @@ router.get('/admin/testers', auth, async (req, res) => {
 });
 
 // Convert beta tester to full user (admin only)
-router.post('/admin/testers/:id/convert', auth, async (req, res) => {
+router.post('/admin/testers/:id/convert', authenticateToken, async (req, res) => {
   try {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Admin access required' });
@@ -180,7 +180,7 @@ router.post('/admin/testers/:id/convert', auth, async (req, res) => {
 });
 
 // Remove beta tester (admin only)
-router.delete('/admin/testers/:id', auth, async (req, res) => {
+router.delete('/admin/testers/:id', authenticateToken, async (req, res) => {
   try {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Admin access required' });

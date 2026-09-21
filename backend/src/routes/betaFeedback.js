@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
-const auth = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 
 // Submit beta feedback
-router.post('/submit', auth, async (req, res) => {
+router.post('/submit', authenticateToken, async (req, res) => {
   try {
     const { type, title, description, severity, category } = req.body;
 
@@ -12,7 +12,7 @@ router.post('/submit', auth, async (req, res) => {
       `INSERT INTO beta_feedback (user_id, type, title, description, severity, category)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [req.user.userId, type, title, description, severity || 'medium', category]
+      [req.user.id, type, title, description, severity || 'medium', category]
     );
 
     res.json(result.rows[0]);
@@ -23,13 +23,13 @@ router.post('/submit', auth, async (req, res) => {
 });
 
 // Get user's feedback
-router.get('/my-feedback', auth, async (req, res) => {
+router.get('/my-feedback', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(
       `SELECT * FROM beta_feedback
        WHERE user_id = $1
        ORDER BY created_at DESC`,
-      [req.user.userId]
+      [req.user.id]
     );
 
     res.json(result.rows);
@@ -40,7 +40,7 @@ router.get('/my-feedback', auth, async (req, res) => {
 });
 
 // Get all feedback (admin only)
-router.get('/admin/all', auth, async (req, res) => {
+router.get('/admin/all', authenticateToken, async (req, res) => {
   try {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Admin access required' });
@@ -61,7 +61,7 @@ router.get('/admin/all', auth, async (req, res) => {
 });
 
 // Update feedback status (admin only)
-router.patch('/admin/:id/status', auth, async (req, res) => {
+router.patch('/admin/:id/status', authenticateToken, async (req, res) => {
   try {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Admin access required' });
@@ -82,7 +82,7 @@ router.patch('/admin/:id/status', auth, async (req, res) => {
 });
 
 // Update feedback severity (admin only)
-router.patch('/admin/:id/severity', auth, async (req, res) => {
+router.patch('/admin/:id/severity', authenticateToken, async (req, res) => {
   try {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Admin access required' });
@@ -103,7 +103,7 @@ router.patch('/admin/:id/severity', auth, async (req, res) => {
 });
 
 // Add admin response (admin only)
-router.post('/admin/:id/respond', auth, async (req, res) => {
+router.post('/admin/:id/respond', authenticateToken, async (req, res) => {
   try {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Admin access required' });
@@ -126,7 +126,7 @@ router.post('/admin/:id/respond', auth, async (req, res) => {
 });
 
 // Delete feedback (admin only)
-router.delete('/admin/:id', auth, async (req, res) => {
+router.delete('/admin/:id', authenticateToken, async (req, res) => {
   try {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Admin access required' });
