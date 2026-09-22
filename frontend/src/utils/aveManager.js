@@ -406,7 +406,7 @@ class AVEManager {
    */
   async saveToDatabase(layout) {
     try {
-      const response = await fetch('/api/aes/layouts', {
+      const response = await fetch('/api/ave/layouts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -434,7 +434,7 @@ class AVEManager {
    */
   async loadFromDatabase() {
     try {
-      const response = await fetch(`/api/aes/layouts/${this.userId}`);
+      const response = await fetch(`/api/ave/layouts/${this.userId}`);
       
       if (!response.ok) {
         return null;
@@ -453,7 +453,7 @@ class AVEManager {
    */
   async saveSnapshot(snapshot) {
     try {
-      await fetch('/api/aes/snapshots', {
+      await fetch('/api/ave/snapshots', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -470,7 +470,7 @@ class AVEManager {
    */
   async loadSnapshot(snapshotId) {
     try {
-      const response = await fetch(`/api/aes/snapshots/${snapshotId}`);
+      const response = await fetch(`/api/ave/snapshots/${snapshotId}`);
       
       if (!response.ok) {
         return null;
@@ -488,7 +488,7 @@ class AVEManager {
    */
   async getSnapshots() {
     try {
-      const response = await fetch(`/api/aes/snapshots?userId=${this.userId}`);
+      const response = await fetch(`/api/ave/snapshots?userId=${this.userId}`);
       
       if (!response.ok) {
         return [];
