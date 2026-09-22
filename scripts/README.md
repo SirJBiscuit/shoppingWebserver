@@ -2,7 +2,53 @@
 
 Various utility scripts for the shopping app.
 
-## Server Maintenance
+## Server Management
+
+### start-all.sh
+
+Start all Docker containers and services.
+
+**Usage:**
+```bash
+# On the server
+cd /opt/cloudmc-shop
+sudo ./scripts/start-all.sh
+```
+
+**What it does:**
+- Checks if containers are already running
+- Pulls latest Docker images
+- Builds containers
+- Starts all services (frontend, backend, database)
+- Verifies all services are healthy
+- Shows service URLs and status
+- Displays recent logs
+
+**When to run:**
+- After server reboot
+- After code updates
+- When starting fresh
+
+### stop-all.sh
+
+Stop all Docker containers.
+
+**Usage:**
+```bash
+# On the server
+cd /opt/cloudmc-shop
+sudo ./scripts/stop-all.sh
+```
+
+**What it does:**
+- Shows currently running containers
+- Prompts for confirmation
+- Stops all containers gracefully
+
+**When to run:**
+- Before server maintenance
+- Before major updates
+- To free up resources
 
 ### server-update.sh
 
@@ -22,6 +68,7 @@ sudo ./scripts/server-update.sh
 - Updates Docker and Docker Compose
 - Cleans up Docker images and containers
 - Checks disk space and memory usage
+- Detects NVIDIA driver and kernel updates
 - Checks if reboot is required
 - Shows running Docker containers
 - Prompts to reboot if needed
@@ -29,7 +76,7 @@ sudo ./scripts/server-update.sh
 **When to run:**
 - Monthly maintenance
 - Before major deployments
-- After kernel updates
+- After kernel/driver updates
 - When system feels slow
 
 ---
