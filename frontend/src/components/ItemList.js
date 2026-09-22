@@ -272,12 +272,47 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
     if (!aisleNumber.trim()) return;
     
     try {
-      // TODO: Save to backend API
-      // For now, just show success message
-      console.log('Saving aisle:', { storeName, category, aisleNumber, aisleName });
-      setEditingAisle(false);
-      // Reload the page to see changes
-      window.location.reload();
+      const token = localStorage.getItem('token');
+      const aisleNum = parseInt(aisleNumber);
+      
+      // Report to MDL system for learning
+      const storeId = encodeURIComponent(storeName || 'unknown');
+      await fetch('/api/mdl/aisle/report', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          itemName: item.item_name,
+          aisleNumber: aisleNum,
+          storeId: storeId,
+          wasCorrect: null, // User is manually setting, no prediction to compare
+          categoryId: item.category
+        })
+      });
+      
+      // Update the item's aisle field in the database
+      const response = await fetch(`/api/shopping/lists/${item.shopping_list_id}/items/${item.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          aisle_number: aisleNum
+        })
+      });
+      
+      if (response.ok) {
+        // Update local state
+        item.aisle = aisleNum;
+        setEditingAisle(false);
+        playSound('success');
+        console.log(`✅ Aisle ${aisleNum} saved for ${item.item_name}`);
+      } else {
+        console.error('Failed to update item aisle');
+      }
     } catch (err) {
       console.error('Error saving aisle:', err);
     }
@@ -441,19 +476,12 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                       {editingAisle ? (
                         <div className="flex items-center gap-1">
                           <input
-                            type="text"
+                            type="number"
                             value={aisleNumber}
                             onChange={(e) => setAisleNumber(e.target.value)}
                             placeholder="Aisle #"
-                            className="w-16 px-2 py-1 text-xs border rounded"
+                            className="w-16 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                             autoFocus
-                          />
-                          <input
-                            type="text"
-                            value={aisleName}
-                            onChange={(e) => setAisleName(e.target.value)}
-                            placeholder="Name (optional)"
-                            className="w-24 px-2 py-1 text-xs border rounded"
                           />
                           <button
                             onClick={saveAisle}
@@ -463,7 +491,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                           </button>
                           <button
                             onClick={() => setEditingAisle(false)}
-                            className="px-2 py-1 bg-gray-400 text-white text-xs rounded hover:bg-gray-500"
+                            className="px-2 py-1 bg-gray-400 dark:bg-gray-600 text-white text-xs rounded hover:bg-gray-500 dark:hover:bg-gray-700"
                           >
                             ✕
                           </button>
