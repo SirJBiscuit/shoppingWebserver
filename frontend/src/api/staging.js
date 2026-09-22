@@ -31,3 +31,12 @@ export const removeFromStaging = async (itemId) => {
   if (!response.ok) throw new Error('Failed to remove from staging');
   return response;
 };
+
+export const moveFromShoppingList = async (listId) => {
+  const response = await fetch(`${API_URL}/api/staging/move-from-list/${listId}`, {
+    method: 'POST',
+    headers: getAuthHeaders()
+  });
+  if (!response.ok) throw new Error('Failed to move items from shopping list');
+  return response;
+};
