@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../db');
-const { authenticateToken } = require('../middleware/auth');
+const pool = require('../src/db');
+const { authenticateToken } = require('../src/middleware/auth');
 
 /**
  * AES (Admin Editor System) API Routes
