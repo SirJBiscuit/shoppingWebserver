@@ -7,6 +7,7 @@ import { CartAnimationProvider } from './contexts/CartAnimationContext';
 import { FeatureFlagProvider } from './context/FeatureFlagContext';
 import { OptimizationProvider } from './contexts/OptimizationContext';
 import { PreviewModeProvider } from './contexts/PreviewModeContext';
+import { EditorProvider } from './contexts/EditorContext';
 import FlyingItemAnimation from './components/FlyingItemAnimation';
 // import MobileBottomNav from './components/MobileBottomNav'; // Disabled for now
 import AdminToolbar from './components/AdminToolbar';
@@ -112,6 +113,24 @@ const AnimatedRoutes = () => {
   );
 };
 
+// Wrapper to provide EditorProvider with user context
+const AppWithEditor = () => {
+  const { user } = useAuth();
+  
+  return (
+    <EditorProvider userId={user?.id}>
+      <Router>
+        {/* <UpdateChecker /> */} {/* Disabled - backburner component */}
+        <UpdateNotification />
+        <AdminToolbar />
+        <AnimatedRoutes />
+        <FlyingItemAnimation />
+        {/* <MobileBottomNav /> */} {/* Disabled for now */}
+      </Router>
+    </EditorProvider>
+  );
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -120,14 +139,7 @@ function App() {
           <OptimizationProvider>
             <PreviewModeProvider>
               <CartAnimationProvider>
-                <Router>
-                  {/* <UpdateChecker /> */} {/* Disabled - backburner component */}
-                  <UpdateNotification />
-                  <AdminToolbar />
-                  <AnimatedRoutes />
-                  <FlyingItemAnimation />
-                  {/* <MobileBottomNav /> */} {/* Disabled for now */}
-                </Router>
+                <AppWithEditor />
               </CartAnimationProvider>
             </PreviewModeProvider>
           </OptimizationProvider>

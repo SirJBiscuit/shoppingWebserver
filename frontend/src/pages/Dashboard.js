@@ -1,16 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useCartAnimation } from '../contexts/CartAnimationContext';
 import { useOptimization } from '../contexts/OptimizationContext';
-import { useToast } from '../hooks/useToast';
-import { shoppingAPI, itemsAPI, suggestionsAPI, inventoryAPI, pantryAPI, categoriesAPI } from '../services/api';
-import stagingAPI from '../services/stagingAPI';
-import { 
-  ShoppingCart, LogOut, Plus, Search, Trash2, Check, CheckCircle,
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, X, Eye, EyeOff, StickyNote, Store, Edit2, ChevronDown, ChevronUp, Save, ArrowRight, FileText, Zap, MapPin, List, Wand2, Grid
+import { useEditor } from '../contexts/EditorContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ShoppingCart, LogOut, Plus, Search, Trash2, Check, CheckCircle, Edit2, X,
+  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, 
+  ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, Eye, EyeOff, 
+  StickyNote, Store, ChevronDown, ChevronUp, Save, ArrowRight, FileText, Zap, 
+  MapPin, List, Wand2, Grid
 } from 'lucide-react';
+import EditorToolbar from '../components/editor/EditorToolbar';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
 import PantryQuickView from '../components/PantryQuickView';
@@ -71,6 +73,7 @@ const Dashboard = () => {
   const { isMobile, isTablet } = useDeviceType();
   const { triggerFlyingAnimation, triggerCheckmarkAnimation, clearAnimations } = useCartAnimation();
   const { optimizationMode, toggleOptimization } = useOptimization();
+  const { isEditorActive, toggleEditor } = useEditor();
   const addButtonRef = useRef(null);
   const isRecoveringFromError = useRef(false);
   const [versionInfo, setVersionInfo] = useState({ version: 'Loading...', updateAvailable: false });
@@ -139,7 +142,6 @@ const Dashboard = () => {
   const [itemForNote, setItemForNote] = useState(null);
   const [noteText, setNoteText] = useState('');
   const [showChangelog, setShowChangelog] = useState(false);
-  const [aesEditorMode, setAesEditorMode] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showAppsMenu, setShowAppsMenu] = useState(false);
 
@@ -1435,6 +1437,9 @@ const Dashboard = () => {
 
   return (
     <PageTransition>
+      {/* AVE (Admin Visual Editor) Toolbar - Shows when editor is active */}
+      <EditorToolbar />
+      
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
         {/* Sidebar Navigation */}
         <div data-tutorial="sidebar">
@@ -1474,20 +1479,20 @@ const Dashboard = () => {
               </span>
             </button>
 
-            {/* AES Editor Mode Toggle (Admin Only) */}
+            {/* AVE (Admin Visual Editor) Toggle - Admin Only */}
             {user?.isAdmin && (
               <button
-                onClick={() => setAesEditorMode(!aesEditorMode)}
+                onClick={toggleEditor}
                 className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all duration-200 ${
-                  aesEditorMode
+                  isEditorActive
                     ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
-                title={aesEditorMode ? 'Editor Mode ON (Click to disable)' : 'Editor Mode OFF (Click to enable)'}
+                title={isEditorActive ? 'AVE (Admin Visual Editor) ON' : 'AVE (Admin Visual Editor) OFF'}
               >
-                <Wand2 className={`w-4 h-4 sm:w-5 sm:h-5 ${aesEditorMode ? 'animate-pulse' : ''}`} />
+                <Wand2 className={`w-4 h-4 sm:w-5 sm:h-5 ${isEditorActive ? 'animate-pulse' : ''}`} />
                 <span className="hidden md:inline font-medium text-sm">
-                  {aesEditorMode ? 'Editor' : 'AES'}
+                  {isEditorActive ? 'AVE' : 'AVE'}
                 </span>
               </button>
             )}
