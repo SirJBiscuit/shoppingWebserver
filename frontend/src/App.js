@@ -118,7 +118,7 @@ const AppWithEditor = () => {
   const { user } = useAuth();
   
   return (
-    <EditorProvider userId={user?.id}>
+    <EditorProvider userId={user?.is_admin ? user.id : null}>
       <Router>
         {/* <UpdateChecker /> */} {/* Disabled - backburner component */}
         <UpdateNotification />

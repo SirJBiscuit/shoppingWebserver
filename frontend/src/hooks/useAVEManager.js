@@ -17,6 +17,12 @@ export const useAVEManager = (userId) => {
 
   // Initialize
   useEffect(() => {
+    // Only initialize if userId is provided (admin users only)
+    if (!userId) {
+      setIsLoading(false);
+      return;
+    }
+
     const init = async () => {
       setIsLoading(true);
       try {
