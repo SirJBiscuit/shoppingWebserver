@@ -142,3 +142,12 @@ export const savePriceHistory = async (priceData) => {
   if (!response.ok) throw new Error('Failed to save price history');
   return response;
 };
+
+export const completeList = async (listId) => {
+  const response = await fetch(`${API_URL}/api/shopping/lists/${listId}/complete`, {
+    method: 'POST',
+    headers: getAuthHeaders()
+  });
+  if (!response.ok) throw new Error('Failed to complete list');
+  return response;
+};
