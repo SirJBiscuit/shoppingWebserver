@@ -88,16 +88,41 @@ free -h
 
 # 10. Check if reboot is required
 log "Checking if reboot is required..."
+REBOOT_NEEDED=false
+
 if [ -f /var/run/reboot-required ]; then
+    REBOOT_NEEDED=true
     warning "⚠️  REBOOT REQUIRED ⚠️"
     if [ -f /var/run/reboot-required.pkgs ]; then
         info "Packages requiring reboot:"
         cat /var/run/reboot-required.pkgs
     fi
+fi
+
+# Check for NVIDIA driver updates (common cause of reboot needs)
+if lsmod | grep -q nvidia; then
+    if [ -f /var/run/reboot-required.pkgs ] && grep -q nvidia /var/run/reboot-required.pkgs; then
+        REBOOT_NEEDED=true
+        warning "⚠️  NVIDIA DRIVERS UPDATED - REBOOT REQUIRED ⚠️"
+        info "NVIDIA kernel modules need to be reloaded"
+    fi
+fi
+
+# Check for kernel updates
+CURRENT_KERNEL=$(uname -r)
+LATEST_KERNEL=$(dpkg -l | grep linux-image | grep -v generic | sort -V | tail -n1 | awk '{print $2}' | sed 's/linux-image-//')
+if [ "$CURRENT_KERNEL" != "$LATEST_KERNEL" ] && [ -n "$LATEST_KERNEL" ]; then
+    REBOOT_NEEDED=true
+    warning "⚠️  KERNEL UPDATED - REBOOT REQUIRED ⚠️"
+    info "Current kernel: $CURRENT_KERNEL"
+    info "New kernel: $LATEST_KERNEL"
+fi
+
+if [ "$REBOOT_NEEDED" = false ]; then
+    log "✓ No reboot required"
+else
     echo ""
     warning "Run 'sudo reboot' to restart the server"
-else
-    log "✓ No reboot required"
 fi
 
 # 11. Check running Docker containers
@@ -121,15 +146,27 @@ echo ""
 log "✓ Server update completed successfully!"
 
 # Check if reboot is needed and ask
-if [ -f /var/run/reboot-required ]; then
+if [ "$REBOOT_NEEDED" = true ]; then
+    echo ""
+    echo "=========================================="
+    warning "⚠️  REBOOT IS REQUIRED ⚠️"
+    echo "=========================================="
+    info "The following updates require a system reboot:"
+    if [ -f /var/run/reboot-required.pkgs ]; then
+        cat /var/run/reboot-required.pkgs | sed 's/^/  - /'
+    fi
+    echo ""
+    warning "Docker containers will be restarted automatically after reboot"
     echo ""
     read -p "Do you want to reboot now? (y/N): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        log "Rebooting server in 5 seconds..."
-        sleep 5
+        log "Rebooting server in 10 seconds... (Ctrl+C to cancel)"
+        sleep 10
         reboot
     else
-        warning "Remember to reboot later!"
+        echo ""
+        warning "⚠️  IMPORTANT: Remember to reboot later with 'sudo reboot' ⚠️"
+        warning "System may not function properly until reboot!"
     fi
 fi
