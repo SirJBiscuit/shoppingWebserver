@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useAVEManager } from '../hooks/useAVEManager';
+import { getWidgetSchema, getDefaultProperties } from '../config/widgetSchemas';
 
 /**
  * EditorContext - Global state for AVE Visual Editor
@@ -30,6 +31,9 @@ export const EditorProvider = ({ children, userId }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [draggedWidget, setDraggedWidget] = useState(null);
   
+  // Widget properties - stores custom properties for each widget
+  const [widgetProperties, setWidgetProperties] = useState({});
+  
   // Performance settings
   const [performanceMode, setPerformanceMode] = useState('adaptive'); // minimal, smooth, rich, adaptive
   const [showGrid, setShowGrid] = useState(false);
@@ -38,6 +42,14 @@ export const EditorProvider = ({ children, userId }) => {
   
   // AVE Manager
   const aveManager = useAVEManager(userId);
+  
+  // Initialize widget properties with defaults
+  useEffect(() => {
+    // Load saved properties from AVE Manager if available
+    if (aveManager.layout?.widgetProperties) {
+      setWidgetProperties(aveManager.layout.widgetProperties);
+    }
+  }, [aveManager.layout]);
   
   // Toggle editor mode
   const toggleEditor = useCallback(() => {
@@ -100,29 +112,26 @@ export const EditorProvider = ({ children, userId }) => {
   }, []);
   
   // Update widget property
-  const updateWidgetProperty = useCallback((property, value) => {
-    if (!selectedWidget) return;
-    
-    const updates = {};
-    
-    // Handle nested properties (e.g., 'style.backgroundColor')
-    const keys = property.split('.');
-    let current = updates;
-    
-    for (let i = 0; i < keys.length - 1; i++) {
-      current[keys[i]] = {};
-      current = current[keys[i]];
+  const updateWidgetProperty = useCallback((widgetId, property, value) => {
+    setWidgetProperties(prev => ({
+      ...prev,
+      [widgetId]: {
+        ...(prev[widgetId] || {}),
+        [property]: value
+      }
+    }));
+  }, []);
+  
+  // Save layout with widget properties
+  const saveLayout = useCallback(async () => {
+    if (aveManager.layout) {
+      const updatedLayout = {
+        ...aveManager.layout,
+        widgetProperties
+      };
+      await aveManager.saveToDatabase(updatedLayout);
     }
-    
-    current[keys[keys.length - 1]] = value;
-    
-    // Update via AVE Manager
-    aveManager.updateWidget(
-      selectedWidget.section,
-      selectedWidget.id,
-      updates
-    );
-  }, [selectedWidget, aveManager]);
+  }, [aveManager, widgetProperties]);
   
   // Delete selected widget
   const deleteSelectedWidget = useCallback(() => {
@@ -249,6 +258,11 @@ export const EditorProvider = ({ children, userId }) => {
     updateWidgetProperty,
     deleteSelectedWidget,
     duplicateSelectedWidget,
+    saveLayout,
+    
+    // Widget properties
+    widgetProperties,
+    getWidgetSchema,
     
     // Performance settings
     performanceMode,

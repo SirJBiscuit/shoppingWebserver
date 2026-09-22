@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import EditorToolbar from '../components/editor/EditorToolbar';
 import EditorOverlay, { EditorModeIndicator, EditableContainer } from '../components/editor/EditorOverlay';
+import PropertiesPanel from '../components/editor/PropertiesPanel';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
 import PantryQuickView from '../components/PantryQuickView';
@@ -1452,6 +1453,9 @@ const Dashboard = () => {
       
       {/* AVE (Admin Visual Editor) Toolbar - Shows when editor is active */}
       <EditorToolbar />
+      
+      {/* AVE Properties Panel - Shows when widget is selected */}
+      <PropertiesPanel />
       
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
         {/* Sidebar Navigation */}
