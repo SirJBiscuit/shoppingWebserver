@@ -1,4 +1,40 @@
-# Food Icons Scripts
+# Scripts
+
+Various utility scripts for the shopping app.
+
+## Server Maintenance
+
+### server-update.sh
+
+Comprehensive server update and maintenance script.
+
+**Usage:**
+```bash
+# On the server
+cd /opt/cloudmc-shop
+sudo ./scripts/server-update.sh
+```
+
+**What it does:**
+- Updates all system packages (apt update & upgrade)
+- Performs full distribution upgrade
+- Removes unused packages and cleans cache
+- Updates Docker and Docker Compose
+- Cleans up Docker images and containers
+- Checks disk space and memory usage
+- Checks if reboot is required
+- Shows running Docker containers
+- Prompts to reboot if needed
+
+**When to run:**
+- Monthly maintenance
+- Before major deployments
+- After kernel updates
+- When system feels slow
+
+---
+
+## Food Icons Scripts
 
 Scripts to download and optimize 3D food icons from https://food.getwicked.app
 
