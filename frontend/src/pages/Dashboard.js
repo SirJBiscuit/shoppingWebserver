@@ -52,7 +52,7 @@ import CustomSwipeActions from '../components/CustomSwipeActions';
 import CustomContextMenu from '../components/CustomContextMenu';
 import CustomNotification from '../components/CustomNotification';
 import { useNotification } from '../hooks/useNotification';
-import useToast from '../hooks/useToast';
+import { useToast } from '../hooks/useToast';
 import * as shoppingAPI from '../api/shopping';
 import * as itemsAPI from '../api/items';
 import * as suggestionsAPI from '../api/suggestions';
