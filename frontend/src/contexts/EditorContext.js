@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { useAESManager } from '../hooks/useAESManager';
+import { useAVEManager } from '../hooks/useAVEManager';
 
 /**
- * EditorContext - Global state for AES Visual Editor
+ * EditorContext - Global state for AVE Visual Editor
  * 
  * Manages:
  * - Editor mode (on/off)
@@ -36,8 +36,8 @@ export const EditorProvider = ({ children, userId }) => {
   const [showGuides, setShowGuides] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
   
-  // AES Manager
-  const aesManager = useAESManager(userId);
+  // AVE Manager
+  const aveManager = useAVEManager(userId);
   
   // Toggle editor mode
   const toggleEditor = useCallback(() => {
@@ -116,27 +116,27 @@ export const EditorProvider = ({ children, userId }) => {
     
     current[keys[keys.length - 1]] = value;
     
-    // Update via AES Manager
-    aesManager.updateWidget(
+    // Update via AVE Manager
+    aveManager.updateWidget(
       selectedWidget.section,
       selectedWidget.id,
       updates
     );
-  }, [selectedWidget, aesManager]);
+  }, [selectedWidget, aveManager]);
   
   // Delete selected widget
   const deleteSelectedWidget = useCallback(() => {
     if (!selectedWidget) return;
     
-    aesManager.removeWidget(selectedWidget.section, selectedWidget.id);
+    aveManager.removeWidget(selectedWidget.section, selectedWidget.id);
     setSelectedWidget(null);
-  }, [selectedWidget, aesManager]);
+  }, [selectedWidget, aveManager]);
   
   // Duplicate selected widget
   const duplicateSelectedWidget = useCallback(() => {
     if (!selectedWidget) return;
     
-    const layout = aesManager.layout;
+    const layout = aveManager.layout;
     const widgets = layout[selectedWidget.section].widgets;
     const widget = widgets.find(w => w.id === selectedWidget.id);
     
@@ -151,10 +151,10 @@ export const EditorProvider = ({ children, userId }) => {
         }
       };
       
-      aesManager.addWidget(selectedWidget.section, duplicated);
+      aveManager.addWidget(selectedWidget.section, duplicated);
       setSelectedWidget({ id: duplicated.id, section: selectedWidget.section });
     }
-  }, [selectedWidget, aesManager]);
+  }, [selectedWidget, aveManager]);
   
   // Keyboard shortcuts
   useEffect(() => {
@@ -187,20 +187,20 @@ export const EditorProvider = ({ children, userId }) => {
       // Ctrl+Z or Cmd+Z - Undo
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
-        aesManager.undo();
+        aveManager.undo();
       }
       
       // Ctrl+Y or Cmd+Shift+Z - Redo
       if (((e.ctrlKey || e.metaKey) && e.key === 'y') || 
           ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z')) {
         e.preventDefault();
-        aesManager.redo();
+        aveManager.redo();
       }
       
       // Ctrl+S or Cmd+S - Save
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        aesManager.save();
+        aveManager.save();
       }
     };
     
@@ -209,7 +209,7 @@ export const EditorProvider = ({ children, userId }) => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isEditorActive, selectedWidget, toggleEditor, deselectWidget, deleteSelectedWidget, duplicateSelectedWidget, aesManager]);
+  }, [isEditorActive, selectedWidget, toggleEditor, deselectWidget, deleteSelectedWidget, duplicateSelectedWidget, aveManager]);
   
   // Add editor class to body
   useEffect(() => {
@@ -260,8 +260,8 @@ export const EditorProvider = ({ children, userId }) => {
     snapToGrid,
     setSnapToGrid,
     
-    // AES Manager
-    aesManager
+    // AVE Manager
+    aveManager
   };
   
   return (

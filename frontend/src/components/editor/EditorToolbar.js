@@ -14,7 +14,7 @@ import {
 import { useEditor } from '../../contexts/EditorContext';
 
 /**
- * EditorToolbar - Top toolbar for AES Visual Editor
+ * EditorToolbar - Top toolbar for AVE Visual Editor
  * 
  * Shows when editor is active
  * Contains: Undo, Redo, Save, Settings, Help
@@ -24,7 +24,7 @@ const EditorToolbar = () => {
   const {
     isEditorActive,
     toggleEditor,
-    aesManager,
+    aveManager,
     showGrid,
     setShowGrid,
     snapToGrid,
@@ -35,7 +35,7 @@ const EditorToolbar = () => {
   
   if (!isEditorActive) return null;
   
-  const { canUndo, canRedo, isDirty, isSaving } = aesManager;
+  const { canUndo, canRedo, isDirty, isSaving } = aveManager;
   
   return (
     <AnimatePresence>
@@ -68,7 +68,7 @@ const EditorToolbar = () => {
             <div className="flex items-center gap-2">
               {/* Undo */}
               <button
-                onClick={() => aesManager.undo()}
+                onClick={() => aveManager.undo()}
                 disabled={!canUndo}
                 className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 title="Undo (Ctrl+Z)"
@@ -78,7 +78,7 @@ const EditorToolbar = () => {
               
               {/* Redo */}
               <button
-                onClick={() => aesManager.redo()}
+                onClick={() => aveManager.redo()}
                 disabled={!canRedo}
                 className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 title="Redo (Ctrl+Y)"
@@ -90,7 +90,7 @@ const EditorToolbar = () => {
               
               {/* Save */}
               <button
-                onClick={() => aesManager.save()}
+                onClick={() => aveManager.save()}
                 disabled={!isDirty || isSaving}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 title="Save (Ctrl+S)"

@@ -7,7 +7,7 @@
  * - Custom modifications
  * - Reusable templates
  * 
- * Used by the AES (Admin Editor System) to manage widget customization
+ * Used by the AES (Admin Visual Editor) to manage widget customization
  */
 
 // Widget Types

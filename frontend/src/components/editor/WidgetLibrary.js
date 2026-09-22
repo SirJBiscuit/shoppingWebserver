@@ -82,7 +82,7 @@ const WIDGET_CATEGORIES = {
 };
 
 const WidgetLibrary = () => {
-  const { isEditorActive, aesManager } = useEditor();
+  const { isEditorActive, aveManager } = useEditor();
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategories, setExpandedCategories] = useState(['layout', 'content']);
   const [activeTab, setActiveTab] = useState('all'); // all, favorites, recent, templates
@@ -149,7 +149,7 @@ const WidgetLibrary = () => {
       layout: {}
     };
     
-    aesManager.addWidget(section, newWidget);
+    aveManager.addWidget(section, newWidget);
     
     // Add to recently used
     setRecentlyUsed(prev => {

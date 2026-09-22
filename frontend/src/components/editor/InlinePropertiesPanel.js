@@ -19,7 +19,7 @@ import { useEditor } from '../../contexts/EditorContext';
  */
 
 const InlinePropertiesPanel = () => {
-  const { selectedWidget, updateWidgetProperty, deselectWidget, aesManager } = useEditor();
+  const { selectedWidget, updateWidgetProperty, deselectWidget, aveManager } = useEditor();
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [widget, setWidget] = useState(null);
   const panelRef = useRef(null);
@@ -31,7 +31,7 @@ const InlinePropertiesPanel = () => {
     }
     
     // Get widget data
-    const layout = aesManager.layout;
+    const layout = aveManager.layout;
     const widgets = layout[selectedWidget.section]?.widgets || [];
     const foundWidget = widgets.find(w => w.id === selectedWidget.id);
     
@@ -43,7 +43,7 @@ const InlinePropertiesPanel = () => {
       // For now, use a fixed position
       setPosition({ x: 300, y: 200 });
     }
-  }, [selectedWidget, aesManager]);
+  }, [selectedWidget, aveManager]);
   
   if (!selectedWidget || !widget) return null;
   

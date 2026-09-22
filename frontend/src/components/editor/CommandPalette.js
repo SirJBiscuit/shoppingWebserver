@@ -16,7 +16,7 @@ import { WIDGET_TYPES } from '../../utils/widgetConfig';
  */
 
 const CommandPalette = () => {
-  const { isEditorActive, aesManager } = useEditor();
+  const { isEditorActive, aveManager } = useEditor();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -104,7 +104,7 @@ const CommandPalette = () => {
       layout: {}
     };
     
-    aesManager.addWidget(section, newWidget);
+    aveManager.addWidget(section, newWidget);
     setIsOpen(false);
     setSearchQuery('');
   };

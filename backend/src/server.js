@@ -35,6 +35,7 @@ const priceTrendsRoutes = require('./routes/priceTrends');
 const betaTestingRoutes = require('./routes/betaTesting');
 const betaFeedbackRoutes = require('./routes/betaFeedback');
 const layoutsRoutes = require('./routes/layouts');
+const aveRoutes = require('../routes/ave');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -87,6 +88,7 @@ app.use('/api/price-trends', priceTrendsRoutes);
 app.use('/api/beta', betaTestingRoutes);
 app.use('/api/beta/feedback', betaFeedbackRoutes);
 app.use('/api/layouts', layoutsRoutes);
+app.use('/api/ave', aveRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

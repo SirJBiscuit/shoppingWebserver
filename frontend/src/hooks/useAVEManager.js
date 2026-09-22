@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getAESManager } from '../utils/aesManager';
+import { getAVEManager } from '../utils/aveManager';
 
 /**
- * useAESManager - React hook for AES Manager
+ * useAVEManager - React hook for AVE Manager
  * 
- * Provides easy access to AES functionality with React state management
+ * Provides easy access to AVE functionality with React state management
  */
-export const useAESManager = (userId) => {
-  const [manager] = useState(() => getAESManager());
+export const useAVEManager = (userId) => {
+  const [manager] = useState(() => getAVEManager());
   const [layout, setLayout] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -25,7 +25,7 @@ export const useAESManager = (userId) => {
         setIsDirty(manager.isDirty);
         updateMetrics();
       } catch (error) {
-        console.error('Failed to initialize AES Manager:', error);
+        console.error('Failed to initialize AVE Manager:', error);
       } finally {
         setIsLoading(false);
       }
@@ -260,4 +260,4 @@ export const useAESManager = (userId) => {
   };
 };
 
-export default useAESManager;
+export default useAVEManager;

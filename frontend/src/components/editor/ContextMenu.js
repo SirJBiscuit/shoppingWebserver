@@ -32,7 +32,7 @@ const ContextMenu = () => {
     duplicateSelectedWidget,
     deleteSelectedWidget,
     updateWidgetProperty,
-    aesManager
+    aveManager
   } = useEditor();
   
   const [isOpen, setIsOpen] = useState(false);
@@ -100,7 +100,7 @@ const ContextMenu = () => {
   
   const handleToggleVisibility = () => {
     if (selectedWidget) {
-      const layout = aesManager.layout;
+      const layout = aveManager.layout;
       const widgets = layout[selectedWidget.section]?.widgets || [];
       const widget = widgets.find(w => w.id === selectedWidget.id);
       

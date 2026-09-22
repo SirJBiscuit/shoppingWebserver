@@ -20,7 +20,7 @@ const DEVICE_PRESETS = [
 ];
 
 const BreakpointManager = () => {
-  const { aesManager } = useEditor();
+  const { aveManager } = useEditor();
   
   const [breakpoints, setBreakpoints] = useState([
     { id: 1, name: 'Mobile', minWidth: 0, maxWidth: 767 },

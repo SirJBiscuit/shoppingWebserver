@@ -1,5 +1,5 @@
 /**
- * AES Manager - Admin Editor System Management
+ * AVE Manager - Admin Visual Editor Management
  * 
  * Handles:
  * - Auto-save with version control
@@ -14,9 +14,9 @@ import { validateWidgetConfig } from './widgetConfig';
 import { getDefaultDashboard, getDefaultSidebar } from './defaultPresets';
 
 /**
- * AES Manager Class
+ * AVE Manager Class
  */
-class AESManager {
+class AVEManager {
   constructor() {
     this.currentLayout = null;
     this.history = [];
@@ -30,7 +30,7 @@ class AESManager {
   }
 
   /**
-   * Initialize AES Manager
+   * Initialize AVE Manager
    */
   async initialize(userId) {
     this.userId = userId;
@@ -631,26 +631,26 @@ class AESManager {
 }
 
 // Singleton instance
-let aesManagerInstance = null;
+let aveManagerInstance = null;
 
 /**
- * Get AES Manager instance
+ * Get AVE Manager instance
  */
-export const getAESManager = () => {
-  if (!aesManagerInstance) {
-    aesManagerInstance = new AESManager();
+export const getAVEManager = () => {
+  if (!aveManagerInstance) {
+    aveManagerInstance = new AVEManager();
   }
-  return aesManagerInstance;
+  return aveManagerInstance;
 };
 
 /**
- * Reset AES Manager instance (for testing)
+ * Reset AVE Manager instance (for testing)
  */
-export const resetAESManager = () => {
-  if (aesManagerInstance) {
-    aesManagerInstance.cleanup();
+export const resetAVEManager = () => {
+  if (aveManagerInstance) {
+    aveManagerInstance.cleanup();
   }
-  aesManagerInstance = null;
+  aveManagerInstance = null;
 };
 
-export default AESManager;
+export default AVEManager;

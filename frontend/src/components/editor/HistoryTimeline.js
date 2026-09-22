@@ -26,11 +26,11 @@ import { useEditor } from '../../contexts/EditorContext';
  */
 
 const HistoryTimeline = () => {
-  const { isEditorActive, aesManager } = useEditor();
+  const { isEditorActive, aveManager } = useEditor();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(null);
   
-  const { history, currentIndex, canUndo, canRedo } = aesManager;
+  const { history, currentIndex, canUndo, canRedo } = aveManager;
   
   const handleJumpTo = (index) => {
     const diff = index - currentIndex;
@@ -38,12 +38,12 @@ const HistoryTimeline = () => {
     if (diff > 0) {
       // Redo multiple times
       for (let i = 0; i < diff; i++) {
-        aesManager.redo();
+        aveManager.redo();
       }
     } else if (diff < 0) {
       // Undo multiple times
       for (let i = 0; i < Math.abs(diff); i++) {
-        aesManager.undo();
+        aveManager.undo();
       }
     }
     
@@ -51,7 +51,7 @@ const HistoryTimeline = () => {
   };
   
   const handleCreateSnapshot = () => {
-    aesManager.createSnapshot(`Snapshot ${Date.now()}`);
+    aveManager.createSnapshot(`Snapshot ${Date.now()}`);
   };
   
   const handleDeleteHistory = (index) => {
@@ -130,7 +130,7 @@ const HistoryTimeline = () => {
               {/* Quick actions */}
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => aesManager.undo()}
+                  onClick={() => aveManager.undo()}
                   disabled={!canUndo}
                   className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Undo (Ctrl+Z)"
@@ -140,7 +140,7 @@ const HistoryTimeline = () => {
                 </button>
                 
                 <button
-                  onClick={() => aesManager.redo()}
+                  onClick={() => aveManager.redo()}
                   disabled={!canRedo}
                   className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Redo (Ctrl+Y)"

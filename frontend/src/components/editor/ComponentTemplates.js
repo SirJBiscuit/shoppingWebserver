@@ -84,7 +84,7 @@ const PRESET_TEMPLATES = [
 ];
 
 const ComponentTemplates = () => {
-  const { aesManager } = useEditor();
+  const { aveManager } = useEditor();
   
   const [savedTemplates, setSavedTemplates] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -97,7 +97,7 @@ const ComponentTemplates = () => {
     : PRESET_TEMPLATES.filter(t => t.category === selectedCategory);
   
   const saveCurrentAsTemplate = () => {
-    const selectedWidget = aesManager.getSelectedWidget();
+    const selectedWidget = aveManager.getSelectedWidget();
     if (!selectedWidget) {
       alert('Please select a widget first');
       return;
@@ -124,7 +124,7 @@ const ComponentTemplates = () => {
       id: `${template.config.type}_${Date.now()}`
     };
     
-    aesManager.addWidget('dashboard', newWidget);
+    aveManager.addWidget('dashboard', newWidget);
   };
   
   const toggleFavorite = (templateId) => {
