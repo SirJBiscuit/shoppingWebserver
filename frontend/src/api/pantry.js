@@ -10,7 +10,8 @@ export const getPantryItems = async () => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to fetch pantry items');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 // Alias for consistency with Dashboard usage
@@ -23,7 +24,8 @@ export const addPantryItem = async (itemData) => {
     body: JSON.stringify(itemData)
   });
   if (!response.ok) throw new Error('Failed to add pantry item');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const updatePantryItem = async (itemId, itemData) => {
@@ -33,7 +35,8 @@ export const updatePantryItem = async (itemId, itemData) => {
     body: JSON.stringify(itemData)
   });
   if (!response.ok) throw new Error('Failed to update pantry item');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const deletePantryItem = async (itemId) => {
@@ -42,7 +45,8 @@ export const deletePantryItem = async (itemId) => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to delete pantry item');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 // Alias for consistency with Dashboard usage

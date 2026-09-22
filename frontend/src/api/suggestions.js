@@ -10,7 +10,8 @@ export const getSmartSuggestions = async () => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to fetch suggestions');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const getSuggestions = async (listId) => {
@@ -18,7 +19,8 @@ export const getSuggestions = async (listId) => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to fetch suggestions');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const searchItems = async (query) => {
@@ -26,7 +28,8 @@ export const searchItems = async (query) => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to search items');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const deleteItem = async (itemId) => {
@@ -35,5 +38,6 @@ export const deleteItem = async (itemId) => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to delete item');
-  return response;
+  const data = await response.json();
+  return { data };
 };

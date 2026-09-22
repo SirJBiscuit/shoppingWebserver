@@ -10,7 +10,8 @@ export const getStagingItems = async () => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to fetch staging items');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const addToStaging = async (itemData) => {
@@ -20,7 +21,8 @@ export const addToStaging = async (itemData) => {
     body: JSON.stringify(itemData)
   });
   if (!response.ok) throw new Error('Failed to add to staging');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const removeFromStaging = async (itemId) => {
@@ -29,7 +31,8 @@ export const removeFromStaging = async (itemId) => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to remove from staging');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const moveFromShoppingList = async (listId) => {
@@ -38,5 +41,6 @@ export const moveFromShoppingList = async (listId) => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to move items from shopping list');
-  return response;
+  const data = await response.json();
+  return { data };
 };

@@ -10,5 +10,6 @@ export const getCategories = async () => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to fetch categories');
-  return response;
+  const data = await response.json();
+  return { data };
 };

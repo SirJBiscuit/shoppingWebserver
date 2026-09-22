@@ -10,7 +10,8 @@ export const getPreferences = async () => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to fetch preferences');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const searchItems = async (query) => {
@@ -18,5 +19,6 @@ export const searchItems = async (query) => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to search items');
-  return response;
+  const data = await response.json();
+  return { data };
 };

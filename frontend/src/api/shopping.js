@@ -10,7 +10,8 @@ export const getLists = async () => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to fetch lists');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const getList = async (listId) => {
@@ -18,7 +19,8 @@ export const getList = async (listId) => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to fetch list');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const createList = async (listData) => {
@@ -28,7 +30,8 @@ export const createList = async (listData) => {
     body: JSON.stringify(listData)
   });
   if (!response.ok) throw new Error('Failed to create list');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const updateList = async (listId, listData) => {
@@ -38,7 +41,8 @@ export const updateList = async (listId, listData) => {
     body: JSON.stringify(listData)
   });
   if (!response.ok) throw new Error('Failed to update list');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const deleteList = async (listId) => {
@@ -47,7 +51,8 @@ export const deleteList = async (listId) => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to delete list');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const getListItems = async (listId) => {
@@ -121,7 +126,8 @@ export const getCompletedLists = async () => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to fetch completed lists');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const restoreList = async (listId) => {
@@ -130,7 +136,8 @@ export const restoreList = async (listId) => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to restore list');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const savePriceHistory = async (priceData) => {
