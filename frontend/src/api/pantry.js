@@ -13,6 +13,9 @@ export const getPantryItems = async () => {
   return response;
 };
 
+// Alias for consistency with Dashboard usage
+export const getPantry = getPantryItems;
+
 export const addPantryItem = async (itemData) => {
   const response = await fetch(`${API_URL}/api/pantry`, {
     method: 'POST',
@@ -41,3 +44,6 @@ export const deletePantryItem = async (itemId) => {
   if (!response.ok) throw new Error('Failed to delete pantry item');
   return response;
 };
+
+// Alias for consistency with Dashboard usage
+export const deleteItem = deletePantryItem;

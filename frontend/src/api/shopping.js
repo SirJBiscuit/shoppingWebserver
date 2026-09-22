@@ -115,3 +115,30 @@ export const moveItem = async (itemId, targetListId) => {
   if (!response.ok) throw new Error('Failed to move item');
   return response;
 };
+
+export const getCompletedLists = async () => {
+  const response = await fetch(`${API_URL}/api/shopping/lists/completed`, {
+    headers: getAuthHeaders()
+  });
+  if (!response.ok) throw new Error('Failed to fetch completed lists');
+  return response;
+};
+
+export const restoreList = async (listId) => {
+  const response = await fetch(`${API_URL}/api/shopping/lists/${listId}/restore`, {
+    method: 'POST',
+    headers: getAuthHeaders()
+  });
+  if (!response.ok) throw new Error('Failed to restore list');
+  return response;
+};
+
+export const savePriceHistory = async (priceData) => {
+  const response = await fetch(`${API_URL}/api/shopping/price-history`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(priceData)
+  });
+  if (!response.ok) throw new Error('Failed to save price history');
+  return response;
+};

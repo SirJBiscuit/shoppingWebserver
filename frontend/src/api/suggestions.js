@@ -20,3 +20,20 @@ export const getSuggestions = async (listId) => {
   if (!response.ok) throw new Error('Failed to fetch suggestions');
   return response;
 };
+
+export const searchItems = async (query) => {
+  const response = await fetch(`${API_URL}/api/suggestions/search?q=${encodeURIComponent(query)}`, {
+    headers: getAuthHeaders()
+  });
+  if (!response.ok) throw new Error('Failed to search items');
+  return response;
+};
+
+export const deleteItem = async (itemId) => {
+  const response = await fetch(`${API_URL}/api/suggestions/${itemId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  if (!response.ok) throw new Error('Failed to delete item');
+  return response;
+};
