@@ -11,6 +11,8 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useFeatureFlags } from '../context/FeatureFlagContext';
 import { usePreviewMode } from '../contexts/PreviewModeContext';
+import { useEditor } from '../contexts/EditorContext';
+import EditorOverlay from './editor/EditorOverlay';
 // import ClearCacheButton from './ClearCacheButton'; // Component doesn't exist
 
 const Sidebar = ({ onAction }) => {
@@ -20,6 +22,7 @@ const Sidebar = ({ onAction }) => {
   const { isDark, toggleTheme } = useTheme();
   const { hasFeature } = useFeatureFlags();
   const { effectiveRole, canAccess } = usePreviewMode();
+  const { isEditorActive, selectedWidget, selectWidget } = useEditor();
   const [isOpen, setIsOpen] = useState(window.innerWidth >= 1024);
   const [expiringCount, setExpiringCount] = useState(0);
   const [sidebarPages, setSidebarPages] = useState([]);
@@ -248,6 +251,13 @@ const Sidebar = ({ onAction }) => {
           className="fixed left-0 top-0 h-screen w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-xl z-[60] flex flex-col overflow-y-auto custom-scrollbar"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
+          {/* AVE Editor Overlay */}
+          <EditorOverlay
+            isActive={isEditorActive}
+            targetName="Sidebar"
+            onSelect={() => selectWidget('sidebar')}
+            isSelected={selectedWidget === 'sidebar'}
+          />
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-3">

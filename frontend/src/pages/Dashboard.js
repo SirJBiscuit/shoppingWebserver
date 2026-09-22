@@ -14,6 +14,7 @@ import {
   MapPin, List, Wand2, Grid
 } from 'lucide-react';
 import EditorToolbar from '../components/editor/EditorToolbar';
+import EditorOverlay, { EditorModeIndicator, EditableContainer } from '../components/editor/EditorOverlay';
 import ItemList from '../components/ItemList';
 import SmartSuggestions from '../components/SmartSuggestions';
 import PantryQuickView from '../components/PantryQuickView';
@@ -48,6 +49,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { XPNotificationContainer, showXPNotification } from '../components/XPNotification';
 import CustomSearchBar from '../components/CustomSearchBar';
+import CustomDropdownList from '../components/CustomDropdownList';
 import CustomSwipeActions from '../components/CustomSwipeActions';
 import CustomContextMenu from '../components/CustomContextMenu';
 import CustomNotification from '../components/CustomNotification';
@@ -1445,6 +1447,9 @@ const Dashboard = () => {
 
   return (
     <PageTransition>
+      {/* AVE Editor Mode Indicator */}
+      <EditorModeIndicator isActive={isEditorActive} targetArea="Dashboard & Widgets" />
+      
       {/* AVE (Admin Visual Editor) Toolbar - Shows when editor is active */}
       <EditorToolbar />
       
@@ -1545,7 +1550,13 @@ const Dashboard = () => {
             <div className="max-w-7xl mx-auto">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            <div className="card">
+            <EditableContainer
+              isEditorActive={isEditorActive}
+              componentName="Dashboard"
+              onSelect={() => selectWidget('dashboard')}
+              isSelected={selectedWidget === 'dashboard'}
+            >
+              <div className="card">
               {/* Shopping List Header */}
               <div className="mb-6">
                 {/* Title and Dropdown Row */}
@@ -1553,21 +1564,23 @@ const Dashboard = () => {
                   <div className="flex items-center space-x-3 flex-1">
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Shopping List</h2>
                     {lists.length > 0 && (
-                      <select
-                        value={activeList?.id || ''}
-                        onChange={(e) => {
-                          const list = lists.find(l => l.id === parseInt(e.target.value));
-                          setActiveList(list);
-                          // Don't call loadListItems here - the useEffect will handle it
-                        }}
-                        className="input-field text-sm flex-1 max-w-xs"
-                      >
-                        {lists.map(list => (
-                          <option key={list.id} value={list.id}>
-                            {list.name} ({list.item_count || 0} items)
-                          </option>
-                        ))}
-                      </select>
+                      <CustomDropdownList
+                        items={lists}
+                        value={activeList}
+                        onChange={(list) => setActiveList(list)}
+                        renderValue={(list) => `${list.name} (${list.item_count || 0} items)`}
+                        renderItem={(list) => (
+                          <div className="flex flex-col">
+                            <span className="font-medium">{list.name}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {list.item_count || 0} items
+                            </span>
+                          </div>
+                        )}
+                        searchable={lists.length > 5}
+                        searchPlaceholder="Search lists..."
+                        className="flex-1 max-w-xs"
+                      />
                     )}
                   </div>
                 </div>
@@ -2211,6 +2224,7 @@ const Dashboard = () => {
                 </div>
               )}
             </div>
+            </EditableContainer>
           </div>
 
           <div className="space-y-6">
