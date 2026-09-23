@@ -7,8 +7,60 @@ import FormattedNote from './FormattedNote';
 import CustomNumberPad from './CustomNumberPad';
 import CustomKeypad from './CustomKeypad';
 import RadialActionMenu from './RadialActionMenu';
+import { useEditor } from '../contexts/EditorContext';
+import { EditableContainer } from './editor/EditorOverlay';
 
-const NextItemSuggestion = ({ nextItem, sameAisleItems = [], onCheck, onSkip, onHide, onCopyMove, onJumpToItem, onEdit, onUndo, onBack, onDeferItem, onQuantityChange, peekNextItem, storeName, onAddNote, onRemoveNote, onMarkUnavailable, onChangeStore, triggerCheckmarkAnimation, onPriceUpdate, triggerFlyingAnimation }) => {
+const NextItemSuggestion = (props) => {
+  const { isEditorActive, selectWidget, selectedWidget, widgetProperties } = useEditor();
+  const aveProps = widgetProperties['next-item-suggestion'] || {};
+  
+  return (
+    <EditableContainer
+      isEditorActive={isEditorActive}
+      componentName="Looking for Next"
+      onSelect={() => selectWidget('next-item-suggestion')}
+      isSelected={selectedWidget === 'next-item-suggestion'}
+    >
+      <NextItemSuggestionContent {...props} {...aveProps} />
+    </EditableContainer>
+  );
+};
+
+const NextItemSuggestionContent = ({ 
+  nextItem, 
+  sameAisleItems = [], 
+  onCheck, 
+  onSkip, 
+  onHide, 
+  onCopyMove, 
+  onJumpToItem, 
+  onEdit, 
+  onUndo, 
+  onBack, 
+  onDeferItem, 
+  onQuantityChange, 
+  peekNextItem, 
+  storeName, 
+  onAddNote, 
+  onRemoveNote, 
+  onMarkUnavailable, 
+  onChangeStore, 
+  triggerCheckmarkAnimation, 
+  onPriceUpdate, 
+  triggerFlyingAnimation,
+  // AVE Properties
+  showAisle = true,
+  showCategory = true,
+  showPrice = true,
+  showQuantity = true,
+  showNotes = true,
+  showSameAisleItems = true,
+  showPeekNext = true,
+  highlightColor = '#6366f1',
+  compactMode = false,
+  autoAdvance = true,
+  showQuickActions = true
+}) => {
   const [showGuide, setShowGuide] = useState(() => {
     return !localStorage.getItem('lookingForNextGuideShown');
   });
