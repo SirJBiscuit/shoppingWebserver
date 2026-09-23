@@ -11,8 +11,8 @@ const SmartSuggestions = ({ suggestions, onAddSuggestion }) => {
     <EditableContainer
       isEditorActive={isEditorActive}
       componentName="Smart Suggestions"
-      onSelect={() => selectWidget('smart-suggestions')}
-      isSelected={selectedWidget === 'smart-suggestions'}
+      onSelect={() => selectWidget('smart-suggestions', 'dashboard')}
+      isSelected={selectedWidget?.id === 'smart-suggestions'}
     >
       <SmartSuggestionsContent 
         suggestions={suggestions}

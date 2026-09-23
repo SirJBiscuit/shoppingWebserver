@@ -17,9 +17,9 @@ const NextItemSuggestion = (props) => {
   return (
     <EditableContainer
       isEditorActive={isEditorActive}
-      componentName="Looking for Next"
-      onSelect={() => selectWidget('next-item-suggestion')}
-      isSelected={selectedWidget === 'next-item-suggestion'}
+      componentName="Next Item Suggestion"
+      onSelect={() => selectWidget('next-item-suggestion', 'dashboard')}
+      isSelected={selectedWidget?.id === 'next-item-suggestion'}
     >
       <NextItemSuggestionContent {...props} {...aveProps} />
     </EditableContainer>

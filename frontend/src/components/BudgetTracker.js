@@ -1,27 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, TrendingDown, AlertCircle, Target } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { EditableContainer } from './editor/EditorOverlay';
-import { useEditor } from '../contexts/EditorContext';
+import { useAVEWidget } from '../hooks/useAVEWidget';
 
 const BudgetTracker = ({ items, totalCost, listId }) => {
-  const { isEditorActive, selectWidget, selectedWidget, widgetProperties } = useEditor();
-  const props = widgetProperties['budget-tracker'] || {};
+  const { wrapWithAVE, props } = useAVEWidget('budget-tracker', 'dashboard');
   
-  return (
-    <EditableContainer
-      isEditorActive={isEditorActive}
-      componentName="Budget Tracker"
-      onSelect={() => selectWidget('budget-tracker')}
-      isSelected={selectedWidget === 'budget-tracker'}
-    >
-      <BudgetTrackerContent 
-        items={items}
-        totalCost={totalCost}
-        listId={listId}
-        {...props}
-      />
-    </EditableContainer>
+  return wrapWithAVE(
+    <BudgetTrackerContent 
+      items={items}
+      totalCost={totalCost}
+      listId={listId}
+      {...props}
+    />
   );
 };
 

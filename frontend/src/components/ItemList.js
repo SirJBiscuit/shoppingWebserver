@@ -20,8 +20,8 @@ const ItemList = (props) => {
     <EditableContainer
       isEditorActive={isEditorActive}
       componentName="Shopping List Items"
-      onSelect={() => selectWidget('item-list')}
-      isSelected={selectedWidget === 'item-list'}
+      onSelect={() => selectWidget('item-list', 'dashboard')}
+      isSelected={selectedWidget?.id === 'item-list'}
     >
       <ItemListContent 
         {...props}

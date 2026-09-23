@@ -88,6 +88,11 @@ const Dashboard = () => {
   const { isEditorActive, toggleEditor, selectWidget, selectedWidget, widgetProperties } = useEditor();
   const dashboardProps = widgetProperties['dashboard'] || {};
   const addButtonRef = useRef(null);
+  
+  // Debug: Log when editor mode changes
+  useEffect(() => {
+    console.log('🎨 AVE Editor Mode:', isEditorActive ? 'ACTIVE' : 'INACTIVE');
+  }, [isEditorActive]);
   const isRecoveringFromError = useRef(false);
   const [versionInfo, setVersionInfo] = useState({ version: 'Loading...', updateAvailable: false });
   const { toasts, hideToast, success, error, warning, info } = useToast();

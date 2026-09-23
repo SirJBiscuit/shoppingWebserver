@@ -12,9 +12,9 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
   return (
     <EditableContainer
       isEditorActive={isEditorActive}
-      componentName="Shopping Cart"
-      onSelect={() => selectWidget('animated-cart')}
-      isSelected={selectedWidget === 'animated-cart'}
+      componentName="Animated Cart"
+      onSelect={() => selectWidget('animated-cart', 'dashboard')}
+      isSelected={selectedWidget?.id === 'animated-cart'}
     >
       <AnimatedCartContent 
         items={items}
