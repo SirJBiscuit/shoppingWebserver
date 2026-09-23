@@ -1,7 +1,40 @@
 import React from 'react';
 import { Plus, AlertCircle, TrendingUp, Clock } from 'lucide-react';
+import { useEditor } from '../contexts/EditorContext';
+import { EditableContainer } from './editor/EditorOverlay';
 
 const SmartSuggestions = ({ suggestions, onAddSuggestion }) => {
+  const { isEditorActive, selectWidget, selectedWidget, widgetProperties } = useEditor();
+  const aveProps = widgetProperties['smart-suggestions'] || {};
+  
+  return (
+    <EditableContainer
+      isEditorActive={isEditorActive}
+      componentName="Smart Suggestions"
+      onSelect={() => selectWidget('smart-suggestions')}
+      isSelected={selectedWidget === 'smart-suggestions'}
+    >
+      <SmartSuggestionsContent 
+        suggestions={suggestions}
+        onAddSuggestion={onAddSuggestion}
+        {...aveProps}
+      />
+    </EditableContainer>
+  );
+};
+
+const SmartSuggestionsContent = ({ 
+  suggestions, 
+  onAddSuggestion,
+  maxSuggestions = 5,
+  showIcons = true,
+  showQuantity = true,
+  showReason = true,
+  showConfidence = false,
+  compactMode = false,
+  maxHeight = 384,
+  groupByPriority = false
+}) => {
   const getPriorityColor = (priority) => {
     switch (priority) {
       case 'high':
@@ -26,9 +59,20 @@ const SmartSuggestions = ({ suggestions, onAddSuggestion }) => {
     }
   };
 
+  // Limit suggestions based on maxSuggestions property
+  const limitedSuggestions = suggestions.slice(0, maxSuggestions);
+  
+  // Group by priority if enabled
+  const displaySuggestions = groupByPriority
+    ? [...limitedSuggestions].sort((a, b) => {
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        return (priorityOrder[a.priority] || 3) - (priorityOrder[b.priority] || 3);
+      })
+    : limitedSuggestions;
+
   if (suggestions.length === 0) {
     return (
-      <div className="text-center py-6 text-gray-500">
+      <div className={`text-center ${compactMode ? 'py-4' : 'py-6'} text-gray-500`}>
         <p className="text-sm">No suggestions at the moment</p>
         <p className="text-xs mt-1">Keep shopping to get personalized suggestions!</p>
       </div>
@@ -36,24 +80,34 @@ const SmartSuggestions = ({ suggestions, onAddSuggestion }) => {
   }
 
   return (
-    <div className="space-y-3 max-h-96 overflow-y-auto">
-      {suggestions.map((suggestion, index) => (
+    <div 
+      className={`${compactMode ? 'space-y-2' : 'space-y-3'} overflow-y-auto`}
+      style={{ maxHeight: `${maxHeight}px` }}
+    >
+      {displaySuggestions.map((suggestion, index) => (
         <div
           key={index}
-          className={`p-3 rounded-lg border-2 ${getPriorityColor(suggestion.priority)}`}
+          className={`${compactMode ? 'p-2' : 'p-3'} rounded-lg border-2 ${getPriorityColor(suggestion.priority)}`}
         >
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <div className="flex items-center mb-1">
-                {getPriorityIcon(suggestion.type)}
-                <span className="ml-2 font-medium text-gray-900">
+              <div className={`flex items-center ${compactMode ? 'mb-0.5' : 'mb-1'}`}>
+                {showIcons && getPriorityIcon(suggestion.type)}
+                <span className={`${showIcons ? 'ml-2' : ''} font-medium text-gray-900 ${compactMode ? 'text-sm' : ''}` }>
                   {suggestion.item}
                 </span>
               </div>
-              <p className="text-xs text-gray-600 mb-2">{suggestion.reason}</p>
-              {suggestion.quantity && (
+              {showReason && (
+                <p className={`text-xs text-gray-600 ${compactMode ? 'mb-1' : 'mb-2'}`}>{suggestion.reason}</p>
+              )}
+              {showQuantity && suggestion.quantity && (
                 <p className="text-xs text-gray-500">
                   Suggested: {suggestion.quantity} {suggestion.unit}
+                </p>
+              )}
+              {showConfidence && suggestion.confidence && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Confidence: {Math.round(suggestion.confidence * 100)}%
                 </p>
               )}
             </div>
