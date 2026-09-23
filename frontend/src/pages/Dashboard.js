@@ -84,7 +84,8 @@ const Dashboard = () => {
   const { isMobile, isTablet } = useDeviceType();
   const { triggerFlyingAnimation, triggerCheckmarkAnimation, clearAnimations } = useCartAnimation();
   const { optimizationMode, toggleOptimization } = useOptimization();
-  const { isEditorActive, toggleEditor } = useEditor();
+  const { isEditorActive, toggleEditor, selectWidget, selectedWidget, widgetProperties } = useEditor();
+  const dashboardProps = widgetProperties['dashboard'] || {};
   const addButtonRef = useRef(null);
   const isRecoveringFromError = useRef(false);
   const [versionInfo, setVersionInfo] = useState({ version: 'Loading...', updateAvailable: false });
@@ -1560,11 +1561,19 @@ const Dashboard = () => {
               onSelect={() => selectWidget('dashboard')}
               isSelected={selectedWidget === 'dashboard'}
             >
-              <div className="card">
+              <div 
+                className="card"
+                style={{
+                  backgroundColor: dashboardProps.backgroundColor || undefined,
+                  borderRadius: dashboardProps.borderRadius ? `${dashboardProps.borderRadius}px` : undefined
+                }}
+              >
               {/* Shopping List Header */}
-              <div className="mb-6">
+              {(dashboardProps.showHeader !== false) && (
+              <div className={dashboardProps.compactMode ? 'mb-3' : 'mb-6'}>
                 {/* Title and Dropdown Row */}
-                <div className="flex items-center justify-between mb-4">
+                {(dashboardProps.showListSelector !== false) && (
+                <div className={`flex items-center justify-between ${dashboardProps.compactMode ? 'mb-2' : 'mb-4'}`}>
                   <div className="flex items-center space-x-3 flex-1">
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Shopping List</h2>
                     {lists.length > 0 && (
@@ -1588,9 +1597,10 @@ const Dashboard = () => {
                     )}
                   </div>
                 </div>
+                )}
 
                 {/* Active List Header - Ultra Compact Mobile */}
-                {activeList && (
+                {activeList && (dashboardProps.showHeader !== false) && (
                   <div className="mb-2">
                     <div className="flex items-center gap-2">
                       <span className="text-xl flex-shrink-0">📋</span>
@@ -1791,6 +1801,7 @@ const Dashboard = () => {
                   </button>
                 </div>
               </div>
+              )}
 
               {/* Add Item Section - Highlighted */}
               <div className="mb-6 p-6 rounded-xl bg-gradient-to-br from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 border-2 border-primary-300 dark:border-primary-600 shadow-lg">
