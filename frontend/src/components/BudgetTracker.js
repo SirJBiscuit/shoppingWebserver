@@ -1,8 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, TrendingDown, AlertCircle, Target } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { EditableContainer } from './editor/EditorOverlay';
+import { useEditor } from '../contexts/EditorContext';
 
 const BudgetTracker = ({ items, totalCost, listId }) => {
+  const { isEditorActive, selectWidget, selectedWidget, widgetProperties } = useEditor();
+  const props = widgetProperties['budget-tracker'] || {};
+  
+  return (
+    <EditableContainer
+      isEditorActive={isEditorActive}
+      componentName="Budget Tracker"
+      onSelect={() => selectWidget('budget-tracker')}
+      isSelected={selectedWidget === 'budget-tracker'}
+    >
+      <BudgetTrackerContent 
+        items={items}
+        totalCost={totalCost}
+        listId={listId}
+        {...props}
+      />
+    </EditableContainer>
+  );
+};
+
+const BudgetTrackerContent = ({ 
+  items, 
+  totalCost, 
+  listId,
+  // AVE Properties
+  showChart = true,
+  chartColor = '#6366f1',
+  maxBudget = 500,
+  showPercentage = true,
+  warningThreshold = 80
+}) => {
   const [budget, setBudget] = useState(100);
   const [showBudgetInput, setShowBudgetInput] = useState(false);
   const [tempBudget, setTempBudget] = useState('100');
@@ -20,9 +53,9 @@ const BudgetTracker = ({ items, totalCost, listId }) => {
         setBudget(parseFloat(saved));
         setTempBudget(saved);
       } else {
-        // Default budget
-        setBudget(100);
-        setTempBudget('100');
+        // Default budget from AVE or fallback
+        setBudget(maxBudget || 100);
+        setTempBudget((maxBudget || 100).toString());
       }
     }
   }, [listId]);
@@ -141,15 +174,18 @@ const BudgetTracker = ({ items, totalCost, listId }) => {
         {/* Progress Bar */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">
-              {Math.min(percentUsed, 100).toFixed(0)}% used
-            </span>
+            {showPercentage && (
+              <span className="text-gray-600 dark:text-gray-400">
+                {Math.min(percentUsed, 100).toFixed(0)}% used
+              </span>
+            )}
             {isOverBudget && (
               <span className="flex items-center text-red-600 dark:text-red-400 text-xs">
                 <AlertCircle className="w-3 h-3 mr-1" />
                 Over budget!
               </span>
             )}
+            {!showPercentage && <span></span>}
             {isNearBudget && (
               <span className="flex items-center text-yellow-600 dark:text-yellow-400 text-xs">
                 <AlertCircle className="w-3 h-3 mr-1" />
@@ -163,13 +199,14 @@ const BudgetTracker = ({ items, totalCost, listId }) => {
               initial={{ width: 0 }}
               animate={{ width: `${Math.min(percentUsed, 100)}%` }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
-              className={`h-full ${getProgressColor()} transition-colors`}
+              className={`h-full transition-colors`}
+              style={{ backgroundColor: showChart ? chartColor : getProgressColor() }}
             />
           </div>
         </div>
 
         {/* Category Breakdown */}
-        {items.length > 0 && (
+        {showChart && items.length > 0 && (
           <div className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
             <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Top Categories

@@ -2,8 +2,38 @@ import React, { useState, useEffect } from 'react';
 import { ShoppingCart, DollarSign, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playSound } from '../utils/soundEffects';
+import { EditableContainer } from './editor/EditorOverlay';
+import { useEditor } from '../contexts/EditorContext';
 
 const AnimatedCart = ({ items, sortedByZone = false }) => {
+  const { isEditorActive, selectWidget, selectedWidget, widgetProperties } = useEditor();
+  const props = widgetProperties['animated-cart'] || {};
+  
+  return (
+    <EditableContainer
+      isEditorActive={isEditorActive}
+      componentName="Shopping Cart"
+      onSelect={() => selectWidget('animated-cart')}
+      isSelected={selectedWidget === 'animated-cart'}
+    >
+      <AnimatedCartContent 
+        items={items}
+        sortedByZone={sortedByZone}
+        {...props}
+      />
+    </EditableContainer>
+  );
+};
+
+const AnimatedCartContent = ({ 
+  items, 
+  sortedByZone = false,
+  // AVE Properties
+  showAnimation = true,
+  maxItemsDisplay = 5,
+  showImages = true,
+  compactMode = false
+}) => {
   const [flyingItems, setFlyingItems] = useState([]);
   const [initialized, setInitialized] = useState(false);
   
@@ -53,7 +83,7 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
     <div className="relative" data-animated-cart-target>
       {/* Flying Items Animation */}
       <AnimatePresence>
-        {flyingItems.map((item) => (
+        {showAnimation && flyingItems.map((item) => (
           <motion.div
             key={item.id}
             initial={{ x: -100, y: 0, scale: 0, opacity: 0 }}
@@ -74,7 +104,7 @@ const AnimatedCart = ({ items, sortedByZone = false }) => {
         className="card bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-800 dark:to-gray-900 border-2 border-primary-200 dark:border-primary-700"
       >
         {/* Cart Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className={`flex items-center justify-between ${compactMode ? 'mb-2' : 'mb-4'}`}>
           <div className="flex items-center space-x-3">
             <motion.div
               animate={{ 
