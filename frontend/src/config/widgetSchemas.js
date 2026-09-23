@@ -46,6 +46,24 @@ export const widgetSchemas = {
         step: 1,
         category: 'appearance',
       },
+      showStoreLocation: {
+        type: 'boolean',
+        label: 'Show Store Location',
+        default: true,
+        category: 'layout',
+      },
+      showListSelector: {
+        type: 'boolean',
+        label: 'Show List Selector',
+        default: true,
+        category: 'layout',
+      },
+      compactMode: {
+        type: 'boolean',
+        label: 'Compact Mode',
+        default: false,
+        category: 'layout',
+      },
     },
   },
 
@@ -336,10 +354,28 @@ export const widgetSchemas = {
         default: true,
         category: 'appearance',
       },
+      showIcons: {
+        type: 'boolean',
+        label: 'Show Item Icons',
+        default: true,
+        category: 'appearance',
+      },
+      showAisles: {
+        type: 'boolean',
+        label: 'Show Aisle Numbers',
+        default: true,
+        category: 'appearance',
+      },
       strikethroughCompleted: {
         type: 'boolean',
         label: 'Strikethrough Completed Items',
         default: true,
+        category: 'behavior',
+      },
+      hideCompleted: {
+        type: 'boolean',
+        label: 'Hide Completed Items',
+        default: false,
         category: 'behavior',
       },
       sortBy: {
@@ -359,6 +395,82 @@ export const widgetSchemas = {
         type: 'boolean',
         label: 'Compact View',
         default: false,
+        category: 'layout',
+      },
+      itemSpacing: {
+        type: 'range',
+        label: 'Item Spacing',
+        default: 8,
+        min: 0,
+        max: 24,
+        step: 2,
+        category: 'layout',
+      },
+      fontSize: {
+        type: 'select',
+        label: 'Font Size',
+        default: 'medium',
+        options: [
+          { value: 'small', label: 'Small' },
+          { value: 'medium', label: 'Medium' },
+          { value: 'large', label: 'Large' },
+        ],
+        category: 'appearance',
+      },
+    },
+  },
+  
+  // Floating Buttons (Active List & Apps)
+  'floating-buttons': {
+    name: 'Floating Action Buttons',
+    category: 'Navigation',
+    properties: {
+      position: {
+        type: 'select',
+        label: 'Position',
+        default: 'right',
+        options: [
+          { value: 'left', label: 'Left Side' },
+          { value: 'right', label: 'Right Side' },
+        ],
+        category: 'layout',
+      },
+      showActiveList: {
+        type: 'boolean',
+        label: 'Show Active List Button',
+        default: true,
+        category: 'appearance',
+      },
+      showApps: {
+        type: 'boolean',
+        label: 'Show Apps Button',
+        default: true,
+        category: 'appearance',
+      },
+      buttonSize: {
+        type: 'select',
+        label: 'Button Size',
+        default: 'medium',
+        options: [
+          { value: 'small', label: 'Small' },
+          { value: 'medium', label: 'Medium' },
+          { value: 'large', label: 'Large' },
+        ],
+        category: 'appearance',
+      },
+      buttonColor: {
+        type: 'color',
+        label: 'Button Color',
+        default: '#6366f1',
+        category: 'appearance',
+      },
+      spacing: {
+        type: 'range',
+        label: 'Button Spacing',
+        default: 16,
+        min: 8,
+        max: 32,
+        step: 4,
         category: 'layout',
       },
     },

@@ -8,9 +8,55 @@ import { detectIcon, detectCategory } from '../utils/categoryDetector';
 import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
+import { EditableContainer } from './editor/EditorOverlay';
+import { useEditor } from '../contexts/EditorContext';
 
 const ItemList = (props) => {
   const { items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null, onLookForThis } = props;
+  const { isEditorActive, selectWidget, selectedWidget, widgetProperties } = useEditor();
+  const aveProps = widgetProperties['item-list'] || {};
+  
+  return (
+    <EditableContainer
+      isEditorActive={isEditorActive}
+      componentName="Shopping List Items"
+      onSelect={() => selectWidget('item-list')}
+      isSelected={selectedWidget === 'item-list'}
+    >
+      <ItemListContent 
+        {...props}
+        {...aveProps}
+      />
+    </EditableContainer>
+  );
+};
+
+const ItemListContent = (props) => {
+  const { 
+    items, 
+    onToggleCheck, 
+    onDelete, 
+    onEdit, 
+    onCopyMove, 
+    triggerAnimation, 
+    nextItemId, 
+    hideCategories = false, 
+    storeName = null, 
+    onLookForThis,
+    // AVE Properties
+    showCheckboxes = true,
+    showPrices = true,
+    showQuantities = true,
+    showCategories = true,
+    showIcons = true,
+    showAisles = true,
+    strikethroughCompleted = true,
+    hideCompleted = false,
+    sortBy = 'manual',
+    compactView = false,
+    itemSpacing = 8,
+    fontSize = 'medium'
+  } = props;
   const [editingItem, setEditingItem] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [noteItem, setNoteItem] = useState(null);
@@ -63,15 +109,27 @@ const ItemList = (props) => {
     );
   }
 
+  // Filter out completed items if hideCompleted is true
+  const filteredCombinedItems = hideCompleted
+    ? Object.fromEntries(Object.entries(combinedItems).filter(([_, item]) => !item.is_checked))
+    : combinedItems;
+
   // Flatten items if hiding categories
-  const displayItems = hideCategories 
-    ? Object.values(combinedItems)
+  const displayItems = (hideCategories || !showCategories) 
+    ? Object.values(filteredCombinedItems)
     : null;
+
+  // Font size classes
+  const fontSizeClass = {
+    small: 'text-sm',
+    medium: 'text-base',
+    large: 'text-lg'
+  }[fontSize] || 'text-base';
 
   return (
     <>
-    <div className="space-y-6 shopping-list-scroll custom-scrollbar max-h-[calc(100vh-400px)] pr-2">
-      {hideCategories ? (
+    <div className={`space-y-${Math.floor(itemSpacing / 4)} shopping-list-scroll custom-scrollbar max-h-[calc(100vh-400px)] pr-2 ${fontSizeClass}`}>
+      {(hideCategories || !showCategories) ? (
         // Flat list without categories
         <div className="space-y-2">
           {displayItems.map((item) => (
@@ -88,6 +146,13 @@ const ItemList = (props) => {
               setNoteItem={setNoteItem}
               setNoteText={setNoteText}
               onLookForThis={onLookForThis}
+              showCheckboxes={showCheckboxes}
+              showPrices={showPrices}
+              showQuantities={showQuantities}
+              showIcons={showIcons}
+              showAisles={showAisles}
+              strikethroughCompleted={strikethroughCompleted}
+              compactView={compactView}
             />
           ))}
         </div>
@@ -103,7 +168,9 @@ const ItemList = (props) => {
               </span>
             </h4>
             <div className="space-y-2">
-              {groupedItems[category].items.map((item) => (
+              {groupedItems[category].items
+                .filter(item => !hideCompleted || !item.is_checked)
+                .map((item) => (
                 <ItemCard 
                   key={item.id} 
                   item={item} 
@@ -118,6 +185,13 @@ const ItemList = (props) => {
                   setNoteItem={setNoteItem}
                   setNoteText={setNoteText}
                   onLookForThis={onLookForThis}
+                  showCheckboxes={showCheckboxes}
+                  showPrices={showPrices}
+                  showQuantities={showQuantities}
+                  showIcons={showIcons}
+                  showAisles={showAisles}
+                  strikethroughCompleted={strikethroughCompleted}
+                  compactView={compactView}
                 />
               ))}
             </div>
