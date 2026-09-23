@@ -24,6 +24,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import AnimatedCart from '../components/AnimatedCart';
 import BudgetTracker from '../components/BudgetTracker';
+import FloatingButtons from '../components/FloatingButtons';
 import BarcodeScanner from '../components/BarcodeScanner';
 import ShareList from '../components/ShareList';
 import LevelingSystem, { XP_REWARDS } from '../components/LevelingSystem';
@@ -2758,67 +2759,28 @@ const Dashboard = () => {
         />
       )}
 
-      {/* Floating Apps Menu Button */}
-      <div className="fixed right-4 sm:right-6 bottom-44 sm:bottom-32 z-50">
-        {/* Apps Dropdown Menu */}
-        {showAppsMenu && (
-          <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden min-w-[160px]"
-          >
-            <button
-              onClick={() => {
-                setShowCalculator(true);
-                setShowAppsMenu(false);
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600 transition-colors text-left touch-manipulation"
-            >
-              <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
-              <span className="font-medium text-gray-900 dark:text-white">Calculator</span>
-            </button>
-            {/* Add more apps here later */}
-          </motion.div>
-        )}
-        
-        {/* Apps Button */}
-        <motion.button
-          onClick={() => setShowAppsMenu(!showAppsMenu)}
-          className={`flex flex-col items-center justify-center gap-1 px-4 py-3 sm:px-5 sm:py-4 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 ${
-            showAppsMenu
-              ? 'bg-gradient-to-br from-purple-500 to-purple-600'
-              : 'bg-gradient-to-br from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700'
-          } text-white`}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          title="Apps"
-        >
-          <Grid className="w-6 h-6 sm:w-7 sm:h-7" />
-          <span className="text-[10px] sm:text-xs font-semibold whitespace-nowrap">Apps</span>
-        </motion.button>
-      </div>
-
-      {/* Floating Active Shopping List Button */}
-      <motion.button
-        onClick={() => setShowListPanel(true)}
-        className="fixed right-4 sm:right-6 bottom-20 sm:bottom-6 z-50 flex flex-col items-center justify-center gap-1 px-4 py-3 sm:px-5 sm:py-4 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        title="Active Shopping List"
+      {/* Floating Buttons Widget */}
+      <EditableContainer
+        isEditorActive={isEditorActive}
+        componentName="Floating Action Buttons"
+        onSelect={() => selectWidget('floating-buttons')}
+        isSelected={selectedWidget === 'floating-buttons'}
       >
-        <List className="w-6 h-6 sm:w-7 sm:h-7" />
-        {items.length > 0 && (
-          <motion.span
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg"
-          >
-            {items.length}
-          </motion.span>
-        )}
-        <span className="text-[10px] sm:text-xs font-semibold whitespace-nowrap">Active List</span>
-      </motion.button>
+        <FloatingButtons
+          showApps={widgetProperties['floating-buttons']?.showApps !== false}
+          showActiveList={widgetProperties['floating-buttons']?.showActiveList !== false}
+          position={widgetProperties['floating-buttons']?.position || 'right'}
+          buttonSize={widgetProperties['floating-buttons']?.buttonSize || 'medium'}
+          buttonColor={widgetProperties['floating-buttons']?.buttonColor || '#6366f1'}
+          spacing={widgetProperties['floating-buttons']?.spacing || 16}
+          showAppsMenu={showAppsMenu}
+          setShowAppsMenu={setShowAppsMenu}
+          setShowCalculator={setShowCalculator}
+          setShowListPanel={setShowListPanel}
+          items={items}
+          activeList={activeList}
+        />
+      </EditableContainer>
 
       {/* Active Shopping List Tab - Slide-Out Panel */}
       <CustomPanel
