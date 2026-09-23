@@ -144,7 +144,7 @@ const Sidebar = ({ onAction }) => {
   const mainNavItems = [
     { path: '/', icon: ShoppingCart, label: 'Dashboard', color: 'text-blue-600', feature: 'shopping_lists' },
     { path: '/staging', icon: Package, label: 'After Shop', color: 'text-yellow-600', feature: 'pantry', badge: '🛒' },
-    { path: '/pantry', icon: Home, label: 'Home Inventory', color: 'text-green-600', feature: 'pantry' },
+    { path: '/pantry-new-v2', icon: Home, label: 'Home Inventory', color: 'text-green-600', feature: 'pantry' },
     { path: '/recipes', icon: ChefHat, label: 'Recipe Book', color: 'text-orange-600', feature: 'recipes' },
     // { path: '/meal-plan', icon: Calendar, label: 'Meal Planner', color: 'text-purple-600', feature: 'meal_planner' }, // Disabled
     // { path: '/stats', icon: BarChart3, label: 'Statistics', color: 'text-pink-600', feature: 'statistics' }, // Disabled
@@ -309,7 +309,7 @@ const Sidebar = ({ onAction }) => {
                     <Icon className={`w-5 h-5 ${isActive(page.page_path) ? 'text-primary-600' : ''}`} />
                     <span className="font-medium text-sm">{page.page_name}</span>
                     {/* Expiring Soon Badge for Home Inventory */}
-                    {page.page_path === '/pantry-new' && expiringCount > 0 && (
+                    {page.page_path === '/pantry-new-v2' && expiringCount > 0 && (
                       <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse">
                         {expiringCount}
                       </span>
@@ -334,7 +334,7 @@ const Sidebar = ({ onAction }) => {
                   <item.icon className={`w-5 h-5 ${isActive(item.path) ? item.color : ''}`} />
                   <span className="font-medium text-sm">{item.label}</span>
                   {/* Expiring Soon Badge for Home Inventory */}
-                  {item.path === '/pantry-new' && expiringCount > 0 && (
+                  {item.path === '/pantry-new-v2' && expiringCount > 0 && (
                     <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse">
                       {expiringCount}
                     </span>
