@@ -1,26 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, BarChart3, GripVertical, CheckSquare } from 'lucide-react';
-import inventoryAPI from '../services/inventoryAPI';
-import { useAuth } from '../context/AuthContext';
-import { useToast } from '../hooks/useToast';
-import Sidebar from '../components/Sidebar';
-import PageTransition from '../components/PageTransition';
-import Toast from '../components/Toast';
-import ConfirmModal from '../components/ConfirmModal';
+import inventoryAPI from '../../services/inventoryAPI';
+import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../hooks/useToast';
+import Sidebar from '../../components/Sidebar';
+import PageTransition from '../../components/PageTransition';
+import Toast from '../../components/Toast';
+import ConfirmModal from '../../components/ConfirmModal';
 
 // New Home Inventory Components
-import LocationNavigator from '../components/inventory/LocationNavigator';
-import FilterPanel from '../components/inventory/FilterPanel';
-import EnhancedGridView from '../components/inventory/EnhancedGridView';
-import DraggableGridView from '../components/inventory/DraggableGridView';
-import EnhancedListView from '../components/inventory/EnhancedListView';
-import CategoryView from '../components/inventory/CategoryView';
-import VisualInventoryMap from '../components/inventory/VisualInventoryMap';
-import AddItemModal from '../components/inventory/AddItemModal';
-import InventoryStats from '../components/inventory/InventoryStats';
-import BulkActionBar from '../components/inventory/BulkActionBar';
-import ExpiredItemsAlert from '../components/ExpiredItemsAlert';
+import LocationNavigator from '../../components/inventory/LocationNavigator';
+import FilterPanel from '../../components/inventory/FilterPanel';
+import EnhancedGridView from '../../components/inventory/EnhancedGridView';
+import DraggableGridView from '../../components/inventory/DraggableGridView';
+import EnhancedListView from '../../components/inventory/EnhancedListView';
+import CategoryView from '../../components/inventory/CategoryView';
+import VisualInventoryMap from '../../components/inventory/VisualInventoryMap';
+import AddItemModal from '../../components/inventory/AddItemModal';
+import InventoryStats from '../../components/inventory/InventoryStats';
+import BulkActionBar from '../../components/inventory/BulkActionBar';
+import ExpiredItemsAlert from '../../components/ExpiredItemsAlert';
 
 /**
  * PantryNewV2 - Home Inventory with new 3-panel layout
