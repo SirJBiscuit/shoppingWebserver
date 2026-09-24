@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Edit3,
@@ -12,6 +12,7 @@ import {
   Maximize2
 } from 'lucide-react';
 import { useEditor } from '../../contexts/EditorContext';
+import HelpModal from './HelpModal';
 
 /**
  * EditorToolbar - Top toolbar for AVE Visual Editor
@@ -33,6 +34,9 @@ const EditorToolbar = () => {
     performanceMode,
     setPerformanceMode
   } = useEditor();
+  
+  const [showHelp, setShowHelp] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   
   if (!isEditorActive) return null;
   
@@ -135,19 +139,20 @@ const EditorToolbar = () => {
                 value={performanceMode}
                 onChange={(e) => setPerformanceMode(e.target.value)}
                 className="px-3 py-2 rounded-lg bg-white/10 text-white text-sm border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
+                style={{ colorScheme: 'dark' }}
                 title="Performance Mode"
               >
-                <option value="minimal">Minimal</option>
-                <option value="smooth">Smooth</option>
-                <option value="rich">Rich</option>
-                <option value="adaptive">Adaptive</option>
+                <option value="minimal" className="bg-gray-800 text-white">Minimal</option>
+                <option value="smooth" className="bg-gray-800 text-white">Smooth</option>
+                <option value="rich" className="bg-gray-800 text-white">Rich</option>
+                <option value="adaptive" className="bg-gray-800 text-white">Adaptive</option>
               </select>
               
               <div className="w-px h-6 bg-white/20" />
               
               {/* Help */}
               <button
-                onClick={() => {/* TODO: Show keyboard shortcuts */}}
+                onClick={() => setShowHelp(true)}
                 className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
                 title="Help (Press ?)"
               >
@@ -156,11 +161,15 @@ const EditorToolbar = () => {
               
               {/* Settings */}
               <button
-                onClick={() => {/* TODO: Show settings panel */}}
-                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                onClick={() => setShowSettings(!showSettings)}
+                className={`p-2 rounded-lg transition-colors ${
+                  showSettings
+                    ? 'bg-white/30 text-white'
+                    : 'bg-white/10 hover:bg-white/20 text-white'
+                }`}
                 title="Settings"
               >
-                <Settings className="w-5 h-5 text-white" />
+                <Settings className="w-5 h-5" />
               </button>
             </div>
             
@@ -178,6 +187,9 @@ const EditorToolbar = () => {
           </div>
         </div>
       </motion.div>
+      
+      {/* Help Modal */}
+      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
     </AnimatePresence>
   );
 };

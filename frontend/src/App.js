@@ -13,6 +13,7 @@ import FlyingItemAnimation from './components/FlyingItemAnimation';
 import AdminToolbar from './components/AdminToolbar';
 // import UpdateChecker from './backburner/components/UpdateChecker'; // Disabled - backburner component
 import UpdateNotification from './components/UpdateNotification';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Lazy load pages for better performance
 const Login = lazy(() => import('./pages/Login'));
@@ -22,7 +23,7 @@ const Recipes = lazy(() => import('./pages/Recipes'));
 // const RecipesNew = lazy(() => import('./backburner/pages/RecipesNew')); // Disabled - backburner
 const PantryEnhanced = lazy(() => import('./pages/PantryEnhanced'));
 // const PantryNew = lazy(() => import('./backburner/pages/PantryNew')); // Disabled - backburner
-// const PantryNewV2 = lazy(() => import('./backburner/pages/PantryNewV2')); // Disabled - backburner
+const PantryNewV2 = lazy(() => import('./backburner/pages/PantryNewV2')); // Home Inventory
 const StagingArea = lazy(() => import('./pages/StagingArea'));
 // const MealPlan = lazy(() => import('./pages/MealPlan')); // Disabled
 // const Statistics = lazy(() => import('./pages/Statistics')); // Disabled
@@ -90,7 +91,7 @@ const AnimatedRoutes = () => {
         {/* <Route path="/recipes" element={<PrivateRoute><RecipesNew /></PrivateRoute>} /> */} {/* Disabled - backburner, will redo */}
         <Route path="/recipes" element={<PrivateRoute><Recipes /></PrivateRoute>} /> {/* Using current Recipes for now */}
         <Route path="/pantry" element={<PrivateRoute><PantryEnhanced /></PrivateRoute>} />
-        {/* <Route path="/pantry-new" element={<PrivateRoute><PantryNewV2 /></PrivateRoute>} /> */} {/* Disabled - backburner */}
+        <Route path="/pantry-new-v2" element={<PrivateRoute><PantryNewV2 /></PrivateRoute>} /> {/* Home Inventory */}
         {/* <Route path="/pantry-old" element={<PrivateRoute><PantryNew /></PrivateRoute>} /> */} {/* Disabled - backburner */}
         <Route path="/staging" element={<PrivateRoute><StagingArea /></PrivateRoute>} />
         {/* <Route path="/meal-plan" element={<PrivateRoute><MealPlan /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
@@ -133,19 +134,21 @@ const AppWithEditor = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <FeatureFlagProvider>
-        <ThemeProvider>
-          <OptimizationProvider>
-            <PreviewModeProvider>
-              <CartAnimationProvider>
-                <AppWithEditor />
-              </CartAnimationProvider>
-            </PreviewModeProvider>
-          </OptimizationProvider>
-        </ThemeProvider>
-      </FeatureFlagProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <FeatureFlagProvider>
+          <ThemeProvider>
+            <OptimizationProvider>
+              <PreviewModeProvider>
+                <CartAnimationProvider>
+                  <AppWithEditor />
+                </CartAnimationProvider>
+              </PreviewModeProvider>
+            </OptimizationProvider>
+          </ThemeProvider>
+        </FeatureFlagProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

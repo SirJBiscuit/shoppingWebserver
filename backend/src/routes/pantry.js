@@ -29,14 +29,10 @@ router.post('/', authenticateToken, async (req, res) => {
     
     const result = await db.query(`
       INSERT INTO pantry_inventory 
-        (user_id, item_name, quantity, unit, barcode, category_id, image_url, expiry_date, source)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      ON CONFLICT (user_id, profile_id, item_name) 
-      DO UPDATE SET 
-        quantity = pantry_inventory.quantity + EXCLUDED.quantity,
-        last_updated = CURRENT_TIMESTAMP
+        (user_id, item_name, quantity, unit, barcode, category_id, image_url, expiry_date, source, storage_location)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
-    `, [req.user.userId, item_name, quantity, unit, barcode, category_id, image_url, expiry_date, source || 'manual']);
+    `, [req.user.userId, item_name, quantity, unit, barcode, category_id, image_url, expiry_date, source || 'manual', req.body.storage_location || 'pantry']);
     
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -54,14 +50,10 @@ router.post('/bulk', authenticateToken, async (req, res) => {
     for (const item of items) {
       const result = await db.query(`
         INSERT INTO pantry_inventory 
-          (user_id, item_name, quantity, unit, barcode, category_id, image_url, source)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ON CONFLICT (user_id, profile_id, item_name) 
-        DO UPDATE SET 
-          quantity = pantry_inventory.quantity + EXCLUDED.quantity,
-          last_updated = CURRENT_TIMESTAMP
+          (user_id, item_name, quantity, unit, barcode, category_id, image_url, source, storage_location)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
-      `, [req.user.userId, item.item_name, item.quantity || 1, item.unit, item.barcode, item.category_id, item.image_url, source || 'scan']);
+      `, [req.user.userId, item.item_name, item.quantity || 1, item.unit, item.barcode, item.category_id, item.image_url, source || 'scan', item.storage_location || 'pantry']);
       
       addedItems.push(result.rows[0]);
     }
