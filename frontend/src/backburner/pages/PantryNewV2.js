@@ -7,7 +7,8 @@ import { useToast } from '../../hooks/useToast';
 import Sidebar from '../../components/Sidebar';
 import PageTransition from '../../components/PageTransition';
 import Toast from '../../components/Toast';
-import ConfirmModal from '../../components/ConfirmModal';
+import CustomNotification from '../../components/CustomNotification';
+import { useNotification } from '../../hooks/useNotification';
 
 // New Home Inventory Components
 import LocationNavigator from '../../components/inventory/LocationNavigator';
@@ -32,6 +33,7 @@ const PantryNewV2 = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { success, error: showError, toasts, hideToast } = useToast();
+  const { notification, hideNotification, confirmDelete } = useNotification();
 
   // Core State
   const [items, setItems] = useState([]);
@@ -52,12 +54,6 @@ const PantryNewV2 = () => {
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [confirmModal, setConfirmModal] = useState({ 
-    isOpen: false, 
-    title: '', 
-    message: '', 
-    onConfirm: null 
-  });
 
   // Stats
   const [stats, setStats] = useState(null);
@@ -278,34 +274,27 @@ const PantryNewV2 = () => {
       await loadStats();
     } catch (error) {
       console.error('Failed to save item:', error);
-      showError('Failed to save item');
+      showError(`Failed to save item: ${error.message}`);
     }
   };
 
   const handleDeleteItem = (item) => {
-    setConfirmModal({
-      isOpen: true,
-      title: 'Delete Item?',
-      message: `Are you sure you want to delete "${item.item_name}"? This action cannot be undone.`,
-      onConfirm: async () => {
+    confirmDelete(
+      `Delete "${item.item_name}"?`,
+      'This action cannot be undone.',
+      async () => {
         try {
-          console.log('Deleting item:', item.id, item.item_name);
           const result = await inventoryAPI.deleteItem(item.id);
           console.log('Delete result:', result);
           success('Item deleted successfully!');
-          setConfirmModal({ isOpen: false });
           await loadItems();
           await loadStats();
         } catch (error) {
-          console.error('Failed to delete item:', error);
-          console.error('Error response:', error.response?.data);
-          console.error('Error status:', error.response?.status);
-          console.error('Full error object:', JSON.stringify(error.response, null, 2));
-          const errorMsg = error.response?.data?.error || error.message || 'Unknown error';
-          showError(`Failed to delete item: ${errorMsg}`);
+          console.error('Error deleting item:', error);
+          showError(`Failed to delete item: ${error.message}`);
         }
       }
-    });
+    );
   };
 
   const handleStillGood = async (item) => {
@@ -388,13 +377,11 @@ const PantryNewV2 = () => {
 
   const handleBulkDelete = () => {
     const count = selectedItems.length;
-    setConfirmModal({
-      isOpen: true,
-      title: `Delete ${count} Items?`,
-      message: `Are you sure you want to delete ${count} selected items? This action cannot be undone.`,
-      onConfirm: async () => {
+    confirmDelete(
+      `Delete ${count} Items?`,
+      `Are you sure you want to delete ${count} selected items? This action cannot be undone.`,
+      async () => {
         try {
-          setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null });
           await Promise.all(selectedItems.map(id => inventoryAPI.deleteItem(id)));
           success(`${count} items deleted!`);
           setSelectedItems([]);
@@ -402,11 +389,11 @@ const PantryNewV2 = () => {
           await loadItems();
           await loadStats();
         } catch (error) {
-          console.error('Failed to delete items:', error);
-          showError('Failed to delete items');
+          console.error('Error bulk deleting:', error);
+          showError(`Failed to delete items: ${error.message}`);
         }
       }
-    });
+    );
   };
 
   const handleBulkFavorite = async () => {
@@ -422,7 +409,7 @@ const PantryNewV2 = () => {
       await loadItems();
     } catch (error) {
       console.error('Failed to favorite items:', error);
-      showError('Failed to favorite items');
+      showError(`Failed to favorite items: ${error.message}`);
     }
   };
 
@@ -439,7 +426,7 @@ const PantryNewV2 = () => {
       await loadItems();
     } catch (error) {
       console.error('Failed to unfavorite items:', error);
-      showError('Failed to unfavorite items');
+      showError(`Failed to unfavorite items: ${error.message}`);
     }
   };
 
@@ -461,23 +448,21 @@ const PantryNewV2 = () => {
         return;
       }
       
-      setConfirmModal({
-        isOpen: true,
-        title: 'Clear All Items?',
-        message: `Are you sure you want to delete ALL ${totalItems} items? This action cannot be undone.`,
-        onConfirm: async () => {
+      confirmDelete(
+        'Clear All Items?',
+        `Are you sure you want to delete ALL ${totalItems} items? This action cannot be undone.`,
+        async () => {
           try {
-            setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null });
             await Promise.all(items.map(item => inventoryAPI.deleteItem(item.id)));
             success('All items cleared!');
             await loadItems();
             await loadStats();
           } catch (error) {
-            console.error('Failed to clear all:', error);
-            showError('Failed to clear items');
+            console.error('Error clearing all:', error);
+            showError(`Failed to clear items: ${error.message}`);
           }
         }
-      });
+      );
     } else {
       // Clear specific location
       const locationItems = items.filter(item => item.custom_location_id === location.id);
@@ -486,23 +471,21 @@ const PantryNewV2 = () => {
         return;
       }
       
-      setConfirmModal({
-        isOpen: true,
-        title: `Clear ${location.name}?`,
-        message: `Are you sure you want to delete all ${locationItems.length} items from ${location.name}? This action cannot be undone.`,
-        onConfirm: async () => {
+      confirmDelete(
+        `Clear ${location.name}?`,
+        `Are you sure you want to delete all ${locationItems.length} items from ${location.name}? This action cannot be undone.`,
+        async () => {
           try {
-            setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null });
             await Promise.all(locationItems.map(item => inventoryAPI.deleteItem(item.id)));
             success(`${location.name} cleared!`);
             await loadItems();
             await loadStats();
           } catch (error) {
-            console.error('Failed to clear location:', error);
-            showError('Failed to clear location');
+            console.error('Error clearing location:', error);
+            showError(`Failed to clear location: ${error.message}`);
           }
         }
-      });
+      );
     }
   };
 
@@ -720,21 +703,8 @@ const PantryNewV2 = () => {
           />
         )}
 
-        {/* Confirm Modal */}
-        <ConfirmModal
-          isOpen={confirmModal.isOpen}
-          onCancel={() => setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null })}
-          onConfirm={() => {
-            if (confirmModal.onConfirm) {
-              confirmModal.onConfirm();
-            }
-          }}
-          title={confirmModal.title}
-          message={confirmModal.message}
-          confirmText="Delete"
-          cancelText="Cancel"
-          type="danger"
-        />
+        {/* Custom Notification */}
+        <CustomNotification {...notification} onClose={hideNotification} />
 
         {/* Bulk Action Bar */}
         <BulkActionBar
