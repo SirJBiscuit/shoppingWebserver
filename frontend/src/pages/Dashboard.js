@@ -634,17 +634,18 @@ const Dashboard = () => {
 
   // Get sorted items based on store selection
   const getSortedItems = () => {
-    if (!smartSort) return items;
+    const validItems = (items || []).filter(item => item != null);
+    if (!smartSort) return validItems;
     
     // Use new smart sorting with temperature zones and fragility rules
     // This ensures: produce first, frozen last, fragile items on top
-    return smartSortItems(items, null); // TODO: Pass store template when available
+    return smartSortItems(validItems, null); // TODO: Pass store template when available
   };
 
   // Get next unchecked item for "Looking for Next" feature
   const getNextItem = () => {
     const sortedItems = getSortedItems();
-    return sortedItems.find(item => !item.is_checked && !skippedItems.includes(item.id));
+    return sortedItems.find(item => item && !item.is_checked && !skippedItems.includes(item.id));
   };
   
   // Skip current item and move to next
