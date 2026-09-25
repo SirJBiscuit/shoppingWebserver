@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Save, Copy, Edit2, MapPin } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
+import { useNotification } from '../hooks/useNotification';
 import { storeLayouts } from '../data/storeLayouts';
-import ConfirmDialog from './ConfirmDialog';
+import CustomNotification from './CustomNotification';
 
 const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
   const { success, error } = useToast();
+  const { notification, hideNotification, confirmDelete } = useNotification();
   const [userStores, setUserStores] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newStoreName, setNewStoreName] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [editingStore, setEditingStore] = useState(null);
   const [aisles, setAisles] = useState([]);
-  const [storeToDelete, setStoreToDelete] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -100,25 +101,29 @@ const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
     }
   };
 
-  const confirmDeleteStore = async () => {
-    if (!storeToDelete) return;
+  const handleDeleteStore = (store) => {
+    confirmDelete(
+      `Delete "${store.name}"?`,
+      'This will remove all aisle configurations.',
+      async () => {
+        try {
+          const response = await fetch(`/api/stores/${store.id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          });
 
-    try {
-      const response = await fetch(`/api/stores/${storeToDelete.id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-
-      if (response.ok) {
-        success('Store deleted');
-        loadUserStores();
+          if (response.ok) {
+            success('Store deleted successfully');
+            await loadUserStores();
+          } else {
+            error('Failed to delete store');
+          }
+        } catch (err) {
+          console.error('Error deleting store:', err);
+          error('Failed to delete store');
+        }
       }
-    } catch (err) {
-      console.error('Error deleting store:', err);
-      error('Failed to delete store');
-    } finally {
-      setStoreToDelete(null);
-    }
+    );
   };
 
   const loadStoreAisles = async (storeId) => {
@@ -453,7 +458,7 @@ const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
                         )}
                       </div>
                       <button
-                        onClick={() => setStoreToDelete(store)}
+                        onClick={() => handleDeleteStore(store)}
                         className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -481,17 +486,8 @@ const StoreManager = ({ isOpen, onClose, onStoreCreated }) => {
         </div>
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      <ConfirmDialog
-        isOpen={storeToDelete !== null}
-        title="Delete Store"
-        message={`Are you sure you want to delete "${storeToDelete?.name}"? This will remove all aisle configurations.`}
-        onConfirm={confirmDeleteStore}
-        onCancel={() => setStoreToDelete(null)}
-        confirmText="Delete"
-        cancelText="Cancel"
-        type="danger"
-      />
+      {/* Custom Notification */}
+      <CustomNotification {...notification} onClose={hideNotification} />
     </div>
   );
 };
