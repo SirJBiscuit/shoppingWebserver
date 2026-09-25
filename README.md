@@ -1,6 +1,6 @@
 # CloudMC Shop - Smart Shopping List
 
-A modern, intelligent shopping list web application designed for shop.cloudmc.online with AI-powered features to optimize your shopping experience.
+A modern, intelligent shopping list web application designed for shop.cloudmc.online with machine data learning features to optimize your shopping experience.
 
 **Repository:** https://github.com/SirJBiscuit/shoppingWebserver
 
