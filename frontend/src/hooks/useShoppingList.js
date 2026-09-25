@@ -63,7 +63,7 @@ export const useShoppingItems = (listId) => {
     invalidate,
   } = useSmartState(
     `shopping_items_${listId}`,
-    () => shoppingAPI.getItems(listId),
+    () => shoppingAPI.getListItems(listId).then(r => r.json()),
     {
       cacheExpiry: 15,
       optimistic: true,
