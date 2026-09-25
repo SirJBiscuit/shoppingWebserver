@@ -25,3 +25,5 @@ export {
 } from './useMDL';
 
 export { default as useUserPreferences } from './useUserPreferences';
+
+export { default as useContextMenu } from './useContextMenu';
