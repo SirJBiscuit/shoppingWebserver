@@ -1164,14 +1164,19 @@ const Dashboard = () => {
         }).catch(err => console.error('Error recording check-off:', err));
       }
     } catch (error) {
-      console.error('Error updating item:', error);
-      // Revert optimistic update on error
-      setItems(prevItems => 
-        prevItems.map(i => 
-          i.id === item.id ? { ...i, is_checked: !newCheckedState } : i
-        )
-      );
-      // Error - no sound
+      // If 404, item already deleted - just reload
+      if (error.message?.includes('404') || error.response?.status === 404) {
+        await loadListItems(activeList.id);
+      } else {
+        // Real error - revert and show error
+        console.error('Error updating item:', error);
+        setItems(prevItems => 
+          prevItems.map(i => 
+            i.id === item.id ? { ...i, is_checked: !newCheckedState } : i
+          )
+        );
+        error('Failed to update item');
+      }
     }
   };
 
@@ -1186,9 +1191,15 @@ const Dashboard = () => {
       // Reload to ensure sync
       await loadListItems(activeList.id);
     } catch (error) {
-      console.error('Error deleting item:', error);
-      // Reload on error to restore correct state
-      await loadListItems(activeList.id);
+      // If 404, item already deleted - this is fine, just reload
+      if (error.message?.includes('404') || error.response?.status === 404) {
+        await loadListItems(activeList.id);
+      } else {
+        // Real error - show to user and reload
+        console.error('Error deleting item:', error);
+        error('Failed to delete item');
+        await loadListItems(activeList.id);
+      }
     }
   };
 
