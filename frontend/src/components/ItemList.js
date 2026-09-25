@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
-import EditItemModal from './EditItemModal';
+import CustomEditPanel from './CustomEditPanel';
 // import ItemTooltip from './ItemTooltip'; // Component doesn't exist
 // import SmartSuggestionTooltip from './SmartSuggestionTooltip'; // Component doesn't exist
 import { detectIcon, detectCategory } from '../utils/categoryDetector';
@@ -201,7 +201,7 @@ const ItemListContent = (props) => {
     </div>
 
     {/* Edit Item Modal */}
-    <EditItemModal
+    <CustomEditPanel
       item={editingItem}
       isOpen={showEditModal}
       onClose={() => {

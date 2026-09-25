@@ -45,7 +45,7 @@ import CopyItemModal from '../components/CopyItemModal';
 import SaveTemplateModal from '../components/SaveTemplateModal';
 import NextItemSuggestion from '../components/NextItemSuggestion';
 import CustomPanel from '../components/CustomPanel';
-import EditItemModal from '../components/EditItemModal';
+import CustomEditPanel from '../components/CustomEditPanel';
 import CustomNumberPad from '../components/CustomNumberPad';
 import CustomNotification from '../components/CustomNotification';
 import { useNotification } from '../hooks/useNotification';
@@ -2532,7 +2532,7 @@ const Dashboard = () => {
 
       {/* Edit Next Item Modal */}
       {editingNextItem && (
-        <EditItemModal
+        <CustomEditPanel
           item={editingNextItem}
           isOpen={true}
           onClose={() => setEditingNextItem(null)}
