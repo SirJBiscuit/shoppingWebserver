@@ -11,7 +11,7 @@ import {
   AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, 
   ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, Eye, EyeOff, 
   StickyNote, Store, ChevronDown, ChevronUp, Save, ArrowRight, FileText, Zap, 
-  MapPin, List, Wand2, Grid
+  MapPin, List, Wand2, Grid, RefreshCw
 } from 'lucide-react';
 import EditorToolbar from '../components/editor/EditorToolbar';
 import EditorOverlay, { EditorModeIndicator, EditableContainer } from '../components/editor/EditorOverlay';
@@ -1543,7 +1543,22 @@ const Dashboard = () => {
               <HelpButton userId={user?.id || user?.username} />
               
               {/* Cache Refresh Button */}
-              <CacheRefreshButton />
+              {(() => {
+                try {
+                  return <CacheRefreshButton />;
+                } catch (error) {
+                  console.error('CacheRefreshButton error:', error);
+                  return (
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      title="Refresh page"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                    </button>
+                  );
+                }
+              })()}
               
               {/* Console Viewer (for debugging on tablets) */}
               <ConsoleViewer />
