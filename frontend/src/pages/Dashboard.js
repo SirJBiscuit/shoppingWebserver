@@ -1437,8 +1437,8 @@ const Dashboard = () => {
     return now.toISOString().split('T')[0];
   };
 
-  const totalCost = items.reduce((sum, item) => sum + (item.price * item.quantity || 0), 0);
-  const checkedCount = items.filter(item => item.is_checked).length;
+  const totalCost = items.reduce((sum, item) => sum + ((item?.price || 0) * (item?.quantity || 0)), 0);
+  const checkedCount = items.filter(item => item?.is_checked).length;
 
   if (loading) {
     return (
