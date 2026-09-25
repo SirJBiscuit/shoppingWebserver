@@ -1176,10 +1176,18 @@ const Dashboard = () => {
 
   const deleteItem = async (itemId) => {
     try {
+      // Optimistically remove from UI immediately
+      setItems(prevItems => prevItems.filter(item => item.id !== itemId));
+      
+      // Then delete from backend
       await shoppingAPI.deleteItem(activeList.id, itemId);
+      
+      // Reload to ensure sync
       await loadListItems(activeList.id);
     } catch (error) {
       console.error('Error deleting item:', error);
+      // Reload on error to restore correct state
+      await loadListItems(activeList.id);
     }
   };
 
