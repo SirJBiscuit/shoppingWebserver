@@ -50,6 +50,7 @@ import CustomNumberPad from '../components/CustomNumberPad';
 import CustomNotification from '../components/CustomNotification';
 import CacheRefreshButton from '../components/CacheRefreshButton';
 import { useNotification } from '../hooks/useNotification';
+import { useShoppingItems } from '../hooks/useShoppingList';
 import Toast from '../components/Toast';
 import { XPNotificationContainer, showXPNotification } from '../components/XPNotification';
 import CustomSearchBar from '../components/CustomSearchBar';
@@ -102,7 +103,12 @@ const Dashboard = () => {
   useScrollSound(false);
   const [activeList, setActiveList] = useState(null);
   const [lists, setLists] = useState([]);
+  
+  // TODO: Migrate to useSmartState for automatic cache sync and optimistic updates
+  // const { items, loading: itemsLoading, addItem, updateItem, deleteItem, refresh } = useShoppingItems(activeList?.id);
+  // For now, using manual state management (legacy)
   const [items, setItems] = useState([]);
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [newItemName, setNewItemName] = useState('');
@@ -291,7 +297,15 @@ const Dashboard = () => {
         return;
       }
       
-      loadListItems(activeList.id);
+      // CRITICAL: Clear items immediately to prevent stale data
+      setItems([]);
+      setLoading(true);
+      
+      // Load new items
+      loadListItems(activeList.id).finally(() => {
+        setLoading(false);
+      });
+      
       // Remember last used list in MDL (user-specific, persists across devices and cache clears)
       savePreference('last_active_list_id', activeList.id.toString());
       localStorage.setItem('lastActiveListId', activeList.id.toString());
