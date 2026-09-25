@@ -48,6 +48,7 @@ import CustomPanel from '../components/CustomPanel';
 import CustomEditPanel from '../components/CustomEditPanel';
 import CustomNumberPad from '../components/CustomNumberPad';
 import CustomNotification from '../components/CustomNotification';
+import CacheRefreshButton from '../components/CacheRefreshButton';
 import { useNotification } from '../hooks/useNotification';
 import Toast from '../components/Toast';
 import { XPNotificationContainer, showXPNotification } from '../components/XPNotification';
@@ -1536,10 +1537,13 @@ const Dashboard = () => {
               </button>
             )}
 
-            {/* Right Side - Help, Optimization Toggle, Notifications and Logout */}
+            {/* Right Side - Help, Cache, Optimization Toggle, Notifications and Logout */}
             <div className="flex items-center space-x-2 sm:space-x-4" data-tutorial="top-toolbar">
               {/* Help Button */}
               <HelpButton userId={user?.id || user?.username} />
+              
+              {/* Cache Refresh Button */}
+              <CacheRefreshButton />
               
               {/* Console Viewer (for debugging on tablets) */}
               <ConsoleViewer />
