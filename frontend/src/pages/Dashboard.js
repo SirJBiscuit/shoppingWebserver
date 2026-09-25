@@ -1542,23 +1542,21 @@ const Dashboard = () => {
               {/* Help Button */}
               <HelpButton userId={user?.id || user?.username} />
               
-              {/* Cache Refresh Button */}
-              {(() => {
-                try {
-                  return <CacheRefreshButton />;
-                } catch (error) {
-                  console.error('CacheRefreshButton error:', error);
-                  return (
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                      title="Refresh page"
-                    >
-                      <RefreshCw className="w-5 h-5" />
-                    </button>
-                  );
-                }
-              })()}
+              {/* Cache Refresh Button - Temporary Test */}
+              <button
+                onClick={() => {
+                  console.log('Cache button clicked!');
+                  if (window.confirm('Clear browser cache and reload?')) {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    window.location.reload();
+                  }
+                }}
+                className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                title="Clear Cache & Reload"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
               
               {/* Console Viewer (for debugging on tablets) */}
               <ConsoleViewer />
