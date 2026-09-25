@@ -402,4 +402,43 @@ router.post('/stores', authenticateToken, async (req, res) => {
   }
 });
 
+// Get user preference by key
+router.get('/preferences/:key', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT preference_value FROM mdl_user_preferences
+      WHERE user_id = $1 AND preference_key = $2
+    `, [req.user.id, req.params.key]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Preference not found' });
+    }
+    
+    res.json({ value: result.rows[0].preference_value });
+  } catch (error) {
+    console.error('Error getting preference:', error);
+    res.status(500).json({ error: 'Failed to get preference' });
+  }
+});
+
+// Set user preference
+router.post('/preferences', authenticateToken, async (req, res) => {
+  try {
+    const { key, value } = req.body;
+    
+    const result = await db.query(`
+      INSERT INTO mdl_user_preferences (user_id, preference_key, preference_value, updated_at)
+      VALUES ($1, $2, $3, NOW())
+      ON CONFLICT (user_id, preference_key) 
+      DO UPDATE SET preference_value = $3, updated_at = NOW()
+      RETURNING *
+    `, [req.user.id, key, value]);
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error saving preference:', error);
+    res.status(500).json({ error: 'Failed to save preference' });
+  }
+});
+
 module.exports = router;
