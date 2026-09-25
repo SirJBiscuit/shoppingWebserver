@@ -198,14 +198,32 @@ const Dashboard = () => {
     
     // CRITICAL: Load lists and items first (blocking)
     const initializeApp = async () => {
-      await loadLists(true); // Force set active list on initial load
-      
-      // NON-CRITICAL: Load everything else with staggered delays to prevent rate limiting
-      setTimeout(() => loadSuggestions(), 100);
-      setTimeout(() => loadItemPreferences(), 300);
-      setTimeout(() => loadInventory(), 500);
-      setTimeout(() => loadCategories(), 700);
-      setTimeout(() => loadCustomStores(), 900);
+      try {
+        setLoading(true);
+        
+        // CRITICAL: Load lists and items first (parallel)
+        await Promise.all([
+          loadLists(true), // Force set active list on initial load
+          loadCategories(), // Needed for item display
+        ]);
+        
+        // Critical data loaded - UI can render now
+        setLoading(false);
+        
+        // IMPORTANT: Load preferences and inventory (parallel, after lists)
+        Promise.all([
+          loadItemPreferences(),
+          loadInventory(),
+          loadCustomStores(),
+        ]).catch(err => console.error('Error loading secondary data:', err));
+        
+        // NON-CRITICAL: Load suggestions last
+        setTimeout(() => loadSuggestions(), 500);
+      } catch (error) {
+        console.error('Error initializing app:', error);
+        setLoading(false);
+        error('Failed to load shopping lists');
+      }
     };
     
     initializeApp();
