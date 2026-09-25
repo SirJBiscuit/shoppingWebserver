@@ -2873,7 +2873,7 @@ const Dashboard = () => {
             </div>
             <div>
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {items.filter(i => i.is_checked).length}
+                {items.filter(i => i && i.is_checked).length}
               </div>
               <div className="text-xs text-gray-600 dark:text-gray-400">
                 Found
@@ -2881,7 +2881,7 @@ const Dashboard = () => {
             </div>
             <div>
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                ${items.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 1), 0).toFixed(2)}
+                ${items.filter(i => i).reduce((sum, item) => sum + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 1), 0).toFixed(2)}
               </div>
               <div className="text-xs text-gray-600 dark:text-gray-400">
                 Total
