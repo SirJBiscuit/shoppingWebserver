@@ -47,15 +47,14 @@ import NextItemSuggestion from '../components/NextItemSuggestion';
 import CustomPanel from '../components/CustomPanel';
 import EditItemModal from '../components/EditItemModal';
 import CustomNumberPad from '../components/CustomNumberPad';
-import ConfirmDialog from '../components/ConfirmDialog';
+import CustomNotification from '../components/CustomNotification';
+import { useNotification } from '../hooks/useNotification';
 import Toast from '../components/Toast';
 import { XPNotificationContainer, showXPNotification } from '../components/XPNotification';
 import CustomSearchBar from '../components/CustomSearchBar';
 import CustomDropdownList from '../components/CustomDropdownList';
 import CustomSwipeActions from '../components/CustomSwipeActions';
 import CustomContextMenu from '../components/CustomContextMenu';
-import CustomNotification from '../components/CustomNotification';
-import { useNotification } from '../hooks/useNotification';
 import { useToast } from '../hooks/useToast';
 import * as shoppingAPI from '../api/shopping';
 import * as itemsAPI from '../api/items';
@@ -137,7 +136,6 @@ const Dashboard = () => {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showNewListModal, setShowNewListModal] = useState(false);
   const [showPriceLearning, setShowPriceLearning] = useState(false);
-  const [listToDelete, setListToDelete] = useState(null);
   const [editingListName, setEditingListName] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [newListStore, setNewListStore] = useState('');
@@ -155,7 +153,6 @@ const Dashboard = () => {
   const [skippedItems, setSkippedItems] = useState([]);
   const [skippedItemsHistory, setSkippedItemsHistory] = useState([]);
   const [deletedItemsHistory, setDeletedItemsHistory] = useState([]);
-  const [showClearInventoryConfirm, setShowClearInventoryConfirm] = useState(false);
   const [editingNextItem, setEditingNextItem] = useState(null);
   const [itemForNote, setItemForNote] = useState(null);
   const [noteText, setNoteText] = useState('');
@@ -529,35 +526,33 @@ const Dashboard = () => {
       return;
     }
     
-    setListToDelete(listId);
-  };
-
-  const confirmDeleteList = async () => {
-    if (!listToDelete) return;
-    
-    try {
-      const wasActiveList = activeList?.id === listToDelete;
-      
-      await shoppingAPI.deleteList(listToDelete);
-      success('Shopping list deleted');
-      const response = await shoppingAPI.getLists();
-      setLists(response.data);
-      
-      // If we deleted the active list, switch to the first available list
-      if (wasActiveList && response.data.length > 0) {
-        const newActiveList = response.data[0];
-        setActiveList(newActiveList);
-        // Don't call loadListItems here - the useEffect will handle it
-      } else if (response.data.length === 0) {
-        // If no lists left, create a new one
-        await createNewList();
+    const listToDeleteObj = lists.find(l => l.id === listId);
+    confirmDelete(
+      `Delete "${listToDeleteObj?.name || 'this list'}"?`,
+      'All items will be removed permanently.',
+      async () => {
+        try {
+          const wasActiveList = activeList?.id === listId;
+          
+          await shoppingAPI.deleteList(listId);
+          success('Shopping list deleted');
+          const response = await shoppingAPI.getLists();
+          setLists(response.data);
+          
+          // If we deleted the active list, switch to the first available list
+          if (wasActiveList && response.data.length > 0) {
+            const newActiveList = response.data[0];
+            setActiveList(newActiveList);
+          } else if (response.data.length === 0) {
+            // If no lists left, create a new one
+            await createNewList();
+          }
+        } catch (err) {
+          console.error('Error deleting list:', err);
+          error('Failed to delete shopping list');
+        }
       }
-    } catch (err) {
-      console.error('Error deleting list:', err);
-      error('Failed to delete shopping list');
-    } finally {
-      setListToDelete(null);
-    }
+    );
   };
 
   const loadCompletedLists = async () => {
@@ -2316,7 +2311,24 @@ const Dashboard = () => {
                     error('Failed to delete item');
                   }
                 }}
-                onClearAll={() => setShowClearInventoryConfirm(true)}
+                onClearAll={() => {
+                  confirmDelete(
+                    'Clear All Inventory?',
+                    'This will permanently delete all items from your Pantry, Fridge, and Freezer. This action cannot be undone.',
+                    async () => {
+                      try {
+                        for (const item of inventory) {
+                          await pantryAPI.deleteItem(item.id);
+                        }
+                        await loadInventory();
+                        success('All items cleared from inventory');
+                      } catch (err) {
+                        console.error('Error clearing inventory:', err);
+                        error('Failed to clear inventory');
+                      }
+                    }
+                  );
+                }}
               />
             </div>
           </div>
@@ -2563,17 +2575,8 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Delete List Confirmation */}
-      <ConfirmDialog
-        isOpen={listToDelete !== null}
-        title="Delete Shopping List"
-        message="Are you sure you want to delete this shopping list? All items will be removed permanently."
-        onConfirm={confirmDeleteList}
-        onCancel={() => setListToDelete(null)}
-        confirmText="Delete"
-        cancelText="Cancel"
-        type="danger"
-      />
+      {/* Custom Notification */}
+      <CustomNotification {...notification} onClose={hideNotification} />
 
       {/* Edit List Name Modal */}
       {editingListName && (
@@ -2723,29 +2726,6 @@ const Dashboard = () => {
         defaultName={activeList?.name}
       />
 
-      {/* Clear Inventory Confirmation */}
-      <ConfirmDialog
-        isOpen={showClearInventoryConfirm}
-        title="Clear All Inventory?"
-        message="Are you sure you want to clear all items from your kitchen inventory? This will permanently delete all items from your Pantry, Fridge, and Freezer. This action cannot be undone."
-        confirmText="Clear All"
-        cancelText="Cancel"
-        type="danger"
-        onConfirm={async () => {
-          try {
-            for (const item of inventory) {
-              await pantryAPI.deleteItem(item.id);
-            }
-            await loadInventory();
-            success('All items cleared from inventory');
-            setShowClearInventoryConfirm(false);
-          } catch (err) {
-            console.error('Error clearing inventory:', err);
-            error('Failed to clear inventory');
-          }
-        }}
-        onCancel={() => setShowClearInventoryConfirm(false)}
-      />
 
       {/* Update Notification - Shows when new version is available */}
       <UpdateNotification />
