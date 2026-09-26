@@ -1574,18 +1574,31 @@ const Dashboard = () => {
               {/* Help Button */}
               <HelpButton userId={user?.id || user?.username} />
               
-              {/* Cache Refresh Button - Temporary Test */}
+              {/* Cache Refresh Button */}
               <button
                 onClick={() => {
                   console.log('Cache button clicked!');
-                  if (window.confirm('Clear browser cache and reload?')) {
+                  if (window.confirm('Clear app cache and reload?')) {
+                    // Preserve auth token and user data
+                    const token = localStorage.getItem('token');
+                    const userId = localStorage.getItem('userId');
+                    const username = localStorage.getItem('username');
+                    
+                    // Clear everything
                     localStorage.clear();
                     sessionStorage.clear();
+                    
+                    // Restore auth data
+                    if (token) localStorage.setItem('token', token);
+                    if (userId) localStorage.setItem('userId', userId);
+                    if (username) localStorage.setItem('username', username);
+                    
+                    // Reload
                     window.location.reload();
                   }
                 }}
                 className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-                title="Clear Cache & Reload"
+                title="Clear Cache & Reload (preserves login)"
               >
                 <RefreshCw className="w-5 h-5" />
               </button>
