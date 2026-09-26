@@ -95,14 +95,12 @@ export const useShoppingItems = (listId) => {
   }, [listId, items, update]);
 
   const checkMultiple = useCallback(async (itemIds, checked) => {
-    return batchUpdate(
-      itemIds.map(id => ({
-        id,
-        changes: { is_checked: checked }
-      })),
-      (updates) => shoppingAPI.batchUpdateItems(listId, updates)
+    // Since we don't have a batch API, update items sequentially
+    const promises = itemIds.map(id => 
+      updateItem(id, { is_checked: checked })
     );
-  }, [listId, batchUpdate]);
+    return Promise.all(promises);
+  }, [listId, updateItem]);
 
   const sortItems = useCallback((sortFn) => {
     setData(prevItems => {
