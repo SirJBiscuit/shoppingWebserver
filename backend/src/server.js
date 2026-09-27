@@ -36,6 +36,7 @@ const betaTestingRoutes = require('./routes/betaTesting');
 const betaFeedbackRoutes = require('./routes/betaFeedback');
 const layoutsRoutes = require('./routes/layouts');
 const aveRoutes = require('../routes/ave');
+const storageRoutes = require('../routes/storage');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -89,6 +90,7 @@ app.use('/api/beta', betaTestingRoutes);
 app.use('/api/beta/feedback', betaFeedbackRoutes);
 app.use('/api/layouts', layoutsRoutes);
 app.use('/api/ave', aveRoutes);
+app.use('/api/admin/storage', storageRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -108,7 +110,8 @@ const runMigrations = async () => {
   const migrations = [
     { file: 'add_sound_system.sql', name: 'Sound System' },
     { file: '043_beta_testing_system.sql', name: 'Beta Testing System' },
-    { file: '044_beta_feedback_system.sql', name: 'Beta Feedback System' }
+    { file: '044_beta_feedback_system.sql', name: 'Beta Feedback System' },
+    { file: '041_admin_storage_system.sql', name: 'Admin Storage System' }
   ];
 
   for (const migration of migrations) {
