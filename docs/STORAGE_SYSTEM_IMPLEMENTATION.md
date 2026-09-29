@@ -413,51 +413,97 @@ limit: 50 // Files per page
 3. ✅ Backend API complete
 4. ✅ Frontend dashboard complete
 
-### **Future Enhancements:**
-1. **Thumbnail Generation**
-   - Auto-generate thumbnails for images
-   - Use sharp library
-   - Store in `thumbnail_path`
+### **Future Enhancements (Planned):**
 
-2. **CDN Integration**
-   - Upload to CDN (Cloudflare, AWS S3)
-   - Generate CDN URLs
-   - Automatic sync
+### **Phase 5: Advanced Features**
 
-3. **Advanced Search**
-   - Search by tags
-   - Search by date range
-   - Search by file type
-   - Advanced filters
+1. **Thumbnail Generation** (Priority: High)
+   - Auto-generate thumbnails for images on upload
+   - Use sharp library for image processing
+   - Store thumbnail path in `thumbnail_path` column
+   - Lazy load thumbnails in grid view
+   - Generate multiple sizes (small, medium, large)
+   - **Estimated Time:** 1-2 days
+   - **Dependencies:** `npm install sharp`
 
-4. **File Sharing**
-   - Generate shareable links
-   - Set expiration dates
-   - Password protection
-   - Download tracking
+2. **CDN Integration** (Priority: Medium)
+   - Upload files to Cloudflare R2 or AWS S3
+   - Generate CDN URLs for faster delivery
+   - Automatic sync between local and CDN
+   - Fallback to local storage if CDN fails
+   - Cost optimization with lifecycle policies
+   - **Estimated Time:** 3-4 days
+   - **Dependencies:** AWS SDK or Cloudflare API
 
-5. **Folder Organization**
-   - Create custom folders
-   - Move files between folders
-   - Folder permissions
+3. **Advanced Search** (Priority: Medium)
+   - Full-text search across filenames and tags
+   - Date range filters (uploaded between X and Y)
+   - File type filters (images only, documents only)
+   - Size filters (files larger than X MB)
+   - Advanced query builder UI
+   - Saved search presets
+   - **Estimated Time:** 2-3 days
 
-6. **Image Editor**
-   - Crop, resize, rotate
-   - Filters and effects
-   - Text overlay
-   - Save edited versions
+4. **File Sharing** (Priority: High)
+   - Generate shareable public links
+   - Set expiration dates for links
+   - Password protection for sensitive files
+   - Download tracking and analytics
+   - Email sharing integration
+   - QR code generation for mobile sharing
+   - **Estimated Time:** 3-4 days
 
-7. **Batch Processing**
-   - Bulk resize images
-   - Bulk convert formats
-   - Bulk tag editing
-   - Bulk move/copy
+5. **Folder Organization** (Priority: Medium)
+   - Create custom folders and subfolders
+   - Drag and drop files between folders
+   - Folder permissions (public/private)
+   - Breadcrumb navigation
+   - Folder-level quotas
+   - **Estimated Time:** 4-5 days
+   - **Database Changes:** Add `parent_folder_id` to `storage_files`
 
-8. **Storage Analytics Dashboard**
-   - Usage charts
-   - Upload trends
-   - Popular files
-   - Storage forecasting
+6. **Image Editor** (Priority: Low)
+   - Built-in image editor with crop, resize, rotate
+   - Filters and effects (brightness, contrast, saturation)
+   - Text overlay and annotations
+   - Save edited versions as new files
+   - Undo/redo support
+   - **Estimated Time:** 5-7 days
+   - **Dependencies:** Canvas API or image editing library
+
+7. **Batch Processing** (Priority: Medium)
+   - Bulk resize images to specific dimensions
+   - Bulk convert formats (PNG to JPG, etc.)
+   - Bulk tag editing and management
+   - Bulk move/copy between folders
+   - Progress tracking for long operations
+   - **Estimated Time:** 2-3 days
+
+8. **Storage Analytics Dashboard** (Priority: Low)
+   - Visual charts for storage usage over time
+   - Upload trends and patterns
+   - Most popular files by downloads
+   - Storage forecasting and alerts
+   - User-specific analytics
+   - Export analytics reports
+   - **Estimated Time:** 3-4 days
+   - **Dependencies:** Chart.js or similar
+
+9. **Version Control** (Priority: Low)
+   - Track file versions when updated
+   - Restore previous versions
+   - Compare versions side-by-side
+   - Version history timeline
+   - **Estimated Time:** 3-4 days
+   - **Database Changes:** Add `storage_file_versions` table
+
+10. **AI-Powered Features** (Priority: Future)
+    - Auto-tagging using image recognition
+    - Smart categorization
+    - Duplicate detection
+    - Content moderation
+    - **Estimated Time:** 7-10 days
+    - **Dependencies:** AI/ML service integration
 
 ---
 

@@ -4,7 +4,7 @@ import {
   Settings, RefreshCw, Download, Server, Database, 
   GitBranch, Package, ShoppingCart, ChefHat, LogOut,
   CheckCircle, XCircle, AlertCircle, Terminal, Play, Flag,
-  Crown, Users, Layout, Volume2
+  Crown, Users, Layout, Volume2, Folder
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -12,6 +12,7 @@ import Sidebar from '../components/Sidebar';
 import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import FeatureManagementVisual from '../components/admin/FeatureManagementVisual';
+import StorageDashboard from '../components/admin/StorageDashboard';
 // import UserManagement from '../backburner/components/UserManagement'; // Disabled - will rebuild with CFS
 // import DashboardEditor from '../backburner/components/DashboardEditor'; // Disabled - replaced by AES
 import SoundSettings from '../components/SoundSettings';
@@ -41,6 +42,18 @@ const AdminNew = () => {
       return () => clearInterval(statusInterval);
     }
   }, [activeTab]);
+
+  // Listen for tab change events from sidebar
+  useEffect(() => {
+    const handleTabChange = (event) => {
+      if (event.detail) {
+        setActiveTab(event.detail);
+      }
+    };
+
+    window.addEventListener('setAdminTab', handleTabChange);
+    return () => window.removeEventListener('setAdminTab', handleTabChange);
+  }, []);
 
   const checkForUpdates = async () => {
     setChecking(true);
@@ -202,6 +215,7 @@ const AdminNew = () => {
     { id: 'system', name: 'System & Updates', icon: Server },
     { id: 'features', name: 'Feature Management', icon: Flag },
     { id: 'users', name: 'User Management', icon: Users },
+    { id: 'storage', name: 'Storage Management', icon: Folder },
     { id: 'mdl', name: 'Product Database (MDL)', icon: Database },
     { id: 'sounds', name: 'Sound Management', icon: Volume2 },
     { id: 'logs', name: 'System Logs', icon: Terminal },
@@ -517,6 +531,11 @@ const AdminNew = () => {
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Storage Management Tab */}
+            {activeTab === 'storage' && (
+              <StorageDashboard />
             )}
 
             {/* Sound Management Tab */}

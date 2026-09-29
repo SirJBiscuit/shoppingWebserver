@@ -4,7 +4,7 @@ import {
   ShoppingCart, ChefHat, Package, Calendar, BarChart3, 
   Settings, Shield, History, Search, Mic, Scan, Share2,
   Menu, X, Bell, Moon, Sun, Crown, Store, Sparkles, Home, GraduationCap,
-  Book, DollarSign, Star, Users
+  Book, DollarSign, Star, Users, Folder
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -192,6 +192,22 @@ const Sidebar = ({ onAction }) => {
       color: 'text-purple-600',
       isAdmin: true,
       adminSpecial: true
+    });
+    settingsItems.push({ 
+      path: '/admin', 
+      icon: Folder, 
+      label: 'Storage Management', 
+      color: 'text-green-600',
+      isAdmin: true,
+      adminSpecial: true,
+      onClick: () => {
+        navigate('/admin');
+        // Set the active tab to storage after navigation
+        setTimeout(() => {
+          const event = new CustomEvent('setAdminTab', { detail: 'storage' });
+          window.dispatchEvent(event);
+        }, 100);
+      }
     });
   } else {
     console.log('❌ User is not admin, skipping admin button');
