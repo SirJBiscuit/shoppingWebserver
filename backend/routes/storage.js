@@ -3,8 +3,8 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
-const { authenticateToken, requireAdmin } = require('../middleware/auth');
-const db = require('../config/database');
+const { authenticateToken, isAdmin } = require('../src/middleware/auth');
+const db = require('../src/database/db');
 
 // ============================================================================
 // MULTER CONFIGURATION
@@ -63,7 +63,7 @@ const upload = multer({
 // ============================================================================
 
 // Upload single file
-router.post('/upload', authenticateToken, requireAdmin, upload.single('file'), async (req, res) => {
+router.post('/upload', authenticateToken, isAdmin, upload.single('file'), async (req, res) => {
   try {
     const { file } = req;
     const { category = 'general', tags = '', metadata = '{}' } = req.body;
@@ -128,7 +128,7 @@ router.post('/upload', authenticateToken, requireAdmin, upload.single('file'), a
 });
 
 // Upload multiple files
-router.post('/upload/bulk', authenticateToken, requireAdmin, upload.array('files', 10), async (req, res) => {
+router.post('/upload/bulk', authenticateToken, isAdmin, upload.array('files', 10), async (req, res) => {
   try {
     const { files } = req;
     const { category = 'general', tags = '' } = req.body;
@@ -179,7 +179,7 @@ router.post('/upload/bulk', authenticateToken, requireAdmin, upload.array('files
 // ============================================================================
 
 // List files
-router.get('/files', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/files', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { 
       category, 
@@ -250,7 +250,7 @@ router.get('/files', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // Get single file
-router.get('/files/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/files/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -277,7 +277,7 @@ router.get('/files/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // Update file metadata
-router.put('/files/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/files/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { original_name, tags, metadata, is_public } = req.body;
@@ -343,7 +343,7 @@ router.put('/files/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // Delete file
-router.delete('/files/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/files/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -386,7 +386,7 @@ router.delete('/files/:id', authenticateToken, requireAdmin, async (req, res) =>
 });
 
 // Bulk delete
-router.post('/files/bulk/delete', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/files/bulk/delete', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { fileIds } = req.body;
     
@@ -431,7 +431,7 @@ router.post('/files/bulk/delete', authenticateToken, requireAdmin, async (req, r
 // ============================================================================
 
 // Get storage stats
-router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/stats', authenticateToken, isAdmin, async (req, res) => {
   try {
     // Total files and size
     const totalsResult = await db.query(`
@@ -481,7 +481,7 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // Get analytics history
-router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/analytics', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { days = 30 } = req.query;
     

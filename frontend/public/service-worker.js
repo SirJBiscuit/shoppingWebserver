@@ -47,6 +47,18 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
+  // NEVER intercept or cache API requests — always go to network.
+  // Caching /api responses caused stale data (e.g. empty lists) to be
+  // served indefinitely, which triggered runaway auto-create loops.
+  if (url.pathname.startsWith('/api')) {
+    return;
+  }
+
+  // Only handle GET requests from same origin
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin) {
+    return;
+  }
+
   // Network-first strategy for HTML, JS, CSS (always get fresh content)
   if (url.pathname.endsWith('.html') || 
       url.pathname.endsWith('.js') || 
