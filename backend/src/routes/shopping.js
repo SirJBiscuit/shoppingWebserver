@@ -759,7 +759,7 @@ router.post('/price-history', async (req, res) => {
     const result = await db.query(
       `INSERT INTO price_history 
        (user_id, item_name, price, quantity, store_name, notes, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, 'approved', NOW())
        RETURNING *`,
       [req.user.id, item_name, parseFloat(price), quantity || 1, store_name || 'Unknown', notes || '']
     );

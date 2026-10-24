@@ -75,7 +75,7 @@ export const addItem = async (listId, itemData) => {
 
 export const updateItem = async (listId, itemId, itemData) => {
   const response = await fetch(`${API_URL}/api/shopping/lists/${listId}/items/${itemId}`, {
-    method: 'PUT',
+    method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify(itemData)
   });

@@ -1196,15 +1196,15 @@ const Dashboard = () => {
           body: JSON.stringify({ checkOffOrder: nextOrder })
         }).catch(err => console.error('Error recording check-off:', err));
       }
-    } catch (error) {
+    } catch (updateErr) {
       // If 404, item already deleted - just reload
-      if (error.message?.includes('404') || error.response?.status === 404) {
+      if (updateErr.message?.includes('404') || updateErr.response?.status === 404) {
         await loadListItems(activeList.id);
       } else {
         // Real error - revert and show error
-        console.error('Error updating item:', error);
-        setItems(prevItems => 
-          prevItems.map(i => 
+        console.error('Error updating item:', updateErr);
+        setItems(prevItems =>
+          prevItems.map(i =>
             i.id === item.id ? { ...i, is_checked: !newCheckedState } : i
           )
         );

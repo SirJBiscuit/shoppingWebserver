@@ -64,6 +64,7 @@ const BudgetTrackerContent = ({
     const breakdown = {};
     
     items.forEach(item => {
+      if (!item) return;
       const category = item.category_name || item.category || 'Other';
       const itemCost = (item.price || 0) * (item.quantity || 1);
       
