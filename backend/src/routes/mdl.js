@@ -205,8 +205,9 @@ router.post('/admin/product/:id/price', authenticateToken, async (req, res) => {
   }
 });
 
-// Get user preferences for a product
-router.get('/preferences/:productId', authenticateToken, async (req, res) => {
+// Get user preferences for a product (numeric product IDs only —
+// string keys like 'last_active_list_id' fall through to /preferences/:key)
+router.get('/preferences/:productId(\\d+)', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(`
       SELECT * FROM user_product_preferences
