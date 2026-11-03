@@ -60,7 +60,8 @@ export const getListItems = async (listId) => {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to fetch list items');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const addItem = async (listId, itemData) => {
@@ -70,7 +71,8 @@ export const addItem = async (listId, itemData) => {
     body: JSON.stringify(itemData)
   });
   if (!response.ok) throw new Error('Failed to add item');
-  return response;
+  const data = await response.json();
+  return { data };
 };
 
 export const updateItem = async (listId, itemId, itemData) => {
@@ -122,7 +124,7 @@ export const moveItem = async (itemId, targetListId) => {
 };
 
 export const getCompletedLists = async () => {
-  const response = await fetch(`${API_URL}/api/shopping/lists/completed`, {
+  const response = await fetch(`${API_URL}/api/shopping/lists/history/completed`, {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to fetch completed lists');
