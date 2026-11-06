@@ -270,7 +270,7 @@ router.post('/lists/:id/items',
   }
 );
 
-router.patch('/lists/:listId/items/:itemId', async (req, res) => {
+const updateShoppingListItem = async (req, res) => {
   const { listId, itemId } = req.params;
   const { quantity, price, isChecked, item_name, item_icon, notes, category, unit, package_count, count_per_package, aisle_number } = req.body;
 
@@ -372,7 +372,10 @@ router.patch('/lists/:listId/items/:itemId', async (req, res) => {
     console.error('Error updating item:', error);
     res.status(500).json({ error: 'Failed to update item' });
   }
-});
+};
+
+router.patch('/lists/:listId/items/:itemId', updateShoppingListItem);
+router.put('/lists/:listId/items/:itemId', updateShoppingListItem); // legacy clients
 
 router.delete('/lists/:listId/items/:itemId', async (req, res) => {
   const { listId, itemId } = req.params;
