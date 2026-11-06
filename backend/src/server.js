@@ -37,6 +37,7 @@ const betaFeedbackRoutes = require('./routes/betaFeedback');
 const layoutsRoutes = require('./routes/layouts');
 const aveRoutes = require('../routes/ave');
 const storageRoutes = require('../routes/storage');
+const sidebarRoutes = require('../routes/sidebar');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -91,6 +92,7 @@ app.use('/api/beta/feedback', betaFeedbackRoutes);
 app.use('/api/layouts', layoutsRoutes);
 app.use('/api/ave', aveRoutes);
 app.use('/api/admin/storage', storageRoutes);
+app.use('/api/sidebar', sidebarRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

@@ -94,8 +94,11 @@ const Sidebar = ({ onAction }) => {
   useEffect(() => {
     const fetchExpiringCount = async () => {
       try {
+        const token = localStorage.getItem('token');
         const response = await fetch('/api/inventory/expiring-suggestions?days=3', {
-          credentials: 'include'
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
         if (response.ok) {
           const data = await response.json();

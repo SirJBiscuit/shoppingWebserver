@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken, requireAdmin } = require('../middleware/auth');
-const pool = require('../config/database');
+const { authenticateToken, isAdmin } = require('../src/middleware/auth');
+const pool = require('../src/database/db').pool;
 
 /**
  * Sidebar Configuration API Routes
@@ -50,7 +50,7 @@ router.get('/pages/visible', authenticateToken, async (req, res) => {
 });
 
 // GET /api/sidebar/pages/:id - Get single page
-router.get('/pages/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/pages/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -71,7 +71,7 @@ router.get('/pages/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // POST /api/sidebar/pages - Create new page (admin only)
-router.post('/pages', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/pages', authenticateToken, isAdmin, async (req, res) => {
   try {
     const {
       page_name,
@@ -108,7 +108,7 @@ router.post('/pages', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // PATCH /api/sidebar/pages/:id - Update page (admin only)
-router.patch('/pages/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.patch('/pages/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -157,7 +157,7 @@ router.patch('/pages/:id', authenticateToken, requireAdmin, async (req, res) => 
 });
 
 // DELETE /api/sidebar/pages/:id - Delete page (admin only, non-system pages only)
-router.delete('/pages/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/pages/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -185,7 +185,7 @@ router.delete('/pages/:id', authenticateToken, requireAdmin, async (req, res) =>
 });
 
 // POST /api/sidebar/pages/reorder - Reorder pages (admin only)
-router.post('/pages/reorder', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/pages/reorder', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { pages } = req.body; // Array of { id, order }
     
@@ -222,7 +222,7 @@ router.post('/pages/reorder', authenticateToken, requireAdmin, async (req, res) 
 });
 
 // POST /api/sidebar/pages/:id/toggle-role - Toggle role visibility (admin only)
-router.post('/pages/:id/toggle-role', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/pages/:id/toggle-role', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { role } = req.body; // 'user', 'beta', or 'admin'
