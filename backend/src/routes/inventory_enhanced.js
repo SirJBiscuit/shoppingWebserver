@@ -353,7 +353,7 @@ router.delete('/clear/:location', authenticateToken, async (req, res) => {
 });
 
 // Get single inventory item
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id(\\d+)', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(`
       SELECT 
@@ -499,7 +499,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Update inventory item
-router.patch('/:id', authenticateToken, async (req, res) => {
+router.patch('/:id(\\d+)', authenticateToken, async (req, res) => {
   try {
     const {
       item_name,
@@ -623,7 +623,7 @@ router.patch('/:id', authenticateToken, async (req, res) => {
 });
 
 // Delete inventory item
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id(\\d+)', authenticateToken, async (req, res) => {
   try {
     // Get item details before deleting (for history) - JOIN with items table to get name
     const itemResult = await db.query(`
@@ -680,7 +680,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 // Move item to different location
-router.post('/:id/move', authenticateToken, async (req, res) => {
+router.post('/:id(\\d+)/move', authenticateToken, async (req, res) => {
   try {
     const { storage_location, custom_location_id } = req.body;
     
@@ -705,7 +705,7 @@ router.post('/:id/move', authenticateToken, async (req, res) => {
 });
 
 // Mark item as "still good" (extends expiration)
-router.post('/:id/still-good', authenticateToken, async (req, res) => {
+router.post('/:id(\\d+)/still-good', authenticateToken, async (req, res) => {
   try {
     const { extension_days } = req.body;
     const result = await extendExpiration(req.params.id, extension_days || 3);
@@ -717,7 +717,7 @@ router.post('/:id/still-good', authenticateToken, async (req, res) => {
 });
 
 // Mark item as "went bad" (learns from it)
-router.post('/:id/went-bad', authenticateToken, async (req, res) => {
+router.post('/:id(\\d+)/went-bad', authenticateToken, async (req, res) => {
   try {
     const { actual_expiry_date } = req.body;
     
@@ -769,7 +769,7 @@ router.post('/:id/went-bad', authenticateToken, async (req, res) => {
 });
 
 // Mark item as opened
-router.post('/:id/opened', authenticateToken, async (req, res) => {
+router.post('/:id(\\d+)/opened', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(`
       UPDATE inventory
@@ -791,7 +791,7 @@ router.post('/:id/opened', authenticateToken, async (req, res) => {
 });
 
 // Update fill level for seasonings
-router.patch('/:id/fill-level', authenticateToken, async (req, res) => {
+router.patch('/:id(\\d+)/fill-level', authenticateToken, async (req, res) => {
   try {
     const { fill_level } = req.body;
     
@@ -956,7 +956,7 @@ router.get('/smart-suggestion/:itemName', authenticateToken, async (req, res) =>
 });
 
 // Check if item is low stock
-router.get('/low-stock/:id', authenticateToken, async (req, res) => {
+router.get('/low-stock/:id(\\d+)', authenticateToken, async (req, res) => {
   try {
     const result = await smartSuggestions.checkLowStock(req.user.id, req.params.id);
     res.json(result || { isLow: false });

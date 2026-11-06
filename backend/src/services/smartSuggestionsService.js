@@ -22,7 +22,7 @@ async function checkInventoryForItem(userId, itemName) {
         CASE 
           WHEN i.estimated_expiry_date IS NULL THEN NULL
           WHEN i.estimated_expiry_date < CURRENT_DATE THEN 0
-          ELSE EXTRACT(DAY FROM (i.estimated_expiry_date - CURRENT_DATE))::INTEGER
+          ELSE EXTRACT(DAY FROM (i.estimated_expiry_date::timestamp - CURRENT_DATE::timestamp))::INTEGER
         END as days_until_expiry
       FROM inventory i
       LEFT JOIN items it ON i.item_id = it.id
@@ -66,7 +66,7 @@ async function getSmartReorderSuggestion(userId, itemName) {
         bought_date,
         quantity,
         removed_date,
-        EXTRACT(EPOCH FROM (removed_date - bought_date))::INTEGER / 86400 as days_lasted
+        EXTRACT(EPOCH FROM (removed_date::timestamp - bought_date::timestamp))::INTEGER / 86400 as days_lasted
       FROM inventory_history
       WHERE user_id = $1 
         AND LOWER(item_name) = LOWER($2)
@@ -141,7 +141,7 @@ async function checkLowStock(userId, itemId) {
         quantity,
         bought_date,
         removed_date,
-        EXTRACT(DAY FROM (removed_date - bought_date))::INTEGER as days_lasted
+        EXTRACT(DAY FROM (removed_date::timestamp - bought_date::timestamp))::INTEGER as days_lasted
       FROM inventory_history
       WHERE user_id = $1 
         AND LOWER(item_name) = LOWER($2)
@@ -197,7 +197,7 @@ async function getExpiringItemsSuggestions(userId, daysThreshold = 3) {
         i.storage_location,
         i.estimated_expiry_date,
         csl.name as custom_location_name,
-        EXTRACT(DAY FROM (i.estimated_expiry_date - CURRENT_DATE))::INTEGER as days_until_expiry
+        EXTRACT(DAY FROM (i.estimated_expiry_date::timestamp - CURRENT_DATE::timestamp))::INTEGER as days_until_expiry
       FROM inventory i
       LEFT JOIN items it ON i.item_id = it.id
       LEFT JOIN custom_storage_locations csl ON i.custom_location_id = csl.id

@@ -19,7 +19,7 @@ async function generateRotationSuggestions(userId, stagingItem) {
         it.name as item_name,
         CASE
           WHEN i.estimated_expiry_date IS NOT NULL THEN 
-            EXTRACT(DAY FROM (i.estimated_expiry_date - CURRENT_DATE))
+            EXTRACT(DAY FROM (i.estimated_expiry_date::timestamp - CURRENT_DATE::timestamp))
           ELSE NULL
         END as days_until_expiry
       FROM inventory i
@@ -85,7 +85,7 @@ async function generateRotationSuggestions(userId, stagingItem) {
       SELECT 
         i.*,
         it.name as item_name,
-        EXTRACT(DAY FROM (CURRENT_DATE - i.estimated_expiry_date)) as days_expired
+        EXTRACT(DAY FROM (CURRENT_DATE::timestamp - i.estimated_expiry_date::timestamp)) as days_expired
       FROM inventory i
       LEFT JOIN items it ON i.item_id = it.id
       WHERE i.user_id = $1
@@ -116,7 +116,7 @@ async function generateRotationSuggestions(userId, stagingItem) {
       SELECT 
         i.*,
         it.name as item_name,
-        EXTRACT(DAY FROM (i.estimated_expiry_date - CURRENT_DATE)) as days_until_expiry
+        EXTRACT(DAY FROM (i.estimated_expiry_date::timestamp - CURRENT_DATE::timestamp)) as days_until_expiry
       FROM inventory i
       LEFT JOIN items it ON i.item_id = it.id
       WHERE i.user_id = $1
