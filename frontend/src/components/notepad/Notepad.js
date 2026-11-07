@@ -1551,7 +1551,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
       dragMomentum={false}
       dragElastic={0.05}
       onDragEnd={(_, info) => setPos((p) => ({ x: p.x + info.offset.x, y: p.y + info.offset.y }))}
-      onClick={isFullscreen ? handleClose : undefined}
+      onClick={isFullscreen ? (e) => { if (e.target === e.currentTarget) handleClose(); } : undefined}
       style={isFullscreen ? {} : { x: pos.x, y: pos.y }}
       initial={{ scale: 0.9, opacity: 0, y: 24 }}
       animate={{ scale: 1, opacity: 1, y: 0 }}
