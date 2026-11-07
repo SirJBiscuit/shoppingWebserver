@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, useDragControls, Reorder, MotionConfig } from 'framer-motion';
 import {
   StickyNote, X, Minimize2, Maximize2, Plus, Star,
@@ -415,6 +415,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   const copyPageRef = useRef(() => {});
   const activeTa = useRef(null); // last-focused textarea block id (glyph toolbar target)
   const menuDrag = useDragControls();
+  const menuPanelRef = useRef(null); // rendered ctx-menu panel — post-open measurement
   const shellRef = useRef(null); // outer panel shell — wheel scoping
 
   const page = doc.pages.find((p) => p.id === doc.lastPage) || doc.pages[0];
@@ -1349,22 +1350,30 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     setCollapsed(c);
   };
 
-  // Open ctx-menu AT the click point — flips left/up when the edge would clip it
-  const MENU_W = 208, MENU_H = 380;
+  // Open ctx-menu AT the click point — the layout effect below corrects overflow
+  // post-render, so the menu always lands hugging the cursor.
   const openMenu = (e, kind, id) => {
     e.preventDefault();
     e.stopPropagation();
-    if (isMobile) { setMenu({ kind, id, x: 0, y: 0 }); return; } // bottom sheet, position irrelevant
-    let x = e.clientX, y = e.clientY;
-    const r = panelRef.current?.getBoundingClientRect();
-    if (r) {
-      if (x + MENU_W > r.right - 4) x = Math.max(r.left + 4, x - MENU_W + 10);   // flip left of cursor
-      if (y + MENU_H > r.bottom - 4) y = Math.max(r.top + 4, y - MENU_H + 10); // flip above cursor
-    }
-    x = Math.max(4, Math.min(x, window.innerWidth - MENU_W - 4));
-    y = Math.max(4, Math.min(y, window.innerHeight - 100));
-    setMenu({ kind, id, x, y });
+    setMenu({ kind, id, x: e.clientX + 2, y: e.clientY + 2 });
   };
+
+  /* Post-open clamp — measure the real rendered menu and shift it the minimum
+     amount needed to stay inside the notepad (falling back to the viewport). */
+  useLayoutEffect(() => {
+    if (!menu || isMobile) return;
+    const el = menuPanelRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const pr = panelRef.current?.getBoundingClientRect();
+    const box = pr || { left: 4, top: 4, right: window.innerWidth - 4, bottom: window.innerHeight - 4 };
+    let dx = 0, dy = 0;
+    if (r.right > box.right - 4) dx = box.right - 4 - r.right;
+    if (r.bottom > box.bottom - 4) dy = box.bottom - 4 - r.bottom;
+    if (r.left + dx < box.left + 4) dx = box.left + 4 - (r.left + dx);
+    if (r.top + dy < box.top + 4) dy = box.top + 4 - (r.top + dy);
+    if (dx || dy) setMenu((m) => (m ? { ...m, x: m.x + dx, y: m.y + dy } : m));
+  }, [menu, isMobile]);
 
   /** Shell-level right-click — fires for any notepad chrome not already claimed by a
      block/page/empty handler (they stopPropagation). Textareas & sticky cards resolve
@@ -2295,6 +2304,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
         return (
           <motion.div
               key="ctxmenu"
+              ref={menuPanelRef}
               drag={!isMobile}
               dragControls={menuDrag}
               dragListener={false}
