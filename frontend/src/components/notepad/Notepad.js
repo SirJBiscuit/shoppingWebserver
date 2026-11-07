@@ -27,6 +27,7 @@ const THEMES = {
     hover: 'hover:bg-gray-700',
     chip: 'bg-gray-700 text-gray-200',
     accent: 'from-primary-500 to-purple-600',
+    scroll: 'rgba(139,92,246,.8)',
   },
   parchment: {
     name: 'Parchment',
@@ -38,6 +39,7 @@ const THEMES = {
     hover: 'hover:bg-amber-200',
     chip: 'bg-amber-200 text-amber-900',
     accent: 'from-amber-500 to-orange-500',
+    scroll: 'rgba(245,158,11,.9)',
   },
   night: {
     name: 'Night Blue',
@@ -49,6 +51,7 @@ const THEMES = {
     hover: 'hover:bg-slate-800',
     chip: 'bg-slate-800 text-slate-200',
     accent: 'from-sky-500 to-indigo-600',
+    scroll: 'rgba(56,189,248,.85)',
   },
 };
 
@@ -1443,8 +1446,31 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
       transition={{ type: 'spring', damping: 26, stiffness: 320 }}
       className={`${shellCls} ${panelH}`}
     >
-      <div ref={panelRef} onClick={(e) => isFullscreen && e.stopPropagation()} className={`np-root flex flex-col h-full rounded-2xl border-2 shadow-2xl overflow-hidden ${theme.panel}`}>
-        <style>{`.np-root ::selection { background: rgba(95,188,232,.38); } .np-root textarea::selection { background: rgba(127,227,154,.4); }`}</style>
+      <div
+        ref={panelRef}
+        onClick={(e) => isFullscreen && e.stopPropagation()}
+        className={`np-root flex flex-col h-full rounded-2xl border-2 shadow-2xl overflow-hidden ${theme.panel}`}
+        style={{ '--np-thumb': theme.scroll }}
+      >
+        <style>{`
+          .np-root ::selection { background: rgba(95,188,232,.38); }
+          .np-root textarea::selection { background: rgba(127,227,154,.4); }
+          /* custom scrollbars — every scroller except AnimatedScrollbar3D's .scrollbar-hide */
+          .np-root *:not(.scrollbar-hide) { scrollbar-width: thin; scrollbar-color: var(--np-thumb) transparent; }
+          .np-root *:not(.scrollbar-hide)::-webkit-scrollbar { width: 9px; height: 9px; }
+          .np-root *:not(.scrollbar-hide)::-webkit-scrollbar-track { background: rgba(120,140,160,.10); border-radius: 999px; }
+          .np-root *:not(.scrollbar-hide)::-webkit-scrollbar-thumb {
+            background: var(--np-thumb);
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -2px 0 rgba(0,0,0,.22);
+          }
+          .np-root *:not(.scrollbar-hide)::-webkit-scrollbar-thumb:hover {
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 -2px 0 rgba(0,0,0,.22), 0 0 7px var(--np-thumb);
+          }
+          .np-root *:not(.scrollbar-hide)::-webkit-scrollbar-corner { background: transparent; }
+        `}</style>
         {/* ===== header ===== */}
         <div
           onPointerDown={!isFullscreen ? (e) => dragControls.start(e) : undefined}
