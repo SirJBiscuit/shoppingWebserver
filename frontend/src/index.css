@@ -227,3 +227,50 @@
     scrollbar-color: rgb(59 130 246) rgb(31 41 55);
   }
 }
+
+/* ============================================================
+   GLOBAL MODAL SCROLL SAFETY NET
+   Any direct child of a fixed inset-0 overlay must stay inside
+   the viewport and scroll with a visible scrollbar — even if a
+   component forgot max-h/overflow classes.
+   ============================================================ */
+.fixed.inset-0 > * {
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(156 163 175) transparent;
+}
+
+.dark .fixed.inset-0 > * {
+  scrollbar-color: rgb(107 114 128) transparent;
+}
+
+.fixed.inset-0 > *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.fixed.inset-0 > *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fixed.inset-0 > *::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgb(156 163 175), rgb(107 114 128));
+  border-radius: 8px;
+}
+
+.dark .fixed.inset-0 > *::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgb(75 85 99), rgb(55 65 81));
+}
+
+/* Utility used by AnimatedScrollbar3D to hide the native bar
+   (its custom thumb is the scrollbar) */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

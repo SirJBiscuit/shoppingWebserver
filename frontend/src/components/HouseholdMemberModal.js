@@ -134,7 +134,7 @@ const HouseholdMemberModal = ({ isOpen, onClose, onSave, member = null }) => {
             maxHeight="calc(90vh - 180px)"
             thumbColor="bg-gradient-to-b from-primary-400 to-primary-600"
             glowColor="primary"
-            autoHide={true}
+            autoHide={false}
           >
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
               {/* Basics */}

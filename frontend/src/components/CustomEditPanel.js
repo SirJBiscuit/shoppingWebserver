@@ -187,7 +187,7 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave }) => {
             maxHeight="calc(90vh - 180px)"
             thumbColor="bg-gradient-to-b from-primary-400 to-primary-600"
             glowColor="primary"
-            autoHide={true}
+            autoHide={false}
           >
             <div className="p-6">
               <form onSubmit={handleSubmit} className="space-y-6">
