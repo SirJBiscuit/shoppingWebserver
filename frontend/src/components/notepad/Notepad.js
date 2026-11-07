@@ -414,6 +414,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   const copyPageRef = useRef(() => {});
   const activeTa = useRef(null); // last-focused textarea block id (glyph toolbar target)
   const menuDrag = useDragControls();
+  const shellRef = useRef(null); // outer panel shell — wheel scoping
 
   const page = doc.pages.find((p) => p.id === doc.lastPage) || doc.pages[0];
   const theme = THEMES[doc.settings.theme] || THEMES.dark;
@@ -496,25 +497,30 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     return () => window.removeEventListener('keydown', h);
   }, [isOpen, mode, doc, userId, undo, redo, showToast]);
 
-  /* ----- ctrl+wheel zoom (non-passive to preventDefault) ----- */
+  /* ----- wheel hotkeys — window-level CAPTURE listener kills browser page-zoom (Opera/Chrome)
+     while open. Only fires when the pointer is over the notepad shell.
+       Ctrl/⌘ + wheel   → notepad zoom
+       Ctrl + Shift + wheel → block text scale
+       Ctrl + Alt + wheel   → UI scale (chrome)                                    */
   useEffect(() => {
-    const el = panelRef.current;
-    if (!el || !isOpen) return;
+    if (!isOpen || mode === 'compact') return;
     const h = (e) => {
       if (!(e.ctrlKey || e.metaKey) || !e.deltaY) return;
+      const shell = shellRef.current;
+      if (!shell || !(e.target instanceof Node) || !shell.contains(e.target)) return;
       e.preventDefault();
-      // proportional step — trackpads get smooth zoom, wheels get ~0.12/tick
-      const dz = -e.deltaY * 0.0016;
-      setDoc((prev) => ({
-        ...prev,
-        settings: {
-          ...prev.settings,
-          zoom: Math.min(2, Math.max(0.6, +(prev.settings.zoom + dz).toFixed(3))),
-        },
-      }));
+      e.stopPropagation();
+      const step = -e.deltaY * 0.0016; // proportional — smooth trackpads, ~0.12/tick wheels
+      setDoc((prev) => {
+        const s = { ...prev.settings };
+        if (e.altKey) s.uiScale = Math.min(1.3, Math.max(0.85, +((s.uiScale || 1) + step).toFixed(3)));
+        else if (e.shiftKey) s.textScale = Math.min(1.6, Math.max(0.8, +((s.textScale || 1) + step).toFixed(3)));
+        else s.zoom = Math.min(2, Math.max(0.6, +(s.zoom + step).toFixed(3)));
+        return { ...prev, settings: s };
+      });
     };
-    el.addEventListener('wheel', h, { passive: false });
-    return () => el.removeEventListener('wheel', h);
+    window.addEventListener('wheel', h, { passive: false, capture: true });
+    return () => window.removeEventListener('wheel', h, { capture: true });
   }, [isOpen, mode]);
 
   /* ----- mobile breakpoint ----- */
@@ -1509,6 +1515,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   const panel = (
     <motion.div
       key="panel"
+      ref={shellRef}
       drag={!isFullscreen}
       dragControls={dragControls}
       dragListener={false}
@@ -2238,7 +2245,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
             {floatingBlocks.length ? ` · ${floatingBlocks.length} floating` : ''}
             {blockSel.size > 0 && ` · ${blockSel.size} selected`}
           </span>
-          <span className="hidden sm:block">autosaved · right-click for menus · /check /table…</span>
+          <span className="hidden sm:block">autosaved · ctrl+scroll zoom · +shift text · +alt UI</span>
           <span className="sm:hidden">autosaved</span>
         </div>
 
