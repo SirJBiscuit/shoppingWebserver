@@ -8,7 +8,7 @@ import {
   FoldVertical, UnfoldVertical, Bold, Italic, ShoppingCart, FolderDown, RotateCcw,
   GripVertical, ZoomIn, ZoomOut, FileStack, FilePlus2, FileUp, Scissors, CalendarDays,
   CornerDownLeft, FolderPlus, Folder, FolderOpen, ListChecks, TextCursorInput,
-  Clock3, Pin, ChevronRight, SearchX
+  Clock3, Pin, ChevronRight, SearchX, Smile
 } from 'lucide-react';
 import AnimatedScrollbar3D from '../3DAnimatedScrollbar';
 import MenuPanel from '../MenuPanel';
@@ -65,6 +65,25 @@ const SLASH_CMDS = {
   table: BT.TABLE, draw: BT.DRAW, canvas: BT.DRAW,
 };
 const TEXTISH = [BT.TEXT, BT.CHECK, BT.BULLET, BT.NUMBER];
+
+/** Hybrid glyph/icon insert — ":name" trigger or ☺ toolbar picker (emoji glyphs). */
+const GLYPHS = [
+  ['milk', '🥛'], ['bread', '🍞'], ['egg', '🥚'], ['cheese', '🧀'], ['butter', '🧈'],
+  ['apple', '🍎'], ['banana', '🍌'], ['orange', '🍊'], ['grape', '🍇'], ['berry', '🍓'],
+  ['tomato', '🍅'], ['lettuce', '🥬'], ['carrot', '🥕'], ['broccoli', '🥦'], ['onion', '🧅'],
+  ['garlic', '🧄'], ['potato', '🥔'], ['avocado', '🥑'], ['pepper', '🫑'], ['corn', '🌽'],
+  ['mushroom', '🍄'], ['water', '💧'], ['coffee', '☕'], ['juice', '🧃'], ['soda', '🥤'],
+  ['beer', '🍺'], ['wine', '🍷'], ['meat', '🥩'], ['chicken', '🍗'], ['fish', '🐟'],
+  ['shrimp', '🦐'], ['pizza', '🍕'], ['pasta', '🍝'], ['rice', '🍚'], ['cereal', '🥣'],
+  ['snack', '🍿'], ['cookie', '🍪'], ['candy', '🍬'], ['choc', '🍫'], ['honey', '🍯'],
+  ['salt', '🧂'], ['soap', '🧼'], ['shampoo', '🧴'], ['paper', '🧻'], ['tooth', '🦷'],
+  ['meds', '💊'], ['cart', '🛒'], ['bag', '🛍️'], ['star', '⭐'], ['fire', '🔥'],
+  ['check', '✅'], ['cross', '❌'], ['warn', '⚠️'], ['idea', '💡'], ['pin', '📌'],
+  ['cal', '📅'], ['clock', '⏰'], ['gift', '🎁'], ['cake', '🎂'], ['heart', '❤️'],
+  ['thumbs', '👍'], ['note', '📝'], ['money', '💰'], ['card', '💳'], ['store', '🏪'],
+  ['home', '🏠'], ['car', '🚗'], ['phone', '📱'], ['sparkle', '✨'], ['important', '‼️'],
+  ['bolt', '⚡'], ['flag', '🚩'], ['book', '📖'], ['key', '🔑'], ['lock', '🔒'],
+];
 
 const PAGE_TEMPLATES = [
   {
@@ -354,6 +373,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   const [palettePos, setPalettePos] = useState(null);
   const [findCase, setFindCase] = useState(false);
   const [collapsedFolders, setCollapsedFolders] = useState(new Set());
+  const [glyphState, setGlyphState] = useState(null); // { id, q, at } — at:-1 = caret insert
 
   const dragControls = useDragControls();
   const historyRef = useRef(makeHistory());
@@ -368,6 +388,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   const miniRef = useRef(null);
   const pageSelRef = useRef(false);
   const copyPageRef = useRef(() => {});
+  const activeTa = useRef(null); // last-focused textarea block id (glyph toolbar target)
 
   const page = doc.pages.find((p) => p.id === doc.lastPage) || doc.pages[0];
   const theme = THEMES[doc.settings.theme] || THEMES.dark;
@@ -540,9 +561,41 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   const patchBlock = (id, patch) =>
     mutatePage((pg) => { const b = pg.blocks.find((x) => x.id === id); if (b) Object.assign(b, patch); });
 
+  const glyphMatches = () => {
+    if (!glyphState) return [];
+    if (!glyphState.q) return GLYPHS.slice(0, 24);
+    return GLYPHS.filter((g) => g[0].includes(glyphState.q)).slice(0, 12);
+  };
+
+  /** Glyph insert — swaps the ":query" token or splices at the caret. */
+  const insertGlyph = (emoji) => {
+    const st = glyphState;
+    if (!st) return;
+    const b = page.blocks.find((x) => x.id === st.id);
+    if (!b) { setGlyphState(null); return; }
+    if (st.at >= 0) {
+      const head = b.text.slice(0, st.at).replace(/:([a-z0-9_+]{1,14})$/i, emoji);
+      const tail = b.text.slice(st.at);
+      mutatePage((pg) => { const x = pg.blocks.find((y) => y.id === st.id); x.text = head + tail; });
+      setTimeout(() => { const el = taRefs.current[st.id]; if (el) { el.focus(); el.selectionStart = el.selectionEnd = head.length; } }, 0);
+    } else {
+      const el = taRefs.current[st.id];
+      const c = el ? el.selectionStart : b.text.length;
+      const nt = b.text.slice(0, c) + emoji + b.text.slice(c);
+      mutatePage((pg) => { const x = pg.blocks.find((y) => y.id === st.id); x.text = nt; });
+      setTimeout(() => { const e2 = taRefs.current[st.id]; if (e2) { e2.focus(); e2.selectionStart = e2.selectionEnd = c + emoji.length; } }, 0);
+    }
+    setGlyphState(null);
+  };
+
   /** Kotlin slashCmd — "/cmd " typed at the start converts the block type. */
   const handleTaChange = (b, e) => {
     const v = e.target.value;
+    // glyph trigger — ":query" immediately before the caret opens the picker
+    const caret = e.target.selectionStart;
+    const gm = v.slice(0, caret).match(/:([a-z0-9_+]{1,14})$/i);
+    if (gm && TEXTISH.includes(b.type)) setGlyphState({ id: b.id, q: gm[1].toLowerCase(), at: caret });
+    else if (glyphState?.id === b.id) setGlyphState(null);
     const m = v.match(/^\/([a-z]+) $/);
     if (m && SLASH_CMDS[m[1]] && TEXTISH.includes(b.type)) {
       const t = SLASH_CMDS[m[1]];
@@ -562,6 +615,16 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
 
   /** Kotlin keyPressed for text blocks — Enter splits/demotes, Backspace merges. */
   const handleTaKeyDown = (b, e) => {
+    // glyph picker steals Enter/Tab/Escape while open
+    if (glyphState) {
+      const list = glyphMatches();
+      if ((e.key === 'Enter' || e.key === 'Tab') && list.length) {
+        e.preventDefault();
+        insertGlyph(list[0][1]);
+        return;
+      }
+      if (e.key === 'Escape') { setGlyphState(null); e.preventDefault(); return; }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       if ((e.ctrlKey || e.metaKey) && b.type === BT.CHECK) {
         e.preventDefault();
@@ -930,6 +993,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     setMenu(null);
     setBlockSel(new Set());
     setPageSel(false);
+    setGlyphState(null);
   };
 
   const patchPage = (id, patch) => {
@@ -1481,6 +1545,18 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
           >
             <TextCursorInput className="w-4 h-4" />
           </ToolBtn>
+          <ToolBtn
+            theme={theme}
+            onClick={() => {
+              const id = activeTa.current || inlineBlocks.find((x) => TEXTISH.includes(x.type))?.id;
+              if (id == null) { showToast('Add a text block first'); return; }
+              setGlyphState(glyphState ? null : { id, q: '', at: -1 });
+            }}
+            on={!!glyphState}
+            title="Insert glyph — or type :name in any block"
+          >
+            <Smile className="w-4 h-4" />
+          </ToolBtn>
           <ToolBtn theme={theme} onClick={() => setPopup('templates')} title="New page from template"><FilePlus2 className="w-4 h-4" /></ToolBtn>
           <ToolBtn theme={theme} onClick={() => setPopup('settings')} title="Settings"><Settings className="w-4 h-4" /></ToolBtn>
         </div>
@@ -1871,6 +1947,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                                       onChange={(e) => handleTaChange(b, e)}
                                       onKeyDown={(e) => handleTaKeyDown(b, e)}
                                       onClick={(e) => handleTaClick(b, e)}
+                                      onFocus={() => { activeTa.current = b.id; }}
                                       rows={Math.min(Math.max(lineCount, 1), 20)}
                                       placeholder={b.type === BT.CHECK ? 'Checkbox item…' : b.type === BT.TEXT ? 'Type here — try /check, /table…' : 'Type here…'}
                                       className={`w-full resize-y bg-transparent outline-none placeholder:opacity-40 ${b.checked ? 'line-through opacity-60' : ''} ${theme.text}`}
@@ -2250,6 +2327,44 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
             <button onClick={() => blockSelOps('del')} className="p-1.5 rounded-md hover:bg-red-500/20 text-red-400" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
             <button onClick={() => { setBlockSel(new Set()); setPageSel(false); }} className={`p-1.5 rounded-md ${theme.hover} ${theme.muted}`} title="Clear"><X className="w-3.5 h-3.5" /></button>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ===== glyph picker dropdown ===== */}
+      <AnimatePresence>
+        {glyphState && glyphMatches().length > 0 && (
+          <>
+            <div className="fixed inset-0 z-[85]" onClick={() => setGlyphState(null)} />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: -4 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className={`fixed z-[86] rounded-xl border shadow-2xl p-1.5 ${theme.panel}`}
+              style={(() => {
+                const r = blockRefs.current[glyphState.id]?.getBoundingClientRect();
+                const y = r ? Math.min(r.bottom + 4, window.innerHeight - 140) : window.innerHeight - 180;
+                const x = r ? Math.min(Math.max(8, r.left + 30), window.innerWidth - 190) : 20;
+                return { left: x, top: y };
+              })()}
+            >
+              <div className="grid grid-cols-6 gap-0.5">
+                {glyphMatches().slice(0, 24).map(([n, e]) => (
+                  <button
+                    key={n}
+                    onMouseDown={(ev) => ev.preventDefault()}
+                    onClick={() => insertGlyph(e)}
+                    className={`w-7 h-7 rounded-lg text-base flex items-center justify-center ${theme.hover}`}
+                    title={`:${n}`}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+              {glyphState.q === '' && (
+                <p className={`text-[9px] px-1 pt-1 ${theme.muted}`}>type :name to filter — Enter picks first</p>
+              )}
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 
