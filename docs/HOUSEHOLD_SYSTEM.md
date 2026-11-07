@@ -48,6 +48,16 @@ Track each person in the household: profile, health stats, food tier lists, trai
 - `services/householdAPI.js` — API client
 - Route `/household`; sidebar seeded by migration 047 (`Users` icon) + fallback in `Sidebar.js`
 
+## Fun layer (positive framing only — never shame)
+
+Both `GET /` and `GET /:id` attach:
+
+- **`badges`** — `[{ id, emoji, label, tip }]` earned for hydration, streaks, chores, food variety, activity, diet goals. Badges like "Treat Explorer" celebrate rather than warn; anything cautionary is phrased as a suggestion.
+- **`fun_points`** — water_streak×15 + chores_week×10 + liked foods×2 + traits×3
+- **`water_streak`** — consecutive days hitting the water goal
+- **`snack_swaps`** (detail only) — `[{ from, to }]` matching liked treats to lighter alternatives from `SNACK_SWAPS`
+- **`meal_ideas`** (detail only) — top 5 liked foods by tier weight
+
 ## Shopping integration hooks
 
 `GET /shopping-guide` gives household daily/weekly calories and per-member buy/avoid lists. `GET /check-item` can badge list items ("⚠️ Sam dislikes this") — wire into Dashboard when wanted.

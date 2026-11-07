@@ -59,6 +59,7 @@ const Household = () => {
   const [healthForm, setHealthForm] = useState({ weight_lbs: '', body_fat_pct: '', muscle_pct: '' });
   const [randomFood, setRandomFood] = useState(null);
   const [spinning, setSpinning] = useState(false);
+  const [waterParty, setWaterParty] = useState(false);
 
   const loadMembers = useCallback(async () => {
     try {
@@ -153,8 +154,17 @@ const Household = () => {
 
   // ---------- Water ----------
   const logWater = async (oz) => {
+    const before = selected.water_today_oz;
+    const goal = selected.stats?.water_goal_oz || 64;
     await householdAPI.logWater(selected.id, oz);
-    refreshSelected(); loadMembers();
+    const res = await householdAPI.getMember(selected.id);
+    setSelected(res.data);
+    loadMembers();
+    // Celebrate only when crossing the finish line
+    if (before < goal && res.data.water_today_oz >= goal) {
+      setWaterParty(true);
+      setTimeout(() => setWaterParty(false), 2600);
+    }
   };
 
   // ---------- Health ----------
@@ -262,6 +272,22 @@ const Household = () => {
               />
             </div>
           </div>
+
+          {/* Fun badges + points */}
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {(m.badges || []).slice(0, 3).map(b => (
+              <span key={b.id} title={b.tip}
+                className="text-xs px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-medium">
+                {b.emoji} {b.label}
+              </span>
+            ))}
+            {(m.badges || []).length > 3 && (
+              <span className="text-xs text-gray-400 self-center">+{m.badges.length - 3}</span>
+            )}
+            {m.fun_points > 0 && (
+              <span className="ml-auto text-xs font-bold text-purple-500 self-center">⭐ {m.fun_points} pts</span>
+            )}
+          </div>
         </div>
       </motion.div>
     );
@@ -310,6 +336,12 @@ const Household = () => {
                         <AlertTriangle className="w-3 h-3" /> Allergic to: {selected.allergies.join(', ')}
                       </p>
                     )}
+                    <div className="flex gap-2 mt-2">
+                      <span className="text-sm bg-white/20 rounded-lg px-2 py-1 font-semibold">⭐ {selected.fun_points || 0} pts</span>
+                      {(selected.water_streak || 0) >= 2 && (
+                        <span className="text-sm bg-white/20 rounded-lg px-2 py-1 font-semibold">🌊 {selected.water_streak}-day water streak</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -343,6 +375,56 @@ const Household = () => {
                       {statCard('Height', cmToFtIn(selected.height_cm) || '—', null, Users, 'text-gray-500')}
                       {statCard('Water Goal', `${stats.water_goal_oz}oz`, 'per day', Droplets, 'text-sky-500')}
                     </div>
+
+                    {/* Badge collection */}
+                    {(selected.badges || []).length > 0 && (
+                      <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow mb-6">
+                        <h3 className="font-bold text-gray-900 dark:text-white mb-3">🏅 {selected.name}'s Badges</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {selected.badges.map(b => (
+                            <motion.span key={b.id} whileHover={{ scale: 1.06 }} title={b.tip}
+                              className="px-3 py-2 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/20 text-amber-800 dark:text-amber-200 text-sm font-medium border border-amber-200 dark:border-amber-800 cursor-default">
+                              {b.emoji} {b.label}
+                            </motion.span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Snack swaps + meal ideas */}
+                    {((selected.snack_swaps || []).length > 0 || (selected.meal_ideas || []).length > 0) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        {(selected.snack_swaps || []).length > 0 && (
+                          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow">
+                            <h3 className="font-bold text-gray-900 dark:text-white mb-1">🍿 Craving Swaps</h3>
+                            <p className="text-xs text-gray-500 mb-3">Same vibes, lighter version — no pressure, just ideas!</p>
+                            <div className="space-y-2">
+                              {selected.snack_swaps.map((s, i) => (
+                                <div key={i} className="flex items-center gap-2 text-sm bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2">
+                                  <span className="font-medium text-gray-800 dark:text-gray-200">{s.from}</span>
+                                  <span className="text-gray-400">→</span>
+                                  <span className="text-green-600 dark:text-green-400 font-medium">{s.to}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {(selected.meal_ideas || []).length > 0 && (
+                          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow">
+                            <h3 className="font-bold text-gray-900 dark:text-white mb-1">🍳 Meal Ideas</h3>
+                            <p className="text-xs text-gray-500 mb-3">{selected.name}'s top picks — easy wins for dinner</p>
+                            <div className="flex flex-wrap gap-2">
+                              {selected.meal_ideas.map((f, i) => (
+                                <span key={i} className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-lg text-sm font-medium">
+                                  <span className={`w-5 h-5 rounded flex items-center justify-center text-xs font-black ${TIER_COLORS[f.tier]}`}>{f.tier}</span>
+                                  {f.food_name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Random food generator */}
                     <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 text-white shadow-lg">
@@ -584,6 +666,18 @@ const Household = () => {
                       <p className="text-4xl font-black text-sky-500 mb-1">
                         {selected.water_today_oz}<span className="text-lg font-normal text-gray-400">/{stats.water_goal_oz}oz</span>
                       </p>
+                      <AnimatePresence>
+                        {waterParty && (
+                          <motion.p
+                            initial={{ opacity: 0, scale: 0.5, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            className="text-lg font-bold text-green-500 mb-2"
+                          >
+                            🎉 Water goal reached! Nice!
+                          </motion.p>
+                        )}
+                      </AnimatePresence>
                       <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-5">
                         <motion.div
                           animate={{ width: `${Math.min(100, (selected.water_today_oz / stats.water_goal_oz) * 100)}%` }}

@@ -17,6 +17,163 @@ const ACTIVITY_FACTORS = {
 
 const TIER_WEIGHTS = { S: 6, A: 5, B: 4, C: 3, D: 2, F: 1 };
 
+// Common treat -> lighter swap ideas (playful, not preachy)
+const SNACK_SWAPS = [
+  { match: ['chip', 'crisp'], from: 'chips', to: 'popcorn or pretzels' },
+  { match: ['soda', 'cola', 'pop '], from: 'soda', to: 'sparkling water with fruit' },
+  { match: ['candy', 'chocolate bar', 'gummy'], from: 'candy', to: 'dark chocolate or frozen grapes' },
+  { match: ['cookie', 'brownie'], from: 'cookies', to: 'banana with peanut butter' },
+  { match: ['ice cream', 'gelato'], from: 'ice cream', to: 'frozen yogurt or a smoothie' },
+  { match: ['fries'], from: 'fries', to: 'baked sweet potato wedges' },
+  { match: ['donut', 'doughnut'], from: 'donuts', to: 'whole-grain toast with honey' },
+  { match: ['burger', 'big mac'], from: 'burgers', to: 'turkey or veggie burger' },
+  { match: ['pizza'], from: 'pizza', to: 'homemade pita pizza with veggies' },
+  { match: ['energy drink'], from: 'energy drinks', to: 'iced green tea' },
+  { match: ['cereal'], from: 'sugary cereal', to: 'oatmeal with berries' },
+  { match: ['cake'], from: 'cake', to: 'Greek yogurt parfait' }
+];
+
+/**
+ * Fun, positive-framed badges. Never shame — only celebrate + suggest.
+ * extras: { water_today_oz, water_streak, chores_done_week, likedCount, dislikedCount,
+ *           treatCount (D/F-tier liked foods), topTierCount (S/A), traitCount }
+ */
+const computeBadges = (member, stats, extras = {}) => {
+  const badges = [];
+  const add = (id, emoji, label, tip) => badges.push({ id, emoji, label, tip });
+
+  if (extras.topTierCount >= 5) {
+    add('food_royalty', '👑', 'Food Royalty', `${member.name} has an elite taste in food`);
+  }
+  if (extras.treatCount >= 4 && extras.treatCount > extras.topTierCount) {
+    add('treat_explorer', '🍩', 'Treat Explorer', 'Life is short — a treat now and then is fine. Maybe sneak in a swap sometimes?');
+  }
+  if (extras.likedCount >= 10) {
+    add('foodie', '🍽️', 'Certified Foodie', `${extras.likedCount} liked foods catalogued!`);
+  }
+  if (extras.water_today_oz >= (stats.water_goal_oz || 64)) {
+    add('hydrated', '💧', 'Hydrated Today', 'Water goal smashed! 🎉');
+  } else if (extras.water_today_oz >= (stats.water_goal_oz || 64) * 0.5) {
+    add('halfway_hydrated', '💦', 'Halfway Hydrated', 'A few more sips to go');
+  }
+  if (extras.water_streak >= 3) {
+    add('water_streak', '🌊', `${extras.water_streak}-Day Water Streak`, 'On a hydration roll!');
+  }
+  if (extras.chores_done_week >= 3) {
+    add('chore_champ', '🏆', 'Chore Champ', `${extras.chores_done_week} chores crushed this week`);
+  }
+  if (extras.chores_done_week >= 1 && extras.chores_done_week < 3) {
+    add('helping_hand', '🙌', 'Helping Hand', 'Chores done this week — nice!');
+  }
+  if (stats.bmi_category === 'healthy') {
+    add('balanced', '💪', 'In the Zone', 'BMI sitting in a healthy spot');
+  }
+  if (member.activity_level === 'active' || member.activity_level === 'very_active') {
+    add('energizer', '⚡', 'Energizer', 'An active lifestyle powers everything');
+  }
+  if (extras.traitCount >= 5) {
+    add('open_book', '📖', 'Open Book', 'Great self-awareness — lots of traits logged');
+  }
+  if (member.diet_type && member.diet_type !== 'none') {
+    add('goal_getter', '🎯', 'Diet Goals', `Rocking the ${member.diet_type.replace(/_/g, ' ')} lifestyle`);
+  }
+
+  return badges;
+};
+
+/**
+ * Fun score: water days + chores this week + foods logged. Just for flavor.
+ */
+const computeFunPoints = (extras) =>
+  (extras.water_streak || 0) * 15 +
+  (extras.chores_done_week || 0) * 10 +
+  (extras.likedCount || 0) * 2 +
+  (extras.traitCount || 0) * 3;
+
+/** Match liked treats to lighter swap ideas */
+const buildSnackSwaps = (foodPrefs) => {
+  const swaps = [];
+  const liked = (foodPrefs || []).filter(f => f.preference === 'like');
+  for (const f of liked) {
+    const name = f.food_name.toLowerCase();
+    const hit = SNACK_SWAPS.find(s => s.match.some(m => name.includes(m)));
+    if (hit) swaps.push({ from: f.food_name, to: hit.to });
+  }
+  return swaps.slice(0, 5);
+};
+
+/** Meal ideas = highest-tier liked foods, framed positively */
+const buildMealIdeas = (foodPrefs) =>
+  (foodPrefs || [])
+    .filter(f => f.preference === 'like')
+    .sort((a, b) => (TIER_WEIGHTS[b.tier] || 0) - (TIER_WEIGHTS[a.tier] || 0))
+    .slice(0, 5)
+    .map(f => ({ food_name: f.food_name, tier: f.tier }));
+
+/** Consecutive-day streak of hitting water goal */
+const getWaterStreak = async (memberId, goalOz) => {
+  const days = await db.query(
+    `SELECT logged_at::date as day, SUM(amount_oz) as total
+     FROM household_member_water_logs
+     WHERE member_id = $1 AND logged_at::date > CURRENT_DATE - INTERVAL '30 days'
+     GROUP BY logged_at::date ORDER BY day DESC`,
+    [memberId]
+  );
+  let streak = 0;
+  let expected = new Date();
+  // Today doesn't break the streak if not yet complete
+  const rows = days.rows.map(r => ({ day: new Date(r.day), total: parseInt(r.total, 10) }));
+  if (rows.length && rows[0].day.toDateString() === expected.toDateString() && rows[0].total < goalOz) {
+    rows.shift();
+  }
+  for (const r of rows) {
+    if (r.total < goalOz) break;
+    if (r.day.toDateString() === expected.toDateString() ||
+        r.day.toDateString() === new Date(expected.setDate(expected.getDate() - 1)).toDateString()) {
+      streak++;
+      expected = r.day;
+    } else break;
+  }
+  return streak;
+};
+
+const getChoresDoneWeek = async (memberId) => {
+  const r = await db.query(
+    `SELECT COUNT(*) as c FROM household_member_chores
+     WHERE member_id = $1 AND last_completed_at > CURRENT_DATE - INTERVAL '7 days'`,
+    [memberId]
+  );
+  return parseInt(r.rows[0].c, 10);
+};
+
+/** Gather the extras used for badges/points for one member */
+const getFunExtras = async (member, stats) => {
+  const [prefs, traits, waterToday, streak, choresWeek] = await Promise.all([
+    db.query('SELECT preference, tier, food_name FROM household_member_food_prefs WHERE member_id = $1', [member.id]),
+    db.query('SELECT COUNT(*) as c FROM household_member_traits WHERE member_id = $1', [member.id]),
+    db.query(
+      `SELECT COALESCE(SUM(amount_oz),0) as t FROM household_member_water_logs
+       WHERE member_id = $1 AND logged_at::date = CURRENT_DATE`,
+      [member.id]
+    ),
+    getWaterStreak(member.id, stats.water_goal_oz || 64),
+    getChoresDoneWeek(member.id)
+  ]);
+
+  const liked = prefs.rows.filter(p => p.preference === 'like');
+  const extras = {
+    water_today_oz: parseInt(waterToday.rows[0].t, 10),
+    water_streak: streak,
+    chores_done_week: choresWeek,
+    likedCount: liked.length,
+    dislikedCount: prefs.rows.length - liked.length,
+    treatCount: liked.filter(p => p.tier === 'D' || p.tier === 'F').length,
+    topTierCount: liked.filter(p => p.tier === 'S' || p.tier === 'A').length,
+    traitCount: parseInt(traits.rows[0].c, 10)
+  };
+  return { extras, foodPrefs: prefs.rows };
+};
+
 /**
  * Compute health stats for a member.
  * Uses Mifflin-St Jeor for BMR and activity factor for TDEE.
@@ -123,7 +280,15 @@ router.get('/', authenticateToken, async (req, res) => {
       const latest = member.latest_weight_kg
         ? { weight_kg: member.latest_weight_kg, muscle_pct: member.latest_muscle_pct }
         : null;
-      return { ...member, stats: computeStats(member, latest) };
+      const stats = computeStats(member, latest);
+      const { extras } = await getFunExtras(member, stats);
+      return {
+        ...member,
+        stats,
+        badges: computeBadges(member, stats, extras),
+        fun_points: computeFunPoints(extras),
+        water_streak: extras.water_streak
+      };
     }));
 
     res.json(enriched);
@@ -292,9 +457,17 @@ router.get('/:id', authenticateToken, async (req, res) => {
       )
     ]);
 
+    const stats = computeStats(member, latestHealth);
+    const { extras } = await getFunExtras(member, stats);
+
     res.json({
       ...member,
-      stats: computeStats(member, latestHealth),
+      stats,
+      badges: computeBadges(member, stats, extras),
+      fun_points: computeFunPoints(extras),
+      water_streak: extras.water_streak,
+      snack_swaps: buildSnackSwaps(foodPrefs.rows),
+      meal_ideas: buildMealIdeas(foodPrefs.rows),
       food_prefs: foodPrefs.rows,
       traits: traits.rows,
       chores: chores.rows,
