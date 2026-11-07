@@ -108,6 +108,11 @@ const AnimatedRoutes = () => {
         <Route path="/icons" element={<PrivateRoute><IconCollectionGallery /></PrivateRoute>} />
         {/* <Route path="/customize" element={<PrivateRoute><CustomizationHub /></PrivateRoute>} /> */} {/* Disabled - backburner, replaced by AES */}
         <Route path="/admin/icons" element={<PrivateRoute><IconUploadPanel /></PrivateRoute>} />
+        {/* Legacy sidebar paths seeded before migration 046 */}
+        <Route path="/dashboard" element={<Navigate to="/" replace />} />
+        <Route path="/lists" element={<Navigate to="/" replace />} />
+        {/* Catch-all: unknown routes go to the main page instead of rendering blank */}
+        <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </AnimatePresence>

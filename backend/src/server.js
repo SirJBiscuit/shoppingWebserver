@@ -113,7 +113,8 @@ const runMigrations = async () => {
     { file: 'add_sound_system.sql', name: 'Sound System' },
     { file: '043_beta_testing_system.sql', name: 'Beta Testing System' },
     { file: '044_beta_feedback_system.sql', name: 'Beta Feedback System' },
-    { file: '041_admin_storage_system.sql', name: 'Admin Storage System' }
+    { file: '041_admin_storage_system.sql', name: 'Admin Storage System' },
+    { file: '046_fix_sidebar_pages.sql', name: 'Sidebar Pages Fix' }
   ];
 
   for (const migration of migrations) {

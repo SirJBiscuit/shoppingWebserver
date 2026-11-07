@@ -221,7 +221,12 @@ const Sidebar = ({ onAction }) => {
   const isActive = (path) => location.pathname === path;
 
   const handleNavClick = (path) => {
-    navigate(path);
+    if (location.pathname === path) {
+      // Already on this page - let the page decide (e.g. Dashboard refreshes)
+      window.dispatchEvent(new CustomEvent('sidebar-reselect', { detail: { path } }));
+    } else {
+      navigate(path);
+    }
     setIsOpen(false);
   };
 

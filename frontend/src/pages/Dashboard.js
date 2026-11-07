@@ -523,6 +523,22 @@ const Dashboard = () => {
     }
   };
 
+  // Re-clicking the active "Dashboard" sidebar item refreshes + scrolls to top
+  const dashboardRefreshRef = useRef(null);
+  dashboardRefreshRef.current = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    loadLists();
+    loadInventory();
+    loadSuggestions();
+  };
+  useEffect(() => {
+    const handleReselect = (e) => {
+      if (e.detail?.path === '/') dashboardRefreshRef.current?.();
+    };
+    window.addEventListener('sidebar-reselect', handleReselect);
+    return () => window.removeEventListener('sidebar-reselect', handleReselect);
+  }, []);
+
   const deleteItemHistory = async (itemId) => {
     try {
       await suggestionsAPI.deleteItem(itemId);
