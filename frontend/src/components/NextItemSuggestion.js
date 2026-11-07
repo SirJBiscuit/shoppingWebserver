@@ -6,7 +6,7 @@ import { playSound } from '../utils/soundEffects';
 import FormattedNote from './FormattedNote';
 import CustomNumberPad from './CustomNumberPad';
 import CustomKeypad from './CustomKeypad';
-import RadialActionMenu from './RadialActionMenu';
+import CustomRadialMenu from './CustomRadialMenu';
 import { useEditor } from '../contexts/EditorContext';
 import { EditableContainer } from './editor/EditorOverlay';
 
@@ -1022,15 +1022,16 @@ const NextItemSuggestionContent = ({
               </motion.button>
             )}
             
-            {/* More Actions - radial menu on desktop/tablet, sheet on mobile */}
+            {/* More Actions - vertical list menu on desktop/tablet, sheet on mobile */}
             {deviceType !== 'mobile' ? (
-              <RadialActionMenu
+              <CustomRadialMenu
                 primaryAction={{
                   icon: MoreHorizontal,
                   label: 'More Actions',
                   className: 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800'
                 }}
                 actions={moreActions}
+                shape="list"
                 size="md"
               />
             ) : (

@@ -146,6 +146,7 @@ const ItemListContent = (props) => {
               setNoteItem={setNoteItem}
               setNoteText={setNoteText}
               onLookForThis={onLookForThis}
+              onEdit={onEdit}
               showCheckboxes={showCheckboxes}
               showPrices={showPrices}
               showQuantities={showQuantities}
@@ -184,6 +185,7 @@ const ItemListContent = (props) => {
                   storeName={storeName}
                   setNoteItem={setNoteItem}
                   setNoteText={setNoteText}
+                  onEdit={onEdit}
                   onLookForThis={onLookForThis}
                   showCheckboxes={showCheckboxes}
                   showPrices={showPrices}
@@ -269,7 +271,7 @@ const ItemListContent = (props) => {
 };
 
 // Separate ItemCard component for reusability
-const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis }) => {
+const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit }) => {
   const [editingAisle, setEditingAisle] = useState(false);
   const [aisleNumber, setAisleNumber] = useState('');
   const [aisleName, setAisleName] = useState('');
@@ -539,9 +541,30 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                       )}
                     </p>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {formatQuantityPlain(item.totalQuantity)} {item.unit}
-                      </span>
+                      {onEdit && item.count === 1 ? (
+                        <span className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                          <button
+                            onClick={() => onEdit({ ...item, id: item.ids[0], quantity: Math.max(1, item.totalQuantity - 1) })}
+                            className="w-5 h-5 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-primary-200 dark:hover:bg-primary-800 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center"
+                            title="Decrease quantity"
+                          >
+                            −
+                          </button>
+                          <span className="min-w-[1.5rem] text-center">{formatQuantityPlain(item.totalQuantity)}</span>
+                          <button
+                            onClick={() => onEdit({ ...item, id: item.ids[0], quantity: item.totalQuantity + 1 })}
+                            className="w-5 h-5 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-primary-200 dark:hover:bg-primary-800 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center"
+                            title="Increase quantity"
+                          >
+                            +
+                          </button>
+                          {item.unit && <span>{item.unit}</span>}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {formatQuantityPlain(item.totalQuantity)} {item.unit}
+                        </span>
+                      )}
                       {item.totalPrice > 0 && (
                         <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-bold">
                           ${item.totalPrice.toFixed(2)}

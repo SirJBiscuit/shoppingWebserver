@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Save, DollarSign, Package, Tag, FileText, Sparkles, TrendingUp, Clock } from 'lucide-react';
 import CustomNumberPad from './CustomNumberPad';
-import CustomKeypad from './CustomKeypad';
 import CustomDropdownList from './CustomDropdownList';
 import IconPicker from './IconPicker';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
@@ -12,8 +11,8 @@ import AnimatedScrollbar3D from './3DAnimatedScrollbar';
  * 
  * Features:
  * - Smooth framer-motion animations
- * - CustomNumberPad for quantity
- * - CustomKeypad for price
+ * - Inline stepper for quantity
+ * - CustomNumberPad overlay for price
  * - CustomDropdownList for unit & category
  * - Icon picker integration
  * - Real-time validation
@@ -32,10 +31,9 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave }) => {
     notes: ''
   });
 
-  const [showNumberPad, setShowNumberPad] = useState(false);
   const [showPriceKeypad, setShowPriceKeypad] = useState(false);
+  const [priceInput, setPriceInput] = useState('');
   const [showIconPicker, setShowIconPicker] = useState(false);
-  const [activeField, setActiveField] = useState(null);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -50,6 +48,11 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave }) => {
         notes: item.notes || ''
       });
     }
+    // Always reset sub-menus so a reopen never shows a stale keypad/picker
+    setShowPriceKeypad(false);
+    setPriceInput('');
+    setShowIconPicker(false);
+    setErrors({});
   }, [item]);
 
   const unitOptions = [
@@ -272,18 +275,34 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave }) => {
                     <TrendingUp className="w-4 h-4 text-primary-500" />
                     Quantity *
                   </label>
-                  <motion.button
-                    type="button"
-                    onClick={() => {
-                      setActiveField('quantity');
-                      setShowNumberPad(true);
-                    }}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-gradient-to-br from-primary-50 to-white dark:from-primary-900/20 dark:to-gray-800 text-gray-900 dark:text-white font-semibold text-lg hover:border-primary-500 transition-all"
-                  >
-                    {formData.quantity}
-                  </motion.button>
+                  <div className="flex items-center gap-2">
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setFormData({ ...formData, quantity: Math.max(1, (parseInt(formData.quantity) || 1) - 1) })}
+                      className="w-11 h-11 flex-shrink-0 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xl font-bold hover:border-primary-500 dark:hover:border-primary-400 transition-colors flex items-center justify-center"
+                      aria-label="Decrease quantity"
+                    >
+                      −
+                    </motion.button>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={formData.quantity}
+                      onChange={(e) => setFormData({ ...formData, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                      className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-gradient-to-br from-primary-50 to-white dark:from-primary-900/20 dark:to-gray-800 text-gray-900 dark:text-white font-semibold text-lg text-center outline-none focus:border-primary-500 dark:focus:border-primary-400"
+                    />
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setFormData({ ...formData, quantity: (parseInt(formData.quantity) || 0) + 1 })}
+                      className="w-11 h-11 flex-shrink-0 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xl font-bold hover:border-primary-500 dark:hover:border-primary-400 transition-colors flex items-center justify-center"
+                      aria-label="Increase quantity"
+                    >
+                      +
+                    </motion.button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
@@ -312,7 +331,7 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave }) => {
                 <motion.button
                   type="button"
                   onClick={() => {
-                    setActiveField('price');
+                    setPriceInput(String(formData.price ?? ''));
                     setShowPriceKeypad(true);
                   }}
                   whileHover={{ scale: 1.02 }}
@@ -391,33 +410,25 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave }) => {
           </div>
         </motion.div>
 
-        {/* Custom Number Pad for Quantity */}
-        {showNumberPad && activeField === 'quantity' && (
-          <CustomNumberPad
-            initialValue={formData.quantity}
-            onConfirm={(value) => {
-              setFormData({ ...formData, quantity: parseInt(value) || 1 });
-              setShowNumberPad(false);
-            }}
-            onClose={() => setShowNumberPad(false)}
-            title="Enter Quantity"
-            allowDecimal={false}
-            min={1}
-          />
-        )}
-
-        {/* Custom Keypad for Price */}
-        {showPriceKeypad && activeField === 'price' && (
-          <CustomKeypad
-            initialValue={formData.price}
-            onConfirm={(value) => {
-              setFormData({ ...formData, price: value });
-              setShowPriceKeypad(false);
-            }}
-            onClose={() => setShowPriceKeypad(false)}
-            title="Enter Price"
-            mode="price"
-          />
+        {/* Number Pad for Price — rendered in its own fixed overlay so it
+            never shifts the modal panel behind the sidebar */}
+        {showPriceKeypad && (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
+            onClick={() => setShowPriceKeypad(false)}
+          >
+            <div onClick={(e) => e.stopPropagation()}>
+              <CustomNumberPad
+                value={priceInput}
+                onChange={setPriceInput}
+                onSave={() => {
+                  setFormData({ ...formData, price: priceInput });
+                  setShowPriceKeypad(false);
+                }}
+                onCancel={() => setShowPriceKeypad(false)}
+              />
+            </div>
+          </div>
         )}
 
         {/* Icon Picker */}
