@@ -7,7 +7,8 @@ import {
   ChevronUp, ChevronDown, Copy, Trash2, ArrowUpNarrowWide, Eraser, MoreVertical,
   FoldVertical, UnfoldVertical, Bold, Italic, ShoppingCart, FolderDown, RotateCcw,
   GripVertical, ZoomIn, ZoomOut, FileStack, FilePlus2, FileUp, Scissors, CalendarDays,
-  CornerDownLeft
+  CornerDownLeft, FolderPlus, Folder, FolderOpen, ListChecks, TextCursorInput,
+  Clock3, Pin, ChevronRight, SearchX
 } from 'lucide-react';
 import AnimatedScrollbar3D from '../3DAnimatedScrollbar';
 import MenuPanel from '../MenuPanel';
@@ -53,6 +54,17 @@ const THEMES = {
 
 const SCALE_TEXT = ['text-xs', 'text-sm', 'text-base'];
 const DRAW_COLORS = ['#5FBCE8', '#7FE39A', '#FFD76A', '#E35F5F', '#B08FE8', '#FFFFFF'];
+
+/** Slash commands — "/cmd " at the start of a block converts it (Kotlin port). */
+const SLASH_CMDS = {
+  check: BT.CHECK, todo: BT.CHECK, cb: BT.CHECK, task: BT.CHECK,
+  bullet: BT.BULLET, list: BT.BULLET, ul: BT.BULLET,
+  number: BT.NUMBER, num: BT.NUMBER, ol: BT.NUMBER,
+  text: BT.TEXT, txt: BT.TEXT, plain: BT.TEXT,
+  divider: BT.DIVIDER, hr: BT.DIVIDER,
+  table: BT.TABLE, draw: BT.DRAW, canvas: BT.DRAW,
+};
+const TEXTISH = [BT.TEXT, BT.CHECK, BT.BULLET, BT.NUMBER];
 
 const PAGE_TEMPLATES = [
   {
@@ -106,7 +118,7 @@ const PAGE_TEMPLATES = [
 ];
 
 /* ---------- Drawing canvas ---------- */
-const DrawCanvas = ({ strokes, onCommit, height, theme }) => {
+const DrawCanvas = ({ strokes, onCommit, height, theme, penSize, setPenSize }) => {
   const canvasRef = useRef(null);
   const drawing = useRef(false);
   const cur = useRef([]);
@@ -119,7 +131,7 @@ const DrawCanvas = ({ strokes, onCommit, height, theme }) => {
     ctx.clearRect(0, 0, c.width, c.height);
     const paint = (s) => {
       ctx.strokeStyle = s.color;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = s.w || 2.5;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.beginPath();
@@ -165,7 +177,7 @@ const DrawCanvas = ({ strokes, onCommit, height, theme }) => {
           if (!drawing.current) return;
           drawing.current = false;
           if (cur.current.length >= 4) {
-            onCommit({ pts: [...cur.current], color: penColor });
+            onCommit({ pts: [...cur.current], color: penColor, w: penSize });
           }
           cur.current = [];
           redraw();
@@ -179,6 +191,16 @@ const DrawCanvas = ({ strokes, onCommit, height, theme }) => {
             className={`w-5 h-5 rounded-full border-2 transition-transform ${penColor === c ? 'scale-110 border-white' : 'border-gray-500'}`}
             style={{ backgroundColor: c }}
           />
+        ))}
+        {[1.5, 2.5, 4].map((w, wi) => (
+          <button
+            key={w}
+            onClick={() => setPenSize(w)}
+            className={`w-5 h-5 rounded flex items-center justify-center ${penSize === w ? 'ring-1 ring-white' : 'opacity-60'}`}
+            title={`Pen ${['fine', 'normal', 'thick'][wi]}`}
+          >
+            <span className="rounded-full bg-white" style={{ width: w + 2, height: w + 2 }} />
+          </button>
         ))}
         <button
           onClick={() => onCommit(null)}
@@ -237,12 +259,50 @@ const TableBlock = ({ b, theme, onPatch }) => {
   );
 };
 
-const ToolBtn = ({ children, onClick, title, on, disabled, theme }) => (
+/** Sortable page row — same drag-grip pattern as blocks (Kotlin sideDrag). */
+const SortablePage = ({ page: p, children }) => {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item
+      value={p}
+      dragListener={false}
+      dragControls={controls}
+      whileDrag={{ scale: 1.03, zIndex: 30 }}
+      className="select-none relative"
+    >
+      {children(controls)}
+    </Reorder.Item>
+  );
+};
+
+/** Context-menu row — Kotlin CtxItem (icon + optional tint bar + danger). */
+const MenuRow = ({ icon: Icon, label, onClick, danger, tint, theme }) => (
   <button
+    onClick={onClick}
+    className={`w-full flex items-center gap-2 px-3 py-2 sm:py-1.5 text-xs ${
+      danger ? 'text-red-400 hover:bg-red-500/15' : `${theme.text} ${theme.hover}`
+    }`}
+  >
+    {tint && <span className="w-1 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: tint }} />}
+    {Icon && <Icon className="w-3.5 h-3.5 flex-shrink-0" />}
+    <span className="truncate">{label}</span>
+  </button>
+);
+
+const MenuHeader = ({ label, tint }) => (
+  <div className="px-3 pt-2 pb-0.5 flex items-center gap-2">
+    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: tint || '#6E8296' }}>{label}</span>
+    <div className="flex-1 h-px bg-gray-500/30" />
+  </div>
+);
+
+const ToolBtn = ({ children, onClick, title, on, disabled, theme, btnRef }) => (
+  <button
+    ref={btnRef}
     onClick={onClick}
     title={title}
     disabled={disabled}
-    className={`p-1.5 rounded-md transition-colors disabled:opacity-30 ${
+    className={`p-2 sm:p-1.5 rounded-md transition-colors disabled:opacity-30 ${
       on ? `bg-gradient-to-r ${theme.accent} text-white` : `${theme.muted} ${theme.hover}`
     }`}
   >
@@ -282,6 +342,18 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   const [typedDone, setTypedDone] = useState(new Set());
   const [dueEditId, setDueEditId] = useState(null);
   const [launcherDragging, setLauncherDragging] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  const [selBar, setSelBar] = useState(null);          // floating text-selection toolbar {x,y,blockId}
+  const [blockSel, setBlockSel] = useState(new Set()); // multi-block selection ids
+  const [pageSel, setPageSel] = useState(false);       // whole-page selection
+  const [blockSelMode, setBlockSelMode] = useState(false);
+  const [wordEraseMode, setWordEraseMode] = useState(false);
+  const [sideFilter, setSideFilter] = useState(-1);    // -1 all · 8 starred · 0-7 color
+  const [folderEdit, setFolderEdit] = useState(null);  // 'new' | folderId
+  const [folderMenuPage, setFolderMenuPage] = useState(null); // page being folder-assigned
+  const [palettePos, setPalettePos] = useState(null);
+  const [findCase, setFindCase] = useState(false);
+  const [collapsedFolders, setCollapsedFolders] = useState(new Set());
 
   const dragControls = useDragControls();
   const historyRef = useRef(makeHistory());
@@ -292,6 +364,10 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   const panelRef = useRef(null);
   const contentRef = useRef(null);
   const fileRef = useRef(null);
+  const paletteBtnRef = useRef(null);
+  const miniRef = useRef(null);
+  const pageSelRef = useRef(false);
+  const copyPageRef = useRef(() => {});
 
   const page = doc.pages.find((p) => p.id === doc.lastPage) || doc.pages[0];
   const theme = THEMES[doc.settings.theme] || THEMES.dark;
@@ -367,7 +443,8 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
       if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
       if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); saveDoc(userId, doc); showToast('Saved'); }
       if (mod && e.key.toLowerCase() === 'f') { e.preventDefault(); setShowFind(true); }
-      if (e.key === 'Escape') { setMenu(null); setPopup(null); setShowPalette(false); setDueEditId(null); }
+      if (mod && e.key.toLowerCase() === 'c' && pageSelRef.current) { e.preventDefault(); copyPageRef.current(); }
+      if (e.key === 'Escape') { setMenu(null); setPopup(null); setShowPalette(false); setDueEditId(null); setSelBar(null); setBlockSel(new Set()); setPageSel(false); setWordEraseMode(false); setFolderMenuPage(null); }
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
@@ -392,10 +469,69 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     return () => el.removeEventListener('wheel', h);
   }, [isOpen, mode]);
 
+  /* ----- mobile breakpoint ----- */
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+
+  /* ----- custom selection: floating toolbar on textarea selection -----
+   * selectionchange covers mouse drag, shift-click, double/triple-click
+   * and mobile long-press handles. The bar anchors above the textarea. */
+  useEffect(() => {
+    if (!isOpen) return;
+    const onSel = () => {
+      const el = document.activeElement;
+      if (el && el.tagName === 'TEXTAREA' && el.dataset.blockId != null && el.selectionEnd > el.selectionStart) {
+        const r = el.getBoundingClientRect();
+        setSelBar({
+          blockId: +el.dataset.blockId,
+          x: Math.min(Math.max(90, r.left + r.width / 2), window.innerWidth - 130),
+          y: Math.max(52, r.top - 44),
+        });
+      } else {
+        setSelBar(null);
+      }
+    };
+    document.addEventListener('selectionchange', onSel);
+    document.addEventListener('select', onSel, true);
+    return () => {
+      document.removeEventListener('selectionchange', onSel);
+      document.removeEventListener('select', onSel, true);
+    };
+  }, [isOpen]);
+
   /* ----- block ops ----- */
   const addBlock = (type) => {
     mutatePage((pg, nd) => pg.blocks.push(blockHelpers.newBlock(nd, type)));
     showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} block added`);
+  };
+
+  /** Kotlin insertBlock — new block right after [afterId] (or appended), same slide-in feel. */
+  const insertBlockBelow = (type, afterId) => {
+    let nbId = null;
+    mutatePage((pg, nd) => {
+      const nb = blockHelpers.newBlock(nd, type);
+      nbId = nb.id;
+      const i = afterId == null ? pg.blocks.length : pg.blocks.findIndex((b) => b.id === afterId) + 1;
+      pg.blocks.splice(Math.max(0, Math.min(i, pg.blocks.length)), 0, nb);
+    });
+    if (TEXTISH.includes(type)) setTimeout(() => taRefs.current[nbId]?.focus(), 40);
+  };
+
+  /** Kotlin checkAll — tick/untick the contiguous run of CHECK blocks around [id]. */
+  const checkAll = (id, v) => {
+    let n = 0;
+    mutatePage((pg) => {
+      const i = pg.blocks.findIndex((b) => b.id === id);
+      if (i < 0) return;
+      let lo = i, hi = i;
+      while (lo > 0 && pg.blocks[lo - 1].type === BT.CHECK) lo--;
+      while (hi < pg.blocks.length - 1 && pg.blocks[hi + 1].type === BT.CHECK) hi++;
+      for (let j = lo; j <= hi; j++) if (pg.blocks[j].type === BT.CHECK) { pg.blocks[j].checked = v; n++; }
+    });
+    showToast(v ? `${n} ticked` : `${n} unticked`);
   };
 
   const setBlockText = (id, text) =>
@@ -404,6 +540,217 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   const patchBlock = (id, patch) =>
     mutatePage((pg) => { const b = pg.blocks.find((x) => x.id === id); if (b) Object.assign(b, patch); });
 
+  /** Kotlin slashCmd — "/cmd " typed at the start converts the block type. */
+  const handleTaChange = (b, e) => {
+    const v = e.target.value;
+    const m = v.match(/^\/([a-z]+) $/);
+    if (m && SLASH_CMDS[m[1]] && TEXTISH.includes(b.type)) {
+      const t = SLASH_CMDS[m[1]];
+      mutatePage((pg) => {
+        const x = pg.blocks.find((y) => y.id === b.id);
+        if (!x) return;
+        x.text = ''; x.type = t;
+        if (t === BT.TABLE) x.cells = [['', ''], ['', '']];
+        if (t === BT.DRAW) { x.strokes = []; x.drawH = 120; }
+        if (t !== BT.CHECK) x.checked = false;
+      });
+      showToast(`/${m[1]} → ${t}`);
+      return;
+    }
+    setBlockText(b.id, v);
+  };
+
+  /** Kotlin keyPressed for text blocks — Enter splits/demotes, Backspace merges. */
+  const handleTaKeyDown = (b, e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      if ((e.ctrlKey || e.metaKey) && b.type === BT.CHECK) {
+        e.preventDefault();
+        mutatePage((pg) => { const x = pg.blocks.find((y) => y.id === b.id); if (x) x.checked = !x.checked; });
+        return;
+      }
+      e.preventDefault();
+      if ([BT.CHECK, BT.BULLET, BT.NUMBER].includes(b.type) && !b.text.trim()) {
+        // empty list row demotes to plain text — the "leave the list" gesture
+        mutatePage((pg) => { const x = pg.blocks.find((y) => y.id === b.id); if (x) x.type = BT.TEXT; });
+        return;
+      }
+      const s = e.target.selectionStart ?? b.text.length;
+      let nbId = null;
+      mutatePage((pg, nd) => {
+        const i = pg.blocks.findIndex((y) => y.id === b.id);
+        if (i < 0) return;
+        const x = pg.blocks[i];
+        const tail = x.text.slice(s);
+        x.text = x.text.slice(0, s);
+        const nb = blockHelpers.newBlock(nd, x.type);
+        nbId = nb.id;
+        nb.text = tail;
+        pg.blocks.splice(i + 1, 0, nb);
+      });
+      if (nbId) setTimeout(() => taRefs.current[nbId]?.focus(), 30);
+      return;
+    }
+    if (e.key === 'Backspace' && e.target.selectionStart === 0 && e.target.selectionEnd === 0) {
+      const i = page.blocks.findIndex((y) => y.id === b.id);
+      if (i > 0) {
+        e.preventDefault();
+        let focusId = null, focusAt = 0;
+        mutatePage((pg) => {
+          const bi = pg.blocks.findIndex((y) => y.id === b.id);
+          if (bi <= 0) return;
+          const cur = pg.blocks[bi];
+          const prev = pg.blocks[bi - 1];
+          if (TEXTISH.includes(prev.type)) {
+            focusId = prev.id;
+            focusAt = prev.text.length;
+            prev.text += cur.text;
+          }
+          pg.blocks.splice(bi, 1);
+        });
+        if (focusId) setTimeout(() => {
+          const el = taRefs.current[focusId];
+          el?.focus();
+          if (el) el.selectionStart = el.selectionEnd = focusAt;
+        }, 30);
+      }
+      return;
+    }
+    // Ctrl+A — first press selects the block (native); a second press selects the page
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+      if (e.target.selectionStart === 0 && e.target.selectionEnd === e.target.value.length && e.target.value.length > 0) {
+        e.preventDefault();
+        setPageSel(true);
+        setBlockSel(new Set(inlineBlocks.map((x) => x.id)));
+        showToast('Page selected — Ctrl+C copies all');
+      }
+    }
+  };
+
+  /** Word-erase mode click — poof the word at the caret (Kotlin eraseWordAt). */
+  const handleTaClick = (b, e) => {
+    if (blockSelMode) { toggleBlockSel(b.id); return; }
+    if (!wordEraseMode) {
+      // triple-click selects the whole block (Kotlin click streak)
+      if (e.detail >= 3) { e.target.selectionStart = 0; e.target.selectionEnd = e.target.value.length; }
+      return;
+    }
+    const idx = e.target.selectionStart ?? 0;
+    const w = wordAt(b.text, idx);
+    if (!w) { showToast('No word at caret'); return; }
+    mutatePage((pg) => {
+      const x = pg.blocks.find((y) => y.id === b.id);
+      if (!x) return;
+      let ds = w[0], de = w[1];
+      if (de < x.text.length && x.text[de] === ' ') de++;
+      else if (ds > 0 && x.text[ds - 1] === ' ') ds--;
+      x.text = x.text.slice(0, ds) + x.text.slice(de);
+    });
+    showToast('Word erased');
+  };
+
+  /** Floating selection-toolbar actions — operates on the live textarea selection. */
+  const selDo = (act) => {
+    if (!selBar) return;
+    const el = taRefs.current[selBar.blockId];
+    if (!el) { setSelBar(null); return; }
+    const s = el.selectionStart, en = el.selectionEnd, v = el.value;
+    const id = selBar.blockId;
+    switch (act) {
+      case 'copy': navigator.clipboard?.writeText(v.slice(s, en)); showToast('Copied'); break;
+      case 'cut': navigator.clipboard?.writeText(v.slice(s, en)); setBlockText(id, v.slice(0, s) + v.slice(en)); showToast('Cut'); break;
+      case 'del': setBlockText(id, v.slice(0, s) + v.slice(en)); break;
+      case 'bold': setBlockText(id, v.slice(0, s) + '**' + v.slice(s, en) + '**' + v.slice(en)); break;
+      case 'italic': setBlockText(id, v.slice(0, s) + '*' + v.slice(s, en) + '*' + v.slice(en)); break;
+      case 'block': el.selectionStart = 0; el.selectionEnd = v.length; el.focus(); return;
+      default: break;
+    }
+    setSelBar(null);
+  };
+
+  /* ----- multi-block selection (Kotlin pageSel analog) ----- */
+  const toggleBlockSel = (id) => {
+    setBlockSel((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id); else s.add(id);
+      if (!s.size) setPageSel(false);
+      return s;
+    });
+  };
+  const lastBlockClick = useRef(null);
+  const handleBlockRowClick = (b, e) => {
+    // clicks inside the textarea are normal editing; row-level clicks manage block selection
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.tagName === 'CANVAS' || e.target.closest('button')) return;
+    if (blockSelMode || e.ctrlKey || e.metaKey) { toggleBlockSel(b.id); lastBlockClick.current = b.id; return; }
+    if (e.shiftKey && lastBlockClick.current != null) {
+      const ids = inlineBlocks.map((x) => x.id);
+      const a = ids.indexOf(lastBlockClick.current), z = ids.indexOf(b.id);
+      if (a >= 0 && z >= 0) {
+        const lo = Math.min(a, z), hi = Math.max(a, z);
+        setBlockSel(new Set(ids.slice(lo, hi + 1)));
+      }
+    }
+    lastBlockClick.current = b.id;
+  };
+  const selText = () => page.blocks
+    .filter((b) => blockSel.has(b.id))
+    .map((b) => {
+      switch (b.type) {
+        case BT.CHECK: return `[${b.checked ? 'x' : ' '}] ${b.text}`;
+        case BT.BULLET: return `• ${b.text}`;
+        case BT.NUMBER: return `# ${b.text}`;
+        case BT.DIVIDER: return '──────────';
+        case BT.TABLE: return (b.cells || []).map((r) => r.join(' | ')).join('\n');
+        case BT.DRAW: return '[drawing]';
+        default: return b.text;
+      }
+    }).join('\n');
+  const blockSelOps = (act) => {
+    if (!blockSel.size) return;
+    switch (act) {
+      case 'copy':
+        navigator.clipboard?.writeText(pageSel ? `${page.name}\n\n${exportPageText(page)}` : selText());
+        showToast(`Copied ${blockSel.size} block${blockSel.size === 1 ? '' : 's'}`);
+        break;
+      case 'float':
+        mutatePage((pg) => pg.blocks.forEach((b, i) => {
+          if (blockSel.has(b.id)) { b.floating = true; b.fx = 30 + (i * 20) % 140; b.fy = 50 + (i * 16) % 110; }
+        }));
+        break;
+      case 'del':
+        mutatePage((pg) => { pg.blocks = pg.blocks.filter((b) => !blockSel.has(b.id)); });
+        showToast(`Deleted ${blockSel.size} block${blockSel.size === 1 ? '' : 's'}`);
+        break;
+      default: break;
+    }
+    setBlockSel(new Set()); setPageSel(false);
+  };
+
+  /* ----- page folders ----- */
+  const moveToFolder = (pageId, folder) => {
+    patchPage(pageId, { folder: folder || '' });
+    setFolderMenuPage(null);
+  };
+  const newFolderFromPage = (pageId, name) => {
+    const f = name.trim();
+    if (f) patchPage(pageId, { folder: f });
+    setFolderMenuPage(null);
+    setFolderEdit(null);
+  };
+  const renameFolder = (oldName, newName) => {
+    const f = newName.trim();
+    setDoc((prev) => ({
+      ...prev,
+      pages: prev.pages.map((p) => (p.folder === oldName ? { ...p, folder: f || oldName } : p)),
+    }));
+    setFolderEdit(null);
+  };
+  const ungroupFolder = (name) => {
+    setDoc((prev) => ({
+      ...prev,
+      pages: prev.pages.map((p) => (p.folder === name ? { ...p, folder: '' } : p)),
+    }));
+  };
+
   /* word/line helpers (erase-word / duplicate-line via caret) */
   const wordAt = (text, idx) => {
     let a = idx, b = idx;
@@ -411,19 +758,6 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     while (a > 0 && isWord(text[a - 1])) a--;
     while (b < text.length && isWord(text[b])) b++;
     return a === b ? null : [a, b];
-  };
-
-  const eraseWord = (id) => {
-    const el = taRefs.current[id];
-    const b = page.blocks.find((x) => x.id === id);
-    if (!el || !b || !b.text) { showToast('Place caret in the block first'); return; }
-    const w = wordAt(b.text, el.selectionStart || 0);
-    if (!w) { showToast('No word at caret'); return; }
-    mutatePage((pg) => {
-      const x = pg.blocks.find((y) => y.id === id);
-      x.text = x.text.slice(0, w[0]) + x.text.slice(w[1]);
-    });
-    showToast('Word erased');
   };
 
   const duplicateLine = (id) => {
@@ -442,8 +776,11 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     showToast('Line duplicated');
   };
 
-  const blockAction = (id, action) => {
+  const blockAction = (id, action, payload) => {
     setMenu(null);
+    // checklist-run ops live outside mutatePage — checkAll does its own update
+    if (action === 'checkrun') { checkAll(id, true); return; }
+    if (action === 'uncheckrun') { checkAll(id, false); return; }
     mutatePage((pg, nd) => {
       const i = pg.blocks.findIndex((b) => b.id === id);
       if (i < 0) return;
@@ -468,12 +805,89 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
         }
         case 'dock': {
           pg.blocks[i].floating = false;
+          pg.blocks[i].pinned = false;
           break;
         }
+        case 'pin': pg.blocks[i].pinned = true; break;
+        case 'unpin': pg.blocks[i].pinned = false; break;
+        case 'timestamp': {
+          const b = pg.blocks[i];
+          const ts = new Date().toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+          b.text = (b.text ? b.text + (b.text.endsWith('\n') ? '' : '\n') : '') + ts;
+          break;
+        }
+        case 'turninto': {
+          const b = pg.blocks[i];
+          b.type = payload;
+          if (payload === BT.TABLE) b.cells = [['', ''], ['', '']];
+          if (payload === BT.DRAW) { b.strokes = []; b.drawH = 120; }
+          if (payload !== BT.CHECK) b.checked = false;
+          break;
+        }
+        case 'trow+': {
+          const b = pg.blocks[i];
+          b.cells = [...(b.cells || []), Array(Math.max(...(b.cells || [['']]).map((r) => r.length))).fill('')];
+          break;
+        }
+        case 'trow-': {
+          const b = pg.blocks[i];
+          if ((b.cells || []).length > 1) b.cells = b.cells.slice(0, -1);
+          break;
+        }
+        case 'tcol+': {
+          const b = pg.blocks[i];
+          b.cells = (b.cells || []).map((r) => [...r, '']);
+          break;
+        }
+        case 'tcol-': {
+          const b = pg.blocks[i];
+          b.cells = (b.cells || []).map((r) => (r.length > 1 ? r.slice(0, -1) : r));
+          break;
+        }
+        case 'taller': pg.blocks[i].drawH = Math.min(220, (pg.blocks[i].drawH || 120) + 30); break;
+        case 'shorter': pg.blocks[i].drawH = Math.max(60, (pg.blocks[i].drawH || 120) - 30); break;
         case 'del': pg.blocks.splice(i, 1); break;
         default: break;
       }
     });
+  };
+
+  /* ----- clipboard for menus — operates on the focused textarea or whole block ----- */
+  const cutSel = (id) => {
+    const el = taRefs.current[id];
+    const b = page.blocks.find((x) => x.id === id);
+    if (!b) return;
+    const s = el ? el.selectionStart : 0;
+    const en = el ? el.selectionEnd : b.text.length;
+    const v = el ? el.value : b.text;
+    navigator.clipboard?.writeText(v.slice(s, en));
+    if (en > s) setBlockText(id, v.slice(0, s) + v.slice(en));
+    showToast('Cut');
+  };
+  const copySel = (id) => {
+    const el = taRefs.current[id];
+    const b = page.blocks.find((x) => x.id === id);
+    if (!b) return;
+    const s = el ? el.selectionStart : 0;
+    const en = el ? el.selectionEnd : b.text.length;
+    const v = el ? el.value : b.text;
+    navigator.clipboard?.writeText(en > s ? v.slice(s, en) : b.text);
+    showToast('Copied');
+  };
+  const pasteAt = async (id) => {
+    try {
+      const t = await navigator.clipboard.readText();
+      if (!t) return;
+      const el = taRefs.current[id];
+      const b = page.blocks.find((x) => x.id === id);
+      if (el && b) {
+        const s = el.selectionStart, en = el.selectionEnd;
+        setBlockText(id, el.value.slice(0, s) + t + el.value.slice(en));
+      } else if (b) {
+        setBlockText(id, b.text + t);
+      }
+      showToast('Pasted');
+    } catch { showToast('Clipboard blocked'); }
   };
 
   /* ----- page ops ----- */
@@ -514,6 +928,8 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     historyRef.current.clear();
     setTypedDone(new Set());
     setMenu(null);
+    setBlockSel(new Set());
+    setPageSel(false);
   };
 
   const patchPage = (id, patch) => {
@@ -578,21 +994,40 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     });
   };
 
+  /** Kotlin pageCtx ops — open / pin to top / move to folder. */
+  const pageAction = (id, action) => {
+    setMenu(null);
+    switch (action) {
+      case 'open': switchPage(id); break;
+      case 'totop':
+        setDoc((prev) => {
+          const p = prev.pages.find((x) => x.id === id);
+          if (!p) return prev;
+          return { ...prev, pages: [p, ...prev.pages.filter((x) => x.id !== id)] };
+        });
+        break;
+      case 'folder': setFolderMenuPage(id); break;
+      default: break;
+    }
+  };
+
   /* ----- find & replace ----- */
   const searchable = (b) => b.text && b.type !== BT.DRAW && b.type !== BT.DIVIDER && b.type !== BT.TABLE;
-  const countIn = (text, q2) => {
-    const t = text.toLowerCase(); let i = t.indexOf(q2), n = 0;
-    while (i !== -1) { n++; i = t.indexOf(q2, i + 1); }
+  const countIn = (text, q2, cs) => {
+    const t = cs ? text : text.toLowerCase();
+    const needle = cs ? q2 : q2.toLowerCase();
+    let i = t.indexOf(needle), n = 0;
+    while (i !== -1) { n++; i = t.indexOf(needle, i + 1); }
     return n;
   };
-  const q = findQ.toLowerCase();
+  const q = findQ;
   const matches = q.trim()
-    ? page.blocks.flatMap((b) => (searchable(b) ? Array(countIn(b.text, q)).fill(b.id) : []))
+    ? page.blocks.flatMap((b) => (searchable(b) ? Array(countIn(b.text, q, findCase)).fill(b.id) : []))
     : [];
   const pageHits = q.trim() && findAll
     ? doc.pages.map((p) => ({
         page: p,
-        count: p.blocks.reduce((n, b) => n + (searchable(b) ? countIn(b.text, q) : 0), 0),
+        count: p.blocks.reduce((n, b) => n + (searchable(b) ? countIn(b.text, q, findCase) : 0), 0),
       })).filter((r) => r.count > 0)
     : [];
 
@@ -611,8 +1046,16 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
       pg.blocks.forEach((b) => {
         if (!searchable(b)) return;
         const before = b.text;
-        b.text = before.split(findQ).join(replaceQ);
-        if (before !== b.text) count += before.split(findQ).length - 1;
+        if (findCase) {
+          count += before.split(findQ).length - 1;
+          b.text = before.split(findQ).join(replaceQ);
+        } else {
+          // case-insensitive replace preserving surrounding text
+          const re = new RegExp(findQ.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+          const m = before.match(re);
+          count += m ? m.length : 0;
+          b.text = before.replace(re, replaceQ);
+        }
       });
     });
     showToast(`Replaced ${count} match${count === 1 ? '' : 'es'}`);
@@ -640,6 +1083,8 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
       showToast('Page copied');
     } catch { showToast('Copy failed'); }
   };
+  copyPageRef.current = copyPage;
+  pageSelRef.current = pageSel;
 
   const downloadPage = () => {
     const blob = new Blob([`${page.name}\n\n${exportPageText(page)}`], { type: 'text/plain' });
@@ -738,6 +1183,10 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     () => page.blocks.reduce((n, b) => n + (b.text ? b.text.trim().split(/\s+/).filter(Boolean).length : 0), 0),
     [page.blocks]
   );
+  const checks = useMemo(() => {
+    const cb = page.blocks.filter((b) => b.type === BT.CHECK);
+    return { n: cb.length, d: cb.filter((b) => b.checked).length };
+  }, [page.blocks]);
 
   const patchSettings = (patch) => setDoc((prev) => ({ ...prev, settings: { ...prev.settings, ...patch } }));
   const setZoom = (z) => patchSettings({ zoom: Math.min(2, Math.max(0.6, +z.toFixed(2))) });
@@ -760,6 +1209,86 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   const floatingBlocks = page.blocks.filter((b) => b.floating);
   const inlineBlocks = page.blocks.filter((b) => !b.floating);
 
+  /* ----- sidebar: filtered pages grouped into folders (Kotlin sideFilter) ----- */
+  const visiblePages = doc.pages.filter((p) =>
+    sideFilter === 8 ? p.starred : sideFilter < 0 || p.color === sideFilter);
+  const folderNames = [...new Set(visiblePages.filter((p) => p.folder).map((p) => p.folder))];
+  const unfiledPages = visiblePages.filter((p) => !p.folder);
+  /** Write a reordered group back, preserving order of every other group. */
+  const reorderGroup = (folder, newOrder) => {
+    setDoc((prev) => {
+      const queue = [...newOrder];
+      let i = 0;
+      return { ...prev, pages: prev.pages.map((p) => ((p.folder || '') === folder ? queue[i++] || p : p)) };
+    });
+  };
+
+  /** Page sidebar row (shared by folder groups + unfiled list). */
+  const pageRow = (p, controls) => (
+    <div
+      onClick={() => (selMode ? toggleSelPage(p.id) : switchPage(p.id))}
+      onDoubleClick={() => setRenamingPage(p.id)}
+      onContextMenu={(e) => openMenu(e, 'page', p.id)}
+      className={`group relative px-2 py-1.5 rounded-lg cursor-pointer text-xs font-medium truncate flex items-center gap-1.5 ${
+        p.id === page.id ? `bg-gradient-to-r ${theme.accent} text-white` : `${theme.text} ${theme.hover}`
+      }`}
+      title={`${p.name} — right-click for options`}
+    >
+      <span
+        onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); controls.start(e); }}
+        className={`flex-shrink-0 cursor-grab active:cursor-grabbing ${isMobile ? 'opacity-40' : 'opacity-0 group-hover:opacity-50'} ${theme.muted}`}
+        title="Drag to reorder"
+      >
+        <GripVertical className="w-3 h-3" />
+      </span>
+      {selMode && (
+        <Check3D checked={selPages.has(p.id)} onChange={() => toggleSelPage(p.id)} size={15} />
+      )}
+      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: PAGE_COLORS[p.color % PAGE_COLORS.length] }} />
+      {renamingPage === p.id ? (
+        <input
+          defaultValue={p.name}
+          autoFocus
+          onClick={(e) => e.stopPropagation()}
+          onBlur={(e) => { patchPage(p.id, { name: e.target.value.trim() || p.name }); setRenamingPage(null); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+          className={`w-full bg-white/20 rounded px-1 text-xs ${p.id === page.id ? 'text-white' : theme.text} outline-none`}
+        />
+      ) : (
+        <span className="truncate flex-1">{p.name}</span>
+      )}
+      {!selMode && (
+        <>
+          <button
+            onClick={(e) => { e.stopPropagation(); patchPage(p.id, { starred: !p.starred }); }}
+            className={`flex-shrink-0 ${p.starred ? 'text-yellow-300' : 'opacity-0 group-hover:opacity-60'}`}
+            title="Star page"
+          >
+            <Star className="w-3 h-3" fill={p.starred ? 'currentColor' : 'none'} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); duplicatePage(p.id); }}
+            className="flex-shrink-0 opacity-0 group-hover:opacity-60 hover:opacity-100"
+            title="Duplicate page"
+          >
+            <Copy className="w-3 h-3" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (doc.pages.length <= 1) { showToast("Can't delete last page"); return; }
+              deletePage(p.id);
+            }}
+            className="flex-shrink-0 opacity-0 group-hover:opacity-60 hover:opacity-100"
+            title="Move to trash"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </>
+      )}
+    </div>
+  );
+
   const dueChip = (b) => {
     const d = daysUntil(b.due);
     if (d === null) return null;
@@ -773,6 +1302,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   /* ----- 3-dot launcher (closed notepad orb) ----- */
   const launcher = (
     <motion.button
+      key="launcher"
       drag
       dragMomentum={false}
       dragElastic={0.05}
@@ -798,60 +1328,59 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     </motion.button>
   );
 
-  if (!isOpen) {
-    return <AnimatePresence>{launcher}</AnimatePresence>;
-  }
-
   /* ----- compact pill ----- */
-  if (mode === 'compact') {
-    return (
-      <motion.div
-        drag
-        dragMomentum={false}
-        dragElastic={0.05}
-        onDragEnd={(_, info) => setPos((p) => ({ x: p.x + info.offset.x, y: p.y + info.offset.y }))}
-        style={{ x: pos.x, y: pos.y }}
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="fixed top-0 left-0 z-[75] flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-full shadow-2xl cursor-grab active:cursor-grabbing bg-gradient-to-r from-amber-500 to-orange-500 text-white select-none"
+  const compactPill = (
+    <motion.div
+      key="compact"
+      drag
+      dragMomentum={false}
+      dragElastic={0.05}
+      onDragEnd={(_, info) => setPos((p) => ({ x: p.x + info.offset.x, y: p.y + info.offset.y }))}
+      style={{ x: pos.x, y: pos.y }}
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0.8, opacity: 0 }}
+      className="fixed top-0 left-0 z-[75] flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-full shadow-2xl cursor-grab active:cursor-grabbing bg-gradient-to-r from-amber-500 to-orange-500 text-white select-none"
+    >
+      <StickyNote className="w-4 h-4" />
+      <span className="text-xs font-semibold max-w-[140px] truncate">{page?.name || 'Notepad'}</span>
+      <span className="text-[10px] opacity-80">{page?.blocks.length || 0} blocks</span>
+      <button
+        onClick={() => setMode('window')}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="w-7 h-7 rounded-full bg-white/25 hover:bg-white/40 flex items-center justify-center"
+        title="Expand notepad"
       >
-        <StickyNote className="w-4 h-4" />
-        <span className="text-xs font-semibold max-w-[140px] truncate">{page?.name || 'Notepad'}</span>
-        <span className="text-[10px] opacity-80">{page?.blocks.length || 0} blocks</span>
-        <button
-          onClick={() => setMode('window')}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="w-7 h-7 rounded-full bg-white/25 hover:bg-white/40 flex items-center justify-center"
-          title="Expand notepad"
-        >
-          <Maximize2 className="w-3.5 h-3.5" />
-        </button>
-      </motion.div>
-    );
-  }
+        <Maximize2 className="w-3.5 h-3.5" />
+      </button>
+    </motion.div>
+  );
 
   const isFullscreen = mode === 'fullscreen';
   const shellCls = isFullscreen
-    ? 'fixed inset-0 z-[70] p-3 sm:p-6'
+    ? 'fixed inset-0 z-[70] p-3 sm:p-6 bg-black/40'
     : 'fixed top-0 left-0 z-[65] w-[560px] max-w-[calc(100vw-16px)]';
   const panelH = isFullscreen ? 'h-full' : 'h-[520px] max-h-[calc(100vh-100px)]';
 
   const panel = (
     <motion.div
+      key="panel"
       drag={!isFullscreen}
       dragControls={dragControls}
       dragListener={false}
       dragMomentum={false}
       dragElastic={0.05}
       onDragEnd={(_, info) => setPos((p) => ({ x: p.x + info.offset.x, y: p.y + info.offset.y }))}
+      onClick={isFullscreen ? handleClose : undefined}
       style={isFullscreen ? {} : { x: pos.x, y: pos.y }}
-      initial={{ scale: 0.92, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      exit={{ scale: 0.92, opacity: 0 }}
+      initial={{ scale: 0.9, opacity: 0, y: 24 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      exit={{ scale: 0.9, opacity: 0, y: 24 }}
       transition={{ type: 'spring', damping: 26, stiffness: 320 }}
       className={`${shellCls} ${panelH}`}
     >
-      <div ref={panelRef} className={`flex flex-col h-full rounded-2xl border-2 shadow-2xl overflow-hidden ${theme.panel}`}>
+      <div ref={panelRef} onClick={(e) => isFullscreen && e.stopPropagation()} className={`np-root flex flex-col h-full rounded-2xl border-2 shadow-2xl overflow-hidden ${theme.panel}`}>
+        <style>{`.np-root ::selection { background: rgba(95,188,232,.38); } .np-root textarea::selection { background: rgba(127,227,154,.4); }`}</style>
         {/* ===== header ===== */}
         <div
           onPointerDown={!isFullscreen ? (e) => dragControls.start(e) : undefined}
@@ -923,23 +1452,35 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
           </button>
           <ToolBtn theme={theme} onClick={() => setZoom(settings.zoom + 0.1)} title="Zoom in"><ZoomIn className="w-4 h-4" /></ToolBtn>
           <Sep />
-          <div className="relative">
-            <ToolBtn theme={theme} onClick={() => { setShowPalette((v) => !v); }} on={showPalette} title="Page accent color">
-              <Palette className="w-4 h-4" />
-            </ToolBtn>
-            {showPalette && (
-              <div className="absolute top-full right-0 mt-1 z-50 p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 shadow-xl grid grid-cols-4 gap-1.5">
-                {PAGE_COLORS.map((c, i) => (
-                  <button
-                    key={c}
-                    onClick={() => { patchPage(page.id, { color: i }); setShowPalette(false); }}
-                    className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${page.color === i ? 'border-white ring-2 ring-primary-400' : 'border-transparent'}`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+          <ToolBtn
+            theme={theme}
+            btnRef={paletteBtnRef}
+            onClick={() => {
+              const r = paletteBtnRef.current?.getBoundingClientRect();
+              if (r) setPalettePos({ x: Math.min(r.left, window.innerWidth - 148), y: r.bottom + 6 });
+              setShowPalette((v) => !v);
+            }}
+            on={showPalette}
+            title="Page accent color"
+          >
+            <Palette className="w-4 h-4" />
+          </ToolBtn>
+          <ToolBtn
+            theme={theme}
+            onClick={() => { setWordEraseMode((v) => !v); showToast(wordEraseMode ? 'Word erase off' : 'Click a word to erase it'); }}
+            on={wordEraseMode}
+            title="Word erase mode — click a word to delete it"
+          >
+            <SearchX className="w-4 h-4" />
+          </ToolBtn>
+          <ToolBtn
+            theme={theme}
+            onClick={() => { setBlockSelMode((v) => !v); setBlockSel(new Set()); setPageSel(false); }}
+            on={blockSelMode}
+            title="Select blocks — click rows, Ctrl+C copies"
+          >
+            <TextCursorInput className="w-4 h-4" />
+          </ToolBtn>
           <ToolBtn theme={theme} onClick={() => setPopup('templates')} title="New page from template"><FilePlus2 className="w-4 h-4" /></ToolBtn>
           <ToolBtn theme={theme} onClick={() => setPopup('settings')} title="Settings"><Settings className="w-4 h-4" /></ToolBtn>
         </div>
@@ -958,6 +1499,13 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
             />
             <span className={`text-[10px] w-10 ${theme.muted}`}>{matches.length ? `${Math.min(findPos, matches.length)}/${matches.length}` : '0'}</span>
             <ToolBtn theme={theme} onClick={findNext} title="Next match"><ChevronDown className="w-4 h-4" /></ToolBtn>
+            <button
+              onClick={() => { setFindCase((v) => !v); setFindPos(0); }}
+              className={`px-1.5 py-1 rounded text-[10px] font-bold ${findCase ? `bg-gradient-to-r ${theme.accent} text-white` : `${theme.muted} ${theme.hover}`}`}
+              title={`Match case — ${findCase ? 'on' : 'off'}`}
+            >
+              aA
+            </button>
             <input
               value={replaceQ}
               onChange={(e) => setReplaceQ(e.target.value)}
@@ -1005,8 +1553,8 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
 
         {/* ===== body ===== */}
         <div className="flex flex-1 min-h-0">
-          {/* pages sidebar */}
-          <div className={`w-32 sm:w-36 flex-shrink-0 flex flex-col border-r ${theme.side}`}>
+          {/* pages sidebar — hidden on mobile (use Jump-to-page instead) */}
+          <div className={`${isMobile ? 'hidden' : 'flex'} w-36 flex-shrink-0 flex-col border-r ${theme.side}`}>
             <div className="flex items-center justify-between px-2 pt-2">
               <span className={`text-[10px] uppercase font-bold ${theme.muted}`}>{showTrash ? 'Trash' : 'Pages'}</span>
               <div className="flex items-center">
@@ -1017,6 +1565,15 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                     title={selMode ? 'Done selecting' : 'Select pages'}
                   >
                     <CheckSquare className={`w-3.5 h-3.5 ${selMode ? '' : theme.muted}`} />
+                  </button>
+                )}
+                {!showTrash && (
+                  <button
+                    onClick={() => setFolderMenuPage(page.id)}
+                    className={`p-1 rounded ${theme.hover}`}
+                    title="Organize into folders"
+                  >
+                    <FolderPlus className={`w-3.5 h-3.5 ${theme.muted}`} />
                   </button>
                 )}
                 <button
@@ -1038,6 +1595,35 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                 )}
               </div>
             </div>
+
+            {/* Kotlin pfilter — All / starred / per-color page filters */}
+            {!showTrash && (
+              <div className={`flex items-center gap-1 px-2 py-1.5 border-b ${theme.side}`}>
+                <button
+                  onClick={() => setSideFilter(-1)}
+                  className={`px-1 rounded text-[9px] font-bold ${sideFilter === -1 ? `bg-gradient-to-r ${theme.accent} text-white` : theme.muted}`}
+                  title="All pages"
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setSideFilter(sideFilter === 8 ? -1 : 8)}
+                  className={`rounded ${sideFilter === 8 ? 'text-yellow-300' : theme.muted}`}
+                  title="Starred only"
+                >
+                  <Star className="w-3 h-3" fill={sideFilter === 8 ? 'currentColor' : 'none'} />
+                </button>
+                {PAGE_COLORS.map((c, i) => (
+                  <button
+                    key={c}
+                    onClick={() => setSideFilter(sideFilter === i ? -1 : i)}
+                    className={`w-3 h-3 rounded-full transition-transform ${sideFilter === i ? 'ring-2 ring-white scale-110' : 'opacity-60 hover:opacity-100'}`}
+                    style={{ backgroundColor: c }}
+                    title={`Filter ${c}`}
+                  />
+                ))}
+              </div>
+            )}
             <AnimatedScrollbar3D maxHeight="100%" autoHide={false} className="flex-1">
               <div className="p-1.5 space-y-1">
                 {showTrash && (doc.trash || []).length === 0 && (
@@ -1063,64 +1649,72 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                     </button>
                   </div>
                 ))}
-                {!showTrash && doc.pages.map((p) => (
-                  <div
-                    key={p.id}
-                    onClick={() => (selMode ? toggleSelPage(p.id) : switchPage(p.id))}
-                    onDoubleClick={() => setRenamingPage(p.id)}
-                    onContextMenu={(e) => openMenu(e, 'page', p.id)}
-                    className={`group relative px-2 py-1.5 rounded-lg cursor-pointer text-xs font-medium truncate flex items-center gap-1.5 ${
-                      p.id === page.id ? `bg-gradient-to-r ${theme.accent} text-white` : `${theme.text} ${theme.hover}`
-                    }`}
-                    title={`${p.name} — right-click for options`}
-                  >
-                    {selMode && (
-                      <Check3D checked={selPages.has(p.id)} onChange={() => toggleSelPage(p.id)} size={15} />
-                    )}
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: PAGE_COLORS[p.color % PAGE_COLORS.length] }} />
-                    {renamingPage === p.id ? (
-                      <input
-                        defaultValue={p.name}
-                        autoFocus
-                        onClick={(e) => e.stopPropagation()}
-                        onBlur={(e) => { patchPage(p.id, { name: e.target.value.trim() || p.name }); setRenamingPage(null); }}
-                        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                        className={`w-full bg-white/20 rounded px-1 text-xs ${p.id === page.id ? 'text-white' : theme.text} outline-none`}
-                      />
-                    ) : (
-                      <span className="truncate flex-1">{p.name}</span>
-                    )}
-                    {!selMode && (
-                      <>
+                {!showTrash && folderNames.map((fname) => {
+                  const fp = visiblePages.filter((p) => p.folder === fname);
+                  const fCollapsed = collapsedFolders.has(fname);
+                  return (
+                    <div key={`folder-${fname}`} className="space-y-1">
+                      {/* folder header — collapse / rename / ungroup */}
+                      <div className={`group flex items-center gap-1 px-1.5 py-1 rounded-md ${theme.hover}`}>
                         <button
-                          onClick={(e) => { e.stopPropagation(); patchPage(p.id, { starred: !p.starred }); }}
-                          className={`flex-shrink-0 ${p.starred ? 'text-yellow-300' : 'opacity-0 group-hover:opacity-60'}`}
-                          title="Star page"
+                          onClick={() => setCollapsedFolders((s) => { const n = new Set(s); if (n.has(fname)) n.delete(fname); else n.add(fname); return n; })}
+                          className={`${theme.muted}`}
+                          title={fCollapsed ? 'Expand folder' : 'Collapse folder'}
                         >
-                          <Star className="w-3 h-3" fill={p.starred ? 'currentColor' : 'none'} />
+                          {fCollapsed ? <Folder className="w-3.5 h-3.5" /> : <FolderOpen className="w-3.5 h-3.5" />}
                         </button>
+                        {folderEdit === fname ? (
+                          <input
+                            defaultValue={fname}
+                            autoFocus
+                            onBlur={(e) => renameFolder(fname, e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                            className={`w-full bg-white/20 rounded px-1 text-[11px] ${theme.text} outline-none`}
+                          />
+                        ) : (
+                          <span
+                            className={`text-[10px] font-bold uppercase tracking-wide truncate flex-1 cursor-pointer ${theme.muted}`}
+                            onDoubleClick={() => setFolderEdit(fname)}
+                            title="Double-click to rename"
+                          >
+                            {fname}
+                          </span>
+                        )}
+                        <span className={`text-[9px] ${theme.muted}`}>{fp.length}</span>
                         <button
-                          onClick={(e) => { e.stopPropagation(); duplicatePage(p.id); }}
-                          className="flex-shrink-0 opacity-0 group-hover:opacity-60 hover:opacity-100"
-                          title="Duplicate page"
+                          onClick={() => setConfirmState({
+                            title: 'Remove Folder',
+                            message: `Remove folder "${fname}"? Its ${fp.length} page${fp.length === 1 ? '' : 's'} stay and become unfiled.`,
+                            onYes: () => { ungroupFolder(fname); setConfirmState(null); },
+                          })}
+                          className="opacity-0 group-hover:opacity-60 hover:opacity-100 flex-shrink-0"
+                          title="Ungroup (pages stay)"
                         >
-                          <Copy className="w-3 h-3" />
+                          <X className={`w-3 h-3 ${theme.muted}`} />
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (doc.pages.length <= 1) { showToast("Can't delete last page"); return; }
-                            deletePage(p.id);
-                          }}
-                          className="flex-shrink-0 opacity-0 group-hover:opacity-60 hover:opacity-100"
-                          title="Move to trash"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ))}
+                        <ChevronRight className={`w-3 h-3 transition-transform ${theme.muted} ${fCollapsed ? '' : 'rotate-90'}`} />
+                      </div>
+                      {!fCollapsed && (
+                        <Reorder.Group axis="y" values={fp} onReorder={(o) => reorderGroup(fname, o)} className="space-y-1 pl-2">
+                          {fp.map((p) => (
+                            <SortablePage key={p.id} page={p}>
+                              {(controls) => pageRow(p, controls)}
+                            </SortablePage>
+                          ))}
+                        </Reorder.Group>
+                      )}
+                    </div>
+                  );
+                })}
+                {!showTrash && (
+                  <Reorder.Group axis="y" values={unfiledPages} onReorder={(o) => reorderGroup('', o)} className="space-y-1">
+                    {unfiledPages.map((p) => (
+                      <SortablePage key={p.id} page={p}>
+                        {(controls) => pageRow(p, controls)}
+                      </SortablePage>
+                    ))}
+                  </Reorder.Group>
+                )}
               </div>
             </AnimatedScrollbar3D>
 
@@ -1191,17 +1785,27 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                           {(controls) => (
                             <div
                               ref={(el) => { blockRefs.current[b.id] = el; }}
+                              onClick={(e) => handleBlockRowClick(b, e)}
                               onContextMenu={(e) => openMenu(e, 'block', b.id)}
-                              className={`group flex items-start gap-1.5 rounded-lg px-1.5 py-1 ${highlight ? 'ring-2 ring-amber-400' : ''} ${theme.hover}`}
+                              className={`group relative flex items-start gap-1.5 rounded-lg px-1.5 py-1 transition-colors ${
+                                blockSel.has(b.id)
+                                  ? 'ring-2 ring-sky-400 bg-sky-500/10'
+                                  : highlight ? 'ring-2 ring-amber-400' : ''
+                              } ${theme.hover} ${wordEraseMode ? 'cursor-crosshair' : ''}`}
                             >
                               {/* drag grip */}
                               <span
                                 onPointerDown={(e) => { e.preventDefault(); controls.start(e); }}
-                                className={`pt-1.5 w-4 flex-shrink-0 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-50 ${theme.muted}`}
+                                className={`pt-1.5 w-4 flex-shrink-0 cursor-grab active:cursor-grabbing ${isMobile ? 'opacity-30' : 'opacity-0 group-hover:opacity-50'} ${theme.muted}`}
                                 title="Drag to reorder"
                               >
                                 <GripVertical className="w-3.5 h-3.5" />
                               </span>
+                              {(blockSelMode || blockSel.has(b.id)) && (
+                                <span className="pt-1.5 flex-shrink-0" onClick={(e) => { e.stopPropagation(); toggleBlockSel(b.id); }}>
+                                  <Check3D checked={blockSel.has(b.id)} onChange={() => toggleBlockSel(b.id)} size={15} />
+                                </span>
+                              )}
 
                               {/* marker */}
                               <div className={`pt-1.5 w-6 flex-shrink-0 flex flex-col items-center ${theme.muted}`}>
@@ -1232,6 +1836,8 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                                     strokes={b.strokes}
                                     height={b.drawH}
                                     theme={doc.settings.theme}
+                                    penSize={settings.penW || 2.5}
+                                    setPenSize={(w) => patchSettings({ penW: w })}
                                     onCommit={(stroke) => mutatePage((pg) => {
                                       const x = pg.blocks.find((y) => y.id === b.id);
                                       if (!x) return;
@@ -1262,9 +1868,11 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                                       ref={(el) => { taRefs.current[b.id] = el; }}
                                       data-block-id={b.id}
                                       value={b.text}
-                                      onChange={(e) => setBlockText(b.id, e.target.value)}
+                                      onChange={(e) => handleTaChange(b, e)}
+                                      onKeyDown={(e) => handleTaKeyDown(b, e)}
+                                      onClick={(e) => handleTaClick(b, e)}
                                       rows={Math.min(Math.max(lineCount, 1), 20)}
-                                      placeholder={b.type === BT.CHECK ? 'Checkbox item…' : 'Type here…'}
+                                      placeholder={b.type === BT.CHECK ? 'Checkbox item…' : b.type === BT.TEXT ? 'Type here — try /check, /table…' : 'Type here…'}
                                       className={`w-full resize-y bg-transparent outline-none placeholder:opacity-40 ${b.checked ? 'line-through opacity-60' : ''} ${theme.text}`}
                                     />
                                   )
@@ -1291,8 +1899,18 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                                 )}
                               </div>
 
+                              {/* Kotlin hover "+" — one-click continue of a list row */}
+                              {[BT.CHECK, BT.BULLET, BT.NUMBER].includes(b.type) && !isCollapsed && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); insertBlockBelow(b.type, b.id); }}
+                                  className={`absolute right-7 top-1 w-5 h-5 rounded-md text-xs font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-green-400 border border-gray-500/40 ${theme.hover}`}
+                                  title={`New ${b.type} below`}
+                                >
+                                  +
+                                </button>
+                              )}
                               {/* ⋮ menu */}
-                              <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity pt-0.5">
+                              <div className={`flex-shrink-0 ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity pt-0.5`}>
                                 <button
                                   onClick={(e) => {
                                     const r = e.currentTarget.getBoundingClientRect();
@@ -1314,8 +1932,49 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
               </div>
             </AnimatedScrollbar3D>
 
-            {/* floating sticky blocks */}
-            {floatingBlocks.map((b) => (
+            {/* Kotlin pin rail — pinned floaters dock as tabs on the right edge */}
+            {floatingBlocks.some((b) => b.pinned) && (
+              <div className="absolute right-0 top-2 bottom-2 w-6 z-20 flex flex-col items-center gap-1.5">
+                {floatingBlocks.filter((b) => b.pinned).map((b) => (
+                  <button
+                    key={b.id}
+                    onClick={() => blockAction(b.id, 'unpin')}
+                    className="w-5 min-h-[52px] py-1 rounded-l-lg bg-amber-400/85 border border-amber-500 text-amber-900 text-[9px] font-bold flex items-center justify-center shadow"
+                    style={{ writingMode: 'vertical-rl' }}
+                    title={`${(b.text || 'sticky').split('\n')[0].slice(0, 24)} — click to unpin`}
+                  >
+                    {(b.text || 'sticky').split('\n')[0].slice(0, 8) || '•'}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Kotlin minimap — block slivers, click to jump (desktop only) */}
+            {!isMobile && inlineBlocks.length > 6 && (
+              <div ref={miniRef} className="absolute right-1 top-2 bottom-2 w-4 z-20 flex flex-col gap-px opacity-50 hover:opacity-100 transition-opacity">
+                {(() => {
+                  const total = inlineBlocks.reduce((n, b) => n + Math.max(1, b.text ? b.text.split('\n').length : 1), 0);
+                  let acc = 0;
+                  return inlineBlocks.map((b) => {
+                    const h = Math.max(1, b.text ? b.text.split('\n').length : 1);
+                    const top = (acc / total) * 100; acc += h;
+                    const col = b.type === BT.CHECK ? '#7FE39A' : b.type === BT.BULLET ? '#5FBCE8' : b.type === BT.NUMBER ? '#FFD76A' : b.type === BT.DRAW ? '#B08FE8' : b.type === BT.DIVIDER ? '#666' : '#3A5570';
+                    return (
+                      <button
+                        key={b.id}
+                        onClick={() => blockRefs.current[b.id]?.scrollIntoView({ block: 'center', behavior: 'smooth' })}
+                        className="w-full rounded-sm hover:scale-x-150 origin-right transition-transform"
+                        style={{ position: 'absolute', top: `${top}%`, height: `${Math.max(2, (h / total) * 100)}%`, backgroundColor: col }}
+                        title={(b.text || b.type).split('\n')[0].slice(0, 30)}
+                      />
+                    );
+                  });
+                })()}
+              </div>
+            )}
+
+            {/* floating sticky blocks (pinned ones live on the rail) */}
+            {floatingBlocks.filter((b) => !b.pinned).map((b) => (
               <motion.div
                 key={b.id}
                 drag
@@ -1323,11 +1982,14 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                 dragConstraints={contentRef}
                 onDragEnd={(_, info) => patchBlock(b.id, { fx: (b.fx || 40) + info.offset.x, fy: (b.fy || 60) + info.offset.y })}
                 style={{ x: b.fx || 40, y: b.fy || 60 }}
-                className="absolute top-0 left-0 z-30 w-48 rounded-xl shadow-2xl border-2 border-amber-400/60 bg-amber-100/95 dark:bg-amber-900/95 cursor-grab active:cursor-grabbing"
+                className="absolute top-0 left-0 z-30 w-40 sm:w-48 rounded-xl shadow-2xl border-2 border-amber-400/60 bg-amber-100/95 dark:bg-amber-900/95 cursor-grab active:cursor-grabbing"
               >
                 <div className="flex items-center justify-between px-2 py-1 bg-amber-400/40 rounded-t-lg">
                   <StickyNote className="w-3 h-3 text-amber-700 dark:text-amber-200" />
                   <div className="flex gap-0.5">
+                    <button onClick={() => blockAction(b.id, 'pin')} className="p-0.5 rounded hover:bg-amber-400/50" title="Pin to side rail">
+                      <Pin className="w-3 h-3 text-amber-800 dark:text-amber-100" />
+                    </button>
                     <button onClick={() => blockAction(b.id, 'dock')} className="p-0.5 rounded hover:bg-amber-400/50" title="Dock back to page">
                       <CornerDownLeft className="w-3 h-3 text-amber-800 dark:text-amber-100" />
                     </button>
@@ -1337,6 +1999,8 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                   </div>
                 </div>
                 <textarea
+                  ref={(el) => { taRefs.current[b.id] = el; }}
+                  data-block-id={b.id}
                   value={b.text}
                   onChange={(e) => setBlockText(b.id, e.target.value)}
                   onPointerDown={(e) => e.stopPropagation()}
@@ -1351,8 +2015,14 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
 
         {/* footer */}
         <div className={`flex items-center justify-between px-3 py-1 border-t ${theme.side} text-[10px] ${theme.muted}`}>
-          <span>{wordCount} words · {page?.blocks.length || 0} blocks{floatingBlocks.length ? ` · ${floatingBlocks.length} floating` : ''}</span>
-          <span>autosaved · right-click for menus</span>
+          <span>
+            {wordCount} words · {page?.blocks.length || 0} blocks
+            {checks.n > 0 && ` · ${checks.d}/${checks.n} done`}
+            {floatingBlocks.length ? ` · ${floatingBlocks.length} floating` : ''}
+            {blockSel.size > 0 && ` · ${blockSel.size} selected`}
+          </span>
+          <span className="hidden sm:block">autosaved · right-click for menus · /check /table…</span>
+          <span className="sm:hidden">autosaved</span>
         </div>
 
         <AnimatePresence>
@@ -1369,136 +2039,302 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
         </AnimatePresence>
       </div>
 
-      {/* ===== context menus ===== */}
-      {menu && (
-        <>
-          <div className="fixed inset-0 z-[80]" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null); }} />
-          <div
-            className={`fixed z-[90] rounded-lg border shadow-2xl py-1 w-48 max-h-[320px] overflow-y-auto ${theme.panel}`}
-            style={{ left: menu.x, top: menu.y }}
-          >
-            {menu.kind === 'block' && (
-              <>
-                {[
-                  { label: 'Move up', icon: ChevronUp, act: 'up' },
-                  { label: 'Move down', icon: ChevronDown, act: 'down' },
-                  { label: 'Duplicate block', icon: Copy, act: 'dup' },
-                  { label: 'Sort lines A–Z', icon: ArrowUpNarrowWide, act: 'sort' },
-                  { label: 'Float as sticky', icon: StickyNote, act: 'float' },
-                  { label: 'Dock to page', icon: CornerDownLeft, act: 'dock' },
-                ].map((it) => (
-                  <button
-                    key={it.act}
-                    onClick={() => blockAction(menu.id, it.act)}
-                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${theme.text} ${theme.hover}`}
-                  >
-                    <it.icon className="w-3.5 h-3.5" /> {it.label}
-                  </button>
-                ))}
-                <button onClick={() => { duplicateLine(menu.id); setMenu(null); }} className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${theme.text} ${theme.hover}`}>
-                  <CornerDownLeft className="w-3.5 h-3.5" /> Duplicate line
+      {/* ===== context menus — scrollable (Kotlin CtxMenu), bottom-sheet on mobile ===== */}
+      {menu && <div className="fixed inset-0 z-[80]" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null); }} />}
+      <AnimatePresence>
+      {menu && (() => {
+        const b = page.blocks.find((x) => x.id === menu.id);
+        const isTextish = b && TEXTISH.includes(b.type);
+        const TINS = '#7FE39A', TTEXT = '#5FBCE8', TSTYLE = '#FFD76A', TARR = '#B08FE8';
+        return (
+          <motion.div
+              key="ctxmenu"
+              initial={isMobile ? { y: 80, opacity: 0 } : { scale: 0.9, opacity: 0 }}
+              animate={isMobile ? { y: 0, opacity: 1 } : { scale: 1, opacity: 1 }}
+              exit={isMobile ? { y: 80, opacity: 0 } : { scale: 0.9, opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+              className={isMobile
+                ? `fixed inset-x-0 bottom-0 z-[90] rounded-t-2xl border-t-2 shadow-2xl ${theme.panel}`
+                : `fixed z-[90] rounded-lg border shadow-2xl w-52 ${theme.panel}`}
+              style={isMobile ? { maxHeight: '62vh' } : { left: menu.x, top: menu.y }}
+            >
+              {/* Kotlin fancy title strip */}
+              <div className={`flex items-center justify-between px-3 py-1.5 border-b ${theme.side}`}>
+                <span className="text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-sky-400 via-amber-300 to-fuchsia-400 bg-clip-text text-transparent">
+                  Context Menu
+                </span>
+                <button onClick={() => setMenu(null)} className={`${theme.muted} ${theme.hover} rounded p-0.5`}>
+                  <X className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => { eraseWord(menu.id); setMenu(null); }} className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${theme.text} ${theme.hover}`}>
-                  <Scissors className="w-3.5 h-3.5" /> Erase word at caret
-                </button>
-                {page.blocks.find((b) => b.id === menu.id)?.type === BT.CHECK && (
-                  <button onClick={() => { setDueEditId(menu.id); setMenu(null); }} className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${theme.text} ${theme.hover}`}>
-                    <CalendarDays className="w-3.5 h-3.5" /> Set due date
-                  </button>
-                )}
-                <button
-                  onClick={() => { setCollapsed((c) => ({ ...c, [menu.id]: !c[menu.id] })); setMenu(null); }}
-                  className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${theme.text} ${theme.hover}`}
-                >
-                  {collapsed[menu.id] ? <UnfoldVertical className="w-3.5 h-3.5" /> : <FoldVertical className="w-3.5 h-3.5" />}
-                  {collapsed[menu.id] ? 'Expand' : 'Collapse'}
-                </button>
-                <div className={`my-1 border-t ${theme === THEMES.parchment ? 'border-amber-300' : 'border-gray-600'}`} />
-                <button onClick={() => blockAction(menu.id, 'del')} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/15">
-                  <Trash2 className="w-3.5 h-3.5" /> Delete block
-                </button>
-              </>
-            )}
+              </div>
+              <AnimatedScrollbar3D maxHeight={isMobile ? '52vh' : '300px'} autoHide={false}>
+                <div className="py-1 pb-3">
+                  {menu.kind === 'block' && b && (
+                    <>
+                      {isTextish && (
+                        <>
+                          <MenuRow theme={theme} icon={Scissors} tint={TINS} label="Cut" onClick={() => { cutSel(menu.id); setMenu(null); }} />
+                          <MenuRow theme={theme} icon={Copy} tint={TINS} label="Copy" onClick={() => { copySel(menu.id); setMenu(null); }} />
+                          <MenuRow theme={theme} icon={ClipboardCopy} tint={TINS} label="Paste" onClick={() => { pasteAt(menu.id); setMenu(null); }} />
+                          <MenuRow theme={theme} icon={TextCursorInput} tint={TINS} label={pageSel ? 'Deselect page' : 'Select all'} onClick={() => {
+                            if (pageSel) { setPageSel(false); setBlockSel(new Set()); }
+                            else { setPageSel(true); setBlockSel(new Set(inlineBlocks.map((x) => x.id))); }
+                            setMenu(null);
+                          }} />
+                          {b.type === BT.CHECK && (
+                            <>
+                              <MenuRow theme={theme} icon={CheckSquare} tint={TINS} label={b.checked ? 'Uncheck' : 'Check'} onClick={() => { mutatePage((pg) => { const x = pg.blocks.find((y) => y.id === menu.id); if (x) x.checked = !x.checked; }); setMenu(null); }} />
+                              <MenuRow theme={theme} icon={ListChecks} tint={TINS} label="Check list" onClick={() => blockAction(menu.id, 'checkrun')} />
+                              <MenuRow theme={theme} icon={ListChecks} tint={TINS} label="Uncheck list" onClick={() => blockAction(menu.id, 'uncheckrun')} />
+                              <MenuRow theme={theme} icon={CalendarDays} tint={TINS} label="Set due date" onClick={() => { setDueEditId(menu.id); setMenu(null); }} />
+                            </>
+                          )}
+                          <MenuHeader label="Text" tint={TTEXT} />
+                          <MenuRow theme={theme} icon={Copy} tint={TTEXT} label="Copy block" onClick={() => { navigator.clipboard?.writeText(b.text); showToast('Block copied'); setMenu(null); }} />
+                          <MenuRow theme={theme} icon={CornerDownLeft} tint={TTEXT} label="Duplicate line" onClick={() => { duplicateLine(menu.id); setMenu(null); }} />
+                          <MenuRow theme={theme} icon={ArrowUpNarrowWide} tint={TTEXT} label="Sort lines A–Z" onClick={() => blockAction(menu.id, 'sort')} />
+                          <MenuRow theme={theme} icon={Clock3} tint={TTEXT} label="Insert timestamp" onClick={() => blockAction(menu.id, 'timestamp')} />
+                          <MenuRow theme={theme} icon={SearchX} tint={TTEXT} label="Word erase mode" onClick={() => { setWordEraseMode(true); showToast('Click a word to erase it'); setMenu(null); }} />
+                          <MenuHeader label="Turn into" tint={TSTYLE} />
+                          {[BT.TEXT, BT.CHECK, BT.BULLET, BT.NUMBER].filter((t) => t !== b.type).map((t) => (
+                            <MenuRow key={t} theme={theme} tint={TSTYLE} label={`▸ ${t}`} onClick={() => blockAction(menu.id, 'turninto', t)} />
+                          ))}
+                        </>
+                      )}
+                      {b.type === BT.TABLE && (
+                        <>
+                          <MenuHeader label="Table" tint={TTEXT} />
+                          <MenuRow theme={theme} tint={TTEXT} label="+ Row" onClick={() => blockAction(menu.id, 'trow+')} />
+                          <MenuRow theme={theme} tint={TTEXT} label="+ Column" onClick={() => blockAction(menu.id, 'tcol+')} />
+                          <MenuRow theme={theme} tint={TTEXT} label="− Row" onClick={() => blockAction(menu.id, 'trow-')} />
+                          <MenuRow theme={theme} tint={TTEXT} label="− Column" onClick={() => blockAction(menu.id, 'tcol-')} />
+                        </>
+                      )}
+                      {b.type === BT.DRAW && (
+                        <>
+                          <MenuHeader label="Canvas" tint={TSTYLE} />
+                          <MenuRow theme={theme} tint={TSTYLE} label="Clear canvas" onClick={() => { mutatePage((pg) => { const x = pg.blocks.find((y) => y.id === menu.id); if (x) x.strokes = []; }); setMenu(null); }} />
+                          <MenuRow theme={theme} tint={TSTYLE} label="Taller" onClick={() => blockAction(menu.id, 'taller')} />
+                          <MenuRow theme={theme} tint={TSTYLE} label="Shorter" onClick={() => blockAction(menu.id, 'shorter')} />
+                        </>
+                      )}
+                      <MenuHeader label="Insert" tint={TINS} />
+                      {[BT.TEXT, BT.CHECK, BT.BULLET, BT.NUMBER, BT.DIVIDER, BT.TABLE, BT.DRAW].map((t) => (
+                        <MenuRow key={t} theme={theme} tint={TINS} label={t.charAt(0).toUpperCase() + t.slice(1)} onClick={() => { insertBlockBelow(t, menu.id); setMenu(null); }} />
+                      ))}
+                      <MenuHeader label="Block" tint={TARR} />
+                      {!b.floating ? (
+                        <MenuRow theme={theme} icon={StickyNote} tint={TARR} label="Float as sticky" onClick={() => blockAction(menu.id, 'float')} />
+                      ) : (
+                        <>
+                          <MenuRow theme={theme} icon={Pin} tint={TARR} label={b.pinned ? 'Unpin' : 'Pin to side rail'} onClick={() => blockAction(menu.id, b.pinned ? 'unpin' : 'pin')} />
+                          <MenuRow theme={theme} icon={CornerDownLeft} tint={TARR} label="Dock into page" onClick={() => blockAction(menu.id, 'dock')} />
+                        </>
+                      )}
+                      <MenuRow theme={theme} icon={collapsed[menu.id] ? UnfoldVertical : FoldVertical} tint={TARR} label={collapsed[menu.id] ? 'Expand' : 'Collapse'} onClick={() => { setCollapsed((c) => ({ ...c, [menu.id]: !c[menu.id] })); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={ChevronUp} tint={TARR} label="Move up" onClick={() => blockAction(menu.id, 'up')} />
+                      <MenuRow theme={theme} icon={ChevronDown} tint={TARR} label="Move down" onClick={() => blockAction(menu.id, 'down')} />
+                      <MenuRow theme={theme} icon={Copy} tint={TARR} label="Duplicate" onClick={() => blockAction(menu.id, 'dup')} />
+                      <MenuRow theme={theme} icon={Trash2} danger label="Delete" onClick={() => blockAction(menu.id, 'del')} />
+                    </>
+                  )}
 
-            {menu.kind === 'page' && (
-              <>
-                <button onClick={() => { setRenamingPage(menu.id); setMenu(null); }} className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${theme.text} ${theme.hover}`}>
-                  <Pencil className="w-3.5 h-3.5" /> Rename
-                </button>
-                <button onClick={() => { patchPage(menu.id, { starred: !doc.pages.find((p) => p.id === menu.id)?.starred }); setMenu(null); }} className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${theme.text} ${theme.hover}`}>
-                  <Star className="w-3.5 h-3.5" /> Toggle star
-                </button>
-                <button onClick={() => { duplicatePage(menu.id); setMenu(null); }} className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${theme.text} ${theme.hover}`}>
-                  <Copy className="w-3.5 h-3.5" /> Duplicate
-                </button>
-                <div className="px-3 py-1.5">
-                  <span className={`text-[10px] ${theme.muted}`}>Color</span>
-                  <div className="flex gap-1 mt-1">
-                    {PAGE_COLORS.map((c, i) => (
-                      <button
-                        key={c}
-                        onClick={() => { patchPage(menu.id, { color: i }); setMenu(null); }}
-                        className="w-4 h-4 rounded-full border border-white/30"
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                  </div>
+                  {menu.kind === 'page' && (
+                    <>
+                      <MenuRow theme={theme} icon={StickyNote} tint={TARR} label="Open" onClick={() => pageAction(menu.id, 'open')} />
+                      <MenuRow theme={theme} icon={Pencil} tint={TARR} label="Rename" onClick={() => { setRenamingPage(menu.id); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={ChevronUp} tint={TARR} label="Pin to top" onClick={() => pageAction(menu.id, 'totop')} />
+                      <MenuRow theme={theme} icon={Star} tint={TSTYLE} label={doc.pages.find((p) => p.id === menu.id)?.starred ? 'Unstar' : 'Star'} onClick={() => { patchPage(menu.id, { starred: !doc.pages.find((p) => p.id === menu.id)?.starred }); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={Copy} tint={TARR} label="Duplicate" onClick={() => { duplicatePage(menu.id); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={FolderPlus} tint={TINS} label="Move to folder…" onClick={() => pageAction(menu.id, 'folder')} />
+                      <MenuRow theme={theme} icon={FileStack} tint={TARR} label="Jump to page…" onClick={() => { setPopup('nav'); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={Plus} tint={TINS} label="New page" onClick={() => { addPage(); setMenu(null); }} />
+                      <div className="px-3 py-1.5">
+                        <span className={`text-[10px] ${theme.muted}`}>Color</span>
+                        <div className="flex gap-1 mt-1">
+                          {PAGE_COLORS.map((c, i) => (
+                            <button
+                              key={c}
+                              onClick={() => { patchPage(menu.id, { color: i }); setMenu(null); }}
+                              className="w-4 h-4 rounded-full border border-white/30"
+                              style={{ backgroundColor: c }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <div className={`my-1 border-t ${theme === THEMES.parchment ? 'border-amber-300' : 'border-gray-600'}`} />
+                      <MenuRow theme={theme} icon={Trash2} danger label="Move to trash" onClick={() => {
+                        if (doc.pages.length <= 1) { showToast("Can't delete last page"); setMenu(null); return; }
+                        deletePage(menu.id); setMenu(null);
+                      }} />
+                    </>
+                  )}
+
+                  {menu.kind === 'empty' && (
+                    <>
+                      <MenuHeader label="Insert" tint={TINS} />
+                      {[BT.TEXT, BT.CHECK, BT.BULLET, BT.NUMBER, BT.DIVIDER, BT.TABLE, BT.DRAW].map((t) => (
+                        <MenuRow key={t} theme={theme} tint={TINS} label={t.charAt(0).toUpperCase() + t.slice(1)} onClick={() => { addBlock(t); setMenu(null); }} />
+                      ))}
+                      <MenuRow theme={theme} icon={ListChecks} tint={TINS} label="Checklist 3×" onClick={() => {
+                        mutatePage((pg, nd) => { for (let k = 0; k < 3; k++) pg.blocks.push(blockHelpers.newBlock(nd, BT.CHECK)); });
+                        setMenu(null);
+                      }} />
+                      <MenuRow theme={theme} icon={ClipboardCopy} tint={TTEXT} label="Copy page as text" onClick={() => { copyPage(); setMenu(null); }} />
+                      <MenuHeader label="Page" tint={TARR} />
+                      <MenuRow theme={theme} icon={Plus} tint={TINS} label="New page" onClick={() => { addPage(); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={FileStack} tint={TARR} label="Jump to page…" onClick={() => { setPopup('nav'); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={ClipboardCopy} tint={TINS} label="Paste" onClick={async () => {
+                        setMenu(null);
+                        try {
+                          const t = await navigator.clipboard.readText();
+                          if (t) mutatePage((pg, nd) => pg.blocks.push({ ...blockHelpers.newBlock(nd, BT.TEXT), text: t }));
+                        } catch { showToast('Clipboard blocked'); }
+                      }} />
+                      <MenuRow theme={theme} icon={FoldVertical} tint={TARR} label="Collapse all" onClick={() => { collapseAll(true); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={UnfoldVertical} tint={TARR} label="Expand all" onClick={() => { collapseAll(false); setMenu(null); }} />
+                    </>
+                  )}
                 </div>
-                <div className={`my-1 border-t ${theme === THEMES.parchment ? 'border-amber-300' : 'border-gray-600'}`} />
-                <button
-                  onClick={() => {
-                    if (doc.pages.length <= 1) { showToast("Can't delete last page"); setMenu(null); return; }
-                    deletePage(menu.id); setMenu(null);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/15"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Move to trash
-                </button>
-              </>
-            )}
+              </AnimatedScrollbar3D>
+            </motion.div>
+        );
+      })()}
+      </AnimatePresence>
 
-            {menu.kind === 'empty' && (
-              <>
-                {[
-                  { label: 'Insert text', type: BT.TEXT, icon: Type },
-                  { label: 'Insert checkbox', type: BT.CHECK, icon: CheckSquare },
-                  { label: 'Insert bullet', type: BT.BULLET, icon: List },
-                  { label: 'Insert numbered', type: BT.NUMBER, icon: ListOrdered },
-                  { label: 'Insert divider', type: BT.DIVIDER, icon: MinusIcon },
-                  { label: 'Insert table', type: BT.TABLE, icon: Table },
-                  { label: 'Insert drawing', type: BT.DRAW, icon: Pencil },
-                ].map((it) => (
-                  <button
-                    key={it.type}
-                    onClick={() => { addBlock(it.type); setMenu(null); }}
-                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${theme.text} ${theme.hover}`}
-                  >
-                    <it.icon className="w-3.5 h-3.5" /> {it.label}
-                  </button>
-                ))}
-                <div className={`my-1 border-t ${theme === THEMES.parchment ? 'border-amber-300' : 'border-gray-600'}`} />
+      {/* ===== floating text-selection toolbar (Kotlin sel UI) ===== */}
+      <AnimatePresence>
+        {selBar && (
+          <motion.div
+            initial={{ opacity: 0, y: 4, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.92 }}
+            onMouseDown={(e) => e.preventDefault()}
+            className={`fixed z-[94] flex items-center gap-0.5 px-1.5 py-1 rounded-xl border shadow-2xl ${theme.panel}`}
+            style={{ left: Math.max(8, Math.min(selBar.x - 104, window.innerWidth - 220)), top: selBar.y }}
+          >
+            {[
+              { k: 'bold', I: Bold, t: 'Bold' },
+              { k: 'italic', I: Italic, t: 'Italic' },
+              { k: 'copy', I: Copy, t: 'Copy' },
+              { k: 'cut', I: Scissors, t: 'Cut' },
+              { k: 'del', I: Trash2, t: 'Delete' },
+              { k: 'block', I: TextCursorInput, t: 'Select block' },
+            ].map(({ k, I, t }) => (
+              <button
+                key={k}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => selDo(k)}
+                className={`p-1.5 rounded-md ${theme.muted} ${theme.hover} ${k === 'del' ? 'hover:text-red-400' : ''}`}
+                title={t}
+              >
+                <I className="w-3.5 h-3.5" />
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ===== multi-block selection action bar (Kotlin pageSel banner) ===== */}
+      <AnimatePresence>
+        {blockSel.size > 0 && !menu && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className={`absolute top-2 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border shadow-2xl ${theme.panel}`}
+          >
+            <span className={`text-[10px] font-bold px-1 ${theme.text}`}>{pageSel ? 'Page' : blockSel.size} selected</span>
+            <button onClick={() => blockSelOps('copy')} className={`p-1.5 rounded-md ${theme.hover} ${theme.muted}`} title="Copy"><Copy className="w-3.5 h-3.5" /></button>
+            <button onClick={() => blockSelOps('float')} className={`p-1.5 rounded-md ${theme.hover} ${theme.muted}`} title="Float"><StickyNote className="w-3.5 h-3.5" /></button>
+            <button onClick={() => blockSelOps('del')} className="p-1.5 rounded-md hover:bg-red-500/20 text-red-400" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+            <button onClick={() => { setBlockSel(new Set()); setPageSel(false); }} className={`p-1.5 rounded-md ${theme.hover} ${theme.muted}`} title="Clear"><X className="w-3.5 h-3.5" /></button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ===== fixed-position color palette (avoids toolbar overflow clipping) ===== */}
+      <AnimatePresence>
+        {showPalette && palettePos && (
+          <>
+            <div className="fixed inset-0 z-[85]" onClick={() => setShowPalette(false)} />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="fixed z-[86] p-2 rounded-xl border shadow-2xl bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 grid grid-cols-4 gap-1.5"
+              style={{ left: palettePos.x, top: palettePos.y }}
+            >
+              {PAGE_COLORS.map((c, i) => (
                 <button
-                  onClick={async () => {
-                    setMenu(null);
-                    try {
-                      const t = await navigator.clipboard.readText();
-                      if (t) mutatePage((pg, nd) => pg.blocks.push({ ...blockHelpers.newBlock(nd, BT.TEXT), text: t }));
-                    } catch { showToast('Clipboard blocked'); }
-                  }}
-                  className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${theme.text} ${theme.hover}`}
+                  key={c}
+                  onClick={() => { patchPage(page.id, { color: i }); setShowPalette(false); }}
+                  className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 ${page.color === i ? 'border-white ring-2 ring-primary-400' : 'border-transparent'}`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ===== move-to-folder popup ===== */}
+      {folderMenuPage != null && (
+        <div className="fixed inset-0 z-[96] flex items-center justify-center bg-black/40" onClick={() => { setFolderMenuPage(null); setFolderEdit(null); }}>
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}
+            className={`rounded-xl border shadow-2xl p-4 space-y-2 w-60 ${theme.panel}`}
+          >
+            <p className={`text-sm font-semibold ${theme.text}`}>Move to folder</p>
+            <p className={`text-[10px] ${theme.muted} truncate`}>"{doc.pages.find((p) => p.id === folderMenuPage)?.name}"</p>
+            <div className="space-y-1 max-h-40 overflow-y-auto">
+              {folderNames.map((f) => (
+                <button
+                  key={f}
+                  onClick={() => moveToFolder(folderMenuPage, f)}
+                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs ${theme.hover} ${theme.text}`}
                 >
-                  <ClipboardCopy className="w-3.5 h-3.5" /> Paste as block
+                  <Folder className="w-3.5 h-3.5" /> <span className="truncate">{f}</span>
                 </button>
-                <button onClick={() => { collapseAll(true); setMenu(null); }} className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${theme.text} ${theme.hover}`}>
-                  <FoldVertical className="w-3.5 h-3.5" /> Collapse all blocks
+              ))}
+              {folderEdit === 'new-page' ? (
+                <input
+                  autoFocus
+                  placeholder="Folder name…"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') newFolderFromPage(folderMenuPage, e.target.value);
+                    if (e.key === 'Escape') setFolderEdit(null);
+                  }}
+                  onBlur={(e) => newFolderFromPage(folderMenuPage, e.target.value)}
+                  className={`w-full bg-white/10 border border-gray-500/40 rounded-lg px-2 py-1.5 text-xs ${theme.text} outline-none`}
+                />
+              ) : (
+                <button
+                  onClick={() => setFolderEdit('new-page')}
+                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs ${theme.hover} ${theme.muted}`}
+                >
+                  <FolderPlus className="w-3.5 h-3.5" /> New folder…
                 </button>
-                <button onClick={() => { collapseAll(false); setMenu(null); }} className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${theme.text} ${theme.hover}`}>
-                  <UnfoldVertical className="w-3.5 h-3.5" /> Expand all blocks
-                </button>
-              </>
-            )}
-          </div>
-        </>
+              )}
+            </div>
+            <div className={`pt-1 border-t ${theme.side} flex gap-2`}>
+              <button
+                onClick={() => moveToFolder(folderMenuPage, '')}
+                className={`flex-1 px-2 py-1.5 rounded-lg text-xs ${theme.hover} ${theme.muted}`}
+              >
+                No folder
+              </button>
+              <button
+                onClick={() => { setFolderMenuPage(null); setFolderEdit(null); }}
+                className={`flex-1 px-2 py-1.5 rounded-lg text-xs text-white bg-gradient-to-r ${theme.accent}`}
+              >
+                Done
+              </button>
+            </div>
+          </motion.div>
+        </div>
       )}
 
       {/* ===== popups (MenuPanel) ===== */}
@@ -1661,13 +2497,14 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     </motion.div>
   );
 
-  return isFullscreen ? (
-    <div className="fixed inset-0 z-[69] bg-black/40" onClick={handleClose}>
-      <div className="w-full h-full" onClick={(e) => e.stopPropagation()}>
-        {panel}
-      </div>
-    </div>
-  ) : panel;
+  /* ----- one AnimatePresence: launcher <-> pill <-> panel exit/enter ----- */
+  return (
+    <AnimatePresence mode="wait">
+      {!isOpen && launcher}
+      {isOpen && mode === 'compact' && compactPill}
+      {isOpen && mode !== 'compact' && panel}
+    </AnimatePresence>
+  );
 };
 
 export default Notepad;
