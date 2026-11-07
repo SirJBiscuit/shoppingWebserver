@@ -43,6 +43,13 @@ const MDLProductsPanel = () => {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
+  // External refresh trigger (e.g. MDLProducts page quick-add)
+  useEffect(() => {
+    const handler = () => loadAll();
+    window.addEventListener('mdl-products-refresh', handler);
+    return () => window.removeEventListener('mdl-products-refresh', handler);
+  }, [loadAll]);
+
   const doSearch = async () => {
     setSearching(true);
     setProducts(await searchProducts(query.trim(), category, 50));

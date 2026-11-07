@@ -61,6 +61,16 @@ const ItemListContent = (props) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [noteItem, setNoteItem] = useState(null);
   const [noteText, setNoteText] = useState('');
+  // Named labels under action buttons — user can hide them, choice persists
+  const [showButtonLabels, setShowButtonLabels] = useState(
+    () => localStorage.getItem('itemListButtonLabels') !== 'false'
+  );
+  const toggleButtonLabels = () => {
+    setShowButtonLabels(prev => {
+      localStorage.setItem('itemListButtonLabels', String(!prev));
+      return !prev;
+    });
+  };
   // Group items by name to combine duplicates
   const combinedItems = items.reduce((acc, item) => {
     const key = item.item_name.toLowerCase();
@@ -129,6 +139,15 @@ const ItemListContent = (props) => {
   return (
     <>
     <div className={`space-y-${Math.floor(itemSpacing / 4)} shopping-list-scroll custom-scrollbar max-h-[calc(100vh-400px)] pr-2 ${fontSizeClass}`}>
+      {/* Button-label toggle — lets users learn or hide the action captions */}
+      <div className="flex justify-end">
+        <button
+          onClick={toggleButtonLabels}
+          className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+        >
+          {showButtonLabels ? 'Hide button labels' : 'Show button labels'}
+        </button>
+      </div>
       {(hideCategories || !showCategories) ? (
         // Flat list without categories
         <div className="space-y-2">
@@ -147,6 +166,7 @@ const ItemListContent = (props) => {
               setNoteText={setNoteText}
               onLookForThis={onLookForThis}
               onEdit={onEdit}
+              showButtonLabels={showButtonLabels}
               showCheckboxes={showCheckboxes}
               showPrices={showPrices}
               showQuantities={showQuantities}
@@ -187,6 +207,7 @@ const ItemListContent = (props) => {
                   setNoteText={setNoteText}
                   onEdit={onEdit}
                   onLookForThis={onLookForThis}
+                  showButtonLabels={showButtonLabels}
                   showCheckboxes={showCheckboxes}
                   showPrices={showPrices}
                   showQuantities={showQuantities}
@@ -271,7 +292,17 @@ const ItemListContent = (props) => {
 };
 
 // Separate ItemCard component for reusability
-const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit }) => {
+// Action button with an optional named label under the icon
+const ActionButton = ({ onClick, className, title, label, icon: Icon, showLabel }) => (
+  <button onClick={onClick} className={`${className} flex flex-col items-center`} title={title}>
+    <Icon className="w-5 h-5" />
+    {showLabel && (
+      <span className="text-[10px] leading-none mt-0.5 font-medium">{label}</span>
+    )}
+  </button>
+);
+
+const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit, showButtonLabels }) => {
   const [editingAisle, setEditingAisle] = useState(false);
   const [aisleNumber, setAisleNumber] = useState('');
   const [aisleName, setAisleName] = useState('');
@@ -634,18 +665,19 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   </div>
                 </div>
                 
-                <div className="flex items-center space-x-2">
-                  <button
+                <div className="flex items-start space-x-2">
+                  <ActionButton
                     onClick={() => {
                       setEditingItem(item);
                       setShowEditModal(true);
                     }}
                     className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 transition-colors"
                     title="Edit item"
-                  >
-                    <Edit2 className="w-5 h-5" />
-                  </button>
-                  <button
+                    label="Edit"
+                    icon={Edit2}
+                    showLabel={showButtonLabels}
+                  />
+                  <ActionButton
                     onClick={() => {
                       setNoteItem(item);
                       setNoteText(item.notes || '');
@@ -656,37 +688,41 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                         : 'text-gray-400 hover:text-teal-600 dark:hover:text-teal-400'
                     }`}
                     title={item.notes ? `Note: ${item.notes}` : 'Add note'}
-                  >
-                    <FileText className="w-5 h-5" />
-                  </button>
+                    label="Note"
+                    icon={FileText}
+                    showLabel={showButtonLabels}
+                  />
                   {onLookForThis && !item.is_checked && (
-                    <button
+                    <ActionButton
                       onClick={() => onLookForThis(item)}
                       className="text-purple-500 hover:text-purple-700 dark:hover:text-purple-400 transition-colors"
                       title="Look for this item"
-                    >
-                      <Eye className="w-5 h-5" />
-                    </button>
+                      label="Find"
+                      icon={Eye}
+                      showLabel={showButtonLabels}
+                    />
                   )}
                   {onCopyMove && (
-                    <button
+                    <ActionButton
                       onClick={() => onCopyMove(item)}
                       className="text-green-500 hover:text-green-700 dark:hover:text-green-400 transition-colors"
                       title="Copy/Move to another list"
-                    >
-                      <Copy className="w-5 h-5" />
-                    </button>
+                      label="Move"
+                      icon={Copy}
+                      showLabel={showButtonLabels}
+                    />
                   )}
-                  <button
+                  <ActionButton
                     onClick={() => {
                       // Delete all instances of this item
                       item.ids.forEach(id => onDelete(id));
                     }}
                     className="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
                     title="Delete item"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                    label="Delete"
+                    icon={Trash2}
+                    showLabel={showButtonLabels}
+                  />
                 </div>
               </div>
     </div>

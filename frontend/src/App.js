@@ -34,6 +34,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const Admin = lazy(() => import('./pages/Admin'));
 const AdminCustomization = lazy(() => import('./pages/AdminCustomization'));
 const AdminTraining = lazy(() => import('./pages/AdminTraining'));
+const MDLProducts = lazy(() => import('./pages/MDLProducts'));
 // const Subscription = lazy(() => import('./pages/Subscription')); // Disabled
 // const Premium = lazy(() => import('./pages/Premium')); // Disabled
 const IconCollectionGallery = lazy(() => import('./components/IconCollectionGallery'));
@@ -106,6 +107,7 @@ const AnimatedRoutes = () => {
         <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
         <Route path="/admin/customize" element={<PrivateRoute><AdminCustomization /></PrivateRoute>} />
         <Route path="/admin/training" element={<PrivateRoute><AdminTraining /></PrivateRoute>} />
+        <Route path="/admin/products" element={<PrivateRoute><MDLProducts /></PrivateRoute>} />
         <Route path="/admin/beta" element={<PrivateRoute><AdminBetaDashboard /></PrivateRoute>} />
         <Route path="/icons" element={<PrivateRoute><IconCollectionGallery /></PrivateRoute>} />
         {/* <Route path="/customize" element={<PrivateRoute><CustomizationHub /></PrivateRoute>} /> */} {/* Disabled - backburner, replaced by AES */}

@@ -192,6 +192,16 @@ export const getProductCategories = async () => {
   }
 };
 
+export const createProduct = async (data) => {
+  try {
+    const response = await mdlAPI.post('/admin/product', data);
+    return response.data;
+  } catch (error) {
+    console.error('Failed to create product:', error);
+    return null;
+  }
+};
+
 export const updateProduct = async (id, data) => {
   try {
     const response = await mdlAPI.put(`/admin/product/${id}`, data);

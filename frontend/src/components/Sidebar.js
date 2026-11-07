@@ -4,7 +4,7 @@ import {
   ShoppingCart, ChefHat, Package, Calendar, BarChart3, 
   Settings, Shield, History, Search, Mic, Scan, Share2,
   Menu, X, Bell, Moon, Sun, Crown, Store, Sparkles, Home, GraduationCap,
-  Book, DollarSign, Star, Users, Folder
+  Book, DollarSign, Star, Users, Folder, Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -196,6 +196,14 @@ const Sidebar = ({ onAction }) => {
       color: 'text-purple-600',
       isAdmin: true,
       adminSpecial: true
+    });
+    settingsItems.push({ 
+      path: '/admin/products', 
+      icon: Database, 
+      label: 'MDL Products', 
+      color: 'text-teal-600',
+      isAdmin: true,
+      mdlSpecial: true // Distinct teal styling separate from other admin buttons
     });
     settingsItems.push({ 
       path: '/admin', 
@@ -419,6 +427,10 @@ const Sidebar = ({ onAction }) => {
                     ? isActive(item.path)
                       ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg'
                       : 'bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 shadow-md'
+                    : item.mdlSpecial
+                    ? isActive(item.path)
+                      ? 'bg-gradient-to-r from-teal-600 to-emerald-700 text-white shadow-lg'
+                      : 'bg-gradient-to-r from-teal-500 to-emerald-600 text-white hover:from-teal-600 hover:to-emerald-700 shadow-md'
                     : item.special
                     ? isActive(item.path)
                       ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
@@ -428,7 +440,7 @@ const Sidebar = ({ onAction }) => {
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
               >
-                <item.icon className={`w-5 h-5 ${item.special || item.adminSpecial ? 'text-white' : isActive(item.path) ? item.color : ''}`} />
+                <item.icon className={`w-5 h-5 ${item.special || item.adminSpecial || item.mdlSpecial ? 'text-white' : isActive(item.path) ? item.color : ''}`} />
                 <span className="font-medium text-sm">{item.label}</span>
                 {item.adminSpecial && (
                   <span className="ml-auto bg-white text-orange-600 text-xs px-2 py-0.5 rounded-full font-bold">
@@ -438,6 +450,11 @@ const Sidebar = ({ onAction }) => {
                 {item.special && (
                   <span className="ml-auto bg-white text-purple-600 text-xs px-2 py-0.5 rounded-full font-bold">
                     NEW
+                  </span>
+                )}
+                {item.mdlSpecial && (
+                  <span className="ml-auto bg-white text-teal-600 text-xs px-2 py-0.5 rounded-full font-bold">
+                    MDL
                   </span>
                 )}
               </button>

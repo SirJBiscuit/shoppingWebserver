@@ -117,6 +117,52 @@ router.get('/popular', async (req, res) => {
   }
 });
 
+// Admin: Create product
+router.post('/admin/product', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const {
+      product_name, category, average_price,
+      default_price_low, default_price_high,
+      best_store, common_size, common_unit,
+      icon_emoji, notes
+    } = req.body;
+
+    if (!product_name || !product_name.trim()) {
+      return res.status(400).json({ error: 'product_name is required' });
+    }
+
+    // Unique slug from name + short random suffix
+    const baseSlug = product_name.trim().toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'product';
+    const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`;
+
+    const result = await db.query(`
+      INSERT INTO product_master_data
+        (product_name, slug, category, average_price, default_price_low,
+         default_price_high, best_store, common_size, common_unit, icon_emoji, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING *
+    `, [
+      product_name.trim(), slug, category || null,
+      average_price ?? null, default_price_low ?? null, default_price_high ?? null,
+      best_store || null, common_size || null, common_unit || null,
+      icon_emoji || null, notes || null
+    ]);
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'A product with this name already exists' });
+    }
+    console.error('Error creating product:', error);
+    res.status(500).json({ error: 'Failed to create product' });
+  }
+});
+
 // Admin: Update product
 router.put('/admin/product/:id', authenticateToken, async (req, res) => {
   try {

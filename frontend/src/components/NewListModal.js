@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, ShoppingCart, Store, Tag } from 'lucide-react';
+import { ShoppingCart, Store, Tag } from 'lucide-react';
+import MenuPanel from './MenuPanel';
 import { getAvailableStores } from '../data/storeLayouts';
 
 const NewListModal = ({ isOpen, onClose, onCreateList, existingLists = [] }) => {
@@ -9,8 +10,6 @@ const NewListModal = ({ isOpen, onClose, onCreateList, existingLists = [] }) => 
   const [notes, setNotes] = useState('');
   
   const availableStores = getAvailableStores();
-
-  if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -43,27 +42,15 @@ const NewListModal = ({ isOpen, onClose, onCreateList, existingLists = [] }) => 
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
-              <ShoppingCart className="w-6 h-6 text-primary-600 dark:text-primary-400" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Create New List
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-          </button>
-        </div>
-
-        {/* Form */}
+    <MenuPanel
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Create New List"
+      subtitle="Organize items your way"
+      icon={ShoppingCart}
+      maxWidth="max-w-md"
+    >
+      {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* List Name */}
           <div>
@@ -205,8 +192,7 @@ const NewListModal = ({ isOpen, onClose, onCreateList, existingLists = [] }) => 
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </MenuPanel>
   );
 };
 
