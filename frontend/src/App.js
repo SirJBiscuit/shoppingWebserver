@@ -25,6 +25,7 @@ const PantryEnhanced = lazy(() => import('./pages/PantryEnhanced'));
 // const PantryNew = lazy(() => import('./backburner/pages/PantryNew')); // Disabled - backburner
 const PantryNewV2 = lazy(() => import('./backburner/pages/PantryNewV2')); // Home Inventory
 const StagingArea = lazy(() => import('./pages/StagingArea'));
+const Household = lazy(() => import('./pages/Household'));
 // const MealPlan = lazy(() => import('./pages/MealPlan')); // Disabled
 // const Statistics = lazy(() => import('./pages/Statistics')); // Disabled
 // const RecipeDiscover = lazy(() => import('./pages/RecipeDiscover')); // Disabled
@@ -94,6 +95,7 @@ const AnimatedRoutes = () => {
         <Route path="/pantry-new-v2" element={<PrivateRoute><PantryNewV2 /></PrivateRoute>} /> {/* Home Inventory */}
         {/* <Route path="/pantry-old" element={<PrivateRoute><PantryNew /></PrivateRoute>} /> */} {/* Disabled - backburner */}
         <Route path="/staging" element={<PrivateRoute><StagingArea /></PrivateRoute>} />
+        <Route path="/household" element={<PrivateRoute><Household /></PrivateRoute>} />
         {/* <Route path="/meal-plan" element={<PrivateRoute><MealPlan /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
         {/* <Route path="/stats" element={<PrivateRoute><Statistics /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
         {/* <Route path="/discover" element={<PrivateRoute><RecipeDiscover /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}

@@ -38,6 +38,7 @@ const layoutsRoutes = require('./routes/layouts');
 const aveRoutes = require('../routes/ave');
 const storageRoutes = require('../routes/storage');
 const sidebarRoutes = require('../routes/sidebar');
+const householdRoutes = require('./routes/household');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -93,6 +94,7 @@ app.use('/api/layouts', layoutsRoutes);
 app.use('/api/ave', aveRoutes);
 app.use('/api/admin/storage', storageRoutes);
 app.use('/api/sidebar', sidebarRoutes);
+app.use('/api/household', householdRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -114,7 +116,8 @@ const runMigrations = async () => {
     { file: '043_beta_testing_system.sql', name: 'Beta Testing System' },
     { file: '044_beta_feedback_system.sql', name: 'Beta Feedback System' },
     { file: '041_admin_storage_system.sql', name: 'Admin Storage System' },
-    { file: '046_fix_sidebar_pages.sql', name: 'Sidebar Pages Fix' }
+    { file: '046_fix_sidebar_pages.sql', name: 'Sidebar Pages Fix' },
+    { file: '047_household_members.sql', name: 'Household Members' }
   ];
 
   for (const migration of migrations) {
