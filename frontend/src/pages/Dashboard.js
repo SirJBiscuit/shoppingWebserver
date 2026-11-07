@@ -73,6 +73,7 @@ import { getAutocompleteSuggestions } from '../utils/autocomplete';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import RichNoteEditor from '../components/RichNoteEditor';
 import Notepad from '../components/notepad/Notepad';
+import { useContextMenu, oiRow, oiHeader, oiSep, oiSub } from '../overlay/OverlayInteractions';
 import { useDeviceType } from '../hooks/useDeviceType';
 import ConsoleViewer from '../components/ConsoleViewer';
 import ChangelogViewer from '../components/ChangelogViewer';
@@ -90,6 +91,39 @@ const Dashboard = () => {
   const { isEditorActive, toggleEditor, selectWidget, selectedWidget, widgetProperties } = useEditor();
   const dashboardProps = widgetProperties['dashboard'] || {};
   const addButtonRef = useRef(null);
+  const rootRef = useRef(null);
+
+  /* OverlayInteraction API — right-click / long-hold menu for the home surface.
+     Avoids fighting form fields & buttons that have their own context. */
+  useContextMenu(rootRef, (e) => {
+    if (e.target.closest?.('input,textarea,select,[contenteditable],button,label')) {
+      // only offer the menu on non-interactive chrome (empty background, headers)
+      if (!e.target.closest?.('[data-oi-open-area]')) return null;
+    }
+    return {
+      title: 'Home',
+      items: [
+        oiHeader('Listzy', '#38bdf8'),
+        oiRow({ label: 'Add item', hint: 'focus form', onClick: () => {
+          const input = rootRef.current?.querySelector('form input[type="text"]');
+          input?.focus();
+          input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } }),
+        oiRow({ label: 'Refresh lists', onClick: () => dashboardRefreshRef.current?.() }),
+        oiRow({ label: 'Open notepad', onClick: () => setShowNotepad(true) }),
+        oiSub('Tools', null, [
+          oiRow({ label: 'Voice input', onClick: () => setShowVoice(true) }),
+          oiRow({ label: 'Barcode scanner', onClick: () => setShowScanner(true) }),
+          oiRow({ label: 'Share list', onClick: () => setShowShare(true) }),
+        ]),
+        ...(user?.isAdmin ? [oiSep(), oiRow({
+          label: isEditorActive ? 'Exit visual editor' : 'Visual editor (AVE)',
+          checked: isEditorActive,
+          onClick: toggleEditor,
+        })] : []),
+      ],
+    };
+  });
   
   // Debug: Log when editor mode changes
   useEffect(() => {
@@ -1557,7 +1591,7 @@ const Dashboard = () => {
       {/* AVE Properties Panel - Shows when widget is selected */}
       <PropertiesPanel />
       
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+      <div ref={rootRef} className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
         {/* Sidebar Navigation */}
         <div data-tutorial="sidebar">
           <Sidebar onAction={(action) => {

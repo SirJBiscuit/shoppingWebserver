@@ -8,6 +8,7 @@ import { FeatureFlagProvider } from './context/FeatureFlagContext';
 import { OptimizationProvider } from './contexts/OptimizationContext';
 import { PreviewModeProvider } from './contexts/PreviewModeContext';
 import { EditorProvider } from './contexts/EditorContext';
+import { OverlayInteractionProvider } from './overlay/OverlayInteractions';
 import FlyingItemAnimation from './components/FlyingItemAnimation';
 // import MobileBottomNav from './components/MobileBottomNav'; // Disabled for now
 import AdminToolbar from './components/AdminToolbar';
@@ -150,7 +151,9 @@ function App() {
             <OptimizationProvider>
               <PreviewModeProvider>
                 <CartAnimationProvider>
-                  <AppWithEditor />
+                  <OverlayInteractionProvider>
+                    <AppWithEditor />
+                  </OverlayInteractionProvider>
                 </CartAnimationProvider>
               </PreviewModeProvider>
             </OptimizationProvider>

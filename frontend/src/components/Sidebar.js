@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useContextMenu, oiRow, oiHeader, oiSep, oiSub } from '../overlay/OverlayInteractions';
 import { 
   ShoppingCart, ChefHat, Package, Calendar, BarChart3, 
   Settings, Shield, History, Search, Mic, Scan, Share2,
@@ -24,6 +25,43 @@ const Sidebar = ({ onAction }) => {
   const { effectiveRole, canAccess } = usePreviewMode();
   const { isEditorActive, selectedWidget, selectWidget } = useEditor();
   const [isOpen, setIsOpen] = useState(window.innerWidth >= 1024);
+  const navRef = useRef(null);
+
+  /* OverlayInteraction API — right-click / long-hold menus on sidebar items.
+     Buttons carry data-oi-path / data-oi-action so one target serves every row. */
+  useContextMenu(navRef, (e) => {
+    const btn = e.target.closest?.('[data-oi-path],[data-oi-action]');
+    const generic = [
+      oiHeader('Listzy', '#38bdf8'),
+      oiRow({ icon: isDark ? Sun : Moon, label: isDark ? 'Light mode' : 'Dark mode', onClick: toggleTheme }),
+      oiSub('Quick links', Home, [
+        oiRow({ icon: Home, label: 'Home', onClick: () => handleNavClick('/') }),
+        oiRow({ icon: Store, label: 'Home Inventory', onClick: () => handleNavClick('/pantry-new-v2') }),
+        oiRow({ icon: ChefHat, label: 'Recipe Book', onClick: () => handleNavClick('/recipes') }),
+        oiRow({ icon: StickyNote, label: 'Notepad', onClick: () => handleToolClick('notepad') }),
+      ]),
+      oiSep(),
+      oiRow({ label: isOpen ? 'Hide sidebar' : 'Show sidebar', checked: isOpen, onClick: () => setIsOpen((v) => !v) }),
+    ];
+    if (!btn) return { title: 'Sidebar', items: generic };
+    const label = btn.dataset.oiLabel || 'Item';
+    const path = btn.dataset.oiPath;
+    const action = btn.dataset.oiAction;
+    return {
+      title: label,
+      items: [
+        path && oiRow({ icon: Home, label: `Open ${label}`, onClick: () => handleNavClick(path) }),
+        path && oiRow({ label: 'Open in new tab', onClick: () => window.open(path, '_blank', 'noopener') }),
+        action && oiRow({ label: `Run ${label}`, onClick: () => handleToolClick(action) }),
+        action === 'notepad' && oiSub('Notepad', StickyNote, [
+          oiRow({ label: 'Open notepad', onClick: () => handleToolClick('notepad') }),
+          oiRow({ label: 'Hint: ctrl+scroll zooms inside it' }),
+        ]),
+        oiSep(),
+        ...generic,
+      ].filter(Boolean),
+    };
+  });
   const [expiringCount, setExpiringCount] = useState(0);
   const [sidebarPages, setSidebarPages] = useState([]);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
@@ -319,7 +357,7 @@ const Sidebar = ({ onAction }) => {
         </div>
 
         {/* Main Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
+        <nav ref={navRef} className="flex-1 p-4 space-y-1">
           <div className="mb-4">
             <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
               Main Menu
@@ -341,6 +379,8 @@ const Sidebar = ({ onAction }) => {
                 return (
                   <button
                     key={page.id}
+                    data-oi-path={page.page_path}
+                    data-oi-label={page.page_name}
                     onClick={() => handleNavClick(page.page_path)}
                     className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative ${
                       isActive(page.page_path)
@@ -366,6 +406,8 @@ const Sidebar = ({ onAction }) => {
                 .map((item) => (
                 <button
                   key={item.path}
+                  data-oi-path={item.path}
+                  data-oi-label={item.label}
                   onClick={() => handleNavClick(item.path)}
                   className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative ${
                     isActive(item.path)
@@ -396,6 +438,8 @@ const Sidebar = ({ onAction }) => {
               .map((item) => (
               <button
                 key={item.action}
+                data-oi-action={item.action}
+                data-oi-label={item.label}
                 onClick={() => handleToolClick(item.action)}
                 className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
               >
@@ -415,6 +459,9 @@ const Sidebar = ({ onAction }) => {
               .map((item) => (
               <button
                 key={item.path || item.action}
+                data-oi-path={item.path || undefined}
+                data-oi-action={item.action || undefined}
+                data-oi-label={item.label}
                 onClick={() => {
                   if (item.action) {
                     onAction?.(item.action);

@@ -14,6 +14,7 @@ import AnimatedScrollbar3D from '../3DAnimatedScrollbar';
 import MenuPanel from '../MenuPanel';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
 import { Slider3D, Toggle3D, Check3D, Typewriter } from './ui';
+import { useOverlayTarget, useOverlayHotkeys } from '../../overlay/OverlayInteractions';
 import { BT, PAGE_COLORS, loadDoc, saveDoc, exportPageText, makeHistory, blockHelpers } from './notepadStore';
 
 const THEMES = {
@@ -497,31 +498,40 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     return () => window.removeEventListener('keydown', h);
   }, [isOpen, mode, doc, userId, undo, redo, showToast]);
 
-  /* ----- wheel hotkeys — window-level CAPTURE listener kills browser page-zoom (Opera/Chrome)
-     while open. Only fires when the pointer is over the notepad shell.
-       Ctrl/⌘ + wheel   → notepad zoom
-       Ctrl + Shift + wheel → block text scale
-       Ctrl + Alt + wheel   → UI scale (chrome)                                    */
-  useEffect(() => {
-    if (!isOpen || mode === 'compact') return;
-    const h = (e) => {
-      if (!(e.ctrlKey || e.metaKey) || !e.deltaY) return;
-      const shell = shellRef.current;
-      if (!shell || !(e.target instanceof Node) || !shell.contains(e.target)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const step = -e.deltaY * 0.0016; // proportional — smooth trackpads, ~0.12/tick wheels
-      setDoc((prev) => {
-        const s = { ...prev.settings };
-        if (e.altKey) s.uiScale = Math.min(1.3, Math.max(0.85, +((s.uiScale || 1) + step).toFixed(3)));
-        else if (e.shiftKey) s.textScale = Math.min(1.6, Math.max(0.8, +((s.textScale || 1) + step).toFixed(3)));
-        else s.zoom = Math.min(2, Math.max(0.6, +(s.zoom + step).toFixed(3)));
-        return { ...prev, settings: s };
-      });
-    };
-    window.addEventListener('wheel', h, { passive: false, capture: true });
-    return () => window.removeEventListener('wheel', h, { capture: true });
-  }, [isOpen, mode]);
+  /* ----- wheel hotkeys via overlay API — window-capture kills Opera/Chrome page-zoom
+       Ctrl/⌘+wheel → zoom · Ctrl+Shift+wheel → text scale · Ctrl+Alt+wheel → UI scale ----- */
+  const wheelAdj = useCallback((which, min, max) => (e) => {
+    const step = -e.deltaY * 0.0016; // proportional — smooth trackpads, ~0.12/tick wheels
+    setDoc((prev) => {
+      const s = { ...prev.settings };
+      s[which] = Math.min(max, Math.max(min, +((s[which] || 1) + step).toFixed(3)));
+      return { ...prev, settings: s };
+    });
+  }, []);
+  useOverlayHotkeys({
+    'ctrl+wheel': wheelAdj('zoom', 0.6, 2),
+    'ctrl+shift+wheel': wheelAdj('textScale', 0.8, 1.6),
+    'ctrl+alt+wheel': wheelAdj('uiScale', 0.85, 1.3),
+  }, { scopeRef: shellRef, enabled: isOpen && mode !== 'compact' });
+
+  /* ----- touch gestures: pinch = block text scale, long-hold = block ctx menu ----- */
+  useOverlayTarget(contentRef, {
+    enabled: isOpen && mode !== 'compact',
+    onPinch: (s) => setDoc((prev) => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        textScale: Math.min(1.6, Math.max(0.8, +((prev.settings.textScale || 1) * s).toFixed(3))),
+      },
+    })),
+    onLongHold: (e) => {
+      if (e.target?.closest?.('textarea,input,[contenteditable]')) return; // don't fight native selection
+      const blk = e.target?.closest?.('[data-block-id]');
+      setMenu(blk
+        ? { kind: 'block', id: +blk.dataset.blockId, x: e.x, y: e.y }
+        : { kind: 'empty', id: null, x: e.x, y: e.y });
+    },
+  });
 
   /* ----- mobile breakpoint ----- */
   useEffect(() => {
