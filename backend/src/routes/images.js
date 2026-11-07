@@ -31,7 +31,7 @@ router.post('/upload', authenticateToken, upload.single('image'), async (req, re
 
     const { image_type, related_id, folder } = req.body;
     const timestamp = Date.now();
-    const filename = `${req.user.userId}_${timestamp}_${req.file.originalname}`;
+    const filename = `${req.user.id}_${timestamp}_${req.file.originalname}`;
 
     // Create thumbnail
     const thumbnailBuffer = await sharp(req.file.buffer)
@@ -50,7 +50,24 @@ router.post('/upload', authenticateToken, upload.single('image'), async (req, re
       INSERT INTO images (user_id, image_url, thumbnail_url, image_type, related_id, file_size, mime_type)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
-    `, [req.user.userId, imageUrl, thumbnailUrl, image_type, related_id, req.file.size, req.file.mimetype]);
+    `, [req.user.id, imageUrl, thumbnailUrl, image_type, related_id, req.file.size, req.file.mimetype]);
+
+    // Attach to MDL entities when tagged (non-fatal — upload still succeeds)
+    try {
+      if (image_type === 'mdl_product' && related_id) {
+        await db.query(
+          'UPDATE product_master_data SET icon_image_url = $1, updated_at = NOW() WHERE id = $2',
+          [imageUrl, related_id]
+        );
+      } else if (image_type === 'mdl_item' && related_id) {
+        await db.query(
+          'UPDATE mdl_item_names SET image_url = $1, thumbnail_url = $2 WHERE id = $3',
+          [imageUrl, thumbnailUrl, related_id]
+        );
+      }
+    } catch (linkErr) {
+      console.warn('MDL image link failed (non-fatal):', linkErr.message);
+    }
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -71,7 +88,7 @@ router.post('/upload-multiple', authenticateToken, upload.array('images', 10), a
 
     for (const file of req.files) {
       const timestamp = Date.now();
-      const filename = `${req.user.userId}_${timestamp}_${file.originalname}`;
+      const filename = `${req.user.id}_${timestamp}_${file.originalname}`;
 
       // Create thumbnail
       const thumbnailBuffer = await sharp(file.buffer)
@@ -90,7 +107,7 @@ router.post('/upload-multiple', authenticateToken, upload.array('images', 10), a
         INSERT INTO images (user_id, image_url, thumbnail_url, image_type, file_size, mime_type)
         VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *
-      `, [req.user.userId, imageUrl, thumbnailUrl, image_type, file.size, file.mimetype]);
+      `, [req.user.id, imageUrl, thumbnailUrl, image_type, file.size, file.mimetype]);
 
       uploadedImages.push(result.rows[0]);
     }
@@ -111,7 +128,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const { image_type, related_id } = req.query;
     
     let query = 'SELECT * FROM images WHERE user_id = $1';
-    const params = [req.user.userId];
+    const params = [req.user.id];
     
     if (image_type) {
       params.push(image_type);
@@ -138,7 +155,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(`
       SELECT * FROM images WHERE id = $1 AND user_id = $2
-    `, [req.params.id, req.user.userId]);
+    `, [req.params.id, req.user.id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Image not found' });

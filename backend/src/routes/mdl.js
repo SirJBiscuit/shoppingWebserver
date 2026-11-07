@@ -442,4 +442,305 @@ router.post('/preferences', authenticateToken, async (req, res) => {
   }
 });
 
+// ============================================================================
+// ITEM TRACKING — the core learning write path
+// ============================================================================
+
+/**
+ * POST /api/mdl/track-item
+ * Records an item addition into the MDL system:
+ *  1. Registry entry via get_or_create_item_name()
+ *  2. History row with temporal + location context
+ *  3. User pattern upsert (frequency, price stats, cadence, prediction)
+ *  4. Seeds product_master_data so the product DB grows organically
+ */
+router.post('/track-item', authenticateToken, async (req, res) => {
+  try {
+    const { itemName, price, quantity, unit, store, listId, wasSuggestion, userTyped } = req.body;
+    if (!itemName || !itemName.trim()) {
+      return res.status(400).json({ error: 'itemName is required' });
+    }
+
+    const itemNameId = await db.query(
+      'SELECT get_or_create_item_name($1) as id',
+      [itemName.trim()]
+    ).then(r => r.rows[0].id);
+
+    // User location context (optional)
+    const loc = await db.query(
+      'SELECT state, city FROM user_locations WHERE user_id = $1',
+      [req.user.id]
+    );
+    const userState = loc.rows[0]?.state || null;
+    const userCity = loc.rows[0]?.city || null;
+
+    await db.query(
+      `INSERT INTO mdl_user_item_history
+        (user_id, item_name_id, day_of_week, hour_of_day, week_of_month, month, season,
+         quantity, unit, price, store_name, list_id, user_state, user_city, was_suggestion, user_typed)
+       VALUES ($1,$2, EXTRACT(DOW FROM NOW()), EXTRACT(HOUR FROM NOW()),
+               CEIL(EXTRACT(DAY FROM NOW())/7.0), EXTRACT(MONTH FROM NOW()), get_season(CURRENT_DATE),
+               $3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [
+        req.user.id, itemNameId,
+        quantity || null, unit || null, price || null, store || null, listId || null,
+        userState, userCity, !!wasSuggestion, userTyped !== false
+      ]
+    );
+
+    // Pattern upsert
+    await db.query(
+      `INSERT INTO mdl_user_patterns
+        (user_id, item_name_id, total_times_added, first_added, last_added,
+         average_price, min_price, max_price, last_price, average_quantity, typical_unit, updated_at)
+       VALUES ($1,$2,1,NOW(),NOW(),$3,$3,$3,$3,$4,$5,NOW())
+       ON CONFLICT (user_id, item_name_id) DO UPDATE SET
+         total_times_added = mdl_user_patterns.total_times_added + 1,
+         last_added = NOW(),
+         last_price = COALESCE(EXCLUDED.last_price, mdl_user_patterns.last_price),
+         min_price = LEAST(mdl_user_patterns.min_price, COALESCE(EXCLUDED.min_price, mdl_user_patterns.min_price)),
+         max_price = GREATEST(mdl_user_patterns.max_price, COALESCE(EXCLUDED.max_price, mdl_user_patterns.max_price)),
+         average_price = CASE
+           WHEN EXCLUDED.average_price IS NOT NULL THEN
+             ROUND(((mdl_user_patterns.average_price * mdl_user_patterns.total_times_added) + EXCLUDED.average_price)
+                   / (mdl_user_patterns.total_times_added + 1), 2)
+           ELSE mdl_user_patterns.average_price END,
+         average_quantity = COALESCE(mdl_user_patterns.average_quantity, EXCLUDED.average_quantity),
+         typical_unit = COALESCE(EXCLUDED.typical_unit, mdl_user_patterns.typical_unit),
+         updated_at = NOW()`,
+      [req.user.id, itemNameId, price || null, quantity || null, unit || null]
+    );
+
+    // Cadence + prediction (avg days between adds -> next predicted date)
+    await db.query(
+      `WITH diffs AS (
+         SELECT EXTRACT(EPOCH FROM (added_at - LAG(added_at) OVER (ORDER BY added_at)))/86400.0 AS gap
+         FROM mdl_user_item_history
+         WHERE user_id = $1 AND item_name_id = $2
+       ), agg AS (
+         SELECT AVG(gap)::numeric(10,2) AS avg_gap, COUNT(gap) AS gaps FROM diffs WHERE gap IS NOT NULL
+       )
+       UPDATE mdl_user_patterns p
+       SET average_days_between = agg.avg_gap,
+           next_predicted_date = (NOW() + (COALESCE(agg.avg_gap, 7) || ' days')::interval)::date,
+           prediction_confidence = LEAST(0.95, agg.gaps / 10.0),
+           preferred_stores = CASE WHEN $3::text IS NOT NULL
+             THEN jsonb_build_object($3::text, COALESCE((p.preferred_stores->>$3::text)::int, 0) + 1)
+             ELSE p.preferred_stores END
+       FROM agg
+       WHERE p.user_id = $1 AND p.item_name_id = $2`,
+      [req.user.id, itemNameId, store || null]
+    );
+
+    // Seed the product catalog organically (never fails the track call)
+    if (itemName.trim().length > 2) {
+      try {
+        const slug = itemName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        await db.query(
+          `INSERT INTO product_master_data
+             (product_name, slug, category, average_price, icon_emoji, times_purchased, last_price_update)
+           VALUES ($1, $2, 'uncategorized', $3, $4, 1, NOW())
+           ON CONFLICT (product_name) DO UPDATE SET
+             times_purchased = product_master_data.times_purchased + 1,
+             average_price = COALESCE(product_master_data.average_price, EXCLUDED.average_price),
+             icon_emoji = COALESCE(product_master_data.icon_emoji, EXCLUDED.icon_emoji),
+             last_price_update = NOW()`,
+          [itemName.trim(), slug, price || null, req.body.icon || null]
+        );
+      } catch (e) {
+        console.warn('Product catalog upsert failed (non-fatal):', e.message);
+      }
+    }
+
+    // Location-aware price aggregation (state-level)
+    if (price && userState) {
+      await db.query(
+        `INSERT INTO mdl_location_prices
+           (item_name_id, state, average_price, min_price, max_price, sample_size, confidence_score)
+         VALUES ($1,$2,$3,$3,$3,1,0.1)
+         ON CONFLICT ON CONSTRAINT uq_mdl_location_prices DO UPDATE SET
+           average_price = ROUND(((mdl_location_prices.average_price * mdl_location_prices.sample_size) + $3)
+                                 / (mdl_location_prices.sample_size + 1), 2),
+           min_price = LEAST(mdl_location_prices.min_price, $3),
+           max_price = GREATEST(mdl_location_prices.max_price, $3),
+           sample_size = mdl_location_prices.sample_size + 1,
+           confidence_score = LEAST(0.95, (mdl_location_prices.sample_size + 1) / 20.0),
+           last_updated = NOW()`,
+        [itemNameId, userState, price]
+      );
+    }
+
+    res.status(201).json({ tracked: true, itemNameId });
+  } catch (error) {
+    console.error('Error tracking item:', error);
+    res.status(500).json({ error: 'Failed to track item' });
+  }
+});
+
+/**
+ * GET /api/mdl/patterns/:itemName
+ * User's learned pattern for a specific item
+ */
+router.get('/patterns/:itemName', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT p.*, n.normalized_name
+       FROM mdl_user_patterns p
+       JOIN mdl_item_names n ON p.item_name_id = n.id
+       WHERE p.user_id = $1 AND n.normalized_name = normalize_item_name($2)`,
+      [req.user.id, req.params.itemName]
+    );
+    res.json(result.rows[0] || null);
+  } catch (error) {
+    console.error('Error getting pattern:', error);
+    res.status(500).json({ error: 'Failed to get pattern' });
+  }
+});
+
+/**
+ * GET /api/mdl/suggestions
+ * Items predicted to be due again (next_predicted_date <= today + 2)
+ */
+router.get('/suggestions', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT n.normalized_name AS item_name, n.predicted_category, n.predicted_icon,
+              n.image_url, p.last_price, p.average_price, p.total_times_added,
+              p.next_predicted_date, p.prediction_confidence, p.average_days_between
+       FROM mdl_user_patterns p
+       JOIN mdl_item_names n ON p.item_name_id = n.id
+       WHERE p.user_id = $1
+         AND p.next_predicted_date IS NOT NULL
+         AND p.next_predicted_date <= CURRENT_DATE + INTERVAL '2 days'
+         AND p.prediction_confidence >= 0.2
+       ORDER BY p.next_predicted_date ASC, p.prediction_confidence DESC
+       LIMIT 15`,
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error getting suggestions:', error);
+    res.status(500).json({ error: 'Failed to get suggestions' });
+  }
+});
+
+/**
+ * GET /api/mdl/price/:itemName
+ * Best price estimate: personal avg > state avg > global avg > catalog
+ */
+router.get('/price/:itemName', authenticateToken, async (req, res) => {
+  try {
+    const { itemName } = req.params;
+
+    // Personal average
+    const personal = await db.query(
+      `SELECT p.average_price, p.last_price, p.total_times_added as samples
+       FROM mdl_user_patterns p
+       JOIN mdl_item_names n ON p.item_name_id = n.id
+       WHERE p.user_id = $1 AND n.normalized_name = normalize_item_name($2)`,
+      [req.user.id, itemName]
+    );
+    if (personal.rows[0]?.average_price) {
+      const p = personal.rows[0];
+      return res.json({
+        price: p.average_price, last_price: p.last_price,
+        confidence: Math.min(0.95, p.samples / 10), source: 'personal'
+      });
+    }
+
+    // Location average (user's state first, then all-state)
+    const loc = await db.query(
+      `SELECT lp.average_price, lp.confidence_score, lp.sample_size
+       FROM mdl_location_prices lp
+       JOIN mdl_item_names n ON lp.item_name_id = n.id
+       LEFT JOIN user_locations ul ON ul.user_id = $1
+       WHERE n.normalized_name = normalize_item_name($2)
+       ORDER BY (lp.state = ul.state) DESC NULLS LAST, lp.sample_size DESC
+       LIMIT 1`,
+      [req.user.id, itemName]
+    );
+    if (loc.rows[0]?.average_price) {
+      const l = loc.rows[0];
+      return res.json({ price: l.average_price, confidence: l.confidence_score, source: 'location' });
+    }
+
+    // Catalog default
+    const catalog = await db.query(
+      `SELECT average_price, price_confidence FROM product_master_data
+       WHERE LOWER(product_name) = LOWER($1) OR slug = $2 LIMIT 1`,
+      [itemName.trim(), itemName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')]
+    );
+    res.json({
+      price: catalog.rows[0]?.average_price || null,
+      confidence: (catalog.rows[0]?.price_confidence || 0) / 100,
+      source: catalog.rows.length ? 'catalog' : 'none'
+    });
+  } catch (error) {
+    console.error('Error getting price estimate:', error);
+    res.status(500).json({ error: 'Failed to get price estimate' });
+  }
+});
+
+// ============================================================================
+// USER LOCATION
+// ============================================================================
+
+router.post('/location', authenticateToken, async (req, res) => {
+  try {
+    const { state, city, zipCode, metroArea, sharingLevel } = req.body;
+    const result = await db.query(
+      `INSERT INTO user_locations (user_id, state, city, zip_code, metro_area, location_sharing_level)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (user_id) DO UPDATE SET
+         state = EXCLUDED.state, city = EXCLUDED.city, zip_code = EXCLUDED.zip_code,
+         metro_area = EXCLUDED.metro_area, location_sharing_level = EXCLUDED.location_sharing_level,
+         updated_at = NOW()
+       RETURNING *`,
+      [req.user.id, state || null, city || null, zipCode || null, metroArea || null, sharingLevel || 'state']
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error saving location:', error);
+    res.status(500).json({ error: 'Failed to save location' });
+  }
+});
+
+router.get('/location', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT * FROM user_locations WHERE user_id = $1', [req.user.id]
+    );
+    res.json(result.rows[0] || null);
+  } catch (error) {
+    console.error('Error getting location:', error);
+    res.status(500).json({ error: 'Failed to get location' });
+  }
+});
+
+// ============================================================================
+// BACKUPS (admin)
+// ============================================================================
+
+const mdlBackup = require('../services/mdlBackup');
+
+router.post('/backups/run', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    res.json(await mdlBackup.runBackup('manual'));
+  } catch (error) {
+    console.error('Error running backup:', error);
+    res.status(500).json({ error: 'Backup failed' });
+  }
+});
+
+router.get('/backups', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    res.json(mdlBackup.listBackupFiles());
+  } catch (error) {
+    console.error('Error listing backups:', error);
+    res.status(500).json({ error: 'Failed to list backups' });
+  }
+});
+
 module.exports = router;

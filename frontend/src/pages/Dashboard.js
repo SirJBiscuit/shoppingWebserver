@@ -78,7 +78,7 @@ import ChangelogViewer from '../components/ChangelogViewer';
 import CalculatorWidget from '../components/CalculatorWidget';
 import useScrollSound from '../hooks/useScrollSound';
 import { playSound } from '../utils/soundEffects';
-import { savePreference, getPreference } from '../api/mdl';
+import { savePreference, getPreference, trackItem } from '../api/mdl';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -1063,6 +1063,18 @@ const Dashboard = () => {
         learnPrice(itemName, itemPrice);
       }
 
+      // MDL tracking — fire-and-forget, never blocks the UI
+      trackItem({
+        itemName,
+        price: itemPrice || null,
+        quantity: newItemQuantity ? parseFloat(newItemQuantity) : 1,
+        unit: newItemSize || null,
+        store: activeList.store_name || null,
+        listId: activeList.id,
+        icon: itemIcon || null,
+        userTyped: true
+      });
+
       // Trigger flying animation
       if (addButtonRef.current) {
         triggerFlyingAnimation({
@@ -1152,6 +1164,17 @@ const Dashboard = () => {
         unit: suggestion.unit || '',
         price: 0,
         category: '',
+      });
+
+      // MDL tracking — marks this came from a suggestion (non-blocking)
+      trackItem({
+        itemName: suggestion.item,
+        quantity: suggestion.quantity || 1,
+        unit: suggestion.unit || null,
+        store: activeList.store_name || null,
+        listId: activeList.id,
+        wasSuggestion: true,
+        userTyped: false
       });
 
       await loadListItems(activeList.id);

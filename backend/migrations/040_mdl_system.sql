@@ -136,10 +136,12 @@ CREATE TABLE IF NOT EXISTS mdl_location_prices (
   last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   
   -- Confidence
-  confidence_score DECIMAL(3,2),
-  
-  UNIQUE(item_name_id, COALESCE(state, ''), COALESCE(store_chain, ''), COALESCE(specific_store_id, 0))
+  confidence_score DECIMAL(3,2)
 );
+
+-- Expression unique (not valid inline in CREATE TABLE — must be an index)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_mdl_location_prices
+  ON mdl_location_prices(item_name_id, COALESCE(state, ''), COALESCE(store_chain, ''), COALESCE(specific_store_id, 0));
 
 CREATE INDEX IF NOT EXISTS idx_mdl_prices_item_state ON mdl_location_prices(item_name_id, state);
 CREATE INDEX IF NOT EXISTS idx_mdl_prices_chain_state ON mdl_location_prices(item_name_id, store_chain, state);
@@ -243,10 +245,12 @@ CREATE TABLE IF NOT EXISTS mdl_location_aisles (
   confidence_score DECIMAL(3,2),
   report_count INTEGER DEFAULT 0,
   
-  last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  UNIQUE(item_name_id, COALESCE(specific_store_id, 0))
+  last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Expression unique (not valid inline in CREATE TABLE — must be an index)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_mdl_location_aisles
+  ON mdl_location_aisles(item_name_id, COALESCE(specific_store_id, 0));
 
 CREATE INDEX IF NOT EXISTS idx_location_aisles_item_chain_state ON mdl_location_aisles(item_name_id, store_chain, state);
 CREATE INDEX IF NOT EXISTS idx_location_aisles_store ON mdl_location_aisles(specific_store_id);

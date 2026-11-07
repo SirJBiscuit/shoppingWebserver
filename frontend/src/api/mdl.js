@@ -70,4 +70,93 @@ export const getAllPreferences = async () => {
   }
 };
 
+// ============================================================================
+// LEARNING / TRACKING
+// ============================================================================
+
+/**
+ * Record that an item was added to a list. Fire-and-forget — never block the UI.
+ */
+export const trackItem = async (data) => {
+  try {
+    const response = await mdlAPI.post('/track-item', data);
+    return response.data;
+  } catch (error) {
+    console.warn('MDL track-item failed:', error.message);
+    return null; // tracking is non-critical
+  }
+};
+
+/** Predicted-due items ("running low" suggestions) */
+export const getSuggestions = async () => {
+  try {
+    const response = await mdlAPI.get('/suggestions');
+    return response.data;
+  } catch (error) {
+    console.warn('MDL suggestions failed:', error.message);
+    return [];
+  }
+};
+
+/** Best price estimate for an item name */
+export const getPriceEstimate = async (itemName) => {
+  try {
+    const response = await mdlAPI.get(`/price/${encodeURIComponent(itemName)}`);
+    return response.data;
+  } catch (error) {
+    return null;
+  }
+};
+
+/** Learned pattern for one item */
+export const getItemPattern = async (itemName) => {
+  try {
+    const response = await mdlAPI.get(`/patterns/${encodeURIComponent(itemName)}`);
+    return response.data;
+  } catch (error) {
+    return null;
+  }
+};
+
+/** Aisle prediction for item at a store */
+export const getAislePrediction = async (itemName, storeId) => {
+  try {
+    const response = await mdlAPI.get(`/aisle/${encodeURIComponent(itemName)}/${storeId}`);
+    return response.data;
+  } catch (error) {
+    return null;
+  }
+};
+
+/** Report actual aisle for learning */
+export const reportAisle = async (data) => {
+  try {
+    const response = await mdlAPI.post('/aisle/report', data);
+    return response.data;
+  } catch (error) {
+    console.warn('Aisle report failed:', error.message);
+    return null;
+  }
+};
+
+/** User location for location-aware prices */
+export const getLocation = async () => {
+  try {
+    const response = await mdlAPI.get('/location');
+    return response.data;
+  } catch (error) {
+    return null;
+  }
+};
+
+export const setLocation = async (data) => {
+  try {
+    const response = await mdlAPI.post('/location', data);
+    return response.data;
+  } catch (error) {
+    console.warn('Set location failed:', error.message);
+    return null;
+  }
+};
+
 export default mdlAPI;

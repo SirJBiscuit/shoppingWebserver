@@ -113,11 +113,16 @@ const runMigrations = async () => {
   
   const migrations = [
     { file: 'add_sound_system.sql', name: 'Sound System' },
+    { file: '035_create_mdl_system.sql', name: 'MDL Product Database' },
+    { file: '039_item_training_system.sql', name: 'Item Training System' },
+    { file: '040_mdl_system.sql', name: 'MDL Learning System' },
+    { file: '041_mdl_user_preferences.sql', name: 'MDL User Preferences' },
     { file: '043_beta_testing_system.sql', name: 'Beta Testing System' },
     { file: '044_beta_feedback_system.sql', name: 'Beta Feedback System' },
     { file: '041_admin_storage_system.sql', name: 'Admin Storage System' },
     { file: '046_fix_sidebar_pages.sql', name: 'Sidebar Pages Fix' },
-    { file: '047_household_members.sql', name: 'Household Members' }
+    { file: '047_household_members.sql', name: 'Household Members' },
+    { file: '048_mdl_hardening.sql', name: 'MDL Hardening' }
   ];
 
   for (const migration of migrations) {
@@ -150,7 +155,14 @@ app.listen(PORT, '0.0.0.0', async () => {
   
   // Run migrations after server starts
   await runMigrations();
-  
+
+  // Daily MDL training-data backups (first run ~30s after boot)
+  try {
+    require('./services/mdlBackup').startDailyBackup();
+  } catch (error) {
+    console.error('❌ Failed to start MDL backup service:', error.message);
+  }
+
   // Initialize auto-updater (non-blocking, runs in background)
   if (process.env.NODE_ENV === 'production') {
     setImmediate(async () => {
