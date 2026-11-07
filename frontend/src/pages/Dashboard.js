@@ -1957,14 +1957,28 @@ const Dashboard = () => {
               <form onSubmit={addItem}>
                 <div className="mb-4">
                   <div className="relative">
+                    <AnimatePresence>
                     {newItemIcon && (
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-2xl pointer-events-none z-10">
+                      <motion.span
+                        key={newItemIcon}
+                        initial={{ scale: 0, rotate: -90 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-2xl pointer-events-none z-10"
+                      >
                         {newItemIcon}
-                      </div>
+                      </motion.span>
                     )}
+                    </AnimatePresence>
                     <AutocompleteInput
                       value={newItemName}
                       data-tutorial="add-item-input"
+                      onEnter={() => addItem({ preventDefault: () => {} })}
+                      getSuggestionIcon={(name) => {
+                        const pref = itemPreferences.find(p => p.name?.toLowerCase() === name.toLowerCase());
+                        return getLearnedIcon(name) || pref?.preferred_icon || detectIcon(name) || '';
+                      }}
                       onChange={(e) => {
                       const value = e.target.value;
                       setNewItemName(value);

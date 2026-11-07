@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { getAutocompleteSuggestions, getGhostText } from '../utils/autocomplete';
 
 const AutocompleteInput = ({ 
@@ -7,6 +8,8 @@ const AutocompleteInput = ({
   onChange, 
   onSelect,
   onAutoFill,
+  onEnter,
+  getSuggestionIcon,
   previousItems = [],
   placeholder = "Type to search...",
   className = "",
@@ -48,6 +51,21 @@ const AutocompleteInput = ({
   }, [value, previousItems, disableAutocomplete]);
 
   const handleKeyDown = (e) => {
+    // Enter always commits — selected suggestion if highlighted,
+    // otherwise fire onEnter (add typed item) or let the form submit
+    if (e.key === 'Enter') {
+      if (showSuggestions && suggestions.length > 0 && selectedIndex >= 0) {
+        e.preventDefault();
+        selectSuggestion(suggestions[selectedIndex]);
+      } else if (onEnter && value.trim()) {
+        e.preventDefault();
+        setShowSuggestions(false);
+        setSelectedIndex(-1);
+        onEnter(value);
+      }
+      return;
+    }
+
     if (!showSuggestions || suggestions.length === 0) {
       // Tab or Right Arrow to accept ghost text
       if ((e.key === 'Tab' || e.key === 'ArrowRight') && ghostText) {
@@ -70,12 +88,6 @@ const AutocompleteInput = ({
       case 'ArrowUp':
         e.preventDefault();
         setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (selectedIndex >= 0) {
-          selectSuggestion(suggestions[selectedIndex]);
-        }
         break;
       case 'Escape':
         setShowSuggestions(false);
@@ -109,8 +121,8 @@ const AutocompleteInput = ({
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none z-10" />
         
-        {/* Ghost text overlay */}
-        {ghostText && !showSuggestions && (
+        {/* Ghost text overlay — live inline autocomplete while typing */}
+        {ghostText && (
           <div className="absolute left-10 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400 dark:text-gray-500 whitespace-pre">
             <span className="invisible">{value}</span>
             <span>{ghostText}</span>
@@ -132,23 +144,49 @@ const AutocompleteInput = ({
       </div>
 
       {/* Dropdown suggestions - positioned above to avoid covering inputs below */}
+      <AnimatePresence>
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute z-30 w-full bottom-full mb-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-32 overflow-y-auto">
-          {suggestions.slice(0, 5).map((suggestion, index) => (
-            <div
-              key={index}
-              onClick={() => selectSuggestion(suggestion)}
-              className={`px-4 py-2 cursor-pointer transition-colors ${
-                index === selectedIndex
-                  ? 'bg-primary-100 dark:bg-primary-900 text-primary-900 dark:text-primary-100'
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100'
-              }`}
-            >
-              {suggestion}
-            </div>
-          ))}
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 6, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 4, scale: 0.98 }}
+          transition={{ duration: 0.15 }}
+          className="absolute z-30 w-full bottom-full mb-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+        >
+          {suggestions.slice(0, 5).map((suggestion, index) => {
+            const icon = getSuggestionIcon ? getSuggestionIcon(suggestion) : null;
+            const matchLen = Math.min(value.length, suggestion.length);
+            const matchesPrefix = suggestion.slice(0, matchLen).toLowerCase() === value.slice(0, matchLen).toLowerCase();
+            return (
+              <motion.div
+                key={suggestion}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.04, duration: 0.15 }}
+                onClick={() => selectSuggestion(suggestion)}
+                className={`px-4 py-2 cursor-pointer transition-colors flex items-center gap-2 ${
+                  index === selectedIndex
+                    ? 'bg-primary-100 dark:bg-primary-900 text-primary-900 dark:text-primary-100'
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100'
+                }`}
+              >
+                {icon && <span className="text-lg flex-shrink-0">{icon}</span>}
+                <span>
+                  {matchesPrefix ? (
+                    <>
+                      <span className="font-semibold text-primary-600 dark:text-primary-400">
+                        {suggestion.slice(0, matchLen)}
+                      </span>
+                      {suggestion.slice(matchLen)}
+                    </>
+                  ) : suggestion}
+                </span>
+              </motion.div>
+            );
+          })}
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 };
