@@ -1464,7 +1464,7 @@ const Dashboard = () => {
       await loadInventory();
       await loadSuggestions();
       
-      // Quick celebration, then take the user to After Shop with the items
+      // Quick celebration, then take the user to Unpack with the items
       setTimeout(() => {
         setShowCelebration(false);
         navigate('/staging');
@@ -2558,7 +2558,7 @@ const Dashboard = () => {
               </motion.div>
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">Shopping Complete!</h2>
               <p className="text-lg text-green-600 dark:text-green-400 font-semibold">+{Math.floor(totalCost * 10)} XP</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Heading to After Shop…</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Heading to Unpack…</p>
             </motion.div>
           </div>
         )}

@@ -144,7 +144,7 @@ const Sidebar = ({ onAction }) => {
   // Legacy items (will be phased out as API pages are configured)
   const mainNavItems = [
     { path: '/', icon: Home, label: 'Home', color: 'text-blue-600', feature: 'shopping_lists' },
-    { path: '/staging', icon: Package, label: 'After Shop', color: 'text-yellow-600', feature: 'pantry', badge: '🛒' },
+    { path: '/staging', icon: Package, label: 'Unpack', color: 'text-yellow-600', feature: 'pantry', badge: '🛒' },
     { path: '/pantry-new-v2', icon: Store, label: 'Home Inventory', color: 'text-green-600', feature: 'pantry' },
     { path: '/recipes', icon: ChefHat, label: 'Recipe Book', color: 'text-orange-600', feature: 'recipes' },
     // { path: '/meal-plan', icon: Calendar, label: 'Meal Planner', color: 'text-purple-600', feature: 'meal_planner' }, // Disabled

@@ -9,7 +9,7 @@ import Sidebar from '../components/Sidebar';
 import ConfirmModal from '../limbo/modals/ConfirmModal';
 
 /**
- * StagingArea - After Shop
+ * StagingArea - Unpack
  * Shows items waiting to be put away with smart rotation suggestions
  */
 const StagingArea = () => {
@@ -156,7 +156,7 @@ const StagingArea = () => {
             <div className="flex items-start gap-4">
               <Info size={32} className="flex-shrink-0 mt-1" />
               <div>
-                <h2 className="text-2xl font-bold mb-3">How to Use After Shop</h2>
+                <h2 className="text-2xl font-bold mb-3">How to Use Unpack</h2>
                 <ol className="space-y-2 text-sm opacity-90">
                   <li className="flex items-start gap-2">
                     <span className="font-bold">1.</span>
@@ -185,7 +185,7 @@ const StagingArea = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-              🛒 After Shop
+              🛒 Unpack
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1">
               {total} item{total !== 1 ? 's' : ''} waiting to be put away
