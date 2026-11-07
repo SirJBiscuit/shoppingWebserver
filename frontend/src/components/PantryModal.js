@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Lightbulb } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Lightbulb, Package } from 'lucide-react';
 import { expirationAPI } from '../services/api';
+import AnimatedScrollbar3D from './3DAnimatedScrollbar';
 
 const PantryModal = ({ isOpen, onClose, onSave, item = null, categories = [] }) => {
   const [formData, setFormData] = useState({
@@ -82,21 +84,61 @@ const PantryModal = ({ isOpen, onClose, onSave, item = null, categories = [] }) 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {item ? 'Edit Pantry Item' : 'Add to Pantry'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
-          </button>
-        </div>
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/10 flex items-center justify-center z-50 p-4"
+        onClick={(e) => e.target === e.currentTarget && onClose()}
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.9, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
+        >
+          {/* Header with Gradient - shared pattern with CustomEditPanel */}
+          <div className="relative bg-gradient-to-r from-primary-500 to-purple-600 p-6 text-white">
+            <div className="absolute inset-0 bg-black/10" />
+            <div className="relative flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <motion.div
+                  initial={{ rotate: -180, scale: 0 }}
+                  animate={{ rotate: 0, scale: 1 }}
+                  transition={{ type: 'spring', delay: 0.1 }}
+                  className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm"
+                >
+                  <Package className="w-6 h-6" />
+                </motion.div>
+                <div>
+                  <h2 className="text-2xl font-bold">
+                    {item ? 'Edit Pantry Item' : 'Add to Pantry'}
+                  </h2>
+                  <p className="text-sm text-white/80">
+                    {item ? 'Update item details' : 'Add a new item to your pantry'}
+                  </p>
+                </div>
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.1, rotate: 90 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={onClose}
+                className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center backdrop-blur-sm transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </motion.button>
+            </div>
+          </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <AnimatedScrollbar3D
+            maxHeight="calc(90vh - 180px)"
+            thumbColor="bg-gradient-to-b from-primary-400 to-primary-600"
+            glowColor="primary"
+            autoHide={true}
+          >
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Item Name *
@@ -240,24 +282,30 @@ const PantryModal = ({ isOpen, onClose, onSave, item = null, categories = [] }) 
             />
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
+          <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <motion.button
               type="button"
               onClick={onClose}
-              className="btn-secondary"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex-1 px-6 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
             >
               Cancel
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               type="submit"
-              className="btn-primary"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-primary-500 to-purple-600 text-white font-semibold hover:from-primary-600 hover:to-purple-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary-500/30"
             >
               {item ? 'Update Item' : 'Add to Pantry'}
-            </button>
+            </motion.button>
           </div>
-        </form>
-      </div>
-    </div>
+            </form>
+          </AnimatedScrollbar3D>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 

@@ -144,11 +144,11 @@ export const useNotification = () => {
   /**
    * Show a delete confirmation dialog
    */
-  const confirmDelete = (itemName, onDelete, onCancel, options = {}) => {
+  const confirmDelete = (title, message, onDelete, onCancel, options = {}) => {
     showNotification({
       type: 'question',
-      title: 'Delete Item?',
-      message: `Are you sure you want to delete ${itemName}?`,
+      title,
+      message,
       position: 'center',
       duration: 0,
       actions: [

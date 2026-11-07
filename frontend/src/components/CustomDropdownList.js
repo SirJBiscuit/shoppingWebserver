@@ -16,6 +16,7 @@ import { ChevronDown, Check, Plus, Search } from 'lucide-react';
  */
 const CustomDropdownList = ({
   items = [],
+  options, // alias for items
   value,
   onChange,
   placeholder = 'Select an item',
@@ -37,13 +38,24 @@ const CustomDropdownList = ({
   const dropdownRef = useRef(null);
   const searchInputRef = useRef(null);
 
-  // Filter items based on search
+  // Normalize to option objects so primitive values and {value,label} options
+  // behave identically
+  const rawItems = items.length > 0 ? items : (options || []);
+  const normalizedItems = rawItems.map(item =>
+    typeof item === 'object' && item !== null ? item : { value: item, label: String(item) }
+  );
+
+  const getItemLabel = (item) => item.label || item.name || String(item.value ?? '');
+  const getOptionValue = (item) => (item.value !== undefined ? item.value : item);
+
+  // Filter items based on search (matches label AND raw value)
   const filteredItems = searchable && searchQuery
-    ? items.filter(item => {
-        const searchText = typeof item === 'object' ? item.label || item.name : String(item);
-        return searchText.toLowerCase().includes(searchQuery.toLowerCase());
+    ? normalizedItems.filter(item => {
+        const q = searchQuery.toLowerCase();
+        return getItemLabel(item).toLowerCase().includes(q) ||
+               String(getOptionValue(item)).toLowerCase().includes(q);
       })
-    : items;
+    : normalizedItems;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -101,7 +113,8 @@ const CustomDropdownList = ({
   };
 
   const handleSelect = (item) => {
-    onChange(item);
+    if (item.isHeader || item.disabled) return;
+    onChange(getOptionValue(item));
     setIsOpen(false);
     setSearchQuery('');
     setFocusedIndex(-1);
@@ -114,12 +127,13 @@ const CustomDropdownList = ({
     }
   };
 
-  // Get display value
+  // Get display value - resolves primitive values to their option label
   const getDisplayValue = () => {
-    if (!value) return placeholder;
+    if (value === undefined || value === null || value === '') return placeholder;
     if (renderValue) return renderValue(value);
     if (typeof value === 'object') return value.label || value.name || placeholder;
-    return String(value);
+    const match = normalizedItems.find(item => getOptionValue(item) === value);
+    return match ? getItemLabel(match) : String(value);
   };
 
   // Get item key
@@ -128,13 +142,14 @@ const CustomDropdownList = ({
     return index;
   };
 
-  // Check if item is selected
+  // Check if item is selected (handles primitive values + objects)
   const isSelected = (item) => {
-    if (!value) return false;
-    if (typeof item === 'object' && typeof value === 'object') {
-      return item.id === value.id || item.value === value.value;
+    if (value === undefined || value === null) return false;
+    if (typeof value === 'object') {
+      return item.id !== undefined && item.id === value.id
+        || (item.value !== undefined && value.value !== undefined && item.value === value.value);
     }
-    return item === value;
+    return getOptionValue(item) === value || item === value;
   };
 
   return (
@@ -216,6 +231,28 @@ const CustomDropdownList = ({
                 filteredItems.map((item, index) => {
                   const selected = isSelected(item);
                   const focused = index === focusedIndex;
+
+                  if (item.isHeader) {
+                    return (
+                      <div
+                        key={getItemKey(item, index)}
+                        className="px-4 pt-3 pb-1 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 select-none"
+                      >
+                        {getItemLabel(item)}
+                      </div>
+                    );
+                  }
+
+                  if (item.disabled) {
+                    return (
+                      <div
+                        key={getItemKey(item, index)}
+                        className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500 italic select-none"
+                      >
+                        {getItemLabel(item)}
+                      </div>
+                    );
+                  }
 
                   return (
                     <motion.button

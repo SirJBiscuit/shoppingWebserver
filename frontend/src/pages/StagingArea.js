@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Package, CheckCircle, XCircle, AlertTriangle, ArrowRight, Trash2, Info } from 'lucide-react';
 import stagingAPI from '../services/stagingAPI';
 import inventoryAPI from '../services/inventoryAPI';
 import StagingItemCard from '../components/staging/StagingItemCard';
 import RotationPanel from '../components/staging/RotationPanel';
 import Sidebar from '../components/Sidebar';
+import ConfirmModal from '../limbo/modals/ConfirmModal';
 
 /**
  * StagingArea - After Shop
@@ -17,6 +19,7 @@ const StagingArea = () => {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('grouped'); // 'grouped' or 'comparison'
   const [pantryItems, setPantryItems] = useState([]);
+  const [confirmState, setConfirmState] = useState(null); // {title, message, onConfirm, type, confirmText}
 
   useEffect(() => {
     loadStagingItems();
@@ -71,34 +74,46 @@ const StagingArea = () => {
     }
   };
 
-  const handlePutAwayAll = async () => {
-    if (!window.confirm('Put away all items to inventory?')) return;
-    
-    try {
-      await stagingAPI.putAwayAll();
-      await loadStagingItems();
-      setSelectedItem(null);
-      setSuggestions([]);
-    } catch (error) {
-      console.error('Error putting away all items:', error);
-      alert('Failed to put away items');
-    }
+  const handlePutAwayAll = () => {
+    setConfirmState({
+      title: 'Put Away All?',
+      message: 'Move all staging items into Kitchen Inventory?',
+      confirmText: 'Put Away All',
+      type: 'info',
+      onConfirm: async () => {
+        setConfirmState(null);
+        try {
+          await stagingAPI.putAwayAll();
+          await loadStagingItems();
+          setSelectedItem(null);
+          setSuggestions([]);
+        } catch (error) {
+          console.error('Error putting away all items:', error);
+        }
+      }
+    });
   };
 
-  const handleRemoveItem = async (itemId) => {
-    if (!window.confirm('Remove this item from staging?')) return;
-    
-    try {
-      await stagingAPI.removeItem(itemId);
-      await loadStagingItems();
-      if (selectedItem?.id === itemId) {
-        setSelectedItem(null);
-        setSuggestions([]);
+  const handleRemoveItem = (itemId) => {
+    setConfirmState({
+      title: 'Remove Item?',
+      message: 'Remove this item from staging? It will not be added to inventory.',
+      confirmText: 'Remove',
+      type: 'danger',
+      onConfirm: async () => {
+        setConfirmState(null);
+        try {
+          await stagingAPI.removeItem(itemId);
+          await loadStagingItems();
+          if (selectedItem?.id === itemId) {
+            setSelectedItem(null);
+            setSuggestions([]);
+          }
+        } catch (error) {
+          console.error('Error removing item:', error);
+        }
       }
-    } catch (error) {
-      console.error('Error removing item:', error);
-      alert('Failed to remove item');
-    }
+    });
   };
 
   const handleResolveSuggestion = async (suggestionId, actionType) => {
@@ -130,9 +145,13 @@ const StagingArea = () => {
       <Sidebar />
       
       {/* Main Content */}
-      <div className="flex-1 p-4 ml-64">
+      <div className="flex-1 p-4">
         {/* Instructions Banner */}
-        <div className="max-w-7xl mx-auto mb-6">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-7xl mx-auto mb-6"
+        >
           <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
             <div className="flex items-start gap-4">
               <Info size={32} className="flex-shrink-0 mt-1" />
@@ -159,7 +178,7 @@ const StagingArea = () => {
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Header */}
         <div className="max-w-7xl mx-auto mb-6">
@@ -187,15 +206,25 @@ const StagingArea = () => {
 
       {total === 0 ? (
         <div className="max-w-7xl mx-auto">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center">
-            <div className="text-6xl mb-4">🛒</div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center"
+          >
+            <motion.div
+              animate={{ rotate: [0, -10, 10, 0] }}
+              transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2 }}
+              className="text-6xl mb-4 inline-block"
+            >
+              🛒
+            </motion.div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
               Nothing Here Yet
             </h2>
             <p className="text-gray-600 dark:text-gray-400">
               Complete a shopping trip to move items here for organized put-away
             </p>
-          </div>
+          </motion.div>
         </div>
       ) : (
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -343,6 +372,17 @@ const StagingArea = () => {
         </div>
       )}
       </div>
+
+      {/* Confirmation modal */}
+      <ConfirmModal
+        isOpen={!!confirmState}
+        title={confirmState?.title || ''}
+        message={confirmState?.message || ''}
+        confirmText={confirmState?.confirmText || 'Confirm'}
+        type={confirmState?.type || 'danger'}
+        onConfirm={confirmState?.onConfirm || (() => setConfirmState(null))}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 };

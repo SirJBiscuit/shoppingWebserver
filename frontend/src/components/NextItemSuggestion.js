@@ -73,6 +73,7 @@ const NextItemSuggestionContent = ({
   const [aisleConfidence, setAisleConfidence] = useState(null);
   const [showAisleReport, setShowAisleReport] = useState(false);
   const [customAisle, setCustomAisle] = useState('');
+  const [showMoreActions, setShowMoreActions] = useState(false);
   const [deviceType, setDeviceType] = useState('tablet'); // Default to tablet for safety
   const checkboxRef = useRef(null);
   const priceTrackingTimerRef = useRef(null);
@@ -370,6 +371,30 @@ const NextItemSuggestionContent = ({
       </motion.div>
     );
   }
+
+  // Shared "more actions" list - radial menu on desktop/tablet, sheet on mobile
+  const moreActions = [
+    onEdit && { icon: Edit2, label: 'Edit', onClick: () => onEdit(nextItem), color: 'bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700', show: true },
+    onJumpToItem && { icon: ArrowRight, label: 'Go To', onClick: () => onJumpToItem(nextItem), color: 'bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700', show: true },
+    { icon: ArrowLeft, label: 'Back', onClick: onBack, color: onBack ? 'bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800' : 'bg-gradient-to-br from-gray-400 to-gray-500', show: true },
+    onUndo && { icon: Undo, label: 'Undo', onClick: onUndo, color: onUndo ? 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800' : 'bg-gradient-to-br from-gray-400 to-gray-500', show: true },
+    onDeferItem && { icon: X, label: 'Remove', onClick: () => onDeferItem(nextItem), color: 'bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700', show: true },
+    onAddNote && { icon: FileText, label: 'Note', onClick: () => onAddNote(nextItem), color: 'bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700', show: true },
+    onMarkUnavailable && { icon: AlertCircle, label: 'N/A', onClick: () => onMarkUnavailable(nextItem), color: 'bg-gradient-to-br from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800', show: true },
+    onChangeStore && { icon: Store, label: 'Store', onClick: () => onChangeStore(nextItem), color: 'bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700', show: true }
+  ].filter(Boolean);
+
+  // Quick price adjusters - set + persist immediately
+  const savePriceValue = async (value) => {
+    const formatted = Math.max(0, value).toFixed(2);
+    setQuickPrice(formatted);
+    if (onPriceUpdate) await onPriceUpdate(nextItem.id, parseFloat(formatted));
+  };
+
+  const adjustPrice = async (delta) => {
+    const base = parseFloat(quickPrice || nextItem.price || 0) || 0;
+    await savePriceValue(base + delta);
+  };
 
   return (
     <motion.div
@@ -941,6 +966,43 @@ const NextItemSuggestionContent = ({
                   </button>
                 </div>
               )}
+
+              {/* Quick adjust chips - save immediately */}
+              {!showPriceInput && (
+                <div className="grid grid-cols-5 gap-1.5">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); adjustPrice(-1); }}
+                    className="py-1.5 px-1 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-bold hover:bg-red-200 dark:hover:bg-red-900/50 active:scale-95 transition-all"
+                  >
+                    -$1
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); adjustPrice(-0.5); }}
+                    className="py-1.5 px-1 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs font-bold hover:bg-orange-200 dark:hover:bg-orange-900/50 active:scale-95 transition-all"
+                  >
+                    -50¢
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); adjustPrice(0.5); }}
+                    className="py-1.5 px-1 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold hover:bg-green-200 dark:hover:bg-green-900/50 active:scale-95 transition-all"
+                  >
+                    +50¢
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); adjustPrice(1); }}
+                    className="py-1.5 px-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold hover:bg-emerald-200 dark:hover:bg-emerald-900/50 active:scale-95 transition-all"
+                  >
+                    +$1
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); savePriceValue(0); }}
+                    className="py-1.5 px-1 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-bold hover:bg-gray-300 dark:hover:bg-gray-600 active:scale-95 transition-all"
+                    title="Mark as free / $0"
+                  >
+                    Free
+                  </button>
+                </div>
+              )}
             </div>
           )}
           
@@ -960,25 +1022,29 @@ const NextItemSuggestionContent = ({
               </motion.button>
             )}
             
-            {/* Radial Action Menu - All Other Actions */}
-            <RadialActionMenu
-              primaryAction={{
-                icon: MoreHorizontal,
-                label: 'More Actions',
-                className: 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800'
-              }}
-              actions={[
-                onEdit && { icon: Edit2, label: 'Edit', onClick: () => onEdit(nextItem), color: 'bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700', show: true },
-                onJumpToItem && { icon: ArrowRight, label: 'Go To', onClick: () => onJumpToItem(nextItem), color: 'bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700', show: true },
-                { icon: ArrowLeft, label: 'Back', onClick: onBack, color: onBack ? 'bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800' : 'bg-gradient-to-br from-gray-400 to-gray-500', show: true },
-                onUndo && { icon: Undo, label: 'Undo', onClick: onUndo, color: onUndo ? 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800' : 'bg-gradient-to-br from-gray-400 to-gray-500', show: true },
-                onDeferItem && { icon: X, label: 'Remove', onClick: () => onDeferItem(nextItem), color: 'bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700', show: true },
-                onAddNote && { icon: FileText, label: 'Note', onClick: () => onAddNote(nextItem), color: 'bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700', show: true },
-                onMarkUnavailable && { icon: AlertCircle, label: 'N/A', onClick: () => onMarkUnavailable(nextItem), color: 'bg-gradient-to-br from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800', show: true },
-                onChangeStore && { icon: Store, label: 'Change Store', onClick: () => onChangeStore(nextItem), color: 'bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700', show: true }
-              ].filter(Boolean)}
-              size="md"
-            />
+            {/* More Actions - radial menu on desktop/tablet, sheet on mobile */}
+            {deviceType !== 'mobile' ? (
+              <RadialActionMenu
+                primaryAction={{
+                  icon: MoreHorizontal,
+                  label: 'More Actions',
+                  className: 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800'
+                }}
+                actions={moreActions}
+                size="md"
+              />
+            ) : (
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.05 }}
+                onClick={() => setShowMoreActions(true)}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-shadow min-h-[44px]"
+                title="More actions"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+                <span className="text-sm sm:text-base">More</span>
+              </motion.button>
+            )}
           </div>
         </div>
 
@@ -1095,6 +1161,54 @@ const NextItemSuggestionContent = ({
           </div>
         )}
       </div>
+
+      {/* Mobile More Actions - bottom sheet (mobile only) */}
+      <AnimatePresence>
+        {showMoreActions && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMoreActions(false)}
+              className="fixed inset-0 bg-black/20 z-[100]"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="fixed bottom-0 inset-x-0 z-[101] bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl p-4 pb-8"
+            >
+              <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-3" />
+              <p className="text-center text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">
+                More Actions
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {moreActions.map((action, index) => {
+                  const Icon = action.icon;
+                  return (
+                    <motion.button
+                      key={index}
+                      whileTap={{ scale: 0.92 }}
+                      onClick={() => {
+                        setShowMoreActions(false);
+                        if (action.onClick) action.onClick();
+                      }}
+                      className={`${action.color} text-white rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 shadow-md min-h-[64px]`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="text-[11px] font-semibold leading-tight text-center">
+                        {action.label}
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

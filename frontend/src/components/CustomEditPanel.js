@@ -143,7 +143,7 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave }) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        className="fixed inset-0 bg-black/10 flex items-center justify-center z-50 p-4"
         onClick={(e) => e.target === e.currentTarget && onClose()}
       >
         <motion.div
@@ -204,15 +204,32 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave }) => {
                 <motion.button
                   type="button"
                   onClick={() => setShowIconPicker(true)}
-                  whileHover={{ scale: 1.02 }}
+                  whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
-                  className="w-full p-6 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl hover:border-primary-500 dark:hover:border-primary-400 transition-all bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-700 flex items-center justify-center group"
+                  className="w-full p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl hover:border-primary-500 dark:hover:border-primary-400 transition-all bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-700 flex items-center justify-between gap-3 group"
                 >
-                  {formData.item_icon ? (
-                    <span className="text-6xl group-hover:scale-110 transition-transform">{formData.item_icon}</span>
-                  ) : (
-                    <span className="text-gray-400 group-hover:text-primary-500 transition-colors">Click to choose icon</span>
-                  )}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <motion.span
+                      key={formData.item_icon || 'none'}
+                      initial={{ scale: 0, rotate: -90 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                      className="text-3xl flex-shrink-0"
+                    >
+                      {formData.item_icon || '📦'}
+                    </motion.span>
+                    <div className="text-left min-w-0">
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        {formData.item_icon ? 'Icon selected' : 'Choose an icon'}
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                        Tap to browse the icon library
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30 px-3 py-1.5 rounded-lg group-hover:bg-primary-100 dark:group-hover:bg-primary-900/50 transition-colors flex-shrink-0">
+                    {formData.item_icon ? 'Change' : 'Browse'}
+                  </span>
                 </motion.button>
               </motion.div>
 

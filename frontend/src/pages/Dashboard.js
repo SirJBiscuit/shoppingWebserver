@@ -1448,8 +1448,11 @@ const Dashboard = () => {
       await loadInventory();
       await loadSuggestions();
       
-      // Hide celebration after 3 seconds
-      setTimeout(() => setShowCelebration(false), 3000);
+      // Quick celebration, then take the user to After Shop with the items
+      setTimeout(() => {
+        setShowCelebration(false);
+        navigate('/staging');
+      }, 1800);
     } catch (error) {
       console.error('Error completing list:', error);
       setShowCelebration(false);
@@ -2503,14 +2506,44 @@ const Dashboard = () => {
         {/* Onboarding Tutorial */}
         <Onboarding userId={user?.id || user?.username} />
         
-        {/* Celebration Overlay */}
+        {/* Celebration Overlay - quick confetti burst, then off to After Shop */}
         {showCelebration && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 pointer-events-none">
-            <div className="text-center animate-bounce">
-              <div className="text-8xl mb-4">🎉</div>
-              <h2 className="text-4xl font-bold text-white mb-2">Shopping Complete!</h2>
-              <p className="text-xl text-white">+{Math.floor(totalCost * 10)} XP Earned!</p>
-            </div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+            {[...Array(14)].map((_, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 1, x: 0, y: 0, scale: 0 }}
+                animate={{
+                  opacity: [1, 1, 0],
+                  x: Math.cos((i / 14) * Math.PI * 2) * (130 + Math.random() * 140),
+                  y: Math.sin((i / 14) * Math.PI * 2) * (110 + Math.random() * 130),
+                  scale: [0, 1.2, 0.9],
+                  rotate: Math.random() * 360
+                }}
+                transition={{ duration: 1.5, ease: 'easeOut' }}
+                className="absolute text-4xl"
+              >
+                {['🎉', '✨', '🛒', '🥳', '⭐', '🎊', '✅'][i % 7]}
+              </motion.div>
+            ))}
+            <motion.div
+              initial={{ scale: 0, rotate: -8, opacity: 0 }}
+              animate={{ scale: 1, rotate: 0, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 16 }}
+              className="text-center bg-white dark:bg-gray-800 rounded-3xl shadow-2xl px-10 py-8"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: [0, 1.35, 1] }}
+                transition={{ delay: 0.15, duration: 0.5 }}
+                className="text-7xl mb-3"
+              >
+                🎉
+              </motion.div>
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">Shopping Complete!</h2>
+              <p className="text-lg text-green-600 dark:text-green-400 font-semibold">+{Math.floor(totalCost * 10)} XP</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Heading to After Shop…</p>
+            </motion.div>
           </div>
         )}
         

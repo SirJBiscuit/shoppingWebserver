@@ -29,6 +29,7 @@ const AnimatedScrollbar3D = ({
   
   const [scrollPercentage, setScrollPercentage] = useState(0);
   const [thumbHeight, setThumbHeight] = useState(0);
+  const [trackHeight, setTrackHeight] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
@@ -47,6 +48,7 @@ const AnimatedScrollbar3D = ({
       const containerHeight = container.clientHeight;
       const contentHeight = content.scrollHeight;
       const scrollTop = container.scrollTop;
+      setTrackHeight(containerHeight);
 
       // Show scrollbar only if content overflows
       setShowScrollbar(contentHeight > containerHeight);
@@ -108,43 +110,57 @@ const AnimatedScrollbar3D = ({
     };
   }, []);
 
-  // Handle thumb drag
+  // Handle thumb drag (mouse + touch)
   const handleThumbMouseDown = (e) => {
     e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleThumbTouchStart = (e) => {
+    e.stopPropagation();
     setIsDragging(true);
   };
 
   useEffect(() => {
     if (!isDragging) return;
 
-    const handleMouseMove = (e) => {
+    const dragTo = (clientY) => {
       if (!containerRef.current || !contentRef.current) return;
 
       const container = containerRef.current;
       const content = contentRef.current;
       const containerRect = container.getBoundingClientRect();
       
-      const mouseY = e.clientY - containerRect.top;
+      const pointerY = clientY - containerRect.top;
       const containerHeight = container.clientHeight;
       const contentHeight = content.scrollHeight;
       
       const scrollableHeight = containerHeight - thumbHeight;
-      const percentage = Math.max(0, Math.min(100, (mouseY / scrollableHeight) * 100));
+      const percentage = Math.max(0, Math.min(100, (pointerY / scrollableHeight) * 100));
       
       const maxScroll = contentHeight - containerHeight;
       container.scrollTop = (percentage / 100) * maxScroll;
     };
 
-    const handleMouseUp = () => {
-      setIsDragging(false);
+    const handleMouseMove = (e) => dragTo(e.clientY);
+    const handleTouchMove = (e) => {
+      e.preventDefault();
+      dragTo(e.touches[0].clientY);
     };
+    const handleDragEnd = () => setIsDragging(false);
 
     document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mouseup', handleDragEnd);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleDragEnd);
+    document.addEventListener('touchcancel', handleDragEnd);
 
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mouseup', handleDragEnd);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleDragEnd);
+      document.removeEventListener('touchcancel', handleDragEnd);
     };
   }, [isDragging, thumbHeight]);
 
@@ -202,7 +218,7 @@ const AnimatedScrollbar3D = ({
           animate={{ 
             opacity: shouldShowScrollbar ? 1 : 0,
             x: shouldShowScrollbar ? 0 : 10,
-            y: `${scrollPercentage}%`,
+            y: Math.max(0, (scrollPercentage / 100) * (trackHeight - thumbHeight)),
           }}
           transition={{ 
             opacity: { duration: 0.2 },
@@ -210,9 +226,11 @@ const AnimatedScrollbar3D = ({
             y: { duration: isDragging ? 0 : 0.1 },
           }}
           onMouseDown={handleThumbMouseDown}
+          onTouchStart={handleThumbTouchStart}
           className={`absolute top-0 right-0 w-2 ${thumbColor} rounded-full cursor-grab active:cursor-grabbing`}
           style={{
             height: `${thumbHeight}px`,
+            touchAction: 'none',
             transform: isHovered || isDragging 
               ? 'translateZ(10px) scale(1.5)' 
               : 'translateZ(0)',
