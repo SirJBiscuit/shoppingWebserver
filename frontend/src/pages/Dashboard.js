@@ -2504,6 +2504,19 @@ const Dashboard = () => {
         isOpen={showNotepad}
         onClose={() => setShowNotepad(false)}
         userId={user?.id}
+        onSendToList={async (names) => {
+          if (!activeList) { error('No active list selected'); return; }
+          try {
+            for (const name of names) {
+              await shoppingAPI.addItem(activeList.id, { itemName: name, quantity: 1 });
+            }
+            await loadListItems(activeList.id);
+            success(`${names.length} item${names.length === 1 ? '' : 's'} added from notepad`);
+          } catch (err) {
+            console.error('Error adding notepad items:', err);
+            error('Failed to add items from notepad');
+          }
+        }}
       />
 
       {/* Voice Input Modal */}

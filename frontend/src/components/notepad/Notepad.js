@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import {
   StickyNote, X, Minimize2, Maximize2, Plus, Star,
   Undo2, Redo2, Search, Settings, Palette, Download, ClipboardCopy,
   Type, CheckSquare, List, ListOrdered, Minus as MinusIcon, Table, Pencil,
   ChevronUp, ChevronDown, Copy, Trash2, ArrowUpNarrowWide, Eraser, MoreVertical,
-  FoldVertical, UnfoldVertical, Bold, Italic
+  FoldVertical, UnfoldVertical, Bold, Italic, ShoppingCart, FolderDown, RotateCcw
 } from 'lucide-react';
 import AnimatedScrollbar3D from '../3DAnimatedScrollbar';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
@@ -138,7 +138,7 @@ const DrawCanvas = ({ strokes, onCommit, height, theme }) => {
 };
 
 /* ---------- Main Notepad ---------- */
-const Notepad = ({ isOpen, onClose, userId }) => {
+const Notepad = ({ isOpen, onClose, userId, onSendToList }) => {
   const [mode, setMode] = useState('window');           // window | fullscreen | compact
   const [doc, setDoc] = useState(() => loadDoc(userId));
   const [menu, setMenu] = useState(null);               // { kind:'block'|'page', id, idx, x, y }
@@ -153,6 +153,10 @@ const Notepad = ({ isOpen, onClose, userId }) => {
   const [renamingPage, setRenamingPage] = useState(null);
   const [pos, setPos] = useState({ x: -1, y: 80 });
   const [collapsed, setCollapsed] = useState({});       // blockId -> bool
+  const [selMode, setSelMode] = useState(false);        // page multi-select
+  const [selPages, setSelPages] = useState(new Set());
+  const [showTrash, setShowTrash] = useState(false);
+  const [findAll, setFindAll] = useState(false);        // search all pages
 
   const dragControls = useDragControls();
   const historyRef = useRef(makeHistory());
@@ -295,27 +299,88 @@ const Notepad = ({ isOpen, onClose, userId }) => {
     setDoc((prev) => ({ ...prev, pages: prev.pages.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
   };
 
-  const deletePage = (id) => {
+  const deletePage = (id) => deletePages([id]);
+
+  // Move pages into the trash bin (restorable) — powers group delete too
+  const deletePages = (ids) => {
+    const idSet = new Set(ids);
     setDoc((prev) => {
-      if (prev.pages.length <= 1) return prev;
-      const nd = { ...prev, pages: prev.pages.filter((p) => p.id !== id) };
-      if (nd.lastPage === id) nd.lastPage = nd.pages[0].id;
+      const doomed = prev.pages.filter((p) => idSet.has(p.id));
+      const keep = prev.pages.filter((p) => !idSet.has(p.id));
+      if (!keep.length) return prev; // keep at least one page
+      const trash = [...(prev.trash || []), ...doomed.map((p) => ({ ...p, deletedAt: Date.now() }))].slice(-10);
+      const nd = { ...prev, pages: keep, trash };
+      if (idSet.has(nd.lastPage)) nd.lastPage = keep[0].id;
+      return nd;
+    });
+    setSelPages(new Set());
+    historyRef.current.clear();
+    showToast(`${idSet.size} page${idSet.size === 1 ? '' : 's'} moved to trash`);
+  };
+
+  const restorePage = (id) => {
+    setDoc((prev) => {
+      const entry = (prev.trash || []).find((p) => p.id === id);
+      if (!entry) return prev;
+      const { deletedAt, ...page } = entry;
+      return {
+        ...prev,
+        pages: [...prev.pages, page],
+        trash: prev.trash.filter((p) => p.id !== id),
+        lastPage: page.id,
+      };
+    });
+    historyRef.current.clear();
+    showToast('Page restored');
+  };
+
+  const deleteForever = (id) =>
+    setDoc((prev) => ({ ...prev, trash: (prev.trash || []).filter((p) => p.id !== id) }));
+
+  const duplicatePage = (id) => {
+    setDoc((prev) => {
+      const src = prev.pages.find((p) => p.id === id);
+      if (!src) return prev;
+      const nd = { ...prev, pages: [...prev.pages] };
+      const copy = JSON.parse(JSON.stringify(src));
+      copy.id = nd.nextId++;
+      copy.name = `${src.name} (copy)`;
+      copy.blocks = copy.blocks.map((b) => ({ ...b, id: nd.nextId++ }));
+      copy.starred = false;
+      nd.pages.push(copy);
+      nd.lastPage = copy.id;
       return nd;
     });
     historyRef.current.clear();
+    showToast('Page duplicated');
+  };
+
+  const toggleSelPage = (id) => {
+    setSelPages((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id); else s.add(id);
+      return s;
+    });
   };
 
   /* ----- find & replace ----- */
-  const matches = findQ.trim()
-    ? page.blocks.flatMap((b) => {
-        if (!b.text || b.type === BT.DRAW || b.type === BT.DIVIDER || b.type === BT.TABLE) return [];
-        const hits = [];
-        const t = b.text.toLowerCase();
-        const q = findQ.toLowerCase();
-        let i = t.indexOf(q);
-        while (i !== -1) { hits.push(b.id); i = t.indexOf(q, i + 1); }
-        return hits;
-      })
+  const searchable = (b) => b.text && b.type !== BT.DRAW && b.type !== BT.DIVIDER && b.type !== BT.TABLE;
+  const countIn = (text, q) => {
+    const t = text.toLowerCase(); let i = t.indexOf(q), n = 0;
+    while (i !== -1) { n++; i = t.indexOf(q, i + 1); }
+    return n;
+  };
+  const q = findQ.toLowerCase();
+  const matches = q.trim()
+    ? page.blocks.flatMap((b) => (searchable(b) ? Array(countIn(b.text, q)).fill(b.id) : []))
+    : [];
+
+  // Cross-page results for "All pages" mode
+  const pageHits = q.trim() && findAll
+    ? doc.pages.map((p) => ({
+        page: p,
+        count: p.blocks.reduce((n, b) => n + (searchable(b) ? countIn(b.text, q) : 0), 0),
+      })).filter((r) => r.count > 0)
     : [];
 
   const findNext = () => {
@@ -372,6 +437,34 @@ const Notepad = ({ isOpen, onClose, userId }) => {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const downloadAll = () => {
+    const text = doc.pages.map((p) => `${'='.repeat(24)}\n${p.name}\n${'='.repeat(24)}\n${exportPageText(p)}`).join('\n\n');
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `notepad-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Collect unchecked list-style blocks and hand them to the app
+  const sendToList = () => {
+    if (!onSendToList) { showToast('No shopping list connected'); return; }
+    const names = page.blocks
+      .filter((b) => [BT.CHECK, BT.BULLET, BT.NUMBER].includes(b.type) && !b.checked && b.text.trim())
+      .map((b) => b.text.split('\n').filter((l) => l.trim()))
+      .flat();
+    if (!names.length) { showToast('No unchecked items on this page'); return; }
+    onSendToList(names);
+    showToast(`Sent ${names.length} item${names.length === 1 ? '' : 's'} to list`);
+  };
+
+  const wordCount = useMemo(
+    () => page.blocks.reduce((n, b) => n + (b.text ? b.text.trim().split(/\s+/).filter(Boolean).length : 0), 0),
+    [page.blocks]
+  );
 
   const settings = doc.settings;
   const patchSettings = (patch) => setDoc((prev) => ({ ...prev, settings: { ...prev.settings, ...patch } }));
@@ -482,8 +575,11 @@ const Notepad = ({ isOpen, onClose, userId }) => {
           <ToolBtn theme={theme} onClick={redo} disabled={!historyRef.current.canRedo()} title="Redo (Ctrl+Y)"><Redo2 className="w-4 h-4" /></ToolBtn>
           <ToolBtn theme={theme} onClick={() => setShowFind((v) => !v)} on={showFind} title="Find & replace (Ctrl+F)"><Search className="w-4 h-4" /></ToolBtn>
           <Sep />
+          <ToolBtn theme={theme} onClick={sendToList} title="Send unchecked items to shopping list"><ShoppingCart className="w-4 h-4" /></ToolBtn>
+          <Sep />
           <ToolBtn theme={theme} onClick={copyPage} title="Copy page as text"><ClipboardCopy className="w-4 h-4" /></ToolBtn>
           <ToolBtn theme={theme} onClick={downloadPage} title="Download page as .txt"><Download className="w-4 h-4" /></ToolBtn>
+          <ToolBtn theme={theme} onClick={downloadAll} title="Export ALL pages as .txt"><FolderDown className="w-4 h-4" /></ToolBtn>
           <Sep />
           <div className="relative">
             <ToolBtn theme={theme} onClick={() => { setShowPalette((v) => !v); setShowSettings(false); }} on={showPalette} title="Page accent color">
@@ -572,9 +668,41 @@ const Notepad = ({ isOpen, onClose, userId }) => {
             >
               All
             </button>
+            <label className={`flex items-center gap-1 text-[10px] ${theme.muted} cursor-pointer whitespace-nowrap`}>
+              <input
+                type="checkbox"
+                checked={findAll}
+                onChange={(e) => { setFindAll(e.target.checked); setFindPos(0); }}
+                className="rounded"
+              />
+              All pages
+            </label>
             <button onClick={() => setShowFind(false)} className={`p-1 ${theme.muted}`}>
               <X className="w-3.5 h-3.5" />
             </button>
+          </div>
+        )}
+
+        {/* Cross-page search results */}
+        {showFind && findAll && q.trim() && (
+          <div className={`px-2 py-1.5 border-b ${theme.side}`}>
+            {pageHits.length === 0 ? (
+              <span className={`text-[10px] ${theme.muted}`}>No matches on any page</span>
+            ) : (
+              <div className="flex flex-wrap gap-1">
+                {pageHits.map(({ page: hp, count }) => (
+                  <button
+                    key={hp.id}
+                    onClick={() => { setFindAll(false); switchPage(hp.id); }}
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${theme.chip} hover:opacity-80`}
+                    title={`Jump to ${hp.name}`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: PAGE_COLORS[hp.color % PAGE_COLORS.length] }} />
+                    {hp.name} <span className="opacity-70">({count})</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -583,23 +711,86 @@ const Notepad = ({ isOpen, onClose, userId }) => {
           {/* pages sidebar */}
           <div className={`w-32 sm:w-36 flex-shrink-0 flex flex-col border-r ${theme.side}`}>
             <div className="flex items-center justify-between px-2 pt-2">
-              <span className={`text-[10px] uppercase font-bold ${theme.muted}`}>Pages</span>
-              <button onClick={addPage} className={`p-1 rounded ${theme.hover}`} title="New page">
-                <Plus className={`w-3.5 h-3.5 ${theme.muted}`} />
-              </button>
+              <span className={`text-[10px] uppercase font-bold ${theme.muted}`}>{showTrash ? 'Trash' : 'Pages'}</span>
+              <div className="flex items-center">
+                {!showTrash && (
+                  <button
+                    onClick={() => { setSelMode((v) => !v); setSelPages(new Set()); }}
+                    className={`p-1 rounded ${selMode ? `bg-gradient-to-r ${theme.accent} text-white` : theme.hover}`}
+                    title={selMode ? 'Done selecting' : 'Select pages'}
+                  >
+                    <CheckSquare className={`w-3.5 h-3.5 ${selMode ? '' : theme.muted}`} />
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowTrash((v) => !v)}
+                  className={`p-1 rounded relative ${showTrash ? `bg-gradient-to-r ${theme.accent} text-white` : theme.hover}`}
+                  title="Trash bin"
+                >
+                  <Trash2 className={`w-3.5 h-3.5 ${showTrash ? '' : theme.muted}`} />
+                  {(doc.trash || []).length > 0 && !showTrash && (
+                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center">
+                      {doc.trash.length}
+                    </span>
+                  )}
+                </button>
+                {!showTrash && (
+                  <button onClick={addPage} className={`p-1 rounded ${theme.hover}`} title="New page">
+                    <Plus className={`w-3.5 h-3.5 ${theme.muted}`} />
+                  </button>
+                )}
+              </div>
             </div>
             <AnimatedScrollbar3D maxHeight="100%" autoHide={false} className="flex-1">
               <div className="p-1.5 space-y-1">
-                {doc.pages.map((p) => (
+                {showTrash && (doc.trash || []).length === 0 && (
+                  <p className={`text-[10px] ${theme.muted} text-center py-4`}>Trash is empty</p>
+                )}
+                {showTrash && (doc.trash || []).slice().reverse().map((p) => (
                   <div
                     key={p.id}
-                    onClick={() => switchPage(p.id)}
+                    className={`px-2 py-1.5 rounded-lg text-xs flex items-center gap-1.5 ${theme.text}`}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full flex-shrink-0 opacity-50"
+                      style={{ backgroundColor: PAGE_COLORS[p.color % PAGE_COLORS.length] }}
+                    />
+                    <span className="truncate flex-1 opacity-70">{p.name}</span>
+                    <button onClick={() => restorePage(p.id)} className={`p-0.5 rounded ${theme.hover}`} title="Restore page">
+                      <RotateCcw className="w-3 h-3 text-green-500" />
+                    </button>
+                    <button
+                      onClick={() => setConfirmState({
+                        title: 'Delete Forever',
+                        message: `Permanently delete "${p.name}"? This cannot be undone.`,
+                        onYes: () => { deleteForever(p.id); setConfirmState(null); },
+                      })}
+                      className={`p-0.5 rounded ${theme.hover}`}
+                      title="Delete forever"
+                    >
+                      <X className="w-3 h-3 text-red-400" />
+                    </button>
+                  </div>
+                ))}
+                {!showTrash && doc.pages.map((p) => (
+                  <div
+                    key={p.id}
+                    onClick={() => (selMode ? toggleSelPage(p.id) : switchPage(p.id))}
                     onDoubleClick={() => setRenamingPage(p.id)}
                     className={`group relative px-2 py-1.5 rounded-lg cursor-pointer text-xs font-medium truncate flex items-center gap-1.5 ${
                       p.id === page.id ? `bg-gradient-to-r ${theme.accent} text-white` : `${theme.text} ${theme.hover}`
                     }`}
                     title={p.name}
                   >
+                    {selMode && (
+                      <input
+                        type="checkbox"
+                        checked={selPages.has(p.id)}
+                        onChange={() => toggleSelPage(p.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-3.5 h-3.5 rounded accent-primary-500 cursor-pointer flex-shrink-0"
+                      />
+                    )}
                     <span
                       className="w-2 h-2 rounded-full flex-shrink-0"
                       style={{ backgroundColor: PAGE_COLORS[p.color % PAGE_COLORS.length] }}
@@ -616,32 +807,65 @@ const Notepad = ({ isOpen, onClose, userId }) => {
                     ) : (
                       <span className="truncate flex-1">{p.name}</span>
                     )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); patchPage(p.id, { starred: !p.starred }); }}
-                      className={`flex-shrink-0 ${p.starred ? 'text-yellow-300' : 'opacity-0 group-hover:opacity-60'}`}
-                      title="Star page"
-                    >
-                      <Star className="w-3 h-3" fill={p.starred ? 'currentColor' : 'none'} />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (doc.pages.length <= 1) { showToast("Can't delete last page"); return; }
-                        setConfirmState({
-                          title: 'Delete Page',
-                          message: `Delete "${p.name}" and all its blocks?`,
-                          onYes: () => { deletePage(p.id); setConfirmState(null); },
-                        });
-                      }}
-                      className="flex-shrink-0 opacity-0 group-hover:opacity-60 hover:opacity-100"
-                      title="Delete page"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    {!selMode && (
+                      <>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); patchPage(p.id, { starred: !p.starred }); }}
+                          className={`flex-shrink-0 ${p.starred ? 'text-yellow-300' : 'opacity-0 group-hover:opacity-60'}`}
+                          title="Star page"
+                        >
+                          <Star className="w-3 h-3" fill={p.starred ? 'currentColor' : 'none'} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); duplicatePage(p.id); }}
+                          className="flex-shrink-0 opacity-0 group-hover:opacity-60 hover:opacity-100"
+                          title="Duplicate page"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (doc.pages.length <= 1) { showToast("Can't delete last page"); return; }
+                            deletePage(p.id);
+                          }}
+                          className="flex-shrink-0 opacity-0 group-hover:opacity-60 hover:opacity-100"
+                          title="Move to trash"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
             </AnimatedScrollbar3D>
+
+            {/* Bulk-delete bar (select mode) */}
+            {selMode && !showTrash && (
+              <div className={`px-2 py-1.5 border-t ${theme.side} space-y-1`}>
+                <button
+                  onClick={() => setSelPages(selPages.size === doc.pages.length ? new Set() : new Set(doc.pages.map((p) => p.id)))}
+                  className={`text-[10px] ${theme.muted} hover:underline`}
+                >
+                  {selPages.size === doc.pages.length ? 'Deselect all' : 'Select all'}
+                </button>
+                <button
+                  disabled={!selPages.size || selPages.size === doc.pages.length}
+                  onClick={() => setConfirmState({
+                    title: `Delete ${selPages.size} Pages`,
+                    message: `Move ${selPages.size} selected page${selPages.size === 1 ? '' : 's'} to the trash?`,
+                    onYes: () => { deletePages([...selPages]); setConfirmState(null); },
+                  })}
+                  className="w-full px-2 py-1 rounded-md text-[11px] font-semibold bg-red-500 hover:bg-red-600 text-white disabled:opacity-40 flex items-center justify-center gap-1"
+                >
+                  <Trash2 className="w-3 h-3" /> Delete {selPages.size || ''}
+                </button>
+                {selPages.size === doc.pages.length && doc.pages.length > 0 && (
+                  <p className={`text-[9px] ${theme.muted}`}>One page must remain</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* block stack */}
@@ -743,6 +967,12 @@ const Notepad = ({ isOpen, onClose, userId }) => {
               </div>
             </AnimatedScrollbar3D>
           </div>
+        </div>
+
+        {/* footer: word/block count */}
+        <div className={`flex items-center justify-between px-3 py-1 border-t ${theme.side} text-[10px] ${theme.muted}`}>
+          <span>{wordCount} words · {page?.blocks.length || 0} blocks</span>
+          <span>autosaved</span>
         </div>
 
         {/* toast */}

@@ -33,6 +33,7 @@ const newBlock = (doc, type) => {
 const newDoc = () => {
   const doc = {
     pages: [],
+    trash: [],
     lastPage: 1,
     nextId: 1,
     settings: { scale: 1, theme: 'dark', mono: false, lines: false, zoom: 1 },
@@ -59,6 +60,7 @@ export function loadDoc(userId) {
     if (typeof doc.nextId !== 'number' || doc.nextId < 1) {
       doc.nextId = doc.pages.reduce((m, p) => Math.max(m, p.id, ...p.blocks.map(b => b.id)), 0) + 1;
     }
+    doc.trash = doc.trash || [];
     doc.settings = { scale: 1, theme: 'dark', mono: false, lines: false, zoom: 1, ...doc.settings };
     return doc;
   } catch {
