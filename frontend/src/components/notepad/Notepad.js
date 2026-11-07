@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence, useDragControls, Reorder } from 'framer-motion';
+import { motion, AnimatePresence, useDragControls, Reorder, MotionConfig } from 'framer-motion';
 import {
   StickyNote, X, Minimize2, Maximize2, Plus, Star,
   Undo2, Redo2, Search, Settings, Palette, Download, ClipboardCopy,
@@ -68,6 +68,26 @@ const SLASH_CMDS = {
   table: BT.TABLE, draw: BT.DRAW, canvas: BT.DRAW,
 };
 const TEXTISH = [BT.TEXT, BT.CHECK, BT.BULLET, BT.NUMBER];
+
+/** Slash menu — hit "/" at block start, pick with Enter/Tab/Space. */
+const SLASH_MENU = [
+  { keys: ['check', 'todo', 'cb', 'task'], type: BT.CHECK, label: 'Checkbox', icon: CheckSquare },
+  { keys: ['bullet', 'list', 'ul'], type: BT.BULLET, label: 'Bullet list', icon: List },
+  { keys: ['number', 'num', 'ol'], type: BT.NUMBER, label: 'Numbered list', icon: ListOrdered },
+  { keys: ['text', 'txt', 'plain'], type: BT.TEXT, label: 'Text', icon: Type },
+  { keys: ['divider', 'hr'], type: BT.DIVIDER, label: 'Divider', icon: MinusIcon },
+  { keys: ['table'], type: BT.TABLE, label: 'Table', icon: Table },
+  { keys: ['draw', 'canvas'], type: BT.DRAW, label: 'Drawing', icon: Pencil },
+];
+
+/** Sticky-note palette for floating blocks (b.fc index). */
+const STICKY_COLORS = [
+  { n: 'amber', edge: '#f59e0b', head: 'rgba(245,158,11,.45)', body: 'rgba(253,230,138,.96)', ink: '#713f12' },
+  { n: 'mint',  edge: '#34d399', head: 'rgba(52,211,153,.40)', body: 'rgba(209,250,229,.96)', ink: '#064e3b' },
+  { n: 'sky',   edge: '#38bdf8', head: 'rgba(56,189,248,.40)', body: 'rgba(224,242,254,.96)', ink: '#0c4a6e' },
+  { n: 'pink',  edge: '#f472b6', head: 'rgba(244,114,182,.40)', body: 'rgba(252,231,243,.96)', ink: '#831843' },
+  { n: 'lilac', edge: '#a78bfa', head: 'rgba(167,139,250,.40)', body: 'rgba(237,233,254,.96)', ink: '#4c1d95' },
+];
 
 /** Hybrid glyph/icon insert — ":name" trigger or ☺ toolbar picker (emoji glyphs). */
 const GLYPHS = [
@@ -377,6 +397,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   const [findCase, setFindCase] = useState(false);
   const [collapsedFolders, setCollapsedFolders] = useState(new Set());
   const [glyphState, setGlyphState] = useState(null); // { id, q, at } — at:-1 = caret insert
+  const [slashState, setSlashState] = useState(null); // { id, q, at } — "/" command picker
 
   const dragControls = useDragControls();
   const historyRef = useRef(makeHistory());
@@ -392,6 +413,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   const pageSelRef = useRef(false);
   const copyPageRef = useRef(() => {});
   const activeTa = useRef(null); // last-focused textarea block id (glyph toolbar target)
+  const menuDrag = useDragControls();
 
   const page = doc.pages.find((p) => p.id === doc.lastPage) || doc.pages[0];
   const theme = THEMES[doc.settings.theme] || THEMES.dark;
@@ -468,7 +490,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
       if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); saveDoc(userId, doc); showToast('Saved'); }
       if (mod && e.key.toLowerCase() === 'f') { e.preventDefault(); setShowFind(true); }
       if (mod && e.key.toLowerCase() === 'c' && pageSelRef.current) { e.preventDefault(); copyPageRef.current(); }
-      if (e.key === 'Escape') { setMenu(null); setPopup(null); setShowPalette(false); setDueEditId(null); setSelBar(null); setBlockSel(new Set()); setPageSel(false); setWordEraseMode(false); setFolderMenuPage(null); }
+      if (e.key === 'Escape') { setMenu(null); setPopup(null); setShowPalette(false); setDueEditId(null); setSelBar(null); setBlockSel(new Set()); setPageSel(false); setWordEraseMode(false); setFolderMenuPage(null); setSlashState(null); setGlyphState(null); }
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
@@ -479,13 +501,15 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     const el = panelRef.current;
     if (!el || !isOpen) return;
     const h = (e) => {
-      if (!e.ctrlKey) return;
+      if (!(e.ctrlKey || e.metaKey) || !e.deltaY) return;
       e.preventDefault();
+      // proportional step — trackpads get smooth zoom, wheels get ~0.12/tick
+      const dz = -e.deltaY * 0.0016;
       setDoc((prev) => ({
         ...prev,
         settings: {
           ...prev.settings,
-          zoom: Math.min(2, Math.max(0.6, +(prev.settings.zoom + (e.deltaY < 0 ? 0.1 : -0.1)).toFixed(2))),
+          zoom: Math.min(2, Math.max(0.6, +(prev.settings.zoom + dz).toFixed(3))),
         },
       }));
     };
@@ -591,11 +615,45 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     setGlyphState(null);
   };
 
-  /** Kotlin slashCmd — "/cmd " typed at the start converts the block type. */
+  const slashMatches = () => {
+    if (!slashState) return [];
+    const q = slashState.q;
+    return SLASH_MENU.filter((it) => !q || it.keys.some((k) => k.startsWith(q)) || it.label.toLowerCase().startsWith(q));
+  };
+
+  /** Apply the picked slash command — clears the "/query" text and converts the block. */
+  const slashPick = (type) => {
+    const st = slashState;
+    setSlashState(null);
+    if (!st) return;
+    mutatePage((pg) => {
+      const x = pg.blocks.find((y) => y.id === st.id);
+      if (!x) return;
+      x.text = ''; x.type = type;
+      if (type === BT.TABLE) x.cells = [['', ''], ['', '']];
+      if (type === BT.DRAW) { x.strokes = []; x.drawH = 120; }
+      if (type !== BT.CHECK) x.checked = false;
+    });
+    setTimeout(() => taRefs.current[st.id]?.focus(), 30);
+  };
+
+  /** Kotlin slashCmd — "/" at block start opens the picker; "/cmd " instant-converts. */
   const handleTaChange = (b, e) => {
     const v = e.target.value;
-    // glyph trigger — ":query" immediately before the caret opens the picker
     const caret = e.target.selectionStart;
+    // bounce-on-type — text pops upward briefly with each keystroke
+    if (settings.typeBounce !== false && settings.uiAnim !== false) {
+      e.target._bounce?.cancel();
+      e.target._bounce = e.target.animate(
+        [{ transform: 'translateY(0)' }, { transform: 'translateY(-3px)' }, { transform: 'translateY(0)' }],
+        { duration: 150, easing: 'cubic-bezier(.25,1.4,.4,1)' }
+      );
+    }
+    // slash menu — "/query" at the very start of a text-ish block
+    const sm = v.slice(0, caret).match(/^\/([a-z]*)$/i);
+    if (sm && TEXTISH.includes(b.type)) setSlashState({ id: b.id, q: sm[1].toLowerCase(), at: caret });
+    else if (slashState?.id === b.id) setSlashState(null);
+    // glyph trigger — ":query" immediately before the caret opens the picker
     const gm = v.slice(0, caret).match(/:([a-z0-9_+]{1,14})$/i);
     if (gm && TEXTISH.includes(b.type)) setGlyphState({ id: b.id, q: gm[1].toLowerCase(), at: caret });
     else if (glyphState?.id === b.id) setGlyphState(null);
@@ -611,6 +669,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
         if (t !== BT.CHECK) x.checked = false;
       });
       showToast(`/${m[1]} → ${t}`);
+      setSlashState(null);
       return;
     }
     setBlockText(b.id, v);
@@ -618,6 +677,16 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
 
   /** Kotlin keyPressed for text blocks — Enter splits/demotes, Backspace merges. */
   const handleTaKeyDown = (b, e) => {
+    // slash picker steals Enter/Tab/Space/Escape while open
+    if (slashState) {
+      const list = slashMatches();
+      if (e.key === 'Escape') { setSlashState(null); e.preventDefault(); return; }
+      if ((e.key === 'Enter' || e.key === 'Tab' || (e.key === ' ' && list.length === 1)) && list.length) {
+        e.preventDefault();
+        slashPick(list[0].type);
+        return;
+      }
+    }
     // glyph picker steals Enter/Tab/Escape while open
     if (glyphState) {
       const list = glyphMatches();
@@ -997,6 +1066,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     setBlockSel(new Set());
     setPageSel(false);
     setGlyphState(null);
+    setSlashState(null);
   };
 
   const patchPage = (id, patch) => {
@@ -1263,14 +1333,21 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     setCollapsed(c);
   };
 
-  // Clamp ctx-menu inside panel bounds + viewport
+  // Open ctx-menu AT the click point — flips left/up when the edge would clip it
+  const MENU_W = 208, MENU_H = 380;
   const openMenu = (e, kind, id) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isMobile) { setMenu({ kind, id, x: 0, y: 0 }); return; } // bottom sheet, position irrelevant
     let x = e.clientX, y = e.clientY;
     const r = panelRef.current?.getBoundingClientRect();
-    if (r) { x = Math.min(x, r.right - 196); y = Math.min(y, r.bottom - 320); }
-    setMenu({ kind, id, x: Math.max(8, x), y: Math.max(8, y) });
+    if (r) {
+      if (x + MENU_W > r.right - 4) x = Math.max(r.left + 4, x - MENU_W + 10);   // flip left of cursor
+      if (y + MENU_H > r.bottom - 4) y = Math.max(r.top + 4, y - MENU_H + 10); // flip above cursor
+    }
+    x = Math.max(4, Math.min(x, window.innerWidth - MENU_W - 4));
+    y = Math.max(4, Math.min(y, window.innerHeight - 100));
+    setMenu({ kind, id, x, y });
   };
 
   const floatingBlocks = page.blocks.filter((b) => b.floating);
@@ -1449,7 +1526,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
       <div
         ref={panelRef}
         onClick={(e) => isFullscreen && e.stopPropagation()}
-        className={`np-root flex flex-col h-full rounded-2xl border-2 shadow-2xl overflow-hidden ${theme.panel}`}
+        className={`np-root ${settings.uiAnim === false ? 'np-noanim' : ''} flex flex-col h-full rounded-2xl border-2 shadow-2xl overflow-hidden ${theme.panel}`}
         style={{ '--np-thumb': theme.scroll }}
       >
         <style>{`
@@ -1470,6 +1547,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
             box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 -2px 0 rgba(0,0,0,.22), 0 0 7px var(--np-thumb);
           }
           .np-root *:not(.scrollbar-hide)::-webkit-scrollbar-corner { background: transparent; }
+          .np-noanim * { transition: none !important; animation: none !important; }
         `}</style>
         {/* ===== header ===== */}
         <div
@@ -1508,7 +1586,10 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
         </div>
 
         {/* ===== toolbar ===== */}
-        <div className={`flex items-center gap-1 px-2 py-1.5 border-b ${theme.side} overflow-x-auto`}>
+        <div
+          className={`flex items-center gap-1 px-2 py-1.5 border-b ${theme.side} overflow-x-auto`}
+          style={{ zoom: settings.uiScale || 1 }}
+        >
           <ToolBtn theme={theme} onClick={() => addBlock(BT.TEXT)} title="Add text block"><Type className="w-4 h-4" /></ToolBtn>
           <ToolBtn theme={theme} onClick={() => addBlock(BT.CHECK)} title="Add checkbox"><CheckSquare className="w-4 h-4" /></ToolBtn>
           <ToolBtn theme={theme} onClick={() => addBlock(BT.BULLET)} title="Add bullet"><List className="w-4 h-4" /></ToolBtn>
@@ -1656,7 +1737,10 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
         {/* ===== body ===== */}
         <div className="flex flex-1 min-h-0">
           {/* pages sidebar — hidden on mobile (use Jump-to-page instead) */}
-          <div className={`${isMobile ? 'hidden' : 'flex'} w-36 flex-shrink-0 flex-col border-r ${theme.side}`}>
+          <div
+            className={`${isMobile ? 'hidden' : 'flex'} w-36 flex-shrink-0 flex-col border-r ${theme.side}`}
+            style={{ zoom: settings.uiScale || 1 }}
+          >
             <div className="flex items-center justify-between px-2 pt-2">
               <span className={`text-[10px] uppercase font-bold ${theme.muted}`}>{showTrash ? 'Trash' : 'Pages'}</span>
               <div className="flex items-center">
@@ -1958,6 +2042,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                                   ) : showTyped ? (
                                     <Typewriter
                                       text={b.text}
+                                      speed={settings.animSpeed || 1}
                                       className={`${b.checked ? 'line-through opacity-60' : ''}`}
                                       onDone={() => setTypedDone((s) => new Set(s).add(b.id))}
                                       onClick={() => {
@@ -1976,6 +2061,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                                       onFocus={() => { activeTa.current = b.id; }}
                                       rows={Math.min(Math.max(lineCount, 1), 20)}
                                       placeholder={b.type === BT.CHECK ? 'Checkbox item…' : b.type === BT.TEXT ? 'Type here — try /check, /table…' : 'Type here…'}
+                                      style={{ fontSize: `${settings.textScale || 1}em` }}
                                       className={`w-full resize-y bg-transparent outline-none placeholder:opacity-40 ${b.checked ? 'line-through opacity-60' : ''} ${theme.text}`}
                                     />
                                   )
@@ -2042,8 +2128,8 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                   <button
                     key={b.id}
                     onClick={() => blockAction(b.id, 'unpin')}
-                    className="w-5 min-h-[52px] py-1 rounded-l-lg bg-amber-400/85 border border-amber-500 text-amber-900 text-[9px] font-bold flex items-center justify-center shadow"
-                    style={{ writingMode: 'vertical-rl' }}
+                    className="w-5 min-h-[52px] py-1 rounded-l-lg text-amber-900 text-[9px] font-bold flex items-center justify-center shadow border"
+                    style={{ writingMode: 'vertical-rl', backgroundColor: STICKY_COLORS[b.fc || 0].head, borderColor: STICKY_COLORS[b.fc || 0].edge }}
                     title={`${(b.text || 'sticky').split('\n')[0].slice(0, 24)} — click to unpin`}
                   >
                     {(b.text || 'sticky').split('\n')[0].slice(0, 8) || '•'}
@@ -2077,47 +2163,75 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
             )}
 
             {/* floating sticky blocks (pinned ones live on the rail) */}
-            {floatingBlocks.filter((b) => !b.pinned).map((b) => (
-              <motion.div
-                key={b.id}
-                drag
-                dragMomentum={false}
-                dragConstraints={contentRef}
-                onDragEnd={(_, info) => patchBlock(b.id, { fx: (b.fx || 40) + info.offset.x, fy: (b.fy || 60) + info.offset.y })}
-                style={{ x: b.fx || 40, y: b.fy || 60 }}
-                className="absolute top-0 left-0 z-30 w-40 sm:w-48 rounded-xl shadow-2xl border-2 border-amber-400/60 bg-amber-100/95 dark:bg-amber-900/95 cursor-grab active:cursor-grabbing"
-              >
-                <div className="flex items-center justify-between px-2 py-1 bg-amber-400/40 rounded-t-lg">
-                  <StickyNote className="w-3 h-3 text-amber-700 dark:text-amber-200" />
-                  <div className="flex gap-0.5">
-                    <button onClick={() => blockAction(b.id, 'pin')} className="p-0.5 rounded hover:bg-amber-400/50" title="Pin to side rail">
-                      <Pin className="w-3 h-3 text-amber-800 dark:text-amber-100" />
-                    </button>
-                    <button onClick={() => blockAction(b.id, 'dock')} className="p-0.5 rounded hover:bg-amber-400/50" title="Dock back to page">
-                      <CornerDownLeft className="w-3 h-3 text-amber-800 dark:text-amber-100" />
-                    </button>
-                    <button onClick={() => blockAction(b.id, 'del')} className="p-0.5 rounded hover:bg-amber-400/50" title="Delete">
-                      <X className="w-3 h-3 text-amber-800 dark:text-amber-100" />
-                    </button>
+            {floatingBlocks.filter((b) => !b.pinned).map((b) => {
+              const sc = STICKY_COLORS[b.fc || 0];
+              return (
+                <motion.div
+                  key={b.id}
+                  drag
+                  dragMomentum={false}
+                  dragConstraints={contentRef}
+                  onDragEnd={(_, info) => patchBlock(b.id, { fx: (b.fx || 40) + info.offset.x, fy: (b.fy || 60) + info.offset.y })}
+                  className="absolute top-0 left-0 z-30 w-40 sm:w-48 rounded-xl shadow-2xl border-2 cursor-grab active:cursor-grabbing"
+                  style={{ x: b.fx || 40, y: b.fy || 60, borderColor: sc.edge + 'aa', backgroundColor: sc.body }}
+                >
+                  <div className="flex items-center justify-between px-2 py-1 rounded-t-lg" style={{ backgroundColor: sc.head, color: sc.ink }}>
+                    <StickyNote className="w-3 h-3" />
+                    <div className="flex gap-0.5">
+                      <button onClick={() => patchBlock(b.id, { fc: ((b.fc || 0) + 1) % STICKY_COLORS.length })} className="p-0.5 rounded hover:bg-black/10" title="Sticky color">
+                        <Palette className="w-3 h-3" style={{ color: sc.ink }} />
+                      </button>
+                      <button onClick={() => blockAction(b.id, 'pin')} className="p-0.5 rounded hover:bg-black/10" title="Pin to side rail">
+                        <Pin className="w-3 h-3" style={{ color: sc.ink }} />
+                      </button>
+                      <button onClick={() => blockAction(b.id, 'dock')} className="p-0.5 rounded hover:bg-black/10" title="Dock back to page">
+                        <CornerDownLeft className="w-3 h-3" style={{ color: sc.ink }} />
+                      </button>
+                      <button onClick={() => blockAction(b.id, 'del')} className="p-0.5 rounded hover:bg-black/10" title="Delete">
+                        <X className="w-3 h-3" style={{ color: sc.ink }} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <textarea
-                  ref={(el) => { taRefs.current[b.id] = el; }}
-                  data-block-id={b.id}
-                  value={b.text}
-                  onChange={(e) => setBlockText(b.id, e.target.value)}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  rows={3}
-                  className="w-full p-2 bg-transparent outline-none resize-y text-xs text-amber-900 dark:text-amber-100 placeholder:text-amber-600/60"
-                  placeholder="Sticky note…"
-                />
-              </motion.div>
-            ))}
+                  <textarea
+                    ref={(el) => { taRefs.current[b.id] = el; }}
+                    data-block-id={b.id}
+                    value={b.text}
+                    onChange={(e) => setBlockText(b.id, e.target.value)}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="w-full p-2 bg-transparent outline-none resize-none text-xs placeholder:text-black/40"
+                    style={{ height: b.fh || 96, color: sc.ink }}
+                    placeholder="Sticky note…"
+                  />
+                  {/* corner resize grip — pointer capture keeps the note from dragging */}
+                  <div
+                    onPointerDown={(e) => {
+                      e.preventDefault(); e.stopPropagation();
+                      const grip = e.currentTarget;
+                      grip.setPointerCapture(e.pointerId);
+                      const startY = e.clientY, startH = b.fh || 96;
+                      const move = (ev) => mutatePage((pg) => {
+                        const x = pg.blocks.find((y) => y.id === b.id);
+                        if (x) x.fh = Math.max(56, Math.min(420, startH + ev.clientY - startY));
+                      }, true);
+                      const up = () => { grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', up); };
+                      grip.addEventListener('pointermove', move);
+                      grip.addEventListener('pointerup', up);
+                    }}
+                    className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 cursor-nwse-resize opacity-50 hover:opacity-100"
+                    style={{ background: `linear-gradient(135deg, transparent 55%, ${sc.ink}88 55%)`, clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}
+                    title="Drag to resize"
+                  />
+                </motion.div>
+              );
+            })}
           </div>
         </div>
 
         {/* footer */}
-        <div className={`flex items-center justify-between px-3 py-1 border-t ${theme.side} text-[10px] ${theme.muted}`}>
+        <div
+          className={`flex items-center justify-between px-3 py-1 border-t ${theme.side} text-[10px] ${theme.muted}`}
+          style={{ zoom: settings.uiScale || 1 }}
+        >
           <span>
             {wordCount} words · {page?.blocks.length || 0} blocks
             {checks.n > 0 && ` · ${checks.d}/${checks.n} done`}
@@ -2152,17 +2266,26 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
         return (
           <motion.div
               key="ctxmenu"
+              drag={!isMobile}
+              dragControls={menuDrag}
+              dragListener={false}
+              dragMomentum={false}
+              onDragEnd={(_, info) => setMenu((m) => (m ? { ...m, x: m.x + info.offset.x, y: m.y + info.offset.y } : m))}
               initial={isMobile ? { y: 80, opacity: 0 } : { scale: 0.9, opacity: 0 }}
               animate={isMobile ? { y: 0, opacity: 1 } : { scale: 1, opacity: 1 }}
               exit={isMobile ? { y: 80, opacity: 0 } : { scale: 0.9, opacity: 0 }}
               transition={{ type: 'spring', damping: 28, stiffness: 380 }}
               className={isMobile
                 ? `fixed inset-x-0 bottom-0 z-[90] rounded-t-2xl border-t-2 shadow-2xl ${theme.panel}`
-                : `fixed z-[90] rounded-lg border shadow-2xl w-52 ${theme.panel}`}
-              style={isMobile ? { maxHeight: '62vh' } : { left: menu.x, top: menu.y }}
+                : `fixed top-0 left-0 z-[90] rounded-lg border shadow-2xl w-52 ${theme.panel}`}
+              style={isMobile ? { maxHeight: '62vh' } : { left: 0, top: 0, x: menu.x, y: menu.y }}
             >
-              {/* Kotlin fancy title strip */}
-              <div className={`flex items-center justify-between px-3 py-1.5 border-b ${theme.side}`}>
+              {/* Kotlin fancy title strip — drag handle on desktop */}
+              <div
+                onPointerDown={!isMobile ? (e) => { e.stopPropagation(); menuDrag.start(e); } : undefined}
+                className={`flex items-center justify-between px-3 py-1.5 border-b ${theme.side} ${isMobile ? '' : 'cursor-grab active:cursor-grabbing'}`}
+                title={isMobile ? undefined : 'Drag to move menu'}
+              >
                 <span className="text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-sky-400 via-amber-300 to-fuchsia-400 bg-clip-text text-transparent">
                   Context Menu
                 </span>
@@ -2232,6 +2355,18 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                         <>
                           <MenuRow theme={theme} icon={Pin} tint={TARR} label={b.pinned ? 'Unpin' : 'Pin to side rail'} onClick={() => blockAction(menu.id, b.pinned ? 'unpin' : 'pin')} />
                           <MenuRow theme={theme} icon={CornerDownLeft} tint={TARR} label="Dock into page" onClick={() => blockAction(menu.id, 'dock')} />
+                          <div className="px-3 py-1.5 flex items-center gap-1">
+                            <span className={`text-[9px] ${theme.muted} mr-1`}>Sticky</span>
+                            {STICKY_COLORS.map((c, i) => (
+                              <button
+                                key={c.n}
+                                onClick={() => { patchBlock(menu.id, { fc: i }); setMenu(null); }}
+                                className={`w-4 h-4 rounded-full border-2 ${(b.fc || 0) === i ? 'border-white' : 'border-transparent'}`}
+                                style={{ backgroundColor: c.edge }}
+                                title={c.n}
+                              />
+                            ))}
+                          </div>
                         </>
                       )}
                       <MenuRow theme={theme} icon={collapsed[menu.id] ? UnfoldVertical : FoldVertical} tint={TARR} label={collapsed[menu.id] ? 'Expand' : 'Collapse'} onClick={() => { setCollapsed((c) => ({ ...c, [menu.id]: !c[menu.id] })); setMenu(null); }} />
@@ -2303,6 +2438,41 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
             </motion.div>
         );
       })()}
+      </AnimatePresence>
+
+      {/* ===== slash-command picker ===== */}
+      <AnimatePresence>
+        {slashState && slashMatches().length > 0 && (
+          <>
+            <div className="fixed inset-0 z-[85]" onClick={() => setSlashState(null)} />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: -4 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className={`fixed z-[86] rounded-xl border shadow-2xl py-1 w-48 ${theme.panel}`}
+              style={(() => {
+                const r = blockRefs.current[slashState.id]?.getBoundingClientRect();
+                const y = r ? Math.min(r.bottom + 4, window.innerHeight - 240) : 120;
+                const x = r ? Math.min(Math.max(8, r.left + 30), window.innerWidth - 200) : 20;
+                return { left: x, top: y };
+              })()}
+            >
+              <div className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ${theme.muted}`}>Insert block</div>
+              {slashMatches().map((it) => (
+                <button
+                  key={it.type}
+                  onMouseDown={(ev) => ev.preventDefault()}
+                  onClick={() => slashPick(it.type)}
+                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-xs ${theme.text} ${theme.hover}`}
+                >
+                  <it.icon className="w-3.5 h-3.5" />
+                  <span className="flex-1 text-left">{it.label}</span>
+                  <span className={`text-[9px] ${theme.muted}`}>/{it.keys[0]}</span>
+                </button>
+              ))}
+            </motion.div>
+          </>
+        )}
       </AnimatePresence>
 
       {/* ===== floating text-selection toolbar (Kotlin sel UI) ===== */}
@@ -2515,6 +2685,43 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                 <Toggle3D on={settings.mono} onChange={(v) => patchSettings({ mono: v })} label="Monospace font" />
                 <Toggle3D on={settings.lines} onChange={(v) => patchSettings({ lines: v })} label="Line numbers" />
                 <Toggle3D on={settings.anim} onChange={(v) => patchSettings({ anim: v })} label="Typing animation" />
+                <Toggle3D on={settings.typeBounce !== false} onChange={(v) => patchSettings({ typeBounce: v })} label="Bounce text while typing" />
+                <Toggle3D on={settings.uiAnim !== false} onChange={(v) => patchSettings({ uiAnim: v })} label="UI animations (panels, menus)" />
+              </div>
+              {settings.anim && (
+                <div>
+                  <p className={`text-xs font-semibold mb-1 ${theme.muted}`}>Typing animation speed</p>
+                  <Slider3D
+                    value={settings.animSpeed || 1}
+                    min={0.25}
+                    max={4}
+                    step={0.25}
+                    onChange={(v) => patchSettings({ animSpeed: +v.toFixed(2) })}
+                    format={(v) => `${v}×`}
+                  />
+                </div>
+              )}
+              <div>
+                <p className={`text-xs font-semibold mb-1 ${theme.muted}`}>Block text scale</p>
+                <Slider3D
+                  value={settings.textScale || 1}
+                  min={0.8}
+                  max={1.6}
+                  step={0.05}
+                  onChange={(v) => patchSettings({ textScale: +v.toFixed(2) })}
+                  format={(v) => `${Math.round(v * 100)}%`}
+                />
+              </div>
+              <div>
+                <p className={`text-xs font-semibold mb-1 ${theme.muted}`}>UI scale (toolbar & sidebar)</p>
+                <Slider3D
+                  value={settings.uiScale || 1}
+                  min={0.85}
+                  max={1.3}
+                  step={0.05}
+                  onChange={(v) => patchSettings({ uiScale: +v.toFixed(2) })}
+                  format={(v) => `${Math.round(v * 100)}%`}
+                />
               </div>
               <div>
                 <p className={`text-xs font-semibold mb-1 ${theme.muted}`}>Zoom (Ctrl+scroll works too)</p>
@@ -2640,11 +2847,13 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
 
   /* ----- one AnimatePresence: launcher <-> pill <-> panel exit/enter ----- */
   return (
-    <AnimatePresence mode="wait">
-      {!isOpen && launcher}
-      {isOpen && mode === 'compact' && compactPill}
-      {isOpen && mode !== 'compact' && panel}
-    </AnimatePresence>
+    <MotionConfig reducedMotion={settings.uiAnim === false ? 'always' : 'never'}>
+      <AnimatePresence mode="wait">
+        {!isOpen && launcher}
+        {isOpen && mode === 'compact' && compactPill}
+        {isOpen && mode !== 'compact' && panel}
+      </AnimatePresence>
+    </MotionConfig>
   );
 };
 
