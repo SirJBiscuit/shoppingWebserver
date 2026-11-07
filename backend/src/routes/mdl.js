@@ -718,10 +718,48 @@ router.get('/location', authenticateToken, async (req, res) => {
 });
 
 // ============================================================================
-// BACKUPS (admin)
+// ADMIN STATS + BACKUPS
 // ============================================================================
 
 const mdlBackup = require('../services/mdlBackup');
+
+/**
+ * GET /api/mdl/admin/stats
+ * Real counts across the product DB + training tables (admin only)
+ */
+router.get('/admin/stats', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const count = async (table) => {
+      try {
+        const r = await db.query(`SELECT COUNT(*)::int AS c FROM ${table}`);
+        return r.rows[0].c;
+      } catch (e) {
+        return null; // table missing
+      }
+    };
+
+    const [products, categories, priceRecords, itemNames, userHistory, userPatterns, stores] =
+      await Promise.all([
+        count('product_master_data'),
+        db.query(`SELECT COUNT(DISTINCT category)::int AS c FROM product_master_data`)
+          .then(r => r.rows[0].c).catch(() => null),
+        count('mdl_price_history'),
+        count('mdl_item_names'),
+        count('mdl_user_item_history'),
+        count('mdl_user_patterns'),
+        count('store_locations'),
+      ]);
+
+    res.json({ products, categories, priceRecords, itemNames, userHistory, userPatterns, stores });
+  } catch (error) {
+    console.error('Error getting MDL stats:', error);
+    res.status(500).json({ error: 'Failed to get stats' });
+  }
+});
 
 router.post('/backups/run', authenticateToken, async (req, res) => {
   try {

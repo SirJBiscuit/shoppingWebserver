@@ -13,6 +13,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import FeatureManagementVisual from '../components/admin/FeatureManagementVisual';
 import StorageDashboard from '../components/admin/StorageDashboard';
+import MDLProductsPanel from '../components/admin/MDLProductsPanel';
 // import UserManagement from '../backburner/components/UserManagement'; // Disabled - will rebuild with CFS
 // import DashboardEditor from '../backburner/components/DashboardEditor'; // Disabled - replaced by AES
 import SoundSettings from '../components/SoundSettings';
@@ -501,35 +502,7 @@ const AdminNew = () => {
                   Manage the Master Data Library - product information, icons, categories, and pricing intelligence.
                 </p>
                 
-                <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg p-4 mb-6">
-                  <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">🚧 Coming Soon</h3>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    The MDL admin interface is being built. It will include:
-                  </p>
-                  <ul className="mt-2 space-y-1 text-sm text-blue-700 dark:text-blue-300">
-                    <li>• View and search all products in the database</li>
-                    <li>• Edit product details, categories, and icons</li>
-                    <li>• Add new products manually</li>
-                    <li>• View price history and trends</li>
-                    <li>• Manage product categories and tags</li>
-                    <li>• Import/export product data</li>
-                  </ul>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                    <div className="text-3xl font-bold text-primary-600 dark:text-primary-400">0</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Total Products</div>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                    <div className="text-3xl font-bold text-green-600 dark:text-green-400">0</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Categories</div>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">0</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Price Records</div>
-                  </div>
-                </div>
+                <MDLProductsPanel />
               </div>
             )}
 

@@ -159,4 +159,67 @@ export const setLocation = async (data) => {
   }
 };
 
+// ============================================================================
+// PRODUCT DATABASE (admin)
+// ============================================================================
+
+export const getAdminStats = async () => {
+  try {
+    const response = await mdlAPI.get('/admin/stats');
+    return response.data;
+  } catch (error) {
+    return null;
+  }
+};
+
+export const searchProducts = async (q = '', category = '', limit = 50) => {
+  try {
+    const response = await mdlAPI.get('/search', {
+      params: { q: q || undefined, category: category || undefined, limit }
+    });
+    return response.data;
+  } catch (error) {
+    return [];
+  }
+};
+
+export const getProductCategories = async () => {
+  try {
+    const response = await mdlAPI.get('/categories');
+    return response.data;
+  } catch (error) {
+    return [];
+  }
+};
+
+export const updateProduct = async (id, data) => {
+  try {
+    const response = await mdlAPI.put(`/admin/product/${id}`, data);
+    return response.data;
+  } catch (error) {
+    console.warn('Update product failed:', error.message);
+    return null;
+  }
+};
+
+export const addPriceRecord = async (id, price, store) => {
+  try {
+    const response = await mdlAPI.post(`/admin/product/${id}/price`, { price, store });
+    return response.data;
+  } catch (error) {
+    console.warn('Add price failed:', error.message);
+    return null;
+  }
+};
+
+export const runMdlBackup = async () => {
+  try {
+    const response = await mdlAPI.post('/backups/run');
+    return response.data;
+  } catch (error) {
+    console.warn('Backup failed:', error.message);
+    return null;
+  }
+};
+
 export default mdlAPI;

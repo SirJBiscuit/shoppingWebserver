@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import PageTransition from '../components/PageTransition';
 import PriceTrainingTab from '../components/admin/PriceTrainingTab';
+import MDLProductsPanel from '../components/admin/MDLProductsPanel';
 
 const AdminTraining = () => {
   const { user } = useAuth();
@@ -42,7 +43,7 @@ const AdminTraining = () => {
 
   const tabs = [
     { id: 'prices', name: 'Price Training', icon: DollarSign },
-    { id: 'products', name: 'Products', icon: Package, disabled: true },
+    { id: 'products', name: 'Products', icon: Package },
     { id: 'analytics', name: 'Analytics', icon: TrendingUp, disabled: true },
   ];
 
@@ -160,15 +161,7 @@ const AdminTraining = () => {
                 )}
                 
                 {activeTab === 'products' && (
-                  <div className="text-center py-12">
-                    <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                      Product Management Coming Soon
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Manage product master data, categories, and icons
-                    </p>
-                  </div>
+                  <MDLProductsPanel />
                 )}
                 
                 {activeTab === 'analytics' && (
