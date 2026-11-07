@@ -1366,6 +1366,16 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     setMenu({ kind, id, x, y });
   };
 
+  /** Shell-level right-click — fires for any notepad chrome not already claimed by a
+     block/page/empty handler (they stopPropagation). Textareas & sticky cards resolve
+     back to their block menu via data-block-id; raw form fields keep the native menu. */
+  const handleShellContext = (e) => {
+    const blk = e.target.closest?.('[data-block-id]');
+    if (blk) { openMenu(e, 'block', +blk.dataset.blockId); return; }
+    if (e.target.closest?.('input,select,[contenteditable]')) return;
+    openMenu(e, 'notepad', null);
+  };
+
   const floatingBlocks = page.blocks.filter((b) => b.floating);
   const inlineBlocks = page.blocks.filter((b) => !b.floating);
 
@@ -1543,6 +1553,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
       <div
         ref={panelRef}
         onClick={(e) => isFullscreen && e.stopPropagation()}
+        onContextMenu={handleShellContext}
         className={`np-root ${settings.uiAnim === false ? 'np-noanim' : ''} flex flex-col h-full rounded-2xl border-2 shadow-2xl overflow-hidden ${theme.panel}`}
         style={{ '--np-thumb': theme.scroll }}
       >
@@ -2189,6 +2200,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                   dragMomentum={false}
                   dragConstraints={contentRef}
                   onDragEnd={(_, info) => patchBlock(b.id, { fx: (b.fx || 40) + info.offset.x, fy: (b.fy || 60) + info.offset.y })}
+                  data-block-id={b.id}
                   className="absolute top-0 left-0 z-30 w-40 sm:w-48 rounded-xl shadow-2xl border-2 cursor-grab active:cursor-grabbing"
                   style={{ x: b.fx || 40, y: b.fy || 60, borderColor: sc.edge + 'aa', backgroundColor: sc.body }}
                 >
@@ -2255,7 +2267,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
             {floatingBlocks.length ? ` · ${floatingBlocks.length} floating` : ''}
             {blockSel.size > 0 && ` · ${blockSel.size} selected`}
           </span>
-          <span className="hidden sm:block">autosaved · ctrl+scroll zoom · +shift text · +alt UI</span>
+          <span className="hidden sm:block">autosaved · right-click menus · ctrl+scroll zoom</span>
           <span className="sm:hidden">autosaved</span>
         </div>
 
@@ -2448,6 +2460,26 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                       }} />
                       <MenuRow theme={theme} icon={FoldVertical} tint={TARR} label="Collapse all" onClick={() => { collapseAll(true); setMenu(null); }} />
                       <MenuRow theme={theme} icon={UnfoldVertical} tint={TARR} label="Expand all" onClick={() => { collapseAll(false); setMenu(null); }} />
+                    </>
+                  )}
+
+                  {menu.kind === 'notepad' && (
+                    <>
+                      <MenuHeader label="Page" tint={TINS} />
+                      <MenuRow theme={theme} icon={Plus} tint={TINS} label="New page" onClick={() => { addPage(); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={FilePlus2} tint={TINS} label="New from template…" onClick={() => { setPopup('templates'); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={FileStack} tint={TINS} label="Jump to page…" onClick={() => { setPopup('nav'); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={ClipboardCopy} tint={TTEXT} label="Copy page as text" onClick={() => { copyPage(); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={ShoppingCart} tint={TTEXT} label="Send unchecked to list" onClick={() => { sendToList(); setMenu(null); }} />
+                      <MenuHeader label="View" tint={TSTYLE} />
+                      <MenuRow theme={theme} icon={ZoomIn} tint={TSTYLE} label="Zoom in" onClick={() => { setZoom(settings.zoom + 0.15); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={ZoomOut} tint={TSTYLE} label="Zoom out" onClick={() => { setZoom(settings.zoom - 0.15); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={RotateCcw} tint={TSTYLE} label="Reset zoom" onClick={() => { setZoom(1); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={FoldVertical} tint={TARR} label="Collapse all" onClick={() => { collapseAll(true); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={UnfoldVertical} tint={TARR} label="Expand all" onClick={() => { collapseAll(false); setMenu(null); }} />
+                      <MenuHeader label="Notepad" tint={TARR} />
+                      <MenuRow theme={theme} icon={Settings} tint={TARR} label="Settings…" onClick={() => { setPopup('settings'); setMenu(null); }} />
+                      <MenuRow theme={theme} icon={X} danger label="Close notepad" onClick={() => { setMenu(null); onClose(); }} />
                     </>
                   )}
                 </div>
