@@ -72,6 +72,7 @@ import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils
 import { getAutocompleteSuggestions } from '../utils/autocomplete';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import RichNoteEditor from '../components/RichNoteEditor';
+import Notepad from '../components/notepad/Notepad';
 import { useDeviceType } from '../hooks/useDeviceType';
 import ConsoleViewer from '../components/ConsoleViewer';
 import ChangelogViewer from '../components/ChangelogViewer';
@@ -132,6 +133,7 @@ const Dashboard = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showVoice, setShowVoice] = useState(false);
+  const [showNotepad, setShowNotepad] = useState(false);
   const [loading, setLoading] = useState(true);
   const [itemPreferences, setItemPreferences] = useState([]);
   const [showLevelUp, setShowLevelUp] = useState(false);
@@ -261,6 +263,7 @@ const Dashboard = () => {
       if (action === 'voice') setShowVoice(true);
       if (action === 'scan') setShowScanner(true);
       if (action === 'share') setShowShare(true);
+      if (action === 'notepad') setShowNotepad(true);
     };
 
     // Reload inventory when page becomes visible (e.g., returning from Pantry page)
@@ -1562,6 +1565,7 @@ const Dashboard = () => {
             else if (action === 'voice') setShowVoice(true);
             else if (action === 'scan') setShowScanner(true);
             else if (action === 'share') setShowShare(true);
+            else if (action === 'notepad') setShowNotepad(true);
           }} />
         </div>
 
@@ -2493,6 +2497,13 @@ const Dashboard = () => {
         items={items}
         isOpen={showShare}
         onClose={() => setShowShare(false)}
+      />
+
+      {/* Floating Notepad */}
+      <Notepad
+        isOpen={showNotepad}
+        onClose={() => setShowNotepad(false)}
+        userId={user?.id}
       />
 
       {/* Voice Input Modal */}

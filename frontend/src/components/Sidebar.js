@@ -4,7 +4,7 @@ import {
   ShoppingCart, ChefHat, Package, Calendar, BarChart3, 
   Settings, Shield, History, Search, Mic, Scan, Share2,
   Menu, X, Bell, Moon, Sun, Crown, Store, Sparkles, Home, GraduationCap,
-  Book, DollarSign, Star, Users, Folder, Database
+  Book, DollarSign, Star, Users, Folder, Database, StickyNote
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -158,6 +158,7 @@ const Sidebar = ({ onAction }) => {
     { action: 'voice', icon: Mic, label: 'Voice Input', color: 'text-red-600', feature: 'voice_input' },
     { action: 'scan', icon: Scan, label: 'Barcode Scanner', color: 'text-yellow-600', feature: 'barcode_scanner' },
     { action: 'share', icon: Share2, label: 'Share List', color: 'text-cyan-600', feature: 'sharing' },
+    { action: 'notepad', icon: StickyNote, label: 'Notepad', color: 'text-amber-600' },
   ];
 
   // Build settings items dynamically
