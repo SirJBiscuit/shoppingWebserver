@@ -2503,6 +2503,7 @@ const Dashboard = () => {
       <Notepad
         isOpen={showNotepad}
         onClose={() => setShowNotepad(false)}
+        onOpenRequest={() => setShowNotepad(true)}
         userId={user?.id}
         onSendToList={async (names) => {
           if (!activeList) { error('No active list selected'); return; }
