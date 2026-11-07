@@ -2,10 +2,14 @@
 -- Stale seeds pointed at non-existent routes (/dashboard, /lists, /budget,
 -- /analytics, /beta) and were missing After Shop, Home Inventory, Pantry.
 
--- Dashboard: real route is '/' (page_path is UNIQUE so update in place)
+-- Home (main page): real route is '/' (page_path is UNIQUE so update in place)
 UPDATE sidebar_pages
-SET page_path = '/', page_name = 'Dashboard', icon_name = 'ShoppingCart', display_order = 1
+SET page_path = '/'
 WHERE page_path = '/dashboard';
+
+UPDATE sidebar_pages
+SET page_name = 'Home', icon_name = 'Home', display_order = 1
+WHERE page_path = '/' AND page_name IN ('Dashboard', 'Home');
 
 -- 'Shopping Lists' pointed at /lists which has no route; '/' already covers it.
 UPDATE sidebar_pages
@@ -23,11 +27,12 @@ WHERE page_path IN ('/admin', '/admin/users');
 -- Add the missing real pages (idempotent)
 INSERT INTO sidebar_pages (page_name, page_path, icon_name, display_order, enabled_for_user, enabled_for_beta, enabled_for_admin, is_system_page) VALUES
 ('After Shop', '/staging', 'Package', 2, true, true, true, false),
-('Home Inventory', '/pantry-new-v2', 'Home', 3, true, true, true, false),
+('Home Inventory', '/pantry-new-v2', 'Store', 3, true, true, true, false),
 ('Pantry', '/pantry', 'ChefHat', 4, true, true, true, false)
 ON CONFLICT (page_path) DO UPDATE SET
   page_name = EXCLUDED.page_name,
   icon_name = EXCLUDED.icon_name,
+  is_system_page = EXCLUDED.is_system_page,
   display_order = EXCLUDED.display_order,
   enabled_for_user = EXCLUDED.enabled_for_user,
   enabled_for_beta = EXCLUDED.enabled_for_beta,
