@@ -153,7 +153,7 @@ CREATE INDEX IF NOT EXISTS idx_mdl_prices_store ON mdl_location_prices(specific_
 
 CREATE TABLE IF NOT EXISTS user_locations (
   id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id) UNIQUE ON DELETE CASCADE,
+  user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
   
   -- Location Data
   country VARCHAR(2) DEFAULT 'US',

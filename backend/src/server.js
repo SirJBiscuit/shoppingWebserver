@@ -122,7 +122,8 @@ const runMigrations = async () => {
     { file: '041_admin_storage_system.sql', name: 'Admin Storage System' },
     { file: '046_fix_sidebar_pages.sql', name: 'Sidebar Pages Fix' },
     { file: '047_household_members.sql', name: 'Household Members' },
-    { file: '048_mdl_hardening.sql', name: 'MDL Hardening' }
+    { file: '048_mdl_hardening.sql', name: 'MDL Hardening' },
+    { file: '049_store_unification.sql', name: 'Store Unification' }
   ];
 
   for (const migration of migrations) {

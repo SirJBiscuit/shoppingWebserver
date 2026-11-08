@@ -296,50 +296,66 @@ router.post('/preferences/:productId', authenticateToken, async (req, res) => {
   }
 });
 
+// Resolve a storeId param which may be numeric (store id) or a store name
+const resolveStoreId = async (storeId) => {
+  if (storeId == null) return null;
+  if (/^\d+$/.test(String(storeId))) return parseInt(storeId, 10);
+  const s = await db.query(
+    `SELECT id FROM store_locations
+     WHERE LOWER(COALESCE(name, store_name)) = LOWER($1) LIMIT 1`,
+    [decodeURIComponent(String(storeId))]
+  );
+  return s.rows[0]?.id || null;
+};
+
 // Get aisle prediction for item at specific store
 router.get('/aisle/:itemName/:storeId', authenticateToken, async (req, res) => {
   try {
-    const { itemName, storeId } = req.params;
-    
-    // First, try to get from mdl_location_aisles (learned data)
-    const aisleResult = await db.query(`
-      SELECT aisle_number, confidence, total_reports
-      FROM mdl_location_aisles
-      WHERE LOWER(item_name) = LOWER($1) 
-        AND store_id = $2
-        AND confidence > 0.5
-      ORDER BY confidence DESC
-      LIMIT 1
-    `, [itemName, storeId]);
-    
-    if (aisleResult.rows.length > 0) {
-      return res.json({
-        aisle: aisleResult.rows[0].aisle_number,
-        confidence: aisleResult.rows[0].confidence,
-        source: 'learned',
-        reports: aisleResult.rows[0].total_reports
-      });
+    const { itemName } = req.params;
+    const storeId = await resolveStoreId(req.params.storeId);
+
+    // First, try learned data for this specific store
+    if (storeId) {
+      const aisleResult = await db.query(`
+        SELECT la.aisle_number, la.confidence_score, la.report_count
+        FROM mdl_location_aisles la
+        JOIN mdl_item_names n ON la.item_name_id = n.id
+        WHERE n.normalized_name = normalize_item_name($1)
+          AND la.specific_store_id = $2
+          AND la.confidence_score > 0.5
+        ORDER BY la.confidence_score DESC, la.report_count DESC
+        LIMIT 1
+      `, [itemName, storeId]);
+
+      if (aisleResult.rows.length > 0) {
+        return res.json({
+          aisle: aisleResult.rows[0].aisle_number,
+          confidence: aisleResult.rows[0].confidence_score,
+          source: 'learned',
+          reports: aisleResult.rows[0].report_count
+        });
+      }
     }
-    
-    // Fallback: Try category-based prediction
+
+    // Fallback: category-based mapping (this store first, then any store)
     const categoryResult = await db.query(`
-      SELECT ca.aisle_number, ca.confidence
+      SELECT ca.aisle_number, ca.item_count, ca.store_id
       FROM shopping_list_items sli
-      JOIN mdl_category_aisles ca ON sli.category = ca.category_id
+      JOIN mdl_category_aisles ca ON LOWER(sli.category) = LOWER(ca.category)
       WHERE LOWER(sli.item_name) = LOWER($1)
-        AND ca.store_id = $2
-      ORDER BY ca.confidence DESC
+        AND (ca.store_id = $2 OR ca.store_id IS NULL)
+      ORDER BY (ca.store_id IS NOT NULL AND ca.store_id = $2) DESC, ca.item_count DESC
       LIMIT 1
-    `, [itemName, storeId]);
-    
+    `, [itemName, storeId || -1]);
+
     if (categoryResult.rows.length > 0) {
       return res.json({
         aisle: categoryResult.rows[0].aisle_number,
-        confidence: categoryResult.rows[0].confidence,
+        confidence: Math.min(0.9, 0.3 + (categoryResult.rows[0].item_count || 0) / 10),
         source: 'category'
       });
     }
-    
+
     // No prediction available
     res.json({ aisle: null, confidence: 0, source: 'none' });
   } catch (error) {
@@ -351,39 +367,70 @@ router.get('/aisle/:itemName/:storeId', authenticateToken, async (req, res) => {
 // Report aisle location (user feedback for learning)
 router.post('/aisle/report', authenticateToken, async (req, res) => {
   try {
-    const { itemName, aisleNumber, storeId, wasCorrect, categoryId } = req.body;
-    
+    const { itemName, aisleNumber, wasCorrect, category, categoryId } = req.body;
+    const { storeId } = req.body;
+
     if (!itemName || !aisleNumber || !storeId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
-    
+
+    const itemNameId = (await db.query(
+      'SELECT get_or_create_item_name($1) AS id', [itemName.trim()]
+    )).rows[0].id;
+    const storeIdNum = await resolveStoreId(storeId);
+
+    // Resolve category name (accept a string category, a category name in
+    // categoryId, or a numeric categories.id)
+    let categoryName = typeof category === 'string' ? category
+      : (categoryId != null && !/^\d+$/.test(String(categoryId)) ? String(categoryId) : null);
+    if (categoryName == null && categoryId != null) {
+      const cat = await db.query('SELECT name FROM categories WHERE id = $1', [categoryId]);
+      categoryName = cat.rows[0]?.name || null;
+    }
+
     // Record the report
     await db.query(`
       INSERT INTO mdl_aisle_reports (
-        user_id, item_name, aisle_number, store_id, 
-        was_correct, category_id
-      ) VALUES ($1, $2, $3, $4, $5, $6)
-    `, [req.user.id, itemName, aisleNumber, storeId, wasCorrect, categoryId]);
-    
-    // Update or create aggregated aisle data
+        user_id, item_name_id, store_id, aisle_number, was_prediction_correct
+      ) VALUES ($1, $2, $3, $4, $5)
+    `, [req.user.id, itemNameId, storeIdNum, aisleNumber, wasCorrect ?? null]);
+
+    // Upsert aggregated aisle data (confidence = share of non-incorrect reports)
     await db.query(`
       INSERT INTO mdl_location_aisles (
-        item_name, store_id, aisle_number, total_reports, correct_reports, confidence
-      ) VALUES ($1, $2, $3, 1, $4, $5)
-      ON CONFLICT (item_name, store_id)
+        item_name_id, specific_store_id, category, aisle_number,
+        report_count, confidence_score, last_updated
+      ) VALUES ($1, $2, $3, $4, 1, 0.6, NOW())
+      ON CONFLICT (item_name_id, (COALESCE(specific_store_id, 0)))
       DO UPDATE SET
         aisle_number = (
-          SELECT MODE() WITHIN GROUP (ORDER BY aisle_number)
-          FROM mdl_aisle_reports
-          WHERE item_name = $1 AND store_id = $2
+          SELECT MODE() WITHIN GROUP (ORDER BY r.aisle_number)
+          FROM mdl_aisle_reports r
+          WHERE r.item_name_id = $1 AND r.store_id IS NOT DISTINCT FROM $2
         ),
-        total_reports = mdl_location_aisles.total_reports + 1,
-        correct_reports = mdl_location_aisles.correct_reports + CASE WHEN $4 THEN 1 ELSE 0 END,
-        confidence = (mdl_location_aisles.correct_reports + CASE WHEN $4 THEN 1 ELSE 0 END)::float / 
-                     (mdl_location_aisles.total_reports + 1),
-        last_reported = CURRENT_TIMESTAMP
-    `, [itemName, storeId, aisleNumber, wasCorrect ? 1 : 0, wasCorrect ? 1.0 : 0.5]);
-    
+        category = COALESCE($3, mdl_location_aisles.category),
+        report_count = (
+          SELECT COUNT(*) FROM mdl_aisle_reports r
+          WHERE r.item_name_id = $1 AND r.store_id IS NOT DISTINCT FROM $2
+        ),
+        confidence_score = LEAST(0.95, (
+          SELECT COALESCE(AVG(CASE WHEN COALESCE(r.was_prediction_correct, true) THEN 1.0 ELSE 0.0 END), 0.5)
+          FROM mdl_aisle_reports r
+          WHERE r.item_name_id = $1 AND r.store_id IS NOT DISTINCT FROM $2
+        )),
+        last_updated = NOW()
+    `, [itemNameId, storeIdNum, categoryName, aisleNumber]);
+
+    // Feed the category→aisle mapping used by the prediction fallback
+    if (categoryName) {
+      await db.query(`
+        INSERT INTO mdl_category_aisles (category, store_id, aisle_number, item_count, last_updated)
+        VALUES ($1, $2, $3, 1, NOW())
+        ON CONFLICT (category, store_id, aisle_number)
+        DO UPDATE SET item_count = mdl_category_aisles.item_count + 1, last_updated = NOW()
+      `, [categoryName, storeIdNum, aisleNumber]);
+    }
+
     res.json({ success: true, message: 'Aisle report recorded' });
   } catch (error) {
     console.error('Error reporting aisle:', error);
@@ -395,13 +442,15 @@ router.post('/aisle/report', authenticateToken, async (req, res) => {
 router.get('/stores', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT DISTINCT store_id, store_name, city, state,
-        COUNT(*) OVER (PARTITION BY store_id) as aisle_count
+      SELECT id, COALESCE(name, store_name) AS name,
+        COALESCE(chain, chain_name, store_chain) AS chain,
+        city, state, zip_code, area_code, latitude, longitude,
+        is_public, user_id, created_at
       FROM store_locations
-      WHERE user_id = $1 OR is_public = true
-      ORDER BY store_name ASC
+      WHERE user_id = $1 OR user_id IS NULL OR is_public = true
+      ORDER BY COALESCE(name, store_name) ASC
     `, [req.user.id]);
-    
+
     res.json(result.rows);
   } catch (error) {
     console.error('Error getting stores:', error);
@@ -413,15 +462,20 @@ router.get('/stores', authenticateToken, async (req, res) => {
 router.get('/stores/search', authenticateToken, async (req, res) => {
   try {
     const { name } = req.query;
-    
+
     const result = await db.query(`
-      SELECT * FROM store_locations
-      WHERE LOWER(store_name) LIKE LOWER($1)
-        AND (user_id = $2 OR is_public = true)
-      ORDER BY store_name ASC
+      SELECT id, COALESCE(name, store_name) AS name,
+        COALESCE(chain, chain_name, store_chain) AS chain,
+        city, state, zip_code, area_code, latitude, longitude,
+        is_public, user_id, created_at
+      FROM store_locations
+      WHERE (COALESCE(name, store_name) ILIKE $1
+        OR COALESCE(chain, chain_name, store_chain) ILIKE $1)
+        AND (user_id = $2 OR user_id IS NULL OR is_public = true)
+      ORDER BY COALESCE(name, store_name) ASC
       LIMIT 10
-    `, [`%${name}%`, req.user.id]);
-    
+    `, [`%${name || ''}%`, req.user.id]);
+
     res.json(result.rows);
   } catch (error) {
     console.error('Error searching stores:', error);
@@ -432,20 +486,51 @@ router.get('/stores/search', authenticateToken, async (req, res) => {
 // Create new store location
 router.post('/stores', authenticateToken, async (req, res) => {
   try {
-    const { chain_name, store_name, state, city, address, latitude, longitude } = req.body;
-    
+    const {
+      name, store_name, chain, chain_name, state, city,
+      area_code, zip_code, latitude, longitude, is_public
+    } = req.body;
+    const storeName = name || store_name;
+    const storeChain = chain || chain_name;
+
+    if (!storeName || !String(storeName).trim()) {
+      return res.status(400).json({ error: 'Store name is required' });
+    }
+
     const result = await db.query(`
       INSERT INTO store_locations (
-        user_id, chain_name, store_name, state, city, 
-        address, latitude, longitude
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        name, store_name, chain, chain_name, user_id,
+        state, city, area_code, zip_code, latitude, longitude, is_public
+      ) VALUES ($1, $1, $2, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
-    `, [req.user.id, chain_name, store_name, state, city, address, latitude, longitude]);
-    
-    res.json(result.rows[0]);
+    `, [
+      String(storeName).trim(), storeChain || null, req.user.id,
+      state || null, city || null, area_code || null, zip_code || null,
+      latitude || null, longitude || null, is_public === true
+    ]);
+
+    res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating store:', error);
     res.status(500).json({ error: 'Failed to create store' });
+  }
+});
+
+// Get all MDL preferences for the user as a key->value object
+router.get('/preferences', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT preference_key, preference_value FROM mdl_user_preferences WHERE user_id = $1',
+      [req.user.id]
+    );
+    const preferences = {};
+    for (const row of result.rows) {
+      preferences[row.preference_key] = row.preference_value;
+    }
+    res.json({ preferences });
+  } catch (error) {
+    console.error('Error getting preferences:', error);
+    res.status(500).json({ error: 'Failed to get preferences' });
   }
 });
 
@@ -604,7 +689,7 @@ router.post('/track-item', authenticateToken, async (req, res) => {
         `INSERT INTO mdl_location_prices
            (item_name_id, state, average_price, min_price, max_price, sample_size, confidence_score)
          VALUES ($1,$2,$3,$3,$3,1,0.1)
-         ON CONFLICT ON CONSTRAINT uq_mdl_location_prices DO UPDATE SET
+         ON CONFLICT (item_name_id, (COALESCE(state, '')), (COALESCE(store_chain, '')), (COALESCE(specific_store_id, 0))) DO UPDATE SET
            average_price = ROUND(((mdl_location_prices.average_price * mdl_location_prices.sample_size) + $3)
                                  / (mdl_location_prices.sample_size + 1), 2),
            min_price = LEAST(mdl_location_prices.min_price, $3),

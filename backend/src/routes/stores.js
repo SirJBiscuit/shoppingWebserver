@@ -11,7 +11,7 @@ router.get('/user', async (req, res) => {
   try {
     const result = await db.query(
       'SELECT * FROM store_locations WHERE created_by = $1 ORDER BY created_at DESC',
-      [req.user.userId]
+      [req.user.id]
     );
     res.json(result.rows);
   } catch (error) {
@@ -22,7 +22,7 @@ router.get('/user', async (req, res) => {
 
 // Create a new store
 router.post('/', async (req, res) => {
-  const { name, chain, address, city, state, zip_code } = req.body;
+  const { name, chain, area_code, city, state, zip_code } = req.body;
 
   if (!name) {
     return res.status(400).json({ error: 'Store name is required' });
@@ -30,10 +30,10 @@ router.post('/', async (req, res) => {
 
   try {
     const result = await db.query(
-      `INSERT INTO store_locations (name, chain, address, city, state, zip_code, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO store_locations (name, store_name, chain, chain_name, area_code, city, state, zip_code, user_id, created_by)
+       VALUES ($1, $1, $2, $2, $3, $4, $5, $6, $7, $7)
        RETURNING *`,
-      [name, chain, address, city, state, zip_code, req.user.userId]
+      [name, chain, area_code, city, state, zip_code, req.user.id]
     );
     res.json(result.rows[0]);
   } catch (error) {
@@ -48,8 +48,8 @@ router.delete('/:storeId', async (req, res) => {
 
   try {
     const result = await db.query(
-      'DELETE FROM store_locations WHERE id = $1 AND created_by = $2 RETURNING id',
-      [storeId, req.user.userId]
+      'DELETE FROM store_locations WHERE id = $1 AND (user_id = $2 OR created_by = $2) RETURNING id',
+      [storeId, req.user.id]
     );
 
     if (result.rows.length === 0) {
@@ -112,11 +112,11 @@ router.get('/search', async (req, res) => {
       `SELECT *
        FROM store_locations
        WHERE name ILIKE $1
-          OR address ILIKE $1
+          OR area_code ILIKE $1
           OR city ILIKE $1
           OR zip_code ILIKE $1
           OR state ILIKE $1
-       ORDER BY store_chain, name
+       ORDER BY COALESCE(chain, chain_name, store_chain), name
        LIMIT 50`,
       [`%${q}%`]
     );
@@ -137,7 +137,7 @@ router.get('/favorites', async (req, res) => {
        JOIN store_locations sl ON ufs.store_location_id = sl.id
        WHERE ufs.user_id = $1
        ORDER BY ufs.is_default DESC, sl.name`,
-      [req.user.userId]
+      [req.user.id]
     );
 
     res.json(result.rows);
@@ -156,7 +156,7 @@ router.post('/favorites', async (req, res) => {
     if (is_default) {
       await db.query(
         'UPDATE user_favorite_stores SET is_default = FALSE WHERE user_id = $1',
-        [req.user.userId]
+        [req.user.id]
       );
     }
 
@@ -166,7 +166,7 @@ router.post('/favorites', async (req, res) => {
        ON CONFLICT (user_id, store_location_id) 
        DO UPDATE SET nickname = $3, is_default = $4
        RETURNING *`,
-      [req.user.userId, store_location_id, nickname, is_default || false]
+      [req.user.id, store_location_id, nickname, is_default || false]
     );
 
     res.status(201).json(result.rows[0]);
@@ -181,7 +181,7 @@ router.delete('/favorites/:storeLocationId', async (req, res) => {
   try {
     await db.query(
       'DELETE FROM user_favorite_stores WHERE user_id = $1 AND store_location_id = $2',
-      [req.user.userId, req.params.storeLocationId]
+      [req.user.id, req.params.storeLocationId]
     );
 
     res.json({ message: 'Store removed from favorites' });
