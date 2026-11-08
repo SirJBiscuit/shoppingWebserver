@@ -115,7 +115,8 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
 
   const handleRemoveTester = (testerId) => {
     confirmDelete(
-      'this beta tester',
+      'Remove Beta Tester?',
+      'This will permanently remove this tester and their beta access.',
       async () => {
         try {
           await api.delete(`/beta/admin/testers/${testerId}`);
@@ -678,13 +679,22 @@ const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSend
                 Suspended
               </span>
             )}
-            {tester.beta_expires_at && (
-              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                new Date(tester.beta_expires_at) < new Date()
+            {tester.days_left != null && (
+              <span className={`px-2 py-1 text-xs font-medium rounded-full inline-flex items-center gap-1 ${
+                tester.days_left <= 0
                   ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-              }`}>
-                {new Date(tester.beta_expires_at) < new Date() ? 'Access expired' : `Expires ${new Date(tester.beta_expires_at).toLocaleDateString()}`}
+                  : tester.days_left <= 7
+                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+              }`}
+                title={tester.expires_at ? `Ends ${new Date(tester.expires_at).toLocaleDateString()}` : ''}
+              >
+                <Clock className="w-3 h-3" />
+                {tester.days_left <= 0
+                  ? 'Expired'
+                  : tester.days_left === 1
+                    ? '1 day left'
+                    : `${tester.days_left} days left`}
               </span>
             )}
             <div className="flex">

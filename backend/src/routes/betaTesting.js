@@ -315,7 +315,7 @@ router.get('/admin/testers', authenticateToken, isAdmin, async (req, res) => {
               bt.id AS beta_tester_id, bt.beta_username, bt.display_name, bt.country, bt.state,
               bt.registered_at, bt.last_active, bt.accepted_data_policy,
               bt.suspended, bt.beta_expires_at, bt.admin_notes,
-              bc.code AS beta_code,
+              bc.code AS beta_code, bc.expires_at AS code_expires_at,
               COUNT(DISTINCT bf.id) AS feedback_count,
               MAX(bf.created_at) AS last_feedback_at
        FROM beta_testers bt
@@ -326,7 +326,7 @@ router.get('/admin/testers', authenticateToken, isAdmin, async (req, res) => {
                 bt.id, bt.beta_username, bt.display_name, bt.country, bt.state,
                 bt.registered_at, bt.last_active, bt.accepted_data_policy,
                 bt.suspended, bt.beta_expires_at, bt.admin_notes,
-                bc.code
+                bc.code, bc.expires_at
        ORDER BY bt.registered_at DESC`
     );
 
@@ -346,14 +346,23 @@ router.get('/admin/testers', authenticateToken, isAdmin, async (req, res) => {
     const itemsByUser = Object.fromEntries(contrib.rows.map(r => [r.user_id, parseInt(r.items_added, 10)]));
     const aislesByUser = Object.fromEntries(aisles.rows.map(r => [r.user_id, parseInt(r.aisles_reported, 10)]));
 
-    res.json(result.rows.map((t) => ({
-      ...t,
-      items_added: itemsByUser[t.id] || 0,
-      aisles_reported: aislesByUser[t.id] || 0,
-      suspended: t.suspended === true,
-      beta_expires_at: t.beta_expires_at || null,
-      admin_notes: t.admin_notes || null
-    })));
+    res.json(result.rows.map((t) => {
+      // Effective access end = per-tester expiry if set, else the code's expiry
+      const effectiveExpiry = t.beta_expires_at || t.code_expires_at || null;
+      const daysLeft = effectiveExpiry
+        ? Math.ceil((new Date(effectiveExpiry) - Date.now()) / 86400000)
+        : null;
+      return {
+        ...t,
+        items_added: itemsByUser[t.id] || 0,
+        aisles_reported: aislesByUser[t.id] || 0,
+        suspended: t.suspended === true,
+        beta_expires_at: t.beta_expires_at || null,
+        expires_at: effectiveExpiry,
+        days_left: daysLeft,
+        admin_notes: t.admin_notes || null
+      };
+    }));
   } catch (error) {
     console.error('Error fetching beta testers:', error);
     res.status(500).json({ error: 'Failed to fetch beta testers' });

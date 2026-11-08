@@ -93,7 +93,8 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
 
   const handleDeleteCode = (codeId) => {
     confirmDelete(
-      'this code',
+      'Delete Beta Code?',
+      'This will permanently delete the code. Testers who registered with it keep their accounts.',
       async () => {
         try {
           await api.delete(`/beta/codes/${codeId}`);
