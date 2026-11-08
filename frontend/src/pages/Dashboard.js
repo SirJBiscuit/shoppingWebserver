@@ -96,6 +96,8 @@ const Dashboard = () => {
   /* OverlayInteraction API — right-click / long-hold menu for the home surface.
      Avoids fighting form fields & buttons that have their own context. */
   useContextMenu(rootRef, (e) => {
+    // elements can opt out of the home menu entirely (e.g. the Notepad has its own)
+    if (e.target.closest?.('[data-oi-scope]')) return null;
     if (e.target.closest?.('input,textarea,select,[contenteditable],button,label')) {
       // only offer the menu on non-interactive chrome (empty background, headers)
       if (!e.target.closest?.('[data-oi-open-area]')) return null;

@@ -321,6 +321,7 @@ const SortablePage = ({ page: p, children }) => {
 /** Context-menu row — Kotlin CtxItem (icon + optional tint bar + danger). */
 const MenuRow = ({ icon: Icon, label, onClick, danger, tint, theme }) => (
   <button
+    type="button"
     onClick={onClick}
     className={`w-full flex items-center gap-2 px-3 py-2 sm:py-1.5 text-xs ${
       danger ? 'text-red-400 hover:bg-red-500/15' : `${theme.text} ${theme.hover}`
@@ -1552,6 +1553,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
       dragElastic={0.05}
       onDragEnd={(_, info) => setPos((p) => ({ x: p.x + info.offset.x, y: p.y + info.offset.y }))}
       onClick={isFullscreen ? (e) => { if (e.target === e.currentTarget) handleClose(); } : undefined}
+      data-oi-scope="notepad"
       style={isFullscreen ? {} : { x: pos.x, y: pos.y }}
       initial={{ scale: 0.9, opacity: 0, y: 24 }}
       animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -2295,7 +2297,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
       </div>
 
       {/* ===== context menus — scrollable (Kotlin CtxMenu), bottom-sheet on mobile ===== */}
-      {menu && <div className="fixed inset-0 z-[80]" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null); }} />}
+      {menu && <div className="fixed inset-0 z-[80]" onClick={(e) => { e.stopPropagation(); setMenu(null); }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setMenu(null); }} />}
       <AnimatePresence>
       {menu && (() => {
         const b = page.blocks.find((x) => x.id === menu.id);
@@ -2305,6 +2307,8 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
           <motion.div
               key="ctxmenu"
               ref={menuPanelRef}
+              onClick={(e) => e.stopPropagation()}
+              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
               drag={!isMobile}
               dragControls={menuDrag}
               dragListener={false}
@@ -2503,11 +2507,12 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
       <AnimatePresence>
         {slashState && slashMatches().length > 0 && (
           <>
-            <div className="fixed inset-0 z-[85]" onClick={() => setSlashState(null)} />
+            <div className="fixed inset-0 z-[85]" onClick={(e) => { e.stopPropagation(); setSlashState(null); }} />
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: -4 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
               className={`fixed z-[86] rounded-xl border shadow-2xl py-1 w-48 ${theme.panel}`}
               style={(() => {
                 const r = blockRefs.current[slashState.id]?.getBoundingClientRect();
@@ -2542,6 +2547,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.92 }}
             onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => e.stopPropagation()}
             className={`fixed z-[94] flex items-center gap-0.5 px-1.5 py-1 rounded-xl border shadow-2xl ${theme.panel}`}
             style={{ left: Math.max(8, Math.min(selBar.x - 104, window.innerWidth - 220)), top: selBar.y }}
           >
