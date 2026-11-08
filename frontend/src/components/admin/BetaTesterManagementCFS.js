@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, Star, MapPin, Calendar, Activity, MessageSquare, Award,
-  Send, UserCheck, UserX, Trash2, Clock, Package, TrendingUp,
-  Filter, Search, ChevronDown, Eye, Gift, AlertCircle
+  Send, UserCheck, UserX, Trash2, Clock, Package, Ban, TimerReset,
+  Search, Eye, Gift, AlertCircle, Edit, StickyNote
 } from 'lucide-react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
@@ -18,6 +18,14 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
   const [showThankYouModal, setShowThankYouModal] = useState(false);
   const [thankYouMessage, setThankYouMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+
+  // Extend-access + edit modals
+  const [showExtendModal, setShowExtendModal] = useState(false);
+  const [extendDays, setExtendDays] = useState('30');
+  const [extending, setExtending] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -112,13 +120,72 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
         try {
           await api.delete(`/beta/admin/testers/${testerId}`);
           setTesters(testers.filter(t => t.id !== testerId));
-          alert('Beta tester removed successfully!');
         } catch (error) {
           console.error('Error removing tester:', error);
           alert('Failed to remove tester');
         }
       }
     );
+  };
+
+  const handleExtendAccess = async () => {
+    if (!selectedTester) return;
+    setExtending(true);
+    try {
+      const res = await api.post(`/beta/admin/testers/${selectedTester.id}/extend`, {
+        days: parseInt(extendDays, 10)
+      });
+      setTesters(testers.map(t =>
+        t.id === selectedTester.id ? { ...t, beta_expires_at: res.data.beta_expires_at } : t
+      ));
+      setShowExtendModal(false);
+      setSelectedTester(null);
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to extend access');
+    } finally {
+      setExtending(false);
+    }
+  };
+
+  const handleToggleSuspend = async (tester) => {
+    const next = !tester.suspended;
+    try {
+      await api.patch(`/beta/admin/testers/${tester.id}`, { suspended: next });
+      setTesters(testers.map(t => t.id === tester.id ? { ...t, suspended: next } : t));
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to update tester');
+    }
+  };
+
+  const openEditTester = (tester) => {
+    setSelectedTester(tester);
+    setEditForm({
+      displayName: tester.display_name || '',
+      adminNotes: tester.admin_notes || ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveTesterEdit = async () => {
+    if (!selectedTester) return;
+    setSavingEdit(true);
+    try {
+      await api.patch(`/beta/admin/testers/${selectedTester.id}`, {
+        displayName: editForm.displayName,
+        adminNotes: editForm.adminNotes
+      });
+      setTesters(testers.map(t =>
+        t.id === selectedTester.id
+          ? { ...t, display_name: editForm.displayName, admin_notes: editForm.adminNotes }
+          : t
+      ));
+      setShowEditModal(false);
+      setSelectedTester(null);
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to update tester');
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   // Filter and sort testers
@@ -324,6 +391,13 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
               }}
               onConvert={() => handleConvertToUser(tester.id)}
               onRemove={() => handleRemoveTester(tester.id)}
+              onExtend={() => {
+                setSelectedTester(tester);
+                setExtendDays('30');
+                setShowExtendModal(true);
+              }}
+              onSuspend={() => handleToggleSuspend(tester)}
+              onEdit={() => openEditTester(tester)}
             />
           ))
         )}
@@ -341,6 +415,146 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
               setSelectedTester(null);
             }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Extend Access Modal */}
+      <AnimatePresence>
+        {showExtendModal && selectedTester && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full p-6"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <TimerReset className="w-6 h-6 text-purple-600" />
+                  Extend Beta Access
+                </h3>
+                <button
+                  onClick={() => { setShowExtendModal(false); setSelectedTester(null); }}
+                  className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                >
+                  <AlertCircle className="w-6 h-6" />
+                </button>
+              </div>
+
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Extending access for <strong>{selectedTester.display_name || selectedTester.beta_username}</strong>
+                {selectedTester.beta_expires_at
+                  ? ` — currently expires ${new Date(selectedTester.beta_expires_at).toLocaleDateString()}`
+                  : ' — no expiry set'}
+              </p>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Extend by
+                </label>
+                <select
+                  value={extendDays}
+                  onChange={(e) => setExtendDays(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="7">7 days</option>
+                  <option value="14">14 days</option>
+                  <option value="30">30 days</option>
+                  <option value="60">60 days</option>
+                  <option value="90">90 days</option>
+                  <option value="180">180 days</option>
+                  <option value="365">1 year</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowExtendModal(false); setSelectedTester(null); }}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  disabled={extending}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleExtendAccess}
+                  disabled={extending}
+                  className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  {extending ? <Send className="w-5 h-5 animate-pulse" /> : <TimerReset className="w-5 h-5" />}
+                  Extend
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Tester Modal */}
+      <AnimatePresence>
+        {showEditModal && selectedTester && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Edit className="w-6 h-6 text-purple-600" />
+                  Edit Tester
+                </h3>
+                <button
+                  onClick={() => { setShowEditModal(false); setSelectedTester(null); }}
+                  className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                >
+                  <AlertCircle className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Display Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.displayName || ''}
+                    onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Admin Notes (private)
+                  </label>
+                  <textarea
+                    value={editForm.adminNotes || ''}
+                    onChange={(e) => setEditForm({ ...editForm, adminNotes: e.target.value })}
+                    rows="4"
+                    placeholder="Notes only visible to admins…"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => { setShowEditModal(false); setSelectedTester(null); }}
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    disabled={savingEdit}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveTesterEdit}
+                    disabled={savingEdit}
+                    className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
+                  >
+                    {savingEdit ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
@@ -424,7 +638,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
   );
 };
 
-const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSendThankYou, onConvert, onRemove }) => {
+const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSendThankYou, onConvert, onRemove, onExtend, onSuspend, onEdit }) => {
   const stars = Math.round(qualityScore / 20);
   
   const activityColors = {
@@ -459,6 +673,20 @@ const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSend
             <span className={`px-2 py-1 bg-${color}-100 dark:bg-${color}-900/30 text-${color}-700 dark:text-${color}-300 text-xs font-medium rounded-full`}>
               {activityLabels[activityLevel]}
             </span>
+            {tester.suspended && (
+              <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-medium rounded-full">
+                Suspended
+              </span>
+            )}
+            {tester.beta_expires_at && (
+              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                new Date(tester.beta_expires_at) < new Date()
+                  ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+              }`}>
+                {new Date(tester.beta_expires_at) < new Date() ? 'Access expired' : `Expires ${new Date(tester.beta_expires_at).toLocaleDateString()}`}
+              </span>
+            )}
             <div className="flex">
               {[...Array(5)].map((_, i) => (
                 <Star
@@ -500,15 +728,45 @@ const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSend
               Last active: {new Date(tester.last_active).toLocaleDateString()}
             </p>
           )}
+          {tester.admin_notes && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+              <StickyNote className="w-3 h-3" /> {tester.admin_notes}
+            </p>
+          )}
         </div>
 
-        <div className="flex gap-2 ml-4">
+        <div className="flex flex-wrap gap-1 ml-4 justify-end max-w-[220px]">
           <button
             onClick={onViewDetails}
             className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
             title="View Details"
           >
             <Eye className="w-5 h-5" />
+          </button>
+          <button
+            onClick={onEdit}
+            className="p-2 text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            title="Edit name & notes"
+          >
+            <Edit className="w-5 h-5" />
+          </button>
+          <button
+            onClick={onExtend}
+            className="p-2 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg transition-colors"
+            title="Extend beta access"
+          >
+            <TimerReset className="w-5 h-5" />
+          </button>
+          <button
+            onClick={onSuspend}
+            className={`p-2 rounded-lg transition-colors ${
+              tester.suspended
+                ? 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'
+                : 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+            }`}
+            title={tester.suspended ? 'Unsuspend tester' : 'Suspend tester'}
+          >
+            <Ban className="w-5 h-5" />
           </button>
           <button
             onClick={onSendThankYou}

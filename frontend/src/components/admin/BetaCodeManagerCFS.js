@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Key, Calendar, Users, CheckCircle, XCircle, RefreshCw, 
-  Copy, Trash2, Edit, Eye, EyeOff, Clock, AlertCircle, Zap
+  Copy, Trash2, Edit, Clock, Zap, TimerReset
 } from 'lucide-react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
@@ -110,6 +110,61 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 2000);
+  };
+
+  // Edit modal state
+  const [editForm, setEditForm] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  const openEdit = (code) => {
+    setSelectedCode(code);
+    setEditForm({
+      code: code.code,
+      expiresAt: code.expires_at ? code.expires_at.slice(0, 10) : '',
+      maxUses: code.max_uses,
+      notes: code.notes || '',
+      isActive: code.is_active
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedCode) return;
+    setSaving(true);
+    try {
+      const res = await api.patch(`/beta/codes/${selectedCode.id}`, {
+        code: editForm.code,
+        expiresAt: editForm.expiresAt,
+        maxUses: parseInt(editForm.maxUses, 10),
+        notes: editForm.notes,
+        isActive: editForm.isActive
+      });
+      setCodes(codes.map(c => c.id === selectedCode.id ? { ...c, ...res.data } : c));
+      setShowEditModal(false);
+      setSelectedCode(null);
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to update code');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleExtendCode = async (codeId, days) => {
+    try {
+      const res = await api.post(`/beta/codes/${codeId}/extend`, { days });
+      setCodes(codes.map(c => c.id === codeId ? { ...c, ...res.data } : c));
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to extend code');
+    }
+  };
+
+  const handleReactivate = async (codeId) => {
+    try {
+      const res = await api.post(`/beta/codes/${codeId}/active`, { isActive: true });
+      setCodes(codes.map(c => c.id === codeId ? { ...c, ...res.data } : c));
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to reactivate code');
+    }
   };
 
   const isExpired = (expiresAt) => {
@@ -256,7 +311,10 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
                 key={code.id}
                 code={code}
                 onCopy={handleCopyCode}
+                onEdit={openEdit}
+                onExtend={handleExtendCode}
                 onDeactivate={handleDeactivateCode}
+                onReactivate={handleReactivate}
                 onDelete={handleDeleteCode}
                 copiedCode={copiedCode}
               />
@@ -278,7 +336,10 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
                 key={code.id}
                 code={code}
                 onCopy={handleCopyCode}
+                onEdit={openEdit}
+                onExtend={handleExtendCode}
                 onDeactivate={handleDeactivateCode}
+                onReactivate={handleReactivate}
                 onDelete={handleDeleteCode}
                 copiedCode={copiedCode}
               />
@@ -387,12 +448,119 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
         )}
       </AnimatePresence>
       
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {showEditModal && selectedCode && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Edit className="w-6 h-6 text-purple-600" />
+                  Edit Beta Code
+                </h3>
+                <button
+                  onClick={() => { setShowEditModal(false); setSelectedCode(null); }}
+                  className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Code
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.code || ''}
+                    onChange={(e) => setEditForm({ ...editForm, code: e.target.value.toUpperCase() })}
+                    maxLength={20}
+                    className="w-full px-4 py-2 font-mono border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Expires On
+                  </label>
+                  <input
+                    type="date"
+                    value={editForm.expiresAt || ''}
+                    onChange={(e) => setEditForm({ ...editForm, expiresAt: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Max Uses <span className="text-xs text-gray-500">(current: {selectedCode.current_uses})</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={editForm.maxUses}
+                    onChange={(e) => setEditForm({ ...editForm, maxUses: e.target.value })}
+                    min={selectedCode.current_uses || 1}
+                    max="1000"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Notes
+                  </label>
+                  <textarea
+                    value={editForm.notes || ''}
+                    onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                    rows="3"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={!!editForm.isActive}
+                    onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
+                    className="w-4 h-4 rounded"
+                  />
+                  Code is active
+                </label>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => { setShowEditModal(false); setSelectedCode(null); }}
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveEdit}
+                    disabled={saving || !editForm.code?.trim()}
+                    className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    {saving ? <RefreshCw className="w-5 h-5 animate-spin" /> : 'Save Changes'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <CustomNotification {...notification} onClose={hideNotification} />
     </div>
   );
 };
 
-const CodeCard = ({ code, onCopy, onDeactivate, onDelete, copiedCode }) => {
+const CodeCard = ({ code, onCopy, onEdit, onExtend, onDeactivate, onReactivate, onDelete, copiedCode }) => {
   const statusColor = code.is_active && !isExpired(code.expires_at) && !isFullyUsed(code) ? 'green' : 'gray';
   const isExpiredCode = isExpired(code.expires_at);
   const isFullyUsedCode = isFullyUsed(code);
@@ -452,8 +620,22 @@ const CodeCard = ({ code, onCopy, onDeactivate, onDelete, copiedCode }) => {
           )}
         </div>
 
-        <div className="flex gap-2 ml-4">
-          {code.is_active && !isExpiredCode && (
+        <div className="flex flex-wrap gap-1 ml-4 justify-end max-w-[140px]">
+          <button
+            onClick={() => onEdit(code)}
+            className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+            title="Edit code"
+          >
+            <Edit className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => onExtend(code.id, 30)}
+            className="p-2 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg transition-colors"
+            title="Extend expiry by 30 days"
+          >
+            <TimerReset className="w-5 h-5" />
+          </button>
+          {code.is_active && !isExpiredCode ? (
             <button
               onClick={() => onDeactivate(code.id)}
               className="p-2 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
@@ -461,16 +643,22 @@ const CodeCard = ({ code, onCopy, onDeactivate, onDelete, copiedCode }) => {
             >
               <XCircle className="w-5 h-5" />
             </button>
-          )}
-          {code.current_uses === 0 && (
+          ) : (
             <button
-              onClick={() => onDelete(code.id)}
-              className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-              title="Delete"
+              onClick={() => onReactivate(code.id)}
+              className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+              title="Reactivate"
             >
-              <Trash2 className="w-5 h-5" />
+              <CheckCircle className="w-5 h-5" />
             </button>
           )}
+          <button
+            onClick={() => onDelete(code.id)}
+            className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+            title="Delete"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
         </div>
       </div>
     </motion.div>

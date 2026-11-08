@@ -34,6 +34,20 @@ const submitHandler = async (req, res) => {
     const rate = (r) => (r >= 1 && r <= 5 ? r : null);
     const testerId = await getTesterId(req.user.id);
 
+    // Suspended testers or expired beta access can't submit
+    const status = await db.query(
+      `SELECT suspended, beta_expires_at FROM beta_testers WHERE user_id = $1`,
+      [req.user.id]
+    );
+    if (status.rows.length) {
+      if (status.rows[0].suspended) {
+        return res.status(403).json({ error: 'Your beta access has been suspended' });
+      }
+      if (status.rows[0].beta_expires_at && new Date(status.rows[0].beta_expires_at) < new Date()) {
+        return res.status(403).json({ error: 'Your beta access has expired' });
+      }
+    }
+
     const result = await db.query(
       `INSERT INTO beta_feedback (user_id, beta_tester_id, type, title, description, severity, rating)
        VALUES ($1, $2, $3, $4, $5, $6, $7)

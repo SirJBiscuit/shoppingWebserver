@@ -37,37 +37,70 @@ const BetaAnalyticsCFS = ({ config = {}, isEditing = false, onConfigChange }) =>
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      // Fetch overview stats
-      const statsResponse = await api.get('/beta/admin/stats/overview');
+      const [statsResponse, testersResponse, mdlResponse] = await Promise.all([
+        api.get('/beta/admin/stats/overview'),
+        api.get('/beta/admin/testers'),
+        api.get('/beta/admin/stats/mdl-impact').catch(() => ({ data: null }))
+      ]);
       setStats(statsResponse.data);
-
-      // Fetch beta testers with contributions
-      const testersResponse = await api.get('/beta/admin/testers');
       setBetaTesters(testersResponse.data);
-
-      // Fetch MDL impact metrics (would need new endpoint)
-      // const mdlResponse = await api.get('/beta/admin/mdl-impact');
-      // setMdlImpact(mdlResponse.data);
-
-      // Mock MDL data for now
-      setMdlImpact({
-        itemsCovered: 1234,
-        itemsTotal: 1500,
-        pricesCovered: 567,
-        pricesTotal: 800,
-        priceAccuracy: 85,
-        aislesCovered: 234,
-        aislesTotal: 500,
-        aisleAccuracy: 78,
-        storesCovered: 89,
-        storesTotal: 100
-      });
+      setMdlImpact(mdlResponse.data);
     } catch (error) {
       console.error('Error fetching analytics:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  const downloadFile = (filename, content, mime = 'text/csv') => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    setLastExport(new Date());
+  };
+
+  const toCsv = (rows) => {
+    if (!rows.length) return '';
+    const headers = Object.keys(rows[0]);
+    const esc = (v) => {
+      const s = v == null ? '' : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    return [headers.join(','), ...rows.map(r => headers.map(h => esc(r[h])).join(','))].join('\n');
+  };
+
+  const exportBetaData = () => {
+    downloadFile('beta-testers.csv', toCsv(betaTesters.map(t => ({
+      id: t.id, username: t.beta_username, display_name: t.display_name,
+      country: t.country, state: t.state, beta_code: t.beta_code,
+      items_added: t.items_added, aisles_reported: t.aisles_reported,
+      feedback_count: t.feedback_count, suspended: t.suspended,
+      registered_at: t.registered_at, last_active: t.last_active
+    }))));
+  };
+
+  const exportMdlData = () => {
+    downloadFile('mdl-impact.json', JSON.stringify(mdlImpact, null, 2), 'application/json');
+  };
+
+  const exportFeedbackSummary = async () => {
+    try {
+      const res = await api.get('/beta/feedback/admin/all');
+      downloadFile('beta-feedback.csv', toCsv(res.data.map(f => ({
+        id: f.id, type: f.type, title: f.title, severity: f.severity,
+        status: f.status, rating: f.rating, username: f.username,
+        tester: f.tester_display_name, created_at: f.created_at
+      }))));
+    } catch (e) {
+      console.error('Export feedback failed:', e);
+    }
+  };
+
+  const [lastExport, setLastExport] = useState(null);
 
   const calculateDataQuality = (tester) => {
     // Simple quality score calculation
@@ -210,49 +243,49 @@ const BetaAnalyticsCFS = ({ config = {}, isEditing = false, onConfigChange }) =>
               icon={Bug}
               label="Feedback Received"
               value={stats.total_feedback || 0}
-              subtext={`${stats.bug_critical || 0} critical bugs`}
+              subtext={`${stats.bug_critical || 0} bugs · ${stats.feature_requests || 0} feature requests`}
               color="red"
             />
             <StatCard
               icon={Package}
               label="Items Tracked"
-              value="1,234"
+              value={mdlImpact?.itemsCovered ?? 0}
               subtext="Unique items in MDL"
               color="blue"
             />
             <StatCard
               icon={Store}
               label="Stores Mapped"
-              value="89"
+              value={mdlImpact?.storesCovered ?? 0}
               subtext="Store locations identified"
               color="green"
             />
             <StatCard
               icon={DollarSign}
               label="Prices Learned"
-              value="567"
+              value={mdlImpact?.pricePoints ?? 0}
               subtext="Price data points"
               color="yellow"
             />
             <StatCard
               icon={MapPin}
               label="Aisles Reported"
-              value="234"
+              value={mdlImpact?.aisleReports ?? 0}
               subtext="Aisle mappings"
               color="orange"
             />
             <StatCard
               icon={Star}
-              label="Data Quality"
-              value="89%"
-              subtext="Average quality score"
+              label="Beta Codes"
+              value={stats.active_codes || 0}
+              subtext={`${stats.total_code_uses || 0} total uses`}
               color="purple"
             />
             <StatCard
               icon={TrendingUp}
               label="Growth"
-              value="+23%"
-              subtext="This week"
+              value={`${stats.growth_pct >= 0 ? '+' : ''}${stats.growth_pct || 0}%`}
+              subtext="New testers this week"
               color="green"
             />
           </div>
@@ -367,6 +400,9 @@ const BetaAnalyticsCFS = ({ config = {}, isEditing = false, onConfigChange }) =>
             </h3>
           </div>
           
+          {(!stats?.topLocations || stats.topLocations.length === 0) && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">No tester locations yet.</p>
+          )}
           <div className="grid grid-cols-2 gap-4">
             {stats?.topLocations?.map((location, index) => (
               <div
@@ -387,13 +423,13 @@ const BetaAnalyticsCFS = ({ config = {}, isEditing = false, onConfigChange }) =>
         </div>
       )}
 
-      {/* Predictive Insights */}
-      {defaultConfig.showPredictions && (
+      {/* Predictive Insights — computed from real coverage numbers */}
+      {defaultConfig.showPredictions && mdlImpact && (
         <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl p-6 border border-purple-200 dark:border-purple-800">
           <div className="flex items-center gap-3 mb-6">
             <Target className="w-6 h-6 text-purple-600" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Predictive Insights
+              Coverage Insights
             </h3>
           </div>
           
@@ -405,31 +441,32 @@ const BetaAnalyticsCFS = ({ config = {}, isEditing = false, onConfigChange }) =>
               <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
                 <li className="flex items-center gap-2">
                   <span className="text-green-500">✓</span>
-                  Can predict prices for 567 items (71% coverage)
+                  {mdlImpact.itemsCovered} items learned in MDL
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-green-500">✓</span>
-                  Can predict aisles for 234 items (47% coverage)
+                  Price data for {mdlImpact.pricesCovered} items ({mdlImpact.priceAccuracy}% coverage)
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-green-500">✓</span>
-                  Can suggest stores for 89 locations (89% coverage)
+                  Aisle data for {mdlImpact.aislesCovered} items ({mdlImpact.aisleAccuracy}% coverage)
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-green-500">✓</span>
+                  {mdlImpact.storesCovered} store locations mapped
                 </li>
               </ul>
             </div>
             
             <div>
               <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                Needed for 90% Accuracy:
+                Needed for 90% Coverage:
               </h4>
               <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                <li>• 300 more item entries</li>
-                <li>• 150 more aisle reports</li>
-                <li>• 50 more price data points</li>
+                <li>• {Math.max(0, Math.ceil(mdlImpact.itemsTotal * 0.9) - mdlImpact.pricesCovered)} more price data points</li>
+                <li>• {Math.max(0, Math.ceil(mdlImpact.itemsTotal * 0.9) - mdlImpact.aislesCovered)} more aisle reports</li>
+                <li>• {stats?.total_testers || 0} testers currently contributing</li>
               </ul>
-              <p className="text-sm text-purple-600 dark:text-purple-400 mt-3 font-medium">
-                Estimated Time to Goal: 3 weeks (at current rate)
-              </p>
             </div>
           </div>
         </div>
@@ -445,28 +482,35 @@ const BetaAnalyticsCFS = ({ config = {}, isEditing = false, onConfigChange }) =>
             </h3>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
-            <button className="flex items-center gap-2 px-4 py-3 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <button
+              onClick={exportBetaData}
+              className="flex items-center gap-2 px-4 py-3 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
+            >
               <FileText className="w-5 h-5" />
-              Export All Beta Data (CSV)
+              Export Beta Testers (CSV)
             </button>
-            <button className="flex items-center gap-2 px-4 py-3 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors">
+            <button
+              onClick={exportMdlData}
+              className="flex items-center gap-2 px-4 py-3 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+            >
               <FileText className="w-5 h-5" />
-              Export MDL Training Data (JSON)
+              Export MDL Impact (JSON)
             </button>
-            <button className="flex items-center gap-2 px-4 py-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors">
-              <Calendar className="w-5 h-5" />
-              Generate Weekly Report (PDF)
-            </button>
-            <button className="flex items-center gap-2 px-4 py-3 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors">
+            <button
+              onClick={exportFeedbackSummary}
+              className="flex items-center gap-2 px-4 py-3 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors"
+            >
               <FileText className="w-5 h-5" />
-              Export Feedback Summary (CSV)
+              Export Feedback (CSV)
             </button>
           </div>
           
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">
-            Last Export: {new Date().toLocaleString()}
-          </p>
+          {lastExport && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">
+              Last Export: {lastExport.toLocaleString()}
+            </p>
+          )}
         </div>
       )}
     </div>
