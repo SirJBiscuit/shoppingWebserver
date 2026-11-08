@@ -8,7 +8,7 @@ import {
   FoldVertical, UnfoldVertical, Bold, Italic, ShoppingCart, FolderDown, RotateCcw,
   GripVertical, ZoomIn, ZoomOut, FileStack, FilePlus2, FileUp, Scissors, CalendarDays,
   CornerDownLeft, FolderPlus, Folder, FolderOpen, ListChecks, TextCursorInput,
-  Clock3, Pin, ChevronRight, SearchX, Smile
+  Clock3, Pin, ChevronRight, SearchX, Smile, Check
 } from 'lucide-react';
 import AnimatedScrollbar3D from '../3DAnimatedScrollbar';
 import MenuPanel from '../MenuPanel';
@@ -35,12 +35,12 @@ const THEMES = {
     panel: 'bg-amber-50 border-amber-300',
     side: 'bg-amber-100/80 border-amber-200',
     text: 'text-amber-950',
-    muted: 'text-amber-700',
+    muted: 'text-amber-800',
     input: 'bg-transparent',
     hover: 'hover:bg-amber-200',
-    chip: 'bg-amber-200 text-amber-900',
+    chip: 'bg-amber-300 text-amber-950',
     accent: 'from-amber-500 to-orange-500',
-    scroll: 'rgba(245,158,11,.9)',
+    scroll: 'rgba(217,119,6,.95)',
   },
   night: {
     name: 'Night Blue',
@@ -230,16 +230,22 @@ const DrawCanvas = ({ strokes, onCommit, height, theme, penSize, setPenSize }) =
         {DRAW_COLORS.map((c) => (
           <button
             key={c}
+            type="button"
             onClick={() => setPenColor(c)}
-            className={`w-5 h-5 rounded-full border-2 transition-transform ${penColor === c ? 'scale-110 border-white' : 'border-gray-500'}`}
+            className={`w-7 h-7 rounded-full border-2 transition-all flex items-center justify-center ${penColor === c ? 'border-white scale-110 shadow-lg' : 'border-gray-500/60 hover:scale-105'}`}
             style={{ backgroundColor: c }}
-          />
+            title={`Pen color ${c}`}
+          >
+            {penColor === c && <Check className="w-3.5 h-3.5 text-gray-900 drop-shadow" strokeWidth={3} />}
+          </button>
         ))}
+        <span className="w-px h-5 bg-gray-500/40 mx-0.5" />
         {[1.5, 2.5, 4].map((w, wi) => (
           <button
             key={w}
+            type="button"
             onClick={() => setPenSize(w)}
-            className={`w-5 h-5 rounded flex items-center justify-center ${penSize === w ? 'ring-1 ring-white' : 'opacity-60'}`}
+            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${penSize === w ? 'bg-white/20 ring-1 ring-white' : 'opacity-60 hover:opacity-100'}`}
             title={`Pen ${['fine', 'normal', 'thick'][wi]}`}
           >
             <span className="rounded-full bg-white" style={{ width: w + 2, height: w + 2 }} />
@@ -398,6 +404,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   const [palettePos, setPalettePos] = useState(null);
   const [findCase, setFindCase] = useState(false);
   const [collapsedFolders, setCollapsedFolders] = useState(new Set());
+  const [sideW, setSideW] = useState(144);                 // px — resizable pages sidebar
   const [glyphState, setGlyphState] = useState(null); // { id, q, at } — at:-1 = caret insert
   const [slashState, setSlashState] = useState(null); // { id, q, at } — "/" command picker
 
@@ -570,8 +577,17 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
 
   /* ----- block ops ----- */
   const addBlock = (type) => {
-    mutatePage((pg, nd) => pg.blocks.push(blockHelpers.newBlock(nd, type)));
+    let nbId = null;
+    mutatePage((pg, nd) => {
+      const nb = blockHelpers.newBlock(nd, type);
+      nbId = nb.id;
+      pg.blocks.push(nb);
+    });
     showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} block added`);
+    // wait for the new textarea to mount before focusing (double rAF > one frame)
+    if (TEXTISH.includes(type)) {
+      requestAnimationFrame(() => requestAnimationFrame(() => taRefs.current[nbId]?.focus()));
+    }
   };
 
   /** Kotlin insertBlock — new block right after [afterId] (or appended), same slide-in feel. */
@@ -583,7 +599,9 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
       const i = afterId == null ? pg.blocks.length : pg.blocks.findIndex((b) => b.id === afterId) + 1;
       pg.blocks.splice(Math.max(0, Math.min(i, pg.blocks.length)), 0, nb);
     });
-    if (TEXTISH.includes(type)) setTimeout(() => taRefs.current[nbId]?.focus(), 40);
+    if (TEXTISH.includes(type)) {
+      requestAnimationFrame(() => requestAnimationFrame(() => taRefs.current[nbId]?.focus()));
+    }
   };
 
   /** Kotlin checkAll — tick/untick the contiguous run of CHECK blocks around [id]. */
@@ -608,8 +626,8 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
 
   const glyphMatches = () => {
     if (!glyphState) return [];
-    if (!glyphState.q) return GLYPHS.slice(0, 24);
-    return GLYPHS.filter((g) => g[0].includes(glyphState.q)).slice(0, 12);
+    if (!glyphState.q) return GLYPHS.slice(0, 28);
+    return GLYPHS.filter((g) => g[0].includes(glyphState.q)).slice(0, 21);
   };
 
   /** Glyph insert — swaps the ":query" token or splices at the caret. */
@@ -1587,6 +1605,13 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
           }
           .np-root *:not(.scrollbar-hide)::-webkit-scrollbar-corner { background: transparent; }
           .np-noanim * { transition: none !important; animation: none !important; }
+          /* visible textarea resize grip — diagonal tick instead of the invisible native resizer */
+          .np-root textarea::-webkit-resizer {
+            background:
+              repeating-linear-gradient(-45deg, transparent 0 2px, var(--np-thumb) 2px 3.5px, transparent 3.5px 5.5px)
+              bottom right / 12px 12px no-repeat;
+          }
+          .np-root textarea:hover::-webkit-resizer { filter: brightness(1.3); }
         `}</style>
         {/* ===== header ===== */}
         <div
@@ -1775,11 +1800,26 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
 
         {/* ===== body ===== */}
         <div className="flex flex-1 min-h-0">
-          {/* pages sidebar — hidden on mobile (use Jump-to-page instead) */}
+          {/* pages sidebar — hidden on mobile (use Jump-to-page instead), drag edge to resize */}
           <div
-            className={`${isMobile ? 'hidden' : 'flex'} w-36 flex-shrink-0 flex-col border-r ${theme.side}`}
-            style={{ zoom: settings.uiScale || 1 }}
+            className={`${isMobile ? 'hidden' : 'flex'} flex-shrink-0 flex-col border-r relative ${theme.side}`}
+            style={{ zoom: settings.uiScale || 1, width: sideW }}
           >
+            {/* resize grip — right edge */}
+            <div
+              onPointerDown={(e) => {
+                e.preventDefault();
+                const startX = e.clientX, startW = sideW;
+                const mv = (ev) => setSideW(Math.max(120, Math.min(320, startW + ev.clientX - startX)));
+                const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
+                window.addEventListener('pointermove', mv);
+                window.addEventListener('pointerup', up);
+              }}
+              className="absolute -right-1 top-0 bottom-0 w-2 cursor-col-resize z-10 group/sidegrip"
+              title="Drag to resize pages panel"
+            >
+              <div className="absolute right-0 top-0 bottom-0 w-0.5 opacity-0 group-hover/sidegrip:opacity-100 bg-sky-400/70 transition-opacity" />
+            </div>
             <div className="flex items-center justify-between px-2 pt-2">
               <span className={`text-[10px] uppercase font-bold ${theme.muted}`}>{showTrash ? 'Trash' : 'Pages'}</span>
               <div className="flex items-center">
@@ -2131,10 +2171,10 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                               {[BT.CHECK, BT.BULLET, BT.NUMBER].includes(b.type) && !isCollapsed && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); insertBlockBelow(b.type, b.id); }}
-                                  className={`absolute right-7 top-1 w-5 h-5 rounded-md text-xs font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-green-400 border border-gray-500/40 ${theme.hover}`}
+                                  className={`absolute right-7 top-1 w-5 h-5 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-green-400 bg-green-500/10 border border-green-500/30 hover:bg-green-500/25`}
                                   title={`New ${b.type} below`}
                                 >
-                                  +
+                                  <Plus className="w-3.5 h-3.5" />
                                 </button>
                               )}
                               {/* ⋮ menu */}
@@ -2432,14 +2472,18 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                       <MenuRow theme={theme} icon={Plus} tint={TINS} label="New page" onClick={() => { addPage(); setMenu(null); }} />
                       <div className="px-3 py-1.5">
                         <span className={`text-[10px] ${theme.muted}`}>Color</span>
-                        <div className="flex gap-1 mt-1">
+                        <div className="flex gap-1.5 mt-1.5">
                           {PAGE_COLORS.map((c, i) => (
                             <button
                               key={c}
+                              type="button"
                               onClick={() => { patchPage(menu.id, { color: i }); setMenu(null); }}
-                              className="w-4 h-4 rounded-full border border-white/30"
+                              className={`w-5 h-5 rounded-full border transition-transform hover:scale-125 flex items-center justify-center ${doc.pages.find((p) => p.id === menu.id)?.color === i ? 'border-white/80 shadow' : 'border-white/30'}`}
                               style={{ backgroundColor: c }}
-                            />
+                              title={`Accent ${i + 1}`}
+                            >
+                              {doc.pages.find((p) => p.id === menu.id)?.color === i && <Check className="w-3 h-3 text-white drop-shadow" strokeWidth={3} />}
+                            </button>
                           ))}
                         </div>
                       </div>
@@ -2595,26 +2639,32 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
       <AnimatePresence>
         {glyphState && glyphMatches().length > 0 && (
           <>
-            <div className="fixed inset-0 z-[85]" onClick={() => setGlyphState(null)} />
+            <div className="fixed inset-0 z-[85]" onClick={(e) => { e.stopPropagation(); setGlyphState(null); }} />
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: -4 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className={`fixed z-[86] rounded-xl border shadow-2xl p-1.5 ${theme.panel}`}
+              onClick={(e) => e.stopPropagation()}
+              className={`fixed z-[86] rounded-xl border shadow-2xl p-2 ${theme.panel}`}
               style={(() => {
                 const r = blockRefs.current[glyphState.id]?.getBoundingClientRect();
-                const y = r ? Math.min(r.bottom + 4, window.innerHeight - 140) : window.innerHeight - 180;
-                const x = r ? Math.min(Math.max(8, r.left + 30), window.innerWidth - 190) : 20;
+                const y = r ? Math.min(r.bottom + 4, window.innerHeight - 190) : window.innerHeight - 220;
+                const x = r ? Math.min(Math.max(8, r.left + 30), window.innerWidth - 290) : 20;
                 return { left: x, top: y };
               })()}
             >
-              <div className="grid grid-cols-6 gap-0.5">
-                {glyphMatches().slice(0, 24).map(([n, e]) => (
+              <div className={`px-1 pb-1.5 flex items-center justify-between`}>
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${theme.muted}`}>Insert glyph</span>
+                {glyphState.q !== '' && <span className={`text-[10px] font-mono ${theme.muted}`}>:{glyphState.q}</span>}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {glyphMatches().slice(0, 28).map(([n, e]) => (
                   <button
                     key={n}
+                    type="button"
                     onMouseDown={(ev) => ev.preventDefault()}
                     onClick={() => insertGlyph(e)}
-                    className={`w-7 h-7 rounded-lg text-base flex items-center justify-center ${theme.hover}`}
+                    className={`w-9 h-9 rounded-lg text-lg flex items-center justify-center transition-transform hover:scale-110 ${theme.hover}`}
                     title={`:${n}`}
                   >
                     {e}
@@ -2622,7 +2672,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                 ))}
               </div>
               {glyphState.q === '' && (
-                <p className={`text-[9px] px-1 pt-1 ${theme.muted}`}>type :name to filter — Enter picks first</p>
+                <p className={`text-[9px] px-1 pt-1.5 ${theme.muted}`}>type :name to filter — Enter picks first</p>
               )}
             </motion.div>
           </>
@@ -2633,22 +2683,30 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
       <AnimatePresence>
         {showPalette && palettePos && (
           <>
-            <div className="fixed inset-0 z-[85]" onClick={() => setShowPalette(false)} />
+            <div className="fixed inset-0 z-[85]" onClick={(e) => { e.stopPropagation(); setShowPalette(false); }} />
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="fixed z-[86] p-2 rounded-xl border shadow-2xl bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 grid grid-cols-4 gap-1.5"
+              onClick={(e) => e.stopPropagation()}
+              className="fixed z-[86] p-2.5 rounded-xl border shadow-2xl bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
               style={{ left: palettePos.x, top: palettePos.y }}
             >
-              {PAGE_COLORS.map((c, i) => (
-                <button
-                  key={c}
-                  onClick={() => { patchPage(page.id, { color: i }); setShowPalette(false); }}
-                  className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 ${page.color === i ? 'border-white ring-2 ring-primary-400' : 'border-transparent'}`}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 pb-1.5 px-0.5">Page accent</p>
+              <div className="grid grid-cols-4 gap-2">
+                {PAGE_COLORS.map((c, i) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => { patchPage(page.id, { color: i }); setShowPalette(false); }}
+                    className={`w-9 h-9 rounded-full border-2 transition-transform hover:scale-110 flex items-center justify-center ${page.color === i ? 'border-gray-800 dark:border-white shadow-lg scale-105' : 'border-black/10'}`}
+                    style={{ backgroundColor: c }}
+                    title={`Accent ${i + 1}`}
+                  >
+                    {page.color === i && <Check className="w-4 h-4 text-white drop-shadow-md" strokeWidth={3} />}
+                  </button>
+                ))}
+              </div>
             </motion.div>
           </>
         )}
