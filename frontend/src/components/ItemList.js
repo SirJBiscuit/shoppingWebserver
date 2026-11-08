@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye } from 'lucide-react';
+import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye, MoreVertical, Tag, Minus, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import CustomEditPanel from './CustomEditPanel';
 // import ItemTooltip from './ItemTooltip'; // Component doesn't exist
@@ -43,6 +43,7 @@ const ItemListContent = (props) => {
     hideCategories = false, 
     storeName = null, 
     onLookForThis,
+    onQuantityChange,
     // AVE Properties
     showCheckboxes = true,
     showPrices = true,
@@ -61,6 +62,29 @@ const ItemListContent = (props) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [noteItem, setNoteItem] = useState(null);
   const [noteText, setNoteText] = useState('');
+
+  // Cross-store price comparison — one batched fetch for all unchecked items
+  const [priceCompare, setPriceCompare] = useState({});
+  const itemsKey = items.map(i => `${i.item_name}:${i.is_checked}`).join('|');
+  useEffect(() => {
+    const names = [...new Set(
+      items.filter(i => !i.is_checked).map(i => (i.item_name || '').toLowerCase().trim()).filter(Boolean)
+    )].slice(0, 50);
+    if (!names.length) { setPriceCompare({}); return; }
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    let cancelled = false;
+    fetch('/api/stores/prices/compare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ items: names })
+    })
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => { if (!cancelled && data) setPriceCompare(data.prices || {}); })
+      .catch(() => {}); // price compare is best-effort
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsKey]);
   // Named labels under action buttons — user can hide them, choice persists
   const [showButtonLabels, setShowButtonLabels] = useState(
     () => localStorage.getItem('itemListButtonLabels') !== 'false'
@@ -166,6 +190,8 @@ const ItemListContent = (props) => {
               setNoteText={setNoteText}
               onLookForThis={onLookForThis}
               onEdit={onEdit}
+              onQuantityChange={onQuantityChange}
+              priceCompare={priceCompare}
               showButtonLabels={showButtonLabels}
               showCheckboxes={showCheckboxes}
               showPrices={showPrices}
@@ -207,6 +233,8 @@ const ItemListContent = (props) => {
                   setNoteText={setNoteText}
                   onEdit={onEdit}
                   onLookForThis={onLookForThis}
+                  onQuantityChange={onQuantityChange}
+                  priceCompare={priceCompare}
                   showButtonLabels={showButtonLabels}
                   showCheckboxes={showCheckboxes}
                   showPrices={showPrices}
@@ -302,7 +330,44 @@ const ActionButton = ({ onClick, className, title, label, icon: Icon, showLabel 
   </button>
 );
 
-const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit, showButtonLabels }) => {
+// Inline cross-store price badge — shows the cheapest known price for an item,
+// highlights when it's a sale or beats the price recorded on the list item.
+const StorePriceBadge = ({ itemName, currentPrice, priceCompare }) => {
+  const rows = priceCompare?.[(itemName || '').toLowerCase()];
+  if (!rows?.length) return null;
+
+  const best = rows.reduce((a, b) => {
+    const pa = a.sale_price ?? a.price;
+    const pb = b.sale_price ?? b.price;
+    return pa <= pb ? a : b;
+  });
+  const bestPrice = best.sale_price ?? best.price;
+  if (bestPrice == null) return null;
+
+  const cur = parseFloat(currentPrice);
+  const hasCurrent = Number.isFinite(cur) && cur > 0;
+  // Only surface the badge when it says something useful: a sale, or cheaper elsewhere
+  if (hasCurrent && bestPrice >= cur && !best.on_sale) return null;
+  const save = hasCurrent && bestPrice < cur ? cur - bestPrice : null;
+
+  const tip = rows
+    .map(r => `${r.store_name}: $${(r.sale_price ?? r.price).toFixed(2)}${r.on_sale ? ' (sale)' : ''}`)
+    .join('\n');
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+      title={tip}
+    >
+      <Tag className="w-3 h-3" />
+      ${bestPrice.toFixed(2)} @ {best.store_name}
+      {best.on_sale && ' · sale'}
+      {save != null && ` −$${save.toFixed(2)}`}
+    </span>
+  );
+};
+
+const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit, onQuantityChange, priceCompare, showButtonLabels }) => {
   const [editingAisle, setEditingAisle] = useState(false);
   const [aisleNumber, setAisleNumber] = useState('');
   const [aisleName, setAisleName] = useState('');
@@ -310,8 +375,20 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
   const [inventoryCheck, setInventoryCheck] = useState(null);
   const [smartSuggestion, setSmartSuggestion] = useState(null);
   const [showSuggestion, setShowSuggestion] = useState(true);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const itemRef = useRef(null);
   const iconRef = useRef(null);
+
+  // DB returns quantity as "1.00" — must be a number for +/- to work
+  const itemQty = parseFloat(item.totalQuantity) || 1;
+  const singleItem = { ...item, id: item.ids ? item.ids[0] : item.id };
+  const adjustQuantity = (delta) => {
+    if (onQuantityChange) {
+      onQuantityChange(singleItem, delta);
+    } else if (onEdit) {
+      onEdit({ ...singleItem, quantity: Math.max(1, itemQty + delta) });
+    }
+  };
   
   // Get aisle information if store is specified
   const category = item.category_name || item.category || 'Other';
@@ -572,19 +649,19 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                       )}
                     </p>
                     <div className="flex items-center gap-2 flex-wrap">
-                      {onEdit && item.count === 1 ? (
+                      {(onQuantityChange || onEdit) && item.count === 1 ? (
                         <span className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
                           <button
-                            onClick={() => onEdit({ ...item, id: item.ids[0], quantity: Math.max(1, item.totalQuantity - 1) })}
-                            className="w-5 h-5 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-primary-200 dark:hover:bg-primary-800 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center"
+                            onClick={() => adjustQuantity(-1)}
+                            className="w-8 h-8 sm:w-5 sm:h-5 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-primary-200 dark:hover:bg-primary-800 text-gray-700 dark:text-gray-200 text-base sm:text-xs font-bold flex items-center justify-center"
                             title="Decrease quantity"
                           >
                             −
                           </button>
-                          <span className="min-w-[1.5rem] text-center">{formatQuantityPlain(item.totalQuantity)}</span>
+                          <span className="min-w-[1.5rem] text-center">{formatQuantityPlain(itemQty)}</span>
                           <button
-                            onClick={() => onEdit({ ...item, id: item.ids[0], quantity: item.totalQuantity + 1 })}
-                            className="w-5 h-5 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-primary-200 dark:hover:bg-primary-800 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center"
+                            onClick={() => adjustQuantity(1)}
+                            className="w-8 h-8 sm:w-5 sm:h-5 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-primary-200 dark:hover:bg-primary-800 text-gray-700 dark:text-gray-200 text-base sm:text-xs font-bold flex items-center justify-center"
                             title="Increase quantity"
                           >
                             +
@@ -593,7 +670,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                         </span>
                       ) : (
                         <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {formatQuantityPlain(item.totalQuantity)} {item.unit}
+                          {formatQuantityPlain(itemQty)} {item.unit}
                         </span>
                       )}
                       {item.totalPrice > 0 && (
@@ -601,6 +678,11 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                           ${item.totalPrice.toFixed(2)}
                         </span>
                       )}
+                      <StorePriceBadge
+                        itemName={item.item_name}
+                        currentPrice={item.price}
+                        priceCompare={priceCompare}
+                      />
                       {editingAisle ? (
                         <div className="flex items-center gap-1">
                           <input
@@ -665,7 +747,8 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   </div>
                 </div>
                 
-                <div className="flex items-start space-x-2">
+                {/* Desktop: full action row */}
+                <div className="hidden sm:flex items-start space-x-2">
                   <ActionButton
                     onClick={() => {
                       setEditingItem(item);
@@ -723,6 +806,79 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                     icon={Trash2}
                     showLabel={showButtonLabels}
                   />
+                </div>
+
+                {/* Mobile: compact overflow menu — full-width rows w/ big touch targets */}
+                <div className="sm:hidden relative flex-shrink-0">
+                  <button
+                    onClick={() => setShowMobileMenu(v => !v)}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    title="Item actions"
+                  >
+                    <MoreVertical className="w-5 h-5" />
+                  </button>
+                  {showMobileMenu && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setShowMobileMenu(false)} />
+                      <div className="absolute right-0 top-full mt-1 z-40 w-44 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl py-1">
+                        {item.count === 1 && (onQuantityChange || onEdit) && (
+                          <div className="flex items-center justify-between px-3 py-1.5">
+                            <button
+                              onClick={() => adjustQuantity(-1)}
+                              className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-200"
+                              title="Decrease quantity"
+                            >
+                              <Minus className="w-5 h-5" />
+                            </button>
+                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                              {formatQuantityPlain(itemQty)} {item.unit}
+                            </span>
+                            <button
+                              onClick={() => adjustQuantity(1)}
+                              className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-200"
+                              title="Increase quantity"
+                            >
+                              <Plus className="w-5 h-5" />
+                            </button>
+                          </div>
+                        )}
+                        <button
+                          onClick={() => { setShowMobileMenu(false); setEditingItem(item); setShowEditModal(true); }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          <Edit2 className="w-5 h-5 text-blue-500" /> Edit
+                        </button>
+                        <button
+                          onClick={() => { setShowMobileMenu(false); setNoteItem(item); setNoteText(item.notes || ''); }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          <FileText className="w-5 h-5 text-teal-500" /> Note
+                        </button>
+                        {onLookForThis && !item.is_checked && (
+                          <button
+                            onClick={() => { setShowMobileMenu(false); onLookForThis(item); }}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            <Eye className="w-5 h-5 text-purple-500" /> Find
+                          </button>
+                        )}
+                        {onCopyMove && (
+                          <button
+                            onClick={() => { setShowMobileMenu(false); onCopyMove(item); }}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            <Copy className="w-5 h-5 text-green-500" /> Move
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { setShowMobileMenu(false); item.ids.forEach(id => onDelete(id)); }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        >
+                          <Trash2 className="w-5 h-5" /> Delete
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
     </div>

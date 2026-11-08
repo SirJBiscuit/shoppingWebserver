@@ -403,6 +403,49 @@ router.get('/:storeId/category/:categoryName/aisle', async (req, res) => {
   }
 });
 
+// Compare prices for a batch of item names across all saved store prices.
+// Used by the shopping-list StorePriceBadge. Body: { items: ["milk", "bread"] }
+router.post('/prices/compare', async (req, res) => {
+  const { items } = req.body;
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.json({ prices: {} });
+  }
+
+  const names = [...new Set(
+    items.map(n => String(n).toLowerCase().trim()).filter(Boolean)
+  )].slice(0, 100);
+
+  try {
+    const result = await db.query(
+      `SELECT LOWER(sip.item_name) AS item_name,
+              COALESCE(sl.name, sl.store_name) AS store_name,
+              COALESCE(sl.chain, sl.chain_name, sl.store_chain) AS chain,
+              sip.price, sip.sale_price, sip.on_sale
+       FROM store_item_prices sip
+       JOIN store_locations sl ON sip.store_location_id = sl.id
+       WHERE LOWER(sip.item_name) = ANY($1)`,
+      [names]
+    );
+
+    const prices = {};
+    for (const r of result.rows) {
+      (prices[r.item_name] ||= []).push({
+        store_name: r.store_name,
+        chain: r.chain,
+        price: r.price != null ? parseFloat(r.price) : null,
+        sale_price: r.sale_price != null ? parseFloat(r.sale_price) : null,
+        on_sale: r.on_sale === true
+      });
+    }
+
+    res.json({ prices });
+  } catch (error) {
+    console.error('Error comparing store prices:', error);
+    res.status(500).json({ error: 'Failed to compare prices' });
+  }
+});
+
 // ============================================================================
 // STORE DEALS + DIGITAL COUPONS
 // ============================================================================

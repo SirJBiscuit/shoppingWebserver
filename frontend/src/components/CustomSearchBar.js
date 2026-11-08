@@ -32,8 +32,8 @@ const CustomSearchBar = ({
   onSearch,
   onSelect,
   showFilters = true,
-  showVoice = true,
-  showBarcode = true,
+  showVoice = false,   // legacy voice input disabled
+  showBarcode = false, // legacy barcode scanner disabled
   showRecent = true,
   mdlEnabled = true,
   aisleEnabled = true,

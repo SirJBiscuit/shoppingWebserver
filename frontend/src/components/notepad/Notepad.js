@@ -381,7 +381,7 @@ const daysUntil = (iso) => {
 };
 
 /* ---------- Main Notepad ---------- */
-const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
+const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, userId, onSendToList, onOpenRequest }) => {
   const [mode, setMode] = useState('window');           // window | fullscreen | compact
   const [doc, setDoc] = useState(() => loadDoc(userId));
   const [menu, setMenu] = useState(null);               // { kind:'block'|'page'|'empty', id, x, y }
@@ -470,6 +470,12 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
     saveDoc(userId, doc);
     onClose();
   }, [doc, userId, onClose]);
+
+  // X = fully close (no floating launcher); separate button minimizes to it
+  const handleCloseCompletely = useCallback(() => {
+    saveDoc(userId, doc);
+    (onCloseCompletely ?? onClose)();
+  }, [doc, userId, onClose, onCloseCompletely]);
 
   /* ----- history-aware mutation ----- */
   const mutatePage = useCallback((fn, coalesce = false) => {
@@ -1656,7 +1662,15 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
               onPointerDown={(e) => e.stopPropagation()}
               onClick={handleClose}
               className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/35 flex items-center justify-center transition-colors"
-              title="Close (shows 3-dot launcher)"
+              title="Minimize to floating launcher"
+            >
+              <MinusIcon className="w-4 h-4" />
+            </button>
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={handleCloseCompletely}
+              className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/35 flex items-center justify-center transition-colors"
+              title="Close notepad"
             >
               <X className="w-4 h-4" />
             </button>
@@ -3013,7 +3027,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   return (
     <MotionConfig reducedMotion={settings.uiAnim === false ? 'always' : 'never'}>
       <AnimatePresence mode="wait">
-        {!isOpen && launcher}
+        {!isOpen && launcherEnabled && launcher}
         {isOpen && mode === 'compact' && compactPill}
         {isOpen && mode !== 'compact' && panel}
       </AnimatePresence>

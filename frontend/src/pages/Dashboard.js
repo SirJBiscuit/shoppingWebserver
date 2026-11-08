@@ -25,11 +25,9 @@ import PageTransition from '../components/PageTransition';
 import AnimatedCart from '../components/AnimatedCart';
 import BudgetTracker from '../components/BudgetTracker';
 import FloatingButtons from '../components/FloatingButtons';
-import BarcodeScanner from '../components/BarcodeScanner';
 import ShareList from '../components/ShareList';
 import LevelingSystem, { XP_REWARDS } from '../components/LevelingSystem';
 import LevelUpModal from '../components/LevelUpModal';
-import VoiceInput, { parseVoiceInput } from '../components/VoiceInput';
 import NotificationCenter from '../components/NotificationCenter';
 import Onboarding from '../components/Onboarding';
 import HelpButton from '../components/HelpButton';
@@ -112,10 +110,8 @@ const Dashboard = () => {
           input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } }),
         oiRow({ label: 'Refresh lists', onClick: () => dashboardRefreshRef.current?.() }),
-        oiRow({ label: 'Open notepad', onClick: () => setShowNotepad(true) }),
+        oiRow({ label: 'Open notepad', onClick: () => openNotepad() }),
         oiSub('Tools', null, [
-          oiRow({ label: 'Voice input', onClick: () => setShowVoice(true) }),
-          oiRow({ label: 'Barcode scanner', onClick: () => setShowScanner(true) }),
           oiRow({ label: 'Share list', onClick: () => setShowShare(true) }),
         ]),
         ...(user?.isAdmin ? [oiSep(), oiRow({
@@ -166,10 +162,10 @@ const Dashboard = () => {
   const [categories, setCategories] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [smartSort, setSmartSort] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
   const [showShare, setShowShare] = useState(false);
-  const [showVoice, setShowVoice] = useState(false);
   const [showNotepad, setShowNotepad] = useState(false);
+  const [notepadDismissed, setNotepadDismissed] = useState(false);
+  const openNotepad = () => { setNotepadDismissed(false); setShowNotepad(true); };
   const [loading, setLoading] = useState(true);
   const [itemPreferences, setItemPreferences] = useState([]);
   const [showLevelUp, setShowLevelUp] = useState(false);
@@ -296,10 +292,8 @@ const Dashboard = () => {
     // Listen for sidebar tool clicks
     const handleSidebarTool = (event) => {
       const { action } = event.detail;
-      if (action === 'voice') setShowVoice(true);
-      if (action === 'scan') setShowScanner(true);
       if (action === 'share') setShowShare(true);
-      if (action === 'notepad') setShowNotepad(true);
+      if (action === 'notepad') openNotepad();
     };
 
     // Reload inventory when page becomes visible (e.g., returning from Pantry page)
@@ -1598,10 +1592,8 @@ const Dashboard = () => {
         <div data-tutorial="sidebar">
           <Sidebar onAction={(action) => {
             if (action === 'stores') setShowStoreManager(true);
-            else if (action === 'voice') setShowVoice(true);
-            else if (action === 'scan') setShowScanner(true);
             else if (action === 'share') setShowShare(true);
-            else if (action === 'notepad') setShowNotepad(true);
+            else if (action === 'notepad') openNotepad();
           }} />
         </div>
 
@@ -1837,12 +1829,9 @@ const Dashboard = () => {
                             Configure Aisles
                           </button>
                           
-                          {/* My Stores Button - For MDL Integration */}
+                          {/* My Stores Button - opens saved-store manager */}
                           <button
-                            onClick={() => {
-                              // TODO: Open My Stores modal for MDL integration
-                              info('My Stores feature coming soon! This will show your saved stores and allow quick switching.');
-                            }}
+                            onClick={() => setShowStoreManager(true)}
                             className="px-3 py-2 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg text-sm font-medium text-green-700 dark:text-green-300 transition-colors flex items-center gap-1"
                             title="View and manage your saved stores"
                           >
@@ -1873,10 +1862,7 @@ const Dashboard = () => {
                           
                           {/* My Stores Button - Also available when no store set */}
                           <button
-                            onClick={() => {
-                              // TODO: Open My Stores modal for MDL integration
-                              info('My Stores feature coming soon! Save your favorite stores for quick access.');
-                            }}
+                            onClick={() => setShowStoreManager(true)}
                             className="px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors flex items-center gap-1"
                             title="View and manage your saved stores"
                           >
@@ -2356,6 +2342,7 @@ const Dashboard = () => {
                 hideCategories={hideCategories}
                 storeName={activeList?.store_name}
                 onLookForThis={handleLookForThis}
+                onQuantityChange={handleQuantityChange}
                 onEdit={async (updatedItem) => {
                   try {
                     console.log('Updating item:', updatedItem);
@@ -2514,19 +2501,6 @@ const Dashboard = () => {
             </div>
           </main>
 
-      {/* Barcode Scanner Modal */}
-      <BarcodeScanner
-        isOpen={showScanner}
-        onClose={() => setShowScanner(false)}
-        onScan={(product) => {
-          setNewItemName(product.name);
-          if (product.brand) {
-            setNewItemName(`${product.brand} ${product.name}`);
-          }
-          setShowScanner(false);
-        }}
-      />
-
       {/* Share List Modal */}
       <ShareList
         list={activeList}
@@ -2539,7 +2513,9 @@ const Dashboard = () => {
       <Notepad
         isOpen={showNotepad}
         onClose={() => setShowNotepad(false)}
-        onOpenRequest={() => setShowNotepad(true)}
+        onCloseCompletely={() => { setShowNotepad(false); setNotepadDismissed(true); }}
+        launcherEnabled={!notepadDismissed}
+        onOpenRequest={() => openNotepad()}
         userId={user?.id}
         onSendToList={async (names) => {
           if (!activeList) { error('No active list selected'); return; }
@@ -2552,34 +2528,6 @@ const Dashboard = () => {
           } catch (err) {
             console.error('Error adding notepad items:', err);
             error('Failed to add items from notepad');
-          }
-        }}
-      />
-
-      {/* Voice Input Modal */}
-      <VoiceInput
-        isOpen={showVoice}
-        onClose={() => setShowVoice(false)}
-        onResult={(text) => {
-          const parsedItems = parseVoiceInput(text);
-          parsedItems.forEach(async (item) => {
-            if (activeList) {
-              try {
-                await shoppingAPI.addItem(activeList.id, {
-                  itemName: item.name,
-                  quantity: item.quantity,
-                  unit: item.unit,
-                });
-              } catch (error) {
-                console.error('Error adding voice item:', error);
-              }
-            }
-          });
-          loadListItems(activeList?.id);
-          if (window.addXP) {
-            const xpAmount = XP_REWARDS.ADD_ITEM * parsedItems.length;
-            window.addXP(xpAmount, `Added ${parsedItems.length} items by voice`);
-            showXPNotification(xpAmount, `Voice: ${parsedItems.length} items!`);
           }
         }}
       />
@@ -3076,6 +3024,7 @@ const Dashboard = () => {
             hideCategories={hideCategories}
             storeName={activeList?.store_name}
             onLookForThis={handleLookForThis}
+            onQuantityChange={handleQuantityChange}
             onEdit={async (updatedItem) => {
               try {
                 const updateData = {
