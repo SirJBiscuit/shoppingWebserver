@@ -5,6 +5,7 @@ import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const BetaAccessModal = ({ isOpen, onClose, onSuccess }) => {
+  const [mode, setMode] = useState('register'); // 'register' | 'login'
   const [step, setStep] = useState(1); // 1: Code, 2: Account, 3: Location, 4: Policy
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -27,6 +28,35 @@ const BetaAccessModal = ({ isOpen, onClose, onSuccess }) => {
   const [acceptedPolicy, setAcceptedPolicy] = useState(false);
   
   const { login } = useAuth();
+
+  // Existing tester sign-in
+  const handleBetaLogin = async () => {
+    if (!username.trim() || !password) {
+      setError('Enter your username and password');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const loginResult = await login(username.trim(), password);
+      if (loginResult.success) {
+        onSuccess();
+      } else {
+        setError(loginResult.error || 'Login failed');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const switchMode = (newMode) => {
+    setMode(newMode);
+    setError('');
+    setUsername('');
+    setPassword('');
+    setConfirmPassword('');
+    setStep(1);
+  };
 
   // Verify beta code
   const handleVerifyCode = async () => {
@@ -187,29 +217,31 @@ const BetaAccessModal = ({ isOpen, onClose, onSuccess }) => {
               </button>
             </div>
 
-            {/* Progress Steps */}
-            <div className="flex items-center justify-between mt-6">
-              {[1, 2, 3, 4].map((s) => (
-                <div key={s} className="flex items-center">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
-                      step >= s
-                        ? 'bg-white text-purple-600'
-                        : 'bg-purple-400/30 text-white/60'
-                    }`}
-                  >
-                    {step > s ? <CheckCircle className="w-5 h-5" /> : s}
-                  </div>
-                  {s < 4 && (
+            {/* Progress Steps (register mode only) */}
+            {mode === 'register' && (
+              <div className="flex items-center justify-between mt-6">
+                {[1, 2, 3, 4].map((s) => (
+                  <div key={s} className="flex items-center">
                     <div
-                      className={`w-12 h-1 mx-1 transition-colors ${
-                        step > s ? 'bg-white' : 'bg-purple-400/30'
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
+                        step >= s
+                          ? 'bg-white text-purple-600'
+                          : 'bg-purple-400/30 text-white/60'
                       }`}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+                    >
+                      {step > s ? <CheckCircle className="w-5 h-5" /> : s}
+                    </div>
+                    {s < 4 && (
+                      <div
+                        className={`w-12 h-1 mx-1 transition-colors ${
+                          step > s ? 'bg-white' : 'bg-purple-400/30'
+                        }`}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Content */}
@@ -222,8 +254,77 @@ const BetaAccessModal = ({ isOpen, onClose, onSuccess }) => {
             )}
 
             <AnimatePresence mode="wait">
+              {/* Login mode: existing tester sign-in */}
+              {mode === 'login' && (
+                <motion.div
+                  key="login"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-4"
+                >
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    Beta Tester Sign In
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Already registered with a beta code? Sign in with your tester account.
+                  </p>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Username
+                    </label>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="beta_john_123"
+                      autoComplete="username"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleBetaLogin()}
+                      placeholder="••••••••"
+                      autoComplete="current-password"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleBetaLogin}
+                    disabled={loading || !username.trim() || !password}
+                    className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader className="w-5 h-5 animate-spin" />
+                        Signing in...
+                      </>
+                    ) : (
+                      'Sign In'
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => switchMode('register')}
+                    className="w-full text-sm text-purple-600 dark:text-purple-400 hover:underline"
+                  >
+                    Have a beta code? Register a new account
+                  </button>
+                </motion.div>
+              )}
+
               {/* Step 1: Beta Code */}
-              {step === 1 && (
+              {mode === 'register' && step === 1 && (
                 <motion.div
                   key="step1"
                   initial={{ opacity: 0, x: 20 }}
@@ -261,11 +362,18 @@ const BetaAccessModal = ({ isOpen, onClose, onSuccess }) => {
                       'Verify Code'
                     )}
                   </button>
+
+                  <button
+                    onClick={() => switchMode('login')}
+                    className="w-full mt-3 text-sm text-purple-600 dark:text-purple-400 hover:underline"
+                  >
+                    Already a beta tester? Sign in instead
+                  </button>
                 </motion.div>
               )}
 
               {/* Step 2: Account Details */}
-              {step === 2 && (
+              {mode === 'register' && step === 2 && (
                 <motion.div
                   key="step2"
                   initial={{ opacity: 0, x: 20 }}
@@ -350,7 +458,7 @@ const BetaAccessModal = ({ isOpen, onClose, onSuccess }) => {
               )}
 
               {/* Step 3: Location */}
-              {step === 3 && (
+              {mode === 'register' && step === 3 && (
                 <motion.div
                   key="step3"
                   initial={{ opacity: 0, x: 20 }}
@@ -413,7 +521,7 @@ const BetaAccessModal = ({ isOpen, onClose, onSuccess }) => {
               )}
 
               {/* Step 4: Data Policy */}
-              {step === 4 && (
+              {mode === 'register' && step === 4 && (
                 <motion.div
                   key="step4"
                   initial={{ opacity: 0, x: 20 }}

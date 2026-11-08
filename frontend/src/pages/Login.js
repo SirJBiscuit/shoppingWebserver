@@ -107,7 +107,7 @@ const Login = () => {
             Beta Testing Access
           </button>
           <p className="text-xs text-center mt-2 text-gray-500 dark:text-gray-400">
-            Have a beta code? Click here to register!
+            Have a beta code? Click here to register or sign in!
           </p>
         </div>
         
