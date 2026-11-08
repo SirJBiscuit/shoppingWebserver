@@ -118,8 +118,9 @@ router.patch('/codes/:id', authenticateToken, isAdmin, async (req, res) => {
       updates.push(`code = $${i++}`); values.push(newCode);
     }
     if (expiresAt !== undefined) {
-      const d = new Date(expiresAt);
-      if (isNaN(d.getTime())) return res.status(400).json({ error: 'Invalid expiration date' });
+      // Empty/null clears the expiry; invalid non-empty values are rejected
+      const d = expiresAt ? new Date(expiresAt) : null;
+      if (expiresAt && isNaN(d.getTime())) return res.status(400).json({ error: 'Invalid expiration date' });
       updates.push(`expires_at = $${i++}`); values.push(d);
     }
     if (maxUses !== undefined) {
@@ -212,6 +213,45 @@ router.post('/codes/:id/deactivate', authenticateToken, isAdmin, async (req, res
   } catch (error) {
     console.error('Error deactivating beta code:', error);
     res.status(500).json({ error: 'Failed to deactivate beta code' });
+  }
+});
+
+// Reset a code's usage counter (admin only)
+router.post('/codes/:id/reset-uses', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const result = await db.query(
+      `UPDATE beta_testing_codes SET current_uses = 0 WHERE id = $1 RETURNING *`,
+      [req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Beta code not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error resetting code uses:', error);
+    res.status(500).json({ error: 'Failed to reset code uses' });
+  }
+});
+
+// Duplicate a code — clones expiry/max uses/notes with a fresh generated code string
+router.post('/codes/:id/duplicate', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const src = await db.query(`SELECT * FROM beta_testing_codes WHERE id = $1`, [req.params.id]);
+    if (src.rows.length === 0) {
+      return res.status(404).json({ error: 'Beta code not found' });
+    }
+    const s = src.rows[0];
+    const newCode = (await db.query('SELECT generate_beta_code() AS code')).rows[0].code;
+    const result = await db.query(
+      `INSERT INTO beta_testing_codes (code, expires_at, max_uses, notes, created_by)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [newCode, s.expires_at, s.max_uses, s.notes ? `${s.notes} (copy of ${s.code})` : `Copy of ${s.code}`, req.user.id]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error duplicating beta code:', error);
+    res.status(500).json({ error: 'Failed to duplicate beta code' });
   }
 });
 

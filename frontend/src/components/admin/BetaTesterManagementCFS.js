@@ -164,7 +164,8 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
     setSelectedTester(tester);
     setEditForm({
       displayName: tester.display_name || '',
-      adminNotes: tester.admin_notes || ''
+      adminNotes: tester.admin_notes || '',
+      betaExpiresAt: tester.beta_expires_at ? tester.beta_expires_at.slice(0, 10) : ''
     });
     setShowEditModal(true);
   };
@@ -175,11 +176,12 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
     try {
       await api.patch(`/beta/admin/testers/${selectedTester.id}`, {
         displayName: editForm.displayName,
-        adminNotes: editForm.adminNotes
+        adminNotes: editForm.adminNotes,
+        betaExpiresAt: editForm.betaExpiresAt || null
       });
       setTesters(testers.map(t =>
         t.id === selectedTester.id
-          ? { ...t, display_name: editForm.displayName, admin_notes: editForm.adminNotes }
+          ? { ...t, display_name: editForm.displayName, admin_notes: editForm.adminNotes, beta_expires_at: editForm.betaExpiresAt || null }
           : t
       ));
       setShowEditModal(false);
@@ -188,6 +190,19 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       alert(error.response?.data?.error || 'Failed to update tester');
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  const handleClearTesterExpiry = async () => {
+    if (!selectedTester) return;
+    try {
+      await api.patch(`/beta/admin/testers/${selectedTester.id}`, { betaExpiresAt: null });
+      setTesters(testers.map(t =>
+        t.id === selectedTester.id ? { ...t, beta_expires_at: null } : t
+      ));
+      setSelectedTester({ ...selectedTester, beta_expires_at: null });
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to clear expiry');
     }
   };
 
@@ -482,6 +497,15 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
                     </button>
                   ))}
                 </div>
+                {selectedTester.beta_expires_at && (
+                  <button
+                    type="button"
+                    onClick={handleClearTesterExpiry}
+                    className="mt-3 text-xs text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 underline"
+                  >
+                    Clear per-tester expiry (inherit code expiry)
+                  </button>
+                )}
               </div>
 
               {(() => {
@@ -554,6 +578,17 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
                     type="text"
                     value={editForm.displayName || ''}
                     onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Access Expires On <span className="text-xs text-gray-500">(empty = inherit code expiry)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={editForm.betaExpiresAt || ''}
+                    onChange={(e) => setEditForm({ ...editForm, betaExpiresAt: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
                   />
                 </div>

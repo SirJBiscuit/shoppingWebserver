@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Key, Calendar, Users, CheckCircle, XCircle, RefreshCw, 
-  Copy, Trash2, Edit, Clock, Zap, TimerReset
+  Copy, Trash2, Edit, Clock, Zap, TimerReset, RotateCcw, CopyPlus
 } from 'lucide-react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
@@ -190,6 +190,31 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
     }
   };
 
+  const handleResetUses = (code) => {
+    confirm(
+      `Reset usage count for ${code.code}? Current: ${code.current_uses}/${code.max_uses}. Registered testers keep their accounts.`,
+      async () => {
+        try {
+          const res = await api.post(`/beta/codes/${code.id}/reset-uses`);
+          setCodes(codes.map(c => c.id === code.id ? { ...c, ...res.data } : c));
+        } catch (error) {
+          alert(error.response?.data?.error || 'Failed to reset uses');
+        }
+      },
+      null,
+      'Reset Code Uses'
+    );
+  };
+
+  const handleDuplicate = async (code) => {
+    try {
+      const res = await api.post(`/beta/codes/${code.id}/duplicate`);
+      setCodes([res.data, ...codes]);
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to duplicate code');
+    }
+  };
+
   const isExpired = (expiresAt) => {
     return new Date(expiresAt) < new Date();
   };
@@ -338,6 +363,8 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
                 onExtend={openExtend}
                 onDeactivate={handleDeactivateCode}
                 onReactivate={handleReactivate}
+                onResetUses={handleResetUses}
+                onDuplicate={handleDuplicate}
                 onDelete={handleDeleteCode}
                 copiedCode={copiedCode}
               />
@@ -363,6 +390,8 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
                 onExtend={openExtend}
                 onDeactivate={handleDeactivateCode}
                 onReactivate={handleReactivate}
+                onResetUses={handleResetUses}
+                onDuplicate={handleDuplicate}
                 onDelete={handleDeleteCode}
                 copiedCode={copiedCode}
               />
@@ -682,7 +711,7 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
   );
 };
 
-const CodeCard = ({ code, onCopy, onEdit, onExtend, onDeactivate, onReactivate, onDelete, copiedCode }) => {
+const CodeCard = ({ code, onCopy, onEdit, onExtend, onDeactivate, onReactivate, onResetUses, onDuplicate, onDelete, copiedCode }) => {
   const statusColor = code.is_active && !isExpired(code.expires_at) && !isFullyUsed(code) ? 'green' : 'gray';
   const isExpiredCode = isExpired(code.expires_at);
   const isFullyUsedCode = isFullyUsed(code);
@@ -742,7 +771,7 @@ const CodeCard = ({ code, onCopy, onEdit, onExtend, onDeactivate, onReactivate, 
           )}
         </div>
 
-        <div className="flex flex-wrap gap-1 ml-4 justify-end max-w-[140px]">
+        <div className="flex flex-wrap gap-1 ml-4 justify-end max-w-[190px]">
           <button
             onClick={() => onEdit(code)}
             className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
@@ -756,6 +785,21 @@ const CodeCard = ({ code, onCopy, onEdit, onExtend, onDeactivate, onReactivate, 
             title="Extend expiry"
           >
             <TimerReset className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => onResetUses(code)}
+            disabled={code.current_uses === 0}
+            className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Reset usage counter to 0"
+          >
+            <RotateCcw className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => onDuplicate(code)}
+            className="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+            title="Duplicate code (new code, same settings)"
+          >
+            <CopyPlus className="w-5 h-5" />
           </button>
           {code.is_active && !isExpiredCode ? (
             <button
