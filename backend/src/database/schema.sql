@@ -91,11 +91,11 @@ CREATE TABLE IF NOT EXISTS item_statistics (
     UNIQUE(user_id, item_id)
 );
 
-CREATE INDEX idx_items_user_id ON items(user_id);
-CREATE INDEX idx_items_profile_id ON items(profile_id);
-CREATE INDEX idx_shopping_lists_user_id ON shopping_lists(user_id);
-CREATE INDEX idx_shopping_list_items_list_id ON shopping_list_items(shopping_list_id);
-CREATE INDEX idx_purchase_history_user_id ON purchase_history(user_id);
-CREATE INDEX idx_purchase_history_item_id ON purchase_history(item_id);
-CREATE INDEX idx_inventory_user_id ON inventory(user_id);
-CREATE INDEX idx_item_statistics_user_id ON item_statistics(user_id);
+CREATE INDEX IF NOT EXISTS idx_items_user_id ON items(user_id);
+CREATE INDEX IF NOT EXISTS idx_items_profile_id ON items(profile_id);
+CREATE INDEX IF NOT EXISTS idx_shopping_lists_user_id ON shopping_lists(user_id);
+CREATE INDEX IF NOT EXISTS idx_shopping_list_items_list_id ON shopping_list_items(shopping_list_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_history_user_id ON purchase_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_history_item_id ON purchase_history(item_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_user_id ON inventory(user_id);
+CREATE INDEX IF NOT EXISTS idx_item_statistics_user_id ON item_statistics(user_id);
