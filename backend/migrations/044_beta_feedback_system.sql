@@ -28,13 +28,13 @@ CREATE TABLE IF NOT EXISTS beta_feedback (
 );
 
 -- Indexes for beta_feedback
-CREATE INDEX idx_feedback_user ON beta_feedback(user_id);
-CREATE INDEX idx_feedback_beta_tester ON beta_feedback(beta_tester_id);
-CREATE INDEX idx_feedback_type ON beta_feedback(type);
-CREATE INDEX idx_feedback_status ON beta_feedback(status);
-CREATE INDEX idx_feedback_severity ON beta_feedback(severity);
-CREATE INDEX idx_feedback_created ON beta_feedback(created_at DESC);
-CREATE INDEX idx_feedback_type_status ON beta_feedback(type, status);
+CREATE INDEX IF NOT EXISTS idx_feedback_user ON beta_feedback(user_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_beta_tester ON beta_feedback(beta_tester_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_type ON beta_feedback(type);
+CREATE INDEX IF NOT EXISTS idx_feedback_status ON beta_feedback(status);
+CREATE INDEX IF NOT EXISTS idx_feedback_severity ON beta_feedback(severity);
+CREATE INDEX IF NOT EXISTS idx_feedback_created ON beta_feedback(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feedback_type_status ON beta_feedback(type, status);
 
 -- ============================================================================
 -- 2. FEEDBACK ATTACHMENTS TABLE
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS feedback_attachments (
 );
 
 -- Indexes for feedback_attachments
-CREATE INDEX idx_attachments_feedback ON feedback_attachments(feedback_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_feedback ON feedback_attachments(feedback_id);
 
 -- ============================================================================
 -- 3. FEEDBACK VOTES TABLE (for feature requests)
@@ -64,8 +64,8 @@ CREATE TABLE IF NOT EXISTS feedback_votes (
 );
 
 -- Indexes for feedback_votes
-CREATE INDEX idx_votes_feedback ON feedback_votes(feedback_id);
-CREATE INDEX idx_votes_user ON feedback_votes(user_id);
+CREATE INDEX IF NOT EXISTS idx_votes_feedback ON feedback_votes(feedback_id);
+CREATE INDEX IF NOT EXISTS idx_votes_user ON feedback_votes(user_id);
 
 -- ============================================================================
 -- 4. BETA THANK YOU MESSAGES TABLE
@@ -80,9 +80,9 @@ CREATE TABLE IF NOT EXISTS beta_thank_you_messages (
 );
 
 -- Indexes for beta_thank_you_messages
-CREATE INDEX idx_thanks_beta_tester ON beta_thank_you_messages(beta_tester_id);
-CREATE INDEX idx_thanks_sent_by ON beta_thank_you_messages(sent_by);
-CREATE INDEX idx_thanks_unread ON beta_thank_you_messages(beta_tester_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_thanks_beta_tester ON beta_thank_you_messages(beta_tester_id);
+CREATE INDEX IF NOT EXISTS idx_thanks_sent_by ON beta_thank_you_messages(sent_by);
+CREATE INDEX IF NOT EXISTS idx_thanks_unread ON beta_thank_you_messages(beta_tester_id, is_read);
 
 -- ============================================================================
 -- 5. TRIGGERS
@@ -97,6 +97,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_feedback_timestamp ON beta_feedback;
 CREATE TRIGGER trigger_update_feedback_timestamp
   BEFORE UPDATE ON beta_feedback
   FOR EACH ROW
@@ -119,6 +120,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_beta_feedback_count ON beta_feedback;
 CREATE TRIGGER trigger_update_beta_feedback_count
   AFTER INSERT OR DELETE ON beta_feedback
   FOR EACH ROW
@@ -141,6 +143,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_feedback_vote_count ON feedback_votes;
 CREATE TRIGGER trigger_update_feedback_vote_count
   AFTER INSERT OR DELETE ON feedback_votes
   FOR EACH ROW
@@ -178,7 +181,7 @@ BEGIN
     -- Combine: COLOR-YEAR-XXXXX
     new_code := random_color || '-' || current_year || '-' || random_chars;
     
-    -- Check if code already exists
+      -- Check if code already exists
     SELECT EXISTS(SELECT 1 FROM beta_testing_codes WHERE code = new_code) INTO code_exists;
     
     -- Exit loop if code is unique

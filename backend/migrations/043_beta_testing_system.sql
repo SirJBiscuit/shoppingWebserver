@@ -18,9 +18,9 @@ CREATE TABLE IF NOT EXISTS beta_testing_codes (
 );
 
 -- Indexes for beta_testing_codes
-CREATE INDEX idx_beta_codes_code ON beta_testing_codes(code);
-CREATE INDEX idx_beta_codes_active ON beta_testing_codes(is_active, expires_at);
-CREATE INDEX idx_beta_codes_creator ON beta_testing_codes(created_by);
+CREATE INDEX IF NOT EXISTS idx_beta_codes_code ON beta_testing_codes(code);
+CREATE INDEX IF NOT EXISTS idx_beta_codes_active ON beta_testing_codes(is_active, expires_at);
+CREATE INDEX IF NOT EXISTS idx_beta_codes_creator ON beta_testing_codes(created_by);
 
 -- ============================================================================
 -- 2. BETA TESTERS TABLE
@@ -40,10 +40,10 @@ CREATE TABLE IF NOT EXISTS beta_testers (
 );
 
 -- Indexes for beta_testers
-CREATE INDEX idx_beta_testers_user ON beta_testers(user_id);
-CREATE INDEX idx_beta_testers_location ON beta_testers(country, state);
-CREATE INDEX idx_beta_testers_code ON beta_testers(beta_code_id);
-CREATE INDEX idx_beta_testers_display_name ON beta_testers(display_name);
+CREATE INDEX IF NOT EXISTS idx_beta_testers_user ON beta_testers(user_id);
+CREATE INDEX IF NOT EXISTS idx_beta_testers_location ON beta_testers(country, state);
+CREATE INDEX IF NOT EXISTS idx_beta_testers_code ON beta_testers(beta_code_id);
+CREATE INDEX IF NOT EXISTS idx_beta_testers_display_name ON beta_testers(display_name);
 
 -- ============================================================================
 -- 3. LAYOUT CONFIGURATIONS TABLE
@@ -61,13 +61,13 @@ CREATE TABLE IF NOT EXISTS layout_configurations (
 );
 
 -- Indexes for layout_configurations
-CREATE INDEX idx_layouts_role ON layout_configurations(role);
-CREATE INDEX idx_layouts_active ON layout_configurations(is_active);
-CREATE INDEX idx_layouts_creator ON layout_configurations(created_by);
-CREATE INDEX idx_layouts_role_active ON layout_configurations(role, is_active);
+CREATE INDEX IF NOT EXISTS idx_layouts_role ON layout_configurations(role);
+CREATE INDEX IF NOT EXISTS idx_layouts_active ON layout_configurations(is_active);
+CREATE INDEX IF NOT EXISTS idx_layouts_creator ON layout_configurations(created_by);
+CREATE INDEX IF NOT EXISTS idx_layouts_role_active ON layout_configurations(role, is_active);
 
 -- Unique constraint: Only one active layout per role
-CREATE UNIQUE INDEX idx_layouts_unique_active_per_role 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_layouts_unique_active_per_role 
   ON layout_configurations(role) 
   WHERE is_active = true;
 
@@ -77,7 +77,8 @@ CREATE UNIQUE INDEX idx_layouts_unique_active_per_role
 -- Add new columns to users table
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_beta_tester BOOLEAN DEFAULT false;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS account_type VARCHAR(50) DEFAULT 'user' CHECK (account_type IN ('admin', 'user', 'beta'));
+ALTER TABLE users ADD COLUMN IF NOT EXISTS account_type VARCHAR(50) DEFAULT 'user';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP;
 
 -- Index for account type
 CREATE INDEX IF NOT EXISTS idx_users_account_type ON users(account_type);
@@ -96,6 +97,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_beta_code_timestamp ON beta_testing_codes;
 CREATE TRIGGER trigger_update_beta_code_timestamp
   BEFORE UPDATE ON beta_testing_codes
   FOR EACH ROW
@@ -110,6 +112,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_layout_timestamp ON layout_configurations;
 CREATE TRIGGER trigger_update_layout_timestamp
   BEFORE UPDATE ON layout_configurations
   FOR EACH ROW
@@ -129,6 +132,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_ensure_single_active_layout ON layout_configurations;
 CREATE TRIGGER trigger_ensure_single_active_layout
   BEFORE INSERT OR UPDATE ON layout_configurations
   FOR EACH ROW
@@ -148,6 +152,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_beta_tester_activity ON users;
 CREATE TRIGGER trigger_update_beta_tester_activity
   AFTER UPDATE ON users
   FOR EACH ROW
@@ -193,7 +198,7 @@ VALUES
       }
     }'::jsonb,
     true,
-    (SELECT id FROM users WHERE role = 'admin' LIMIT 1)
+    (SELECT id FROM users WHERE is_admin = true LIMIT 1)
   ),
   (
     'Default User Layout',
@@ -227,7 +232,7 @@ VALUES
       }
     }'::jsonb,
     true,
-    (SELECT id FROM users WHERE role = 'admin' LIMIT 1)
+    (SELECT id FROM users WHERE is_admin = true LIMIT 1)
   ),
   (
     'Clean Beta Dashboard',
@@ -262,7 +267,7 @@ VALUES
       }
     }'::jsonb,
     true,
-    (SELECT id FROM users WHERE role = 'admin' LIMIT 1)
+    (SELECT id FROM users WHERE is_admin = true LIMIT 1)
   )
 ON CONFLICT DO NOTHING;
 
