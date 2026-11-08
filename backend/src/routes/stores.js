@@ -403,4 +403,172 @@ router.get('/:storeId/category/:categoryName/aisle', async (req, res) => {
   }
 });
 
+// ============================================================================
+// STORE DEALS + DIGITAL COUPONS
+// ============================================================================
+
+// Get active deals for a store (camelCase aliases match the frontend's
+// deal.itemName / deal.savings / deal.validUntil shape)
+router.get('/:storeId/deals', async (req, res) => {
+  const { storeId } = req.params;
+  const { includeExpired } = req.query;
+
+  try {
+    const result = await db.query(
+      `SELECT id, item_name AS "itemName", category,
+              original_price AS "originalPrice", sale_price AS "salePrice",
+              savings, unit, deal_type AS "dealType",
+              valid_from AS "validFrom", valid_until AS "validUntil",
+              description, image_url AS "imageUrl"
+       FROM store_deals
+       WHERE store_id = $1
+         ${includeExpired === 'true' ? '' : 'AND valid_until >= NOW()'}
+       ORDER BY savings DESC NULLS LAST
+       LIMIT 200`,
+      [storeId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching store deals:', error);
+    res.status(500).json({ error: 'Failed to fetch deals' });
+  }
+});
+
+// Create/update a deal (store owner or admin only)
+router.post('/:storeId/deals', async (req, res) => {
+  const { storeId } = req.params;
+  const {
+    itemName, category, originalPrice, salePrice, unit,
+    dealType = 'weekly', validFrom, validUntil, description, imageUrl
+  } = req.body;
+
+  if (!itemName || !salePrice || !validUntil) {
+    return res.status(400).json({ error: 'itemName, salePrice, and validUntil are required' });
+  }
+
+  try {
+    const store = await db.query(
+      'SELECT user_id, created_by FROM store_locations WHERE id = $1', [storeId]
+    );
+    if (!store.rows[0]) {
+      return res.status(404).json({ error: 'Store not found' });
+    }
+    const owner = store.rows[0].user_id || store.rows[0].created_by;
+    if (owner !== req.user.id && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Only the store owner can add deals' });
+    }
+
+    const savings = originalPrice != null ? +(originalPrice - salePrice).toFixed(2) : null;
+    const result = await db.query(
+      `INSERT INTO store_deals
+        (store_id, item_name, category, original_price, sale_price, savings,
+         unit, deal_type, valid_from, valid_until, description, image_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING *`,
+      [storeId, itemName, category || null, originalPrice ?? null, salePrice,
+       savings, unit || null, dealType, validFrom || null, validUntil,
+       description || null, imageUrl || null]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating deal:', error);
+    res.status(500).json({ error: 'Failed to create deal' });
+  }
+});
+
+// Get active digital coupons for a store
+router.get('/:storeId/coupons', async (req, res) => {
+  const { storeId } = req.params;
+
+  try {
+    const result = await db.query(
+      `SELECT c.id, c.coupon_code AS "couponCode", c.item_name AS "itemName",
+              c.category, c.discount_amount AS "discountAmount",
+              c.discount_percent AS "discountPercent",
+              c.min_purchase AS "minPurchase", c.max_discount AS "maxDiscount",
+              c.valid_from AS "validFrom", c.valid_until AS "validUntil",
+              c.usage_limit AS "usageLimit", c.description, c.terms,
+              (uc.id IS NOT NULL) AS "isClipped"
+       FROM digital_coupons c
+       LEFT JOIN user_coupons uc
+         ON uc.coupon_id = c.id AND uc.user_id = $2
+       WHERE c.store_id = $1 AND c.valid_until >= NOW()
+       ORDER BY c.discount_amount DESC NULLS LAST, c.discount_percent DESC NULLS LAST`,
+      [storeId, req.user.id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching coupons:', error);
+    res.status(500).json({ error: 'Failed to fetch coupons' });
+  }
+});
+
+// Get the user's clipped coupons (digital wallet)
+router.get('/coupons/clipped', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT uc.id AS "clipId", uc.clipped_at AS "clippedAt",
+              uc.used_at AS "usedAt", uc.list_id AS "listId",
+              c.id, c.store_id AS "storeId", c.coupon_code AS "couponCode",
+              c.item_name AS "itemName", c.category,
+              c.discount_amount AS "discountAmount",
+              c.discount_percent AS "discountPercent",
+              c.valid_until AS "validUntil", c.description,
+              COALESCE(sl.name, sl.store_name) AS "storeName"
+       FROM user_coupons uc
+       JOIN digital_coupons c ON uc.coupon_id = c.id
+       LEFT JOIN store_locations sl ON c.store_id = sl.id
+       WHERE uc.user_id = $1
+       ORDER BY uc.used_at IS NOT NULL, uc.clipped_at DESC`,
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching clipped coupons:', error);
+    res.status(500).json({ error: 'Failed to fetch clipped coupons' });
+  }
+});
+
+// Clip a coupon to the user's wallet
+router.post('/coupons/:couponId/clip', async (req, res) => {
+  const { couponId } = req.params;
+  const { listId } = req.body;
+
+  try {
+    const coupon = await db.query(
+      'SELECT id FROM digital_coupons WHERE id = $1 AND valid_until >= NOW()',
+      [couponId]
+    );
+    if (!coupon.rows[0]) {
+      return res.status(404).json({ error: 'Coupon not found or expired' });
+    }
+
+    const result = await db.query(
+      `INSERT INTO user_coupons (user_id, coupon_id, list_id)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, coupon_id) DO NOTHING
+       RETURNING *`,
+      [req.user.id, couponId, listId || null]
+    );
+    res.status(201).json(result.rows[0] || { clipped: true });
+  } catch (error) {
+    console.error('Error clipping coupon:', error);
+    res.status(500).json({ error: 'Failed to clip coupon' });
+  }
+});
+
+// Unclip a coupon
+router.delete('/coupons/:couponId/clip', async (req, res) => {
+  try {
+    await db.query(
+      'DELETE FROM user_coupons WHERE user_id = $1 AND coupon_id = $2',
+      [req.user.id, req.params.couponId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error unclipping coupon:', error);
+    res.status(500).json({ error: 'Failed to unclip coupon' });
+  }
+});
+
 module.exports = router;
