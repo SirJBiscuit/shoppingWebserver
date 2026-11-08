@@ -132,7 +132,7 @@ const BetaAccessModal = ({ isOpen, onClose, onSuccess }) => {
 
       // Auto-login with the new account
       if (response.data.token) {
-        const loginResult = await login(username.trim(), null, response.data.token);
+        const loginResult = await login(username.trim(), password);
         if (loginResult.success) {
           onSuccess();
         } else {
