@@ -16,6 +16,8 @@ import ConfirmModal from '../../limbo/modals/ConfirmModal';
 import { Slider3D, Toggle3D, Check3D, Typewriter } from './ui';
 import { useOverlayTarget, useOverlayHotkeys } from '../../overlay/OverlayInteractions';
 import { BT, PAGE_COLORS, loadDoc, saveDoc, exportPageText, makeHistory, blockHelpers } from './notepadStore';
+import { ICON_DATA } from '../IconPicker';
+import PickerSearchBar from '../PickerSearchBar';
 
 const THEMES = {
   dark: {
@@ -108,6 +110,16 @@ const GLYPHS = [
   ['home', '🏠'], ['car', '🚗'], ['phone', '📱'], ['sparkle', '✨'], ['important', '‼️'],
   ['bolt', '⚡'], ['flag', '🚩'], ['book', '📖'], ['key', '🔑'], ['lock', '🔒'],
 ];
+
+/** Search index — notepad glyphs + IconPicker's ICON_DATA, deduped by emoji, keyword-text searchable. */
+const GLYPH_INDEX = (() => {
+  const map = new Map(); // emoji -> space-joined keywords
+  GLYPHS.forEach(([n, e]) => map.set(e, map.has(e) ? `${map.get(e)} ${n}` : n));
+  ICON_DATA.forEach(({ icon, keywords }) => {
+    map.set(icon, map.has(icon) ? `${map.get(icon)} ${keywords.join(' ')}` : keywords.join(' '));
+  });
+  return [...map.entries()].map(([e, kws]) => ({ e, kws, n: kws.split(' ')[0] }));
+})();
 
 const PAGE_TEMPLATES = [
   {
@@ -405,6 +417,7 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
   const [findCase, setFindCase] = useState(false);
   const [collapsedFolders, setCollapsedFolders] = useState(new Set());
   const [sideW, setSideW] = useState(144);                 // px — resizable pages sidebar
+  const [glyphW, setGlyphW] = useState(300);               // px — resizable glyph picker
   const [glyphState, setGlyphState] = useState(null); // { id, q, at } — at:-1 = caret insert
   const [slashState, setSlashState] = useState(null); // { id, q, at } — "/" command picker
 
@@ -626,8 +639,9 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
 
   const glyphMatches = () => {
     if (!glyphState) return [];
-    if (!glyphState.q) return GLYPHS.slice(0, 28);
-    return GLYPHS.filter((g) => g[0].includes(glyphState.q)).slice(0, 21);
+    const q = glyphState.q;
+    if (!q) return GLYPH_INDEX.slice(0, 28).map((g) => [g.n, g.e]);
+    return GLYPH_INDEX.filter((g) => g.kws.includes(q)).slice(0, 24).map((g) => [g.n, g.e]);
   };
 
   /** Glyph insert — swaps the ":query" token or splices at the caret. */
@@ -2653,27 +2667,54 @@ const Notepad = ({ isOpen, onClose, userId, onSendToList, onOpenRequest }) => {
                 return { left: x, top: y };
               })()}
             >
-              <div className={`px-1 pb-1.5 flex items-center justify-between`}>
+              <div className={`px-1 pb-1 flex items-center justify-between`}>
                 <span className={`text-[10px] font-bold uppercase tracking-widest ${theme.muted}`}>Insert glyph</span>
-                {glyphState.q !== '' && <span className={`text-[10px] font-mono ${theme.muted}`}>:{glyphState.q}</span>}
+                {glyphState.q !== '' && glyphState.at >= 0 && <span className={`text-[10px] font-mono ${theme.muted}`}>:{glyphState.q}</span>}
               </div>
-              <div className="grid grid-cols-7 gap-1">
-                {glyphMatches().slice(0, 28).map(([n, e]) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onMouseDown={(ev) => ev.preventDefault()}
-                    onClick={() => insertGlyph(e)}
-                    className={`w-9 h-9 rounded-lg text-lg flex items-center justify-center transition-transform hover:scale-110 ${theme.hover}`}
-                    title={`:${n}`}
-                  >
-                    {e}
-                  </button>
-                ))}
+              <PickerSearchBar
+                value={glyphState.q}
+                onChange={(v) => setGlyphState((st) => (st ? { ...st, q: v.toLowerCase() } : st))}
+                placeholder="Search glyphs & icons…"
+                autoFocus={glyphState.at === -1}
+                className="mb-1.5"
+              />
+              <div className="overflow-y-auto pr-0.5" style={{ maxHeight: 240 }}>
+                <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(36px, 1fr))' }}>
+                  {glyphMatches().slice(0, 42).map(([n, e]) => (
+                    <button
+                      key={n + e}
+                      type="button"
+                      onMouseDown={(ev) => ev.preventDefault()}
+                      onClick={() => insertGlyph(e)}
+                      className={`w-9 h-9 rounded-lg text-lg flex items-center justify-center transition-transform hover:scale-110 ${theme.hover}`}
+                      title={`:${n}`}
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </div>
+                {glyphMatches().length === 0 && (
+                  <p className={`text-[10px] px-1 py-3 text-center ${theme.muted}`}>No glyphs match “{glyphState.q}”</p>
+                )}
               </div>
               {glyphState.q === '' && (
                 <p className={`text-[9px] px-1 pt-1.5 ${theme.muted}`}>type :name to filter — Enter picks first</p>
               )}
+              {/* resize grip — drag right edge */}
+              <div
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  const sx = e.clientX, sw = glyphW;
+                  const mv = (ev) => setGlyphW(Math.max(240, Math.min(480, sw + ev.clientX - sx)));
+                  const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
+                  window.addEventListener('pointermove', mv);
+                  window.addEventListener('pointerup', up);
+                }}
+                className={`absolute bottom-1 right-1 w-4 h-4 cursor-nwse-resize opacity-40 hover:opacity-90 ${theme.muted}`}
+                title="Drag to resize"
+              >
+                <svg viewBox="0 0 16 16" className="w-full h-full" fill="currentColor"><path d="M16 6 L6 16 H3.5 L16 3.5 Z M16 11 L11 16 H8.5 L16 8.5 Z" /></svg>
+              </div>
             </motion.div>
           </>
         )}

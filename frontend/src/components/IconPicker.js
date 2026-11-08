@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import PickerSearchBar from './PickerSearchBar';
 
 // Comprehensive icon library with keywords for search
 const ICON_DATA = [
@@ -230,6 +231,22 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedTags, setSelectedTags] = useState(currentTags);
+  const [size, setSize] = useState(null); // {w,h} px — set once user drags the resize grip
+
+  const startResize = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = e.currentTarget.closest('[data-icon-modal]');
+    const r = el.getBoundingClientRect();
+    const sx = e.clientX, sy = e.clientY;
+    const mv = (ev) => setSize({
+      w: Math.max(420, Math.min(window.innerWidth * 0.96, r.width + ev.clientX - sx)),
+      h: Math.max(360, Math.min(window.innerHeight * 0.96, r.height + ev.clientY - sy)),
+    });
+    const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', mv);
+    window.addEventListener('pointerup', up);
+  };
 
   const categories = ['All', ...Object.keys(ICON_LIBRARY)];
 
@@ -302,7 +319,21 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-[95vw] sm:max-w-3xl lg:max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+      <div
+        data-icon-modal
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-[95vw] sm:max-w-4xl lg:max-w-5xl max-h-[95vh] sm:max-h-[92vh] overflow-hidden flex flex-col relative"
+        style={size ? { width: size.w, height: size.h, maxWidth: '95vw', maxHeight: '95vh' } : undefined}
+      >
+        {/* resize grip — bottom-right corner (desktop) */}
+        <div
+          onPointerDown={startResize}
+          className="hidden sm:block absolute bottom-1.5 right-1.5 w-5 h-5 cursor-nwse-resize z-20 opacity-40 hover:opacity-90 transition-opacity"
+          title="Drag to resize"
+        >
+          <svg viewBox="0 0 20 20" className="w-full h-full text-gray-500 dark:text-gray-300" fill="currentColor">
+            <path d="M20 8 L8 20 H5 L20 5 Z M20 14 L14 20 H11 L20 11 Z" />
+          </svg>
+        </div>
         {/* Header */}
         <div className="p-3 sm:p-4 lg:p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div className="flex justify-between items-center mb-3 sm:mb-4">
@@ -312,17 +343,14 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName
             </button>
           </div>
 
-          {/* Search */}
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
-            <input
-              type="text"
-              placeholder="Search icons..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 sm:pl-10 pr-4 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
+          {/* Search — shared picker search bar (icons + glyphs use the same one) */}
+          <PickerSearchBar
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Search icons & glyphs…"
+            autoFocus
+            className="mb-3 py-2"
+          />
 
           {/* Suggested Icons */}
           {suggestedIcons.length > 0 && !searchTerm && (
@@ -407,4 +435,4 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName
 };
 
 export default IconPicker;
-export { ICON_LIBRARY, ITEM_TAGS };
+export { ICON_LIBRARY, ITEM_TAGS, ICON_DATA };
