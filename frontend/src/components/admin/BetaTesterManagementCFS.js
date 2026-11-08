@@ -130,12 +130,14 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
   };
 
   const handleExtendAccess = async () => {
-    if (!selectedTester) return;
+    const days = parseInt(extendDays, 10);
+    if (!selectedTester || !Number.isFinite(days) || days < 1 || days > 3650) {
+      alert('Enter a valid number of days (1–3650)');
+      return;
+    }
     setExtending(true);
     try {
-      const res = await api.post(`/beta/admin/testers/${selectedTester.id}/extend`, {
-        days: parseInt(extendDays, 10)
-      });
+      const res = await api.post(`/beta/admin/testers/${selectedTester.id}/extend`, { days });
       setTesters(testers.map(t =>
         t.id === selectedTester.id ? { ...t, beta_expires_at: res.data.beta_expires_at } : t
       ));
@@ -446,27 +448,57 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
                 Extending access for <strong>{selectedTester.display_name || selectedTester.beta_username}</strong>
                 {selectedTester.beta_expires_at
                   ? ` — currently expires ${new Date(selectedTester.beta_expires_at).toLocaleDateString()}`
-                  : ' — no expiry set'}
+                  : selectedTester.expires_at
+                    ? ` — via code, ends ${new Date(selectedTester.expires_at).toLocaleDateString()}`
+                    : ' — no expiry set'}
               </p>
 
-              <div className="mb-6">
+              <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Extend by
+                  Extend by (days)
                 </label>
-                <select
+                <input
+                  type="number"
                   value={extendDays}
                   onChange={(e) => setExtendDays(e.target.value)}
+                  min="1"
+                  max="3650"
+                  autoFocus
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
-                >
-                  <option value="7">7 days</option>
-                  <option value="14">14 days</option>
-                  <option value="30">30 days</option>
-                  <option value="60">60 days</option>
-                  <option value="90">90 days</option>
-                  <option value="180">180 days</option>
-                  <option value="365">1 year</option>
-                </select>
+                />
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {[7, 14, 30, 60, 90, 180, 365].map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setExtendDays(String(d))}
+                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                        extendDays === String(d)
+                          ? 'bg-purple-600 text-white border-purple-600'
+                          : 'text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {d}d
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {(() => {
+                const d = parseInt(extendDays, 10);
+                if (Number.isFinite(d) && d > 0) {
+                  const base = selectedTester.beta_expires_at && new Date(selectedTester.beta_expires_at) > new Date()
+                    ? new Date(selectedTester.beta_expires_at)
+                    : new Date();
+                  const newExpiry = new Date(base.getTime() + d * 86400000);
+                  return (
+                    <p className="text-xs text-purple-600 dark:text-purple-400 mb-4">
+                      New expiry: {newExpiry.toLocaleDateString()}
+                    </p>
+                  );
+                }
+                return null;
+              })()}
 
               <div className="flex gap-3">
                 <button
@@ -478,7 +510,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
                 </button>
                 <button
                   onClick={handleExtendAccess}
-                  disabled={extending}
+                  disabled={extending || !extendDays || parseInt(extendDays, 10) < 1}
                   className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   {extending ? <Send className="w-5 h-5 animate-pulse" /> : <TimerReset className="w-5 h-5" />}

@@ -150,12 +150,34 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
     }
   };
 
-  const handleExtendCode = async (codeId, days) => {
+  // Extend modal state
+  const [showExtendModal, setShowExtendModal] = useState(false);
+  const [extendTarget, setExtendTarget] = useState(null);
+  const [extendDays, setExtendDays] = useState('30');
+  const [extending, setExtending] = useState(false);
+
+  const openExtend = (code) => {
+    setExtendTarget(code);
+    setExtendDays('30');
+    setShowExtendModal(true);
+  };
+
+  const handleExtendCode = async () => {
+    const days = parseInt(extendDays, 10);
+    if (!extendTarget || !Number.isFinite(days) || days < 1 || days > 3650) {
+      alert('Enter a valid number of days (1–3650)');
+      return;
+    }
+    setExtending(true);
     try {
-      const res = await api.post(`/beta/codes/${codeId}/extend`, { days });
-      setCodes(codes.map(c => c.id === codeId ? { ...c, ...res.data } : c));
+      const res = await api.post(`/beta/codes/${extendTarget.id}/extend`, { days });
+      setCodes(codes.map(c => c.id === extendTarget.id ? { ...c, ...res.data } : c));
+      setShowExtendModal(false);
+      setExtendTarget(null);
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to extend code');
+    } finally {
+      setExtending(false);
     }
   };
 
@@ -313,7 +335,7 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
                 code={code}
                 onCopy={handleCopyCode}
                 onEdit={openEdit}
-                onExtend={handleExtendCode}
+                onExtend={openExtend}
                 onDeactivate={handleDeactivateCode}
                 onReactivate={handleReactivate}
                 onDelete={handleDeleteCode}
@@ -338,7 +360,7 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
                 code={code}
                 onCopy={handleCopyCode}
                 onEdit={openEdit}
-                onExtend={handleExtendCode}
+                onExtend={openExtend}
                 onDeactivate={handleDeactivateCode}
                 onReactivate={handleReactivate}
                 onDelete={handleDeleteCode}
@@ -556,6 +578,105 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
         )}
       </AnimatePresence>
 
+      {/* Extend Code Modal */}
+      <AnimatePresence>
+        {showExtendModal && extendTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full p-6"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <TimerReset className="w-6 h-6 text-teal-600" />
+                  Extend Code
+                </h3>
+                <button
+                  onClick={() => { setShowExtendModal(false); setExtendTarget(null); }}
+                  className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                <span className="font-mono font-semibold">{extendTarget.code}</span>
+                {extendTarget.expires_at
+                  ? ` — currently expires ${new Date(extendTarget.expires_at).toLocaleDateString()}`
+                  : ' — no expiry set'}
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Extend by (days)
+                </label>
+                <input
+                  type="number"
+                  value={extendDays}
+                  onChange={(e) => setExtendDays(e.target.value)}
+                  min="1"
+                  max="3650"
+                  autoFocus
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500"
+                />
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {[7, 14, 30, 60, 90, 180, 365].map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setExtendDays(String(d))}
+                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                        extendDays === String(d)
+                          ? 'bg-teal-600 text-white border-teal-600'
+                          : 'text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {d}d
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {(() => {
+                const d = parseInt(extendDays, 10);
+                if (Number.isFinite(d) && d > 0) {
+                  const base = extendTarget.expires_at && new Date(extendTarget.expires_at) > new Date()
+                    ? new Date(extendTarget.expires_at)
+                    : new Date();
+                  const newExpiry = new Date(base.getTime() + d * 86400000);
+                  return (
+                    <p className="text-xs text-teal-600 dark:text-teal-400 mb-4">
+                      New expiry: {newExpiry.toLocaleDateString()}
+                    </p>
+                  );
+                }
+                return null;
+              })()}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowExtendModal(false); setExtendTarget(null); }}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  disabled={extending}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleExtendCode}
+                  disabled={extending || !extendDays || parseInt(extendDays, 10) < 1}
+                  className="flex-1 px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-400 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  {extending ? <RefreshCw className="w-5 h-5 animate-spin" /> : <TimerReset className="w-5 h-5" />}
+                  Extend
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <CustomNotification {...notification} onClose={hideNotification} />
     </div>
   );
@@ -630,9 +751,9 @@ const CodeCard = ({ code, onCopy, onEdit, onExtend, onDeactivate, onReactivate, 
             <Edit className="w-5 h-5" />
           </button>
           <button
-            onClick={() => onExtend(code.id, 30)}
+            onClick={() => onExtend(code)}
             className="p-2 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg transition-colors"
-            title="Extend expiry by 30 days"
+            title="Extend expiry"
           >
             <TimerReset className="w-5 h-5" />
           </button>
