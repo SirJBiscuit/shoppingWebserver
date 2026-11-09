@@ -10,6 +10,9 @@ const FeatureFlagContext = createContext();
 export const FeatureFlagProvider = ({ children }) => {
   const [features, setFeatures] = useState({});
   const [limits, setLimits] = useState({});
+  const [userTier, setUserTier] = useState('free');
+  const [isBetaTester, setIsBetaTester] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -45,6 +48,9 @@ export const FeatureFlagProvider = ({ children }) => {
 
       setFeatures(featuresObj);
       setLimits(limitsResponse.data?.limits || {});
+      setUserTier(flagsResponse.data?.userTier || 'free');
+      setIsBetaTester(flagsResponse.data?.isBetaTester === true);
+      setIsGuest(flagsResponse.data?.isGuest === true);
     } catch (error) {
       console.error('Failed to load feature flags:', error);
       // Set default features if API fails
@@ -76,9 +82,10 @@ export const FeatureFlagProvider = ({ children }) => {
    * @returns {boolean} - True if feature is enabled
    */
   const hasFeature = (featureKey) => {
+    // Unknown keys are allowed — same semantics as the backend's
+    // hasFeatureAccess, which returns true when a flag row doesn't exist.
     if (!features[featureKey]) {
-      console.warn(`Feature '${featureKey}' not found in feature flags`);
-      return false; // Default to disabled if not found
+      return true;
     }
     return features[featureKey].enabled === true;
   };
@@ -121,6 +128,9 @@ export const FeatureFlagProvider = ({ children }) => {
   const value = {
     features,
     limits,
+    userTier,
+    isBetaTester,
+    isGuest,
     loading,
     hasFeature,
     hasReachedLimit,

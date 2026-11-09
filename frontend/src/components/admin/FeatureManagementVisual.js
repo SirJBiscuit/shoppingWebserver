@@ -98,6 +98,24 @@ const FeatureManagementVisual = () => {
     }
   };
 
+  // Hide/show a feature for beta testers only (admins always see it)
+  const toggleBetaHide = async (featureId, currentStatus) => {
+    try {
+      await api.put(`/features/admin/feature/${featureId}`, {
+        hide_from_beta: !currentStatus
+      });
+
+      setFeatures(features.map(f =>
+        f.id === featureId ? { ...f, hide_from_beta: !currentStatus } : f
+      ));
+      await refreshFeatures();
+      showMessage(!currentStatus ? 'Hidden from beta testers' : 'Visible to beta testers', 'success');
+    } catch (error) {
+      console.error('Error updating beta visibility:', error);
+      showMessage('Failed to update beta visibility', 'error');
+    }
+  };
+
   const handleDragEnd = (result) => {
     if (!result.destination) return;
 
@@ -434,6 +452,20 @@ const FeatureManagementVisual = () => {
                               </div>
                             </div>
                             
+                            {/* Beta visibility pill */}
+                            <button
+                              onClick={() => toggleBetaHide(feature.id, feature.hide_from_beta)}
+                              title={feature.hide_from_beta ? 'Hidden from beta testers — click to show' : 'Visible to beta testers — click to hide'}
+                              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                                feature.hide_from_beta
+                                  ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
+                              }`}
+                            >
+                              {feature.hide_from_beta ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                              Beta
+                            </button>
+
                             <button
                               onClick={() => toggleFeature(feature.id, feature.is_enabled)}
                               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${

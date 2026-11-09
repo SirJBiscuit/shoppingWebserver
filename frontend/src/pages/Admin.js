@@ -4,7 +4,7 @@ import {
   Settings, RefreshCw, Download, Server, Database, 
   GitBranch, Package, ShoppingCart, ChefHat, LogOut,
   CheckCircle, XCircle, AlertCircle, Terminal, Play, Flag,
-  Crown, Users, Layout, Volume2, Folder
+  Crown, Users, Layout, Volume2, Folder, Sparkles, ShieldAlert
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -14,6 +14,8 @@ import PageTransition from '../components/PageTransition';
 import FeatureManagementVisual from '../components/admin/FeatureManagementVisual';
 import StorageDashboard from '../components/admin/StorageDashboard';
 import MDLProductsPanel from '../components/admin/MDLProductsPanel';
+import ChangelogPanel from '../components/admin/ChangelogPanel';
+import PriceReviewPanel from '../components/admin/PriceReviewPanel';
 // import UserManagement from '../backburner/components/UserManagement'; // Disabled - will rebuild with CFS
 // import DashboardEditor from '../backburner/components/DashboardEditor'; // Disabled - replaced by AES
 import SoundSettings from '../components/SoundSettings';
@@ -218,6 +220,8 @@ const AdminNew = () => {
     { id: 'users', name: 'User Management', icon: Users },
     { id: 'storage', name: 'Storage Management', icon: Folder },
     { id: 'mdl', name: 'Product Database (MDL)', icon: Database },
+    { id: 'review', name: 'Price Review', icon: ShieldAlert },
+    { id: 'changelog', name: 'Changelog', icon: Sparkles },
     { id: 'sounds', name: 'Sound Management', icon: Volume2 },
     { id: 'logs', name: 'System Logs', icon: Terminal },
   ];
@@ -509,6 +513,20 @@ const AdminNew = () => {
             {/* Storage Management Tab */}
             {activeTab === 'storage' && (
               <StorageDashboard />
+            )}
+
+            {/* Price Review Tab */}
+            {activeTab === 'review' && (
+              <div className="card">
+                <PriceReviewPanel />
+              </div>
+            )}
+
+            {/* Changelog Tab */}
+            {activeTab === 'changelog' && (
+              <div className="card">
+                <ChangelogPanel />
+              </div>
             )}
 
             {/* Sound Management Tab */}

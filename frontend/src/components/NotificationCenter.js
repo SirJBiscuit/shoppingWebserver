@@ -1,103 +1,109 @@
-import React, { useState, useEffect } from 'react';
-import { Bell, X, Check, AlertCircle, Info, TrendingUp } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Bell, X, Check, AlertCircle, Info, TrendingUp, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import api from '../services/api';
 
+const POLL_MS = 60000;
+
+/**
+ * NotificationCenter — toolbar bell
+ * Server notifications (feature releases, admin broadcasts) live in
+ * user_notifications via /api/notifications. Local alerts (expiring items,
+ * window.addNotification from anywhere in the app) merge on top.
+ */
 const NotificationCenter = () => {
-  const [notifications, setNotifications] = useState([]);
+  const [remote, setRemote] = useState([]);   // from /api/notifications
+  const [local, setLocal] = useState([]);     // localStorage alerts
   const [isOpen, setIsOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
 
-  useEffect(() => {
-    loadNotifications();
-    checkForNotifications();
+  /* ---------- remote ---------- */
+  const fetchRemote = useCallback(async () => {
+    try {
+      const { data } = await api.get('/notifications', { params: { limit: 25 } });
+      setRemote(data || []);
+    } catch { /* backend unreachable — local alerts still work */ }
   }, []);
 
-  const loadNotifications = () => {
-    const saved = localStorage.getItem('notifications');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setNotifications(parsed);
-      setUnreadCount(parsed.filter(n => !n.read).length);
-    }
+  useEffect(() => {
+    fetchRemote();
+    const t = setInterval(fetchRemote, POLL_MS);
+    return () => clearInterval(t);
+  }, [fetchRemote]);
+
+  /* ---------- local alerts ---------- */
+  const addLocal = useCallback((type, title, message) => {
+    setLocal((prev) => {
+      if (prev.some((n) => n.title === title && n.message === message)) return prev;
+      const n = { id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, type, title, message, read: false, timestamp: new Date().toISOString() };
+      const updated = [n, ...prev].slice(0, 30);
+      try { localStorage.setItem('notifications', JSON.stringify(updated)); } catch { /* full */ }
+      return updated;
+    });
+  }, []);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('notifications') || '[]');
+      if (saved.length) setLocal(saved);
+    } catch { /* corrupt */ }
+
+    // Seed expiring-item alerts once per mount
+    try {
+      const pantry = JSON.parse(localStorage.getItem('pantryItems') || '[]');
+      const now = Date.now();
+      pantry.forEach((item) => {
+        if (!item.expiry_date) return;
+        const days = Math.ceil((new Date(item.expiry_date) - now) / 86400000);
+        if (days <= 3 && days >= 0) {
+          addLocal('warning', 'Item Expiring Soon', `${item.item_name} expires in ${days} day${days !== 1 ? 's' : ''}`);
+        }
+      });
+    } catch { /* no pantry data */ }
+  }, [addLocal]);
+
+  // Keep the global hook so existing code calling window.addNotification lands here
+  useEffect(() => {
+    window.addNotification = (type, title, message) => addLocal(type, title, message);
+    return () => { delete window.addNotification; };
+  }, [addLocal]);
+
+  /* ---------- actions ---------- */
+  const markRemoteRead = async (id) => {
+    setRemote((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+    try { await api.post(`/notifications/${id}/read`); } catch { /* non-fatal */ }
   };
 
-  const checkForNotifications = () => {
-    // Check for expiring items
-    const pantry = JSON.parse(localStorage.getItem('pantryItems') || '[]');
-    const today = new Date();
-    
-    pantry.forEach(item => {
-      if (item.expiry_date) {
-        const expiryDate = new Date(item.expiry_date);
-        const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-        
-        if (daysUntilExpiry <= 3 && daysUntilExpiry >= 0) {
-          addNotification(
-            'warning',
-            'Item Expiring Soon',
-            `${item.item_name} expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''}`
-          );
-        }
-      }
+  const deleteLocal = (id) => {
+    setLocal((prev) => {
+      const u = prev.filter((n) => n.id !== id);
+      try { localStorage.setItem('notifications', JSON.stringify(u)); } catch { /* full */ }
+      return u;
     });
   };
 
-  const addNotification = (type, title, message, metadata = {}) => {
-    const notification = {
-      id: Date.now(),
-      type,
-      title,
-      message,
-      metadata,
-      read: false,
-      timestamp: new Date().toISOString(),
-    };
-
-    const updated = [notification, ...notifications].slice(0, 50);
-    setNotifications(updated);
-    setUnreadCount(updated.filter(n => !n.read).length);
-    localStorage.setItem('notifications', JSON.stringify(updated));
+  const markAllRead = async () => {
+    setRemote((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    setLocal((prev) => {
+      const u = prev.map((n) => ({ ...n, read: true }));
+      try { localStorage.setItem('notifications', JSON.stringify(u)); } catch { /* full */ }
+      return u;
+    });
+    try { await api.post('/notifications/read-all'); } catch { /* non-fatal */ }
   };
 
-  // Expose globally
-  useEffect(() => {
-    window.addNotification = addNotification;
-    return () => {
-      delete window.addNotification;
-    };
-  }, [notifications]);
-
-  const markAsRead = (id) => {
-    const updated = notifications.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    );
-    setNotifications(updated);
-    setUnreadCount(updated.filter(n => !n.read).length);
-    localStorage.setItem('notifications', JSON.stringify(updated));
-  };
-
-  const markAllAsRead = () => {
-    const updated = notifications.map(n => ({ ...n, read: true }));
-    setNotifications(updated);
-    setUnreadCount(0);
-    localStorage.setItem('notifications', JSON.stringify(updated));
-  };
-
-  const deleteNotification = (id) => {
-    const updated = notifications.filter(n => n.id !== id);
-    setNotifications(updated);
-    setUnreadCount(updated.filter(n => !n.read).length);
-    localStorage.setItem('notifications', JSON.stringify(updated));
-  };
-
-  const clearAll = () => {
-    setNotifications([]);
-    setUnreadCount(0);
-    localStorage.removeItem('notifications');
-  };
+  /* ---------- merged view ---------- */
+  const items = [
+    ...remote.map((n) => ({ ...n, remote: true, read: n.is_read, timestamp: n.created_at })),
+    ...local.map((n) => ({ ...n, remote: false })),
+  ].sort((a, b) => {
+    if (a.read !== b.read) return a.read ? 1 : -1;
+    return new Date(b.timestamp) - new Date(a.timestamp);
+  });
+  const unreadCount = items.filter((n) => !n.read).length;
 
   const getIcon = (type) => {
     switch (type) {
+      case 'feature_release': return <Sparkles className="w-5 h-5 text-purple-600" />;
       case 'success': return <Check className="w-5 h-5 text-green-600" />;
       case 'warning': return <AlertCircle className="w-5 h-5 text-yellow-600" />;
       case 'error': return <AlertCircle className="w-5 h-5 text-red-600" />;
@@ -108,6 +114,7 @@ const NotificationCenter = () => {
 
   const getColor = (type) => {
     switch (type) {
+      case 'feature_release': return 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800';
       case 'success': return 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800';
       case 'warning': return 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800';
       case 'error': return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800';
@@ -117,7 +124,7 @@ const NotificationCenter = () => {
   };
 
   return (
-    <>
+    <div className="relative">
       {/* Bell Icon */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -158,66 +165,58 @@ const NotificationCenter = () => {
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-                {notifications.length > 0 && (
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={markAllAsRead}
-                      className="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400"
-                    >
-                      Mark all read
-                    </button>
-                    <span className="text-gray-300 dark:text-gray-600">|</span>
-                    <button
-                      onClick={clearAll}
-                      className="text-xs text-red-600 hover:text-red-700 dark:text-red-400"
-                    >
-                      Clear all
-                    </button>
-                  </div>
+                {items.length > 0 && (
+                  <button
+                    onClick={markAllRead}
+                    className="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                  >
+                    Mark all read
+                  </button>
                 )}
               </div>
 
               {/* Notifications List */}
               <div className="overflow-y-auto max-h-[calc(80vh-80px)] custom-scrollbar">
-                {notifications.length > 0 ? (
+                {items.length > 0 ? (
                   <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {notifications.map((notification) => (
+                    {items.map((n) => (
                       <motion.div
-                        key={notification.id}
+                        key={n.id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 20 }}
-                        className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
-                          !notification.read ? 'bg-primary-50/30 dark:bg-primary-900/10' : ''
+                        className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-l-4 ${getColor(n.type)} ${
+                          !n.read ? 'bg-primary-50/30 dark:bg-primary-900/10' : ''
                         }`}
                       >
                         <div className="flex items-start space-x-3">
-                          <div className="flex-shrink-0 mt-1">
-                            {getIcon(notification.type)}
-                          </div>
+                          <div className="flex-shrink-0 mt-1">{getIcon(n.type)}</div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {notification.title}
+                                  {n.title}
                                 </p>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                  {notification.message}
-                                </p>
+                                {n.message && (
+                                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                    {n.message}
+                                  </p>
+                                )}
                                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-                                  {new Date(notification.timestamp).toLocaleString()}
+                                  {new Date(n.timestamp).toLocaleString()}
                                 </p>
                               </div>
-                              <button
-                                onClick={() => deleteNotification(notification.id)}
-                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-2"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
+                              {!n.remote && (
+                                <button
+                                  onClick={() => deleteLocal(n.id)}
+                                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-2"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              )}
                             </div>
-                            {!notification.read && (
+                            {!n.read && (
                               <button
-                                onClick={() => markAsRead(notification.id)}
+                                onClick={() => (n.remote ? markRemoteRead(n.id) : deleteLocal(n.id))}
                                 className="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 mt-2"
                               >
                                 Mark as read
@@ -231,9 +230,7 @@ const NotificationCenter = () => {
                 ) : (
                   <div className="p-8 text-center">
                     <Bell className="w-12 h-12 mx-auto text-gray-400 mb-2" />
-                    <p className="text-gray-600 dark:text-gray-400">
-                      No notifications
-                    </p>
+                    <p className="text-gray-600 dark:text-gray-400">No notifications</p>
                   </div>
                 )}
               </div>
@@ -241,7 +238,7 @@ const NotificationCenter = () => {
           </>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 };
 

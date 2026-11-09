@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 const ChangelogViewer = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const [changelog, setChangelog] = useState([]);
+  const [upcoming, setUpcoming] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, feat, fix, perf, docs
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,7 +43,7 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
 
   const loadChangelog = async () => {
     try {
-      const response = await fetch('/api/system/changelog', {
+      const response = await fetch('/api/changelog', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -51,6 +52,7 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
       if (response.ok) {
         const data = await response.json();
         setChangelog(data.commits || []);
+        setUpcoming(data.upcoming || []);
       }
     } catch (error) {
       console.error('Error loading changelog:', error);
@@ -300,6 +302,28 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
 
         {/* Changelog Content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+          {/* Coming Soon — admin-announced upcoming features */}
+          {upcoming.length > 0 && (
+            <div className="mb-6 rounded-xl border-2 border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <h3 className="text-lg font-bold text-purple-900 dark:text-purple-200">Coming Soon</h3>
+              </div>
+              <div className="space-y-2">
+                {upcoming.map((f) => (
+                  <div key={f.id} className="flex items-start gap-3 p-3 rounded-lg bg-white/70 dark:bg-gray-800/60">
+                    <Zap className="w-4 h-4 mt-0.5 text-purple-500 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{f.title}</p>
+                      {f.description && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{f.description}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary-600 border-t-transparent"></div>

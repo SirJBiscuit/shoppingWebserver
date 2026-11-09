@@ -75,6 +75,7 @@ import { useContextMenu, oiRow, oiHeader, oiSep, oiSub } from '../overlay/Overla
 import { useDeviceType } from '../hooks/useDeviceType';
 import ConsoleViewer from '../components/ConsoleViewer';
 import ChangelogViewer from '../components/ChangelogViewer';
+import { useFeatureFlags } from '../context/FeatureFlagContext';
 import CalculatorWidget from '../components/CalculatorWidget';
 import useScrollSound from '../hooks/useScrollSound';
 import { playSound } from '../utils/soundEffects';
@@ -87,6 +88,7 @@ const Dashboard = () => {
   const { triggerFlyingAnimation, triggerCheckmarkAnimation, clearAnimations } = useCartAnimation();
   const { optimizationMode, toggleOptimization } = useOptimization();
   const { isEditorActive, toggleEditor, selectWidget, selectedWidget, widgetProperties } = useEditor();
+  const { hasFeature } = useFeatureFlags();
   const dashboardProps = widgetProperties['dashboard'] || {};
   const addButtonRef = useRef(null);
   const rootRef = useRef(null);
@@ -1548,9 +1550,9 @@ const Dashboard = () => {
     }
   };
   
-  // Helper function to determine storage location based on category
+  // Helper function to determine storage location based on (canonical) category
   const getStorageLocation = (category) => {
-    const fridgeCategories = ['Dairy', 'Meat', 'Deli', 'Produce', 'Fruits'];
+    const fridgeCategories = ['Dairy & Eggs', 'Meat & Seafood', 'Produce'];
     const freezerCategories = ['Frozen'];
     
     if (!category) return 'pantry';
@@ -1619,6 +1621,7 @@ const Dashboard = () => {
           {/* Simple Top Bar for Notifications and Logout */}
           <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 pl-16 pr-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
             {/* Version Indicator - Left Side (with padding for mobile menu button) */}
+            {hasFeature('changelog') && (
             <button
               onClick={() => setShowChangelog(true)}
               className="flex items-center space-x-2 text-xs sm:text-sm hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-colors"
@@ -1641,6 +1644,7 @@ const Dashboard = () => {
                 v{versionInfo.version}
               </span>
             </button>
+            )}
 
             {/* AVE (Admin Visual Editor) Toggle - Admin Only */}
             {user?.isAdmin && (
@@ -1665,11 +1669,11 @@ const Dashboard = () => {
               {/* Help Button */}
               <HelpButton userId={user?.id || user?.username} />
               
-              {/* Cache Refresh Button */}
+              {/* Cache Refresh Button — gated: admins can hide from beta testers */}
+              {hasFeature('clear_cache') && (
               <button
                 onClick={() => {
-                  console.log('Cache button clicked!');
-                  if (window.confirm('Clear app cache and reload?')) {
+                  confirm('Clear app cache and reload?', () => {
                     // Preserve auth token and user data
                     const token = localStorage.getItem('token');
                     const userId = localStorage.getItem('userId');
@@ -1686,16 +1690,17 @@ const Dashboard = () => {
                     
                     // Reload
                     window.location.reload();
-                  }
+                  }, null, 'Clear Cache');
                 }}
                 className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
                 title="Clear Cache & Reload (preserves login)"
               >
                 <RefreshCw className="w-5 h-5" />
               </button>
+              )}
               
-              {/* Console Viewer (for debugging on tablets) */}
-              <ConsoleViewer />
+              {/* Console Viewer (for debugging on tablets) — gated */}
+              {hasFeature('console_viewer') && <ConsoleViewer />}
               
               {/* Optimization Mode Toggle */}
               <button
@@ -1918,15 +1923,17 @@ const Dashboard = () => {
                     <Package className="w-4 h-4 mr-1" />
                     Templates
                   </button>
+                  {hasFeature('price_learning') && (
                   <button
                     type="button"
                     onClick={() => setShowPriceLearning(true)}
                     className="btn-secondary text-sm flex items-center bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
-                    title="Learn prices and earn XP"
+                    title="Learn prices"
                   >
                     <DollarSign className="w-4 h-4 mr-1" />
                     Learn Prices
                   </button>
+                  )}
                   <button
                     type="button"
                     onClick={loadCompletedLists}

@@ -9,26 +9,27 @@ router.get('/flags', auth, async (req, res) => {
   try {
     // Get user's tier and features
     const userResult = await db.query(
-      'SELECT subscription_tier, subscription_status, is_guest FROM users WHERE id = $1',
+      'SELECT subscription_tier, subscription_status, is_guest, is_beta_tester FROM users WHERE id = $1',
       [req.user.id]
     );
     
     const user = userResult.rows[0];
     const userTier = user?.is_guest ? 'guest' : (user?.subscription_tier || 'free');
     const userTierLevel = TIER_HIERARCHY[userTier] || 0;
+    const isBetaTester = user?.is_beta_tester === true;
 
-    // Get all enabled features
+    // Get all enabled features (hide_from_beta gates beta testers per-flag)
     const result = await db.query(
-      `SELECT feature_key, feature_name, description, category, min_tier, is_enabled
+      `SELECT feature_key, feature_name, description, category, min_tier, is_enabled, hide_from_beta
        FROM feature_flags 
        WHERE is_enabled = TRUE
        ORDER BY category, feature_name`
     );
 
-    // Filter features based on user's tier
+    // Filter features based on user's tier + beta flag
     const features = result.rows.map(feature => {
       const minTierLevel = TIER_HIERARCHY[feature.min_tier] || 0;
-      const isAvailable = userTierLevel >= minTierLevel;
+      const isAvailable = (userTierLevel >= minTierLevel) && !(isBetaTester && feature.hide_from_beta);
 
       return {
         key: feature.feature_key,
@@ -43,7 +44,8 @@ router.get('/flags', auth, async (req, res) => {
     res.json({ 
       features, 
       userTier,
-      isGuest: user?.is_guest || false
+      isGuest: user?.is_guest || false,
+      isBetaTester
     });
   } catch (error) {
     console.error('Error fetching feature flags:', error);
@@ -84,7 +86,7 @@ router.get('/check/:featureKey', auth, async (req, res) => {
                       userResult.rows[0]?.subscription_status === 'trialing';
 
     const featureResult = await db.query(
-      `SELECT free_tier_enabled, premium_tier_enabled, requires_premium, is_enabled
+      `SELECT free_tier_enabled, premium_tier_enabled, requires_premium, is_enabled, hide_from_beta
        FROM feature_flags WHERE feature_key = $1`,
       [featureKey]
     );
@@ -93,10 +95,13 @@ router.get('/check/:featureKey', auth, async (req, res) => {
       return res.status(404).json({ error: 'Feature not found' });
     }
 
+    const userRow = await db.query('SELECT is_beta_tester FROM users WHERE id = $1', [req.user.id]);
+    const isBetaTester = userRow.rows[0]?.is_beta_tester === true;
+
     const feature = featureResult.rows[0];
     const isAvailable = feature.is_enabled && (isPremium 
       ? feature.premium_tier_enabled 
-      : feature.free_tier_enabled);
+      : feature.free_tier_enabled) && !(isBetaTester && feature.hide_from_beta);
 
     res.json({
       featureKey,
@@ -130,7 +135,7 @@ router.get('/admin/all', auth, isAdmin, async (req, res) => {
 router.put('/admin/feature/:id', auth, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { feature_name, description, is_enabled, min_tier, display_order } = req.body;
+    const { feature_name, description, is_enabled, min_tier, display_order, hide_from_beta } = req.body;
 
     const updates = [];
     const values = [];
@@ -155,6 +160,10 @@ router.put('/admin/feature/:id', auth, isAdmin, async (req, res) => {
     if (display_order !== undefined) {
       updates.push(`display_order = $${paramCount++}`);
       values.push(display_order);
+    }
+    if (hide_from_beta !== undefined) {
+      updates.push(`hide_from_beta = $${paramCount++}`);
+      values.push(hide_from_beta);
     }
 
     if (updates.length === 0) {

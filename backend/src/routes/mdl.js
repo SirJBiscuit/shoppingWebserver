@@ -701,6 +701,30 @@ router.post('/track-item', authenticateToken, async (req, res) => {
       );
     }
 
+    // Weird-data check — questionable submissions go to the admin review
+    // queue instead of polluting the learned data (never fails the request)
+    try {
+      const reasons = [];
+      const raw = itemName.trim();
+      const letters = (raw.match(/[a-zA-Z]/g) || []).length;
+      const digits = (raw.match(/\d/g) || []).length;
+      if (raw.length > 60) reasons.push('long_name');
+      if (letters === 0) reasons.push('no_letters');
+      else if (digits > letters * 2 && digits > 4) reasons.push('excessive_digits');
+      if (/[^a-zA-Z0-9\s&'().\-\/]/.test(raw)) reasons.push('special_chars');
+      if (price != null && !(price >= 0.01 && price <= 10000)) reasons.push('extreme_price');
+
+      if (reasons.length > 0) {
+        await db.query(
+          `INSERT INTO mdl_review_queue (user_id, raw_name, price, store, reason)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [req.user.id, raw, price || null, store || null, reasons.join(',')]
+        );
+      }
+    } catch (e) {
+      console.warn('Review-queue insert skipped:', e.message);
+    }
+
     res.status(201).json({ tracked: true, itemNameId });
   } catch (error) {
     console.error('Error tracking item:', error);

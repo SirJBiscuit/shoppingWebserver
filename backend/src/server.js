@@ -39,6 +39,9 @@ const aveRoutes = require('../routes/ave');
 const storageRoutes = require('../routes/storage');
 const sidebarRoutes = require('../routes/sidebar');
 const householdRoutes = require('./routes/household');
+const changelogRoutes = require('./routes/changelog');
+const notificationsRoutes = require('./routes/notifications');
+const priceReviewRoutes = require('./routes/priceReview');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -95,6 +98,9 @@ app.use('/api/ave', aveRoutes);
 app.use('/api/admin/storage', storageRoutes);
 app.use('/api/sidebar', sidebarRoutes);
 app.use('/api/household', householdRoutes);
+app.use('/api/changelog', changelogRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/price-review', priceReviewRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

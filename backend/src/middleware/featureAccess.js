@@ -14,7 +14,7 @@ const hasFeatureAccess = async (userId, featureKey) => {
   try {
     // Get user's tier
     const userResult = await db.query(
-      'SELECT subscription_tier, is_guest FROM users WHERE id = $1',
+      'SELECT subscription_tier, is_guest, is_beta_tester FROM users WHERE id = $1',
       [userId]
     );
 
@@ -24,10 +24,11 @@ const hasFeatureAccess = async (userId, featureKey) => {
 
     const user = userResult.rows[0];
     const userTier = user.is_guest ? 'guest' : (user.subscription_tier || 'free');
+    const isBetaTester = user.is_beta_tester === true;
 
     // Get feature requirements
     const featureResult = await db.query(
-      'SELECT is_enabled, min_tier FROM feature_flags WHERE feature_key = $1',
+      'SELECT is_enabled, min_tier, hide_from_beta FROM feature_flags WHERE feature_key = $1',
       [featureKey]
     );
 
@@ -40,6 +41,11 @@ const hasFeatureAccess = async (userId, featureKey) => {
 
     // Check if feature is enabled globally
     if (!feature.is_enabled) {
+      return false;
+    }
+
+    // Beta testers lose access to admin-hidden features
+    if (isBetaTester && feature.hide_from_beta) {
       return false;
     }
 
@@ -60,7 +66,7 @@ const hasFeatureAccess = async (userId, featureKey) => {
 const getUserFeatures = async (userId) => {
   try {
     const userResult = await db.query(
-      'SELECT subscription_tier, is_guest FROM users WHERE id = $1',
+      'SELECT subscription_tier, is_guest, is_beta_tester FROM users WHERE id = $1',
       [userId]
     );
 
@@ -71,16 +77,18 @@ const getUserFeatures = async (userId) => {
     const user = userResult.rows[0];
     const userTier = user.is_guest ? 'guest' : (user.subscription_tier || 'free');
     const userTierLevel = TIER_HIERARCHY[userTier] || 0;
+    const isBetaTester = user.is_beta_tester === true;
 
     // Get all enabled features that user has access to
     const featuresResult = await db.query(
-      `SELECT feature_key, feature_name, description, category, min_tier
+      `SELECT feature_key, feature_name, description, category, min_tier, hide_from_beta
        FROM feature_flags
        WHERE is_enabled = true`
     );
 
-    // Filter by tier access
+    // Filter by tier access + beta hiding
     const accessibleFeatures = featuresResult.rows.filter(feature => {
+      if (isBetaTester && feature.hide_from_beta) return false;
       const minTierLevel = TIER_HIERARCHY[feature.min_tier] || 0;
       return userTierLevel >= minTierLevel;
     });

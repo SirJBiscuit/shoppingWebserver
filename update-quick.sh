@@ -59,6 +59,10 @@ cat > version.json << EOF
 }
 EOF
 
+# Export commit history for the changelog viewer — git exists on the host but
+# not inside the backend container, which is why /api/changelog reads this file.
+git log --no-merges -n 600 --pretty=format:'%H|%ai|%s|%an' > changelog.txt 2>/dev/null || true
+
 # Rebuild only the requested service(s). docker compose recreates a container
 # only when its image/config changed — untouched services keep running.
 SERVICES=$([ "$TARGET" = "all" ] && echo "frontend backend" || echo "$TARGET")
