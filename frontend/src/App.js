@@ -42,6 +42,7 @@ const IconCollectionGallery = lazy(() => import('./components/IconCollectionGall
 // const CustomizationHub = lazy(() => import('./backburner/components/CustomizationHub')); // Disabled - backburner
 const IconUploadPanel = lazy(() => import('./components/admin/IconUploadPanel'));
 const AdminBetaDashboard = lazy(() => import('./pages/AdminBetaDashboard'));
+const SpiceBlends = lazy(() => import('./pages/SpiceBlends'));
 
 // Loading component
 const PageLoader = () => (
@@ -98,6 +99,7 @@ const AnimatedRoutes = () => {
         {/* <Route path="/pantry-old" element={<PrivateRoute><PantryNew /></PrivateRoute>} /> */} {/* Disabled - backburner */}
         <Route path="/staging" element={<PrivateRoute><StagingArea /></PrivateRoute>} />
         <Route path="/household" element={<PrivateRoute><Household /></PrivateRoute>} />
+        <Route path="/spices" element={<PrivateRoute><SpiceBlends /></PrivateRoute>} />
         {/* <Route path="/meal-plan" element={<PrivateRoute><MealPlan /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
         {/* <Route path="/stats" element={<PrivateRoute><Statistics /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
         {/* <Route path="/discover" element={<PrivateRoute><RecipeDiscover /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}

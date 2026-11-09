@@ -8,6 +8,7 @@ import {
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import CustomNotification from '../CustomNotification';
+import CustomDatePicker from '../CustomDatePicker';
 
 const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChange }) => {
   const { notification, hideNotification, confirm, confirmDelete } = useNotification();
@@ -585,11 +586,10 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Access Expires On <span className="text-xs text-gray-500">(empty = inherit code expiry)</span>
                   </label>
-                  <input
-                    type="date"
+                  <CustomDatePicker
                     value={editForm.betaExpiresAt || ''}
-                    onChange={(e) => setEditForm({ ...editForm, betaExpiresAt: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                    onChange={(v) => setEditForm({ ...editForm, betaExpiresAt: v })}
+                    placeholder="Inherit code expiry"
                   />
                 </div>
                 <div>

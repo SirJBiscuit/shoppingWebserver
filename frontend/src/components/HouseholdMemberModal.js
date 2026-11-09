@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, UserPlus, Save } from 'lucide-react';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
+import CustomDatePicker from './CustomDatePicker';
 
 const AVATAR_EMOJIS = ['😀','😎','🤓','😺','🐶','🦊','🐼','🦁','👦','👧','👨','👩','🧑','👴','👵','🧒','⭐','🌟'];
 const COLORS = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#14b8a6'];
@@ -196,9 +197,9 @@ const HouseholdMemberModal = ({ isOpen, onClose, onSave, member = null }) => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className={labelCls}>Date of Birth</label>
-                  <input type="date" value={formData.date_of_birth}
-                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-                    className={inputCls} />
+                  <CustomDatePicker value={formData.date_of_birth}
+                    onChange={(v) => setFormData({ ...formData, date_of_birth: v })}
+                    placeholder="Select birth date" />
                 </div>
                 <div>
                   <label className={labelCls}>Gender</label>

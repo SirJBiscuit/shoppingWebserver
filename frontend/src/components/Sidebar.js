@@ -5,7 +5,7 @@ import {
   ShoppingCart, ChefHat, Package, Calendar, BarChart3, 
   Settings, Shield, History, Search, Share2,
   Menu, X, Bell, Moon, Sun, Crown, Store, Sparkles, Home, GraduationCap,
-  Book, DollarSign, Star, Users, Folder, Database, StickyNote
+  Book, DollarSign, Star, Users, Folder, Database, StickyNote, Flame
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -185,6 +185,7 @@ const Sidebar = ({ onAction }) => {
     { path: '/staging', icon: Package, label: 'Unpack', color: 'text-yellow-600', feature: 'pantry', badge: '🛒' },
     { path: '/pantry-new-v2', icon: Store, label: 'Home Inventory', color: 'text-green-600', feature: 'pantry' },
     { path: '/recipes', icon: ChefHat, label: 'Recipe Book', color: 'text-orange-600', feature: 'recipes' },
+    { path: '/spices', icon: Flame, label: 'Spice Lab', color: 'text-red-600', feature: 'spice_blends' },
     { path: '/household', icon: Users, label: 'Household', color: 'text-pink-600', feature: 'household' },
     // { path: '/meal-plan', icon: Calendar, label: 'Meal Planner', color: 'text-purple-600', feature: 'meal_planner' }, // Disabled
     // { path: '/stats', icon: BarChart3, label: 'Statistics', color: 'text-pink-600', feature: 'statistics' }, // Disabled

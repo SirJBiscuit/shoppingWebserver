@@ -11,6 +11,7 @@ import {
   Clock3, Pin, ChevronRight, SearchX, Smile, Check
 } from 'lucide-react';
 import AnimatedScrollbar3D from '../3DAnimatedScrollbar';
+import CustomDatePicker from '../CustomDatePicker';
 import MenuPanel from '../MenuPanel';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
 import { Slider3D, Toggle3D, Check3D, Typewriter } from './ui';
@@ -2991,11 +2992,10 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
             className={`rounded-xl border shadow-2xl p-4 space-y-3 w-64 ${theme.panel}`}
           >
             <p className={`text-sm font-semibold ${theme.text}`}>Due date</p>
-            <input
-              type="date"
+            <CustomDatePicker
               value={page.blocks.find((b) => b.id === dueEditId)?.due || ''}
-              onChange={(e) => patchBlock(dueEditId, { due: e.target.value || null })}
-              className={`w-full rounded-lg border px-2 py-1.5 text-sm bg-transparent border-gray-500/40 ${theme.text}`}
+              onChange={(v) => patchBlock(dueEditId, { due: v || null })}
+              placeholder="No due date"
             />
             <div className="flex gap-2">
               <button

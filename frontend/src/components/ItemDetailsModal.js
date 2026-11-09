@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Camera, DollarSign, Calendar, Package, Edit2, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import CustomDatePicker from './CustomDatePicker';
 
 const ItemDetailsModal = ({ item, isOpen, onClose, onSave }) => {
   const [editedItem, setEditedItem] = useState(null);
@@ -201,12 +202,11 @@ const ItemDetailsModal = ({ item, isOpen, onClose, onSave }) => {
                 <Calendar className="w-4 h-4 mr-1" />
                 Expiry Date
               </label>
-              <input
-                type="date"
+              <CustomDatePicker
                 value={editedItem.expiry_date || ''}
-                onChange={(e) => setEditedItem({ ...editedItem, expiry_date: e.target.value })}
+                onChange={(v) => setEditedItem({ ...editedItem, expiry_date: v })}
                 disabled={!isEditing}
-                className="input-field"
+                placeholder="No expiry date"
               />
               {daysUntilExpiry !== null && (
                 <p className={`text-xs mt-1 ${
@@ -227,12 +227,11 @@ const ItemDetailsModal = ({ item, isOpen, onClose, onSave }) => {
                 <Package className="w-4 h-4 mr-1" />
                 Next Purchase Date
               </label>
-              <input
-                type="date"
+              <CustomDatePicker
                 value={editedItem.next_purchase_date || ''}
-                onChange={(e) => setEditedItem({ ...editedItem, next_purchase_date: e.target.value })}
+                onChange={(v) => setEditedItem({ ...editedItem, next_purchase_date: v })}
                 disabled={!isEditing}
-                className="input-field"
+                placeholder="Select date"
               />
             </div>
           </div>

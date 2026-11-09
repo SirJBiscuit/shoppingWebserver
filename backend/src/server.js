@@ -42,6 +42,7 @@ const householdRoutes = require('./routes/household');
 const changelogRoutes = require('./routes/changelog');
 const notificationsRoutes = require('./routes/notifications');
 const priceReviewRoutes = require('./routes/priceReview');
+const spicesRoutes = require('./routes/spices');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -101,6 +102,7 @@ app.use('/api/household', householdRoutes);
 app.use('/api/changelog', changelogRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/price-review', priceReviewRoutes);
+app.use('/api/spices', spicesRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

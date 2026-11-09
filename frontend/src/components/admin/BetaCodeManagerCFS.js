@@ -7,6 +7,7 @@ import {
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import CustomNotification from '../CustomNotification';
+import CustomDatePicker from '../CustomDatePicker';
 
 const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) => {
   const { notification, hideNotification, confirm, confirmDelete } = useNotification();
@@ -541,11 +542,10 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Expires On
                   </label>
-                  <input
-                    type="date"
+                  <CustomDatePicker
                     value={editForm.expiresAt || ''}
-                    onChange={(e) => setEditForm({ ...editForm, expiresAt: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+                    onChange={(v) => setEditForm({ ...editForm, expiresAt: v })}
+                    placeholder="No expiry"
                   />
                 </div>
 

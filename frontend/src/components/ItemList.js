@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye, MoreVertical, Tag, Minus, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import CustomEditPanel from './CustomEditPanel';
+import CustomContextMenu from './CustomContextMenu';
 // import ItemTooltip from './ItemTooltip'; // Component doesn't exist
 // import SmartSuggestionTooltip from './SmartSuggestionTooltip'; // Component doesn't exist
 import { detectIcon, detectCategory, canonicalizeCategory, getCategoryIcon, getCategoryOrder } from '../utils/categoryDetector';
@@ -529,6 +530,21 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
     onToggleCheck(item);
   };
 
+  // Right-click / long-press context menu actions
+  const contextMenuItems = [
+    { icon: Check, label: item.is_checked ? 'Uncheck item' : 'Check off', onClick: handleCheck },
+    { icon: Edit2, label: 'Edit', onClick: () => { setEditingItem(item); setShowEditModal(true); } },
+    { icon: FileText, label: 'Add note', onClick: () => { setNoteItem(item); setNoteText(item.notes || ''); } },
+    ...(onLookForThis && !item.is_checked
+      ? [{ icon: Eye, label: 'Look for this', onClick: () => onLookForThis(item) }]
+      : []),
+    ...(onCopyMove
+      ? [{ icon: Copy, label: 'Copy / move to list', onClick: () => onCopyMove(item) }]
+      : []),
+    { separator: true },
+    { icon: Trash2, label: 'Delete', color: 'text-red-500', onClick: () => { (item.ids || [item.id]).forEach(id => onDelete(id)); } },
+  ];
+
   return (
     <div className="space-y-2">
       {/* Already Have It Tooltip - DISABLED (component doesn't exist) */}
@@ -568,7 +584,8 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
         />
       )} */}
       
-      {/* Item Card */}
+      {/* Item Card — wrapped in CustomContextMenu for right-click / long-press */}
+      <CustomContextMenu items={contextMenuItems} trigger="both">
               <div
                 ref={itemRef}
                 id={`item-${item.ids ? item.ids[0] : item.id}`}
@@ -882,6 +899,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   )}
                 </div>
               </div>
+      </CustomContextMenu>
     </div>
   );
 };
