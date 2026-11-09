@@ -36,7 +36,7 @@ const newDoc = () => {
     trash: [],
     lastPage: 1,
     nextId: 1,
-    settings: { scale: 1, theme: 'dark', mono: false, lines: false, zoom: 1, anim: true, animSpeed: 1, uiAnim: true, textScale: 1, uiScale: 1, typeBounce: true },
+    settings: { scale: 1, theme: 'dark', mono: false, lines: false, zoom: 1, anim: true, animSpeed: 1, uiAnim: true, textScale: 1, uiScale: 1, typeBounce: true, launcher: false },
   };
   const welcome = { id: doc.nextId++, name: 'Welcome', color: 0, starred: false, blocks: [] };
   welcome.blocks.push(
@@ -61,7 +61,7 @@ export function loadDoc(userId) {
       doc.nextId = doc.pages.reduce((m, p) => Math.max(m, p.id, ...p.blocks.map(b => b.id)), 0) + 1;
     }
     doc.trash = doc.trash || [];
-    doc.settings = { scale: 1, theme: 'dark', mono: false, lines: false, zoom: 1, anim: true, animSpeed: 1, uiAnim: true, textScale: 1, uiScale: 1, typeBounce: true, ...doc.settings };
+    doc.settings = { scale: 1, theme: 'dark', mono: false, lines: false, zoom: 1, anim: true, animSpeed: 1, uiAnim: true, textScale: 1, uiScale: 1, typeBounce: true, launcher: false, ...doc.settings };
     return doc;
   } catch {
     return newDoc();

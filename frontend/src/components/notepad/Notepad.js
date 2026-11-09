@@ -2866,6 +2866,10 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
                 <Toggle3D on={settings.typeBounce !== false} onChange={(v) => patchSettings({ typeBounce: v })} label="Bounce text while typing" />
                 <Toggle3D on={settings.uiAnim !== false} onChange={(v) => patchSettings({ uiAnim: v })} label="UI animations (panels, menus)" />
               </div>
+              <div>
+                <Toggle3D on={settings.launcher === true} onChange={(v) => patchSettings({ launcher: v })} label="Floating launcher bubble" />
+                <p className={`text-[10px] mt-1 ${theme.muted}`}>Shows the ⋮ bubble on screen when the notepad is closed — reopen it with a tap.</p>
+              </div>
               {settings.anim && (
                 <div>
                   <p className={`text-xs font-semibold mb-1 ${theme.muted}`}>Typing animation speed</p>
@@ -3027,7 +3031,7 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
   return (
     <MotionConfig reducedMotion={settings.uiAnim === false ? 'always' : 'never'}>
       <AnimatePresence mode="wait">
-        {!isOpen && launcherEnabled && launcher}
+        {!isOpen && launcherEnabled && settings.launcher === true && launcher}
         {isOpen && mode === 'compact' && compactPill}
         {isOpen && mode !== 'compact' && panel}
       </AnimatePresence>
