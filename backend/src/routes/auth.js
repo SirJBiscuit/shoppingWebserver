@@ -80,7 +80,7 @@ router.post('/login',
 
     try {
       const result = await db.query(
-        'SELECT id, username, password_hash, is_admin FROM users WHERE username = $1',
+        'SELECT id, username, password_hash, is_admin, is_beta_tester FROM users WHERE username = $1',
         [username]
       );
 
@@ -108,6 +108,8 @@ router.post('/login',
           id: user.id,
           username: user.username,
           isAdmin: user.is_admin || false,
+          is_admin: user.is_admin || false,
+          isBetaTester: user.is_beta_tester || false,
         },
       });
     } catch (error) {

@@ -23,7 +23,13 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // A 401 on an auth endpoint (login/register/beta auth) means bad
+    // credentials — let the calling form display the error instead of
+    // hard-redirecting to /login and wiping the UI state.
+    const url = error.config?.url || '';
+    const isAuthEndpoint = url.startsWith('/auth/') || url.startsWith('/beta/');
+
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
