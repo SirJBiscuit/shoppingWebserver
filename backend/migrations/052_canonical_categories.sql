@@ -96,12 +96,7 @@ BEGIN
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'template_items' AND column_name = 'category'
   ) THEN
-    EXECUTE $$inner$$
-      UPDATE template_items
-      SET category = canonical_category(category)
-      WHERE category IS NOT NULL
-        AND canonical_category(category) IS DISTINCT FROM category
-    $$inner$$;
+    EXECUTE 'UPDATE template_items SET category = canonical_category(category) WHERE category IS NOT NULL AND canonical_category(category) IS DISTINCT FROM category';
   END IF;
 END $do$;
 
@@ -112,11 +107,6 @@ BEGIN
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'staging_area' AND column_name = 'category'
   ) THEN
-    EXECUTE $$inner$$
-      UPDATE staging_area
-      SET category = canonical_category(category)
-      WHERE category IS NOT NULL
-        AND canonical_category(category) IS DISTINCT FROM category
-    $$inner$$;
+    EXECUTE 'UPDATE staging_area SET category = canonical_category(category) WHERE category IS NOT NULL AND canonical_category(category) IS DISTINCT FROM category';
   END IF;
 END $do$;
