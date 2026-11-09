@@ -173,14 +173,26 @@ const SpiceBlends = () => {
   // ------------------------------------------------------------------
   // Rack
   // ------------------------------------------------------------------
+  // Blends hold their own snapshot of owned/level per ingredient —
+  // keep it in sync with rack changes so 'x/y in rack' is accurate
+  const syncBlendIngredient = (spiceId, patch) =>
+    setBlends((prev) => prev.map((b) => ({
+      ...b,
+      ingredients: (b.ingredients || []).map((i) =>
+        i.spice_id === spiceId ? { ...i, ...patch } : i
+      ),
+    })));
+
   const toggleSpice = async (spice) => {
     const next = !spice.owned;
     setSpices((prev) => prev.map((s) => (s.id === spice.id ? { ...s, owned: next } : s)));
+    syncBlendIngredient(spice.id, { owned: next });
     playSound(next ? 'pop' : 'uncheck');
     try {
       await api.post('/spices/rack', { spiceId: spice.id, owned: next });
     } catch {
       setSpices((prev) => prev.map((s) => (s.id === spice.id ? { ...s, owned: !next } : s)));
+      syncBlendIngredient(spice.id, { owned: !next });
       showError('Failed to update your rack');
     }
   };
@@ -195,6 +207,7 @@ const SpiceBlends = () => {
   const setLevel = async (spice, level) => {
     const clamped = Math.max(0, Math.min(100, level));
     setSpices((prev) => prev.map((s) => (s.id === spice.id ? { ...s, level_percent: clamped } : s)));
+    syncBlendIngredient(spice.id, { level_percent: clamped, owned: true });
     try {
       await api.patch(`/spices/rack/${spice.id}`, { level_percent: clamped });
     } catch {
@@ -346,7 +359,10 @@ const SpiceBlends = () => {
               {tabs.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => setTab(t.id)}
+                  onClick={() => {
+                    setTab(t.id);
+                    if (t.id === 'blends') refreshBlends();
+                  }}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-all ${
                     tab === t.id
                       ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30'

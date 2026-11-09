@@ -138,7 +138,8 @@ const runMigrations = async () => {
     { file: '053_spice_system.sql', name: 'Spice System' },
     { file: '054_spice_levels.sql', name: 'Spice Levels' },
     { file: '055_household_eatout.sql', name: 'Household Eating Out' },
-    { file: '056_spices_sidebar_and_mdl_categories.sql', name: 'Spice Sidebar & MDL Categories' }
+    { file: '056_spices_sidebar_and_mdl_categories.sql', name: 'Spice Sidebar & MDL Categories' },
+    { file: '057_spice_catalog_expansion.sql', name: 'Spice Catalog Expansion' }
   ];
 
   for (const migration of migrations) {
