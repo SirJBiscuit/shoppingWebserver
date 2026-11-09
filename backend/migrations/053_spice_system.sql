@@ -98,82 +98,95 @@ INSERT INTO spices (name, icon, flavor_notes, adds, heat_level, cuisine_tags, di
 ('Sage',             '🌿', '{earthy,peppery,soft}', 'Autumn poultry depth',                                  0, '{italian,american}', '{turkey,stuffing,pork,squash,butter sauce}', '{thyme,rosemary}', FALSE),
 ('Five Spice',       '🥢', '{sweet,warm,licorice}', 'Chinese warmth + balance',                              1, '{chinese}', '{pork,chicken,stir fry,duck}', '{ginger,garlic powder}', FALSE),
 ('Zaatar',           '🌿', '{herbaceous,sesame,tangy}', 'Levantine herb-sesame tang',                        0, '{middle_eastern}', '{bread,chicken,vegetables,hummus}', '{sumac,sesame}', FALSE),
-('Sumac',            '🔴', '{tart,citrusy}', 'Tart red sparkle',                                             0, '{middle_eastern}', '{salad,chicken,kebab,rice}', '{zaatar,paprika}', FALSE);
+('Sumac',            '🔴', '{tart,citrusy}', 'Tart red sparkle',                                             0, '{middle_eastern}', '{salad,chicken,kebab,rice}', '{zaatar,paprika}', FALSE)
+ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================================
 -- SEED: Preset blends
 -- ============================================================================
 
-INSERT INTO spice_blends (user_id, name, icon, description, dish_tags, source) VALUES
-(NULL, 'Taco Seasoning',   '🌮', 'Classic Tex-Mex taco blend', '{tacos,burritos,fajitas,mexican}', 'preset'),
-(NULL, 'Italian Herb',     '🍝', 'Pasta & pizza all-rounder', '{pasta,pizza,italian,sauce,chicken}', 'preset'),
-(NULL, 'BBQ Rub',          '🍖', 'Sweet-smoky grill rub', '{bbq,ribs,chicken,pork,steak}', 'preset'),
-(NULL, 'Curry Base',       '🍛', 'Warm Indian curry foundation', '{curry,rice,chicken,lamb,vegetables}', 'preset'),
-(NULL, 'Ranch Mix',        '🥗', 'DIY ranch dressing mix', '{chicken,salad,dips,wings,potatoes}', 'preset'),
-(NULL, 'Blackening',       '🔥', 'Cajun blackening for fish & chicken', '{fish,shrimp,chicken,cajun}', 'preset'),
-(NULL, 'Pumpkin Spice',    '🎃', 'Autumn baking blend', '{dessert,baking,coffee,oatmeal}', 'preset'),
-(NULL, 'Herbes de Provence','🇫🇷', 'French roast blend', '{chicken,lamb,potatoes,roast,bread}', 'preset');
+-- Clean up duplicate presets first (heals DBs seeded by earlier buggy re-runs)
+DELETE FROM spice_blends a USING spice_blends b
+WHERE a.user_id IS NULL AND b.user_id IS NULL
+  AND a.name = b.name AND a.id > b.id;
+
+INSERT INTO spice_blends (user_id, name, icon, description, dish_tags, source)
+SELECT v.user_id, v.name, v.icon, v.description, v.dish_tags, v.source
+FROM (VALUES
+(NULL::integer, 'Taco Seasoning',   '🌮', 'Classic Tex-Mex taco blend', '{tacos,burritos,fajitas,mexican}'::text[], 'preset'),
+(NULL::integer, 'Italian Herb',     '🍝', 'Pasta & pizza all-rounder', '{pasta,pizza,italian,sauce,chicken}'::text[], 'preset'),
+(NULL::integer, 'BBQ Rub',          '🍖', 'Sweet-smoky grill rub', '{bbq,ribs,chicken,pork,steak}'::text[], 'preset'),
+(NULL::integer, 'Curry Base',       '🍛', 'Warm Indian curry foundation', '{curry,rice,chicken,lamb,vegetables}'::text[], 'preset'),
+(NULL::integer, 'Ranch Mix',        '🥗', 'DIY ranch dressing mix', '{chicken,salad,dips,wings,potatoes}'::text[], 'preset'),
+(NULL::integer, 'Blackening',       '🔥', 'Cajun blackening for fish & chicken', '{fish,shrimp,chicken,cajun}'::text[], 'preset'),
+(NULL::integer, 'Pumpkin Spice',    '🎃', 'Autumn baking blend', '{dessert,baking,coffee,oatmeal}'::text[], 'preset'),
+(NULL::integer, 'Herbes de Provence','🇫🇷', 'French roast blend', '{chicken,lamb,potatoes,roast,bread}'::text[], 'preset')
+) AS v(user_id, name, icon, description, dish_tags, source)
+WHERE NOT EXISTS (
+  SELECT 1 FROM spice_blends b WHERE b.user_id IS NULL AND b.name = v.name
+);
 
 INSERT INTO spice_blend_ingredients (blend_id, spice_id, parts, note) VALUES
-((SELECT id FROM spice_blends WHERE name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Chili Powder'),     4, 'the base'),
-((SELECT id FROM spice_blends WHERE name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Cumin'),            2, 'earthy core'),
-((SELECT id FROM spice_blends WHERE name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Paprika'),          2, NULL),
-((SELECT id FROM spice_blends WHERE name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Garlic Powder'),    1, NULL),
-((SELECT id FROM spice_blends WHERE name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Onion Powder'),     1, NULL),
-((SELECT id FROM spice_blends WHERE name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Oregano'),          0.5, NULL),
-((SELECT id FROM spice_blends WHERE name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Black Pepper'),     0.5, 'to taste'),
-((SELECT id FROM spice_blends WHERE name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Cayenne'),          0.25, 'optional heat'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Chili Powder'),     4, 'the base'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Cumin'),            2, 'earthy core'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Paprika'),          2, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Garlic Powder'),    1, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Onion Powder'),     1, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Oregano'),          0.5, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Black Pepper'),     0.5, 'to taste'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Taco Seasoning'),   (SELECT id FROM spices WHERE name='Cayenne'),          0.25, 'optional heat'),
 
-((SELECT id FROM spice_blends WHERE name='Italian Herb'),     (SELECT id FROM spices WHERE name='Oregano'),          2, NULL),
-((SELECT id FROM spice_blends WHERE name='Italian Herb'),     (SELECT id FROM spices WHERE name='Basil'),            2, NULL),
-((SELECT id FROM spice_blends WHERE name='Italian Herb'),     (SELECT id FROM spices WHERE name='Thyme'),            1, NULL),
-((SELECT id FROM spice_blends WHERE name='Italian Herb'),     (SELECT id FROM spices WHERE name='Rosemary'),         0.5, 'crush lightly'),
-((SELECT id FROM spice_blends WHERE name='Italian Herb'),     (SELECT id FROM spices WHERE name='Garlic Powder'),    1, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Italian Herb'),     (SELECT id FROM spices WHERE name='Oregano'),          2, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Italian Herb'),     (SELECT id FROM spices WHERE name='Basil'),            2, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Italian Herb'),     (SELECT id FROM spices WHERE name='Thyme'),            1, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Italian Herb'),     (SELECT id FROM spices WHERE name='Rosemary'),         0.5, 'crush lightly'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Italian Herb'),     (SELECT id FROM spices WHERE name='Garlic Powder'),    1, NULL),
 
-((SELECT id FROM spice_blends WHERE name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Paprika'),          3, 'base'),
-((SELECT id FROM spice_blends WHERE name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Smoked Paprika'),   1, 'smoke layer'),
-((SELECT id FROM spice_blends WHERE name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Garlic Powder'),    2, NULL),
-((SELECT id FROM spice_blends WHERE name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Onion Powder'),     1, NULL),
-((SELECT id FROM spice_blends WHERE name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Black Pepper'),     1, NULL),
-((SELECT id FROM spice_blends WHERE name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Cumin'),            0.5, NULL),
-((SELECT id FROM spice_blends WHERE name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Cayenne'),          0.5, 'adjust heat'),
-((SELECT id FROM spice_blends WHERE name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Mustard Powder'),   0.5, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Paprika'),          3, 'base'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Smoked Paprika'),   1, 'smoke layer'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Garlic Powder'),    2, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Onion Powder'),     1, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Black Pepper'),     1, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Cumin'),            0.5, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Cayenne'),          0.5, 'adjust heat'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='BBQ Rub'),          (SELECT id FROM spices WHERE name='Mustard Powder'),   0.5, NULL),
 
-((SELECT id FROM spice_blends WHERE name='Curry Base'),       (SELECT id FROM spices WHERE name='Turmeric'),         3, 'golden base'),
-((SELECT id FROM spice_blends WHERE name='Curry Base'),       (SELECT id FROM spices WHERE name='Coriander'),        3, NULL),
-((SELECT id FROM spice_blends WHERE name='Curry Base'),       (SELECT id FROM spices WHERE name='Cumin'),            2, NULL),
-((SELECT id FROM spice_blends WHERE name='Curry Base'),       (SELECT id FROM spices WHERE name='Ginger'),           1, NULL),
-((SELECT id FROM spice_blends WHERE name='Curry Base'),       (SELECT id FROM spices WHERE name='Garam Masala'),     1, 'finish'),
-((SELECT id FROM spice_blends WHERE name='Curry Base'),       (SELECT id FROM spices WHERE name='Cardamom'),         0.5, NULL),
-((SELECT id FROM spice_blends WHERE name='Curry Base'),       (SELECT id FROM spices WHERE name='Cayenne'),          0.5, 'to taste'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Curry Base'),       (SELECT id FROM spices WHERE name='Turmeric'),         3, 'golden base'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Curry Base'),       (SELECT id FROM spices WHERE name='Coriander'),        3, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Curry Base'),       (SELECT id FROM spices WHERE name='Cumin'),            2, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Curry Base'),       (SELECT id FROM spices WHERE name='Ginger'),           1, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Curry Base'),       (SELECT id FROM spices WHERE name='Garam Masala'),     1, 'finish'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Curry Base'),       (SELECT id FROM spices WHERE name='Cardamom'),         0.5, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Curry Base'),       (SELECT id FROM spices WHERE name='Cayenne'),          0.5, 'to taste'),
 
-((SELECT id FROM spice_blends WHERE name='Ranch Mix'),        (SELECT id FROM spices WHERE name='Parsley'),          2, NULL),
-((SELECT id FROM spice_blends WHERE name='Ranch Mix'),        (SELECT id FROM spices WHERE name='Dill'),             2, 'the signature'),
-((SELECT id FROM spice_blends WHERE name='Ranch Mix'),        (SELECT id FROM spices WHERE name='Garlic Powder'),    2, NULL),
-((SELECT id FROM spice_blends WHERE name='Ranch Mix'),        (SELECT id FROM spices WHERE name='Onion Powder'),     1.5, NULL),
-((SELECT id FROM spice_blends WHERE name='Ranch Mix'),        (SELECT id FROM spices WHERE name='Black Pepper'),     0.5, NULL),
-((SELECT id FROM spice_blends WHERE name='Ranch Mix'),        (SELECT id FROM spices WHERE name='Salt'),             1, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Ranch Mix'),        (SELECT id FROM spices WHERE name='Parsley'),          2, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Ranch Mix'),        (SELECT id FROM spices WHERE name='Dill'),             2, 'the signature'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Ranch Mix'),        (SELECT id FROM spices WHERE name='Garlic Powder'),    2, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Ranch Mix'),        (SELECT id FROM spices WHERE name='Onion Powder'),     1.5, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Ranch Mix'),        (SELECT id FROM spices WHERE name='Black Pepper'),     0.5, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Ranch Mix'),        (SELECT id FROM spices WHERE name='Salt'),             1, NULL),
 
-((SELECT id FROM spice_blends WHERE name='Blackening'),       (SELECT id FROM spices WHERE name='Paprika'),          3, 'color + base'),
-((SELECT id FROM spice_blends WHERE name='Blackening'),       (SELECT id FROM spices WHERE name='Cayenne'),          2, 'the kick'),
-((SELECT id FROM spice_blends WHERE name='Blackening'),       (SELECT id FROM spices WHERE name='Garlic Powder'),    1.5, NULL),
-((SELECT id FROM spice_blends WHERE name='Blackening'),       (SELECT id FROM spices WHERE name='Onion Powder'),     1, NULL),
-((SELECT id FROM spice_blends WHERE name='Blackening'),       (SELECT id FROM spices WHERE name='Thyme'),            1, NULL),
-((SELECT id FROM spice_blends WHERE name='Blackening'),       (SELECT id FROM spices WHERE name='Oregano'),          1, NULL),
-((SELECT id FROM spice_blends WHERE name='Blackening'),       (SELECT id FROM spices WHERE name='Black Pepper'),     1, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Blackening'),       (SELECT id FROM spices WHERE name='Paprika'),          3, 'color + base'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Blackening'),       (SELECT id FROM spices WHERE name='Cayenne'),          2, 'the kick'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Blackening'),       (SELECT id FROM spices WHERE name='Garlic Powder'),    1.5, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Blackening'),       (SELECT id FROM spices WHERE name='Onion Powder'),     1, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Blackening'),       (SELECT id FROM spices WHERE name='Thyme'),            1, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Blackening'),       (SELECT id FROM spices WHERE name='Oregano'),          1, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Blackening'),       (SELECT id FROM spices WHERE name='Black Pepper'),     1, NULL),
 
-((SELECT id FROM spice_blends WHERE name='Pumpkin Spice'),    (SELECT id FROM spices WHERE name='Cinnamon'),         6, 'dominant'),
-((SELECT id FROM spice_blends WHERE name='Pumpkin Spice'),    (SELECT id FROM spices WHERE name='Ginger'),           2, NULL),
-((SELECT id FROM spice_blends WHERE name='Pumpkin Spice'),    (SELECT id FROM spices WHERE name='Nutmeg'),           1.5, NULL),
-((SELECT id FROM spice_blends WHERE name='Pumpkin Spice'),    (SELECT id FROM spices WHERE name='Cloves'),           1, NULL),
-((SELECT id FROM spice_blends WHERE name='Pumpkin Spice'),    (SELECT id FROM spices WHERE name='Allspice'),         1, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Pumpkin Spice'),    (SELECT id FROM spices WHERE name='Cinnamon'),         6, 'dominant'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Pumpkin Spice'),    (SELECT id FROM spices WHERE name='Ginger'),           2, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Pumpkin Spice'),    (SELECT id FROM spices WHERE name='Nutmeg'),           1.5, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Pumpkin Spice'),    (SELECT id FROM spices WHERE name='Cloves'),           1, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Pumpkin Spice'),    (SELECT id FROM spices WHERE name='Allspice'),         1, NULL),
 
-((SELECT id FROM spice_blends WHERE name='Herbes de Provence'),(SELECT id FROM spices WHERE name='Thyme'),           3, NULL),
-((SELECT id FROM spice_blends WHERE name='Herbes de Provence'),(SELECT id FROM spices WHERE name='Rosemary'),        2, 'crushed'),
-((SELECT id FROM spice_blends WHERE name='Herbes de Provence'),(SELECT id FROM spices WHERE name='Oregano'),         2, NULL),
-((SELECT id FROM spice_blends WHERE name='Herbes de Provence'),(SELECT id FROM spices WHERE name='Basil'),           1, NULL),
-((SELECT id FROM spice_blends WHERE name='Herbes de Provence'),(SELECT id FROM spices WHERE name='Sage'),            1, NULL),
-((SELECT id FROM spice_blends WHERE name='Herbes de Provence'),(SELECT id FROM spices WHERE name='Bay Leaf'),        0.5, 'powdered or crushed');
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Herbes de Provence'),(SELECT id FROM spices WHERE name='Thyme'),           3, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Herbes de Provence'),(SELECT id FROM spices WHERE name='Rosemary'),        2, 'crushed'),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Herbes de Provence'),(SELECT id FROM spices WHERE name='Oregano'),         2, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Herbes de Provence'),(SELECT id FROM spices WHERE name='Basil'),           1, NULL),
+((SELECT id FROM spice_blends WHERE user_id IS NULL AND name='Herbes de Provence'),(SELECT id FROM spices WHERE name='Sage'),            1, NULL),
+((SELECT id FROM spice_blends WHERE name='Herbes de Provence'),(SELECT id FROM spices WHERE name='Bay Leaf'),        0.5, 'powdered or crushed')
+ON CONFLICT (blend_id, spice_id) DO NOTHING;
 
 -- ============================================================================
 -- Feature flag

@@ -70,7 +70,7 @@ INSERT INTO spices (name, icon, flavor_notes, adds, heat_level, cuisine_tags, di
 ('Lemongrass',        '🌿', '{citrusy,lemony,fresh}', 'Thai citrus stalks',                                    0, '{thai,vietnamese,asian}', '{curry,soup,chicken,fish,stir fry,tea}', '{ginger,cilantro}', FALSE),
 ('Saffron',           '🟡', '{floral,honeyed,luxurious}', 'Golden threads of luxury',                          0, '{spanish,indian,middle_eastern}', '{paella,rice,risotto,soup,biryani}', '{turmeric,cardamom}', FALSE),
 ('Vanilla Bean',      '🌸', '{sweet,floral,creamy}', 'Real-deal dessert warmth',                               0, '{french,american}', '{dessert,baking,coffee,ice cream,oatmeal}', '{cinnamon,nutmeg}', FALSE),
-('Mace',              '🌰', '{warm,nutty,refined}', 'Nutmeg\'s elegant sister',                                0, '{indian,french}', '{baking,béchamel,sausages,soup}', '{nutmeg,cinnamon}', FALSE),
+('Mace',              '🌰', '{warm,nutty,refined}', 'Nutmeg''s elegant sister',                                0, '{indian,french}', '{baking,béchamel,sausages,soup}', '{nutmeg,cinnamon}', FALSE),
 ('Juniper Berries',   '🫐', '{piney,gin-like,sharp}', 'Gin botanical for game',                                0, '{german,european}', '{venison,sauerkraut,stews,pork,marinades}', '{bay leaf,black pepper}', FALSE),
 ('Annatto',           '🟠', '{earthy,peppery,subtle}', 'Achiote color + mild earth',                           0, '{latin,mexican,caribbean}', '{rice,chicken,stews,pork}', '{sazon,cumin}', FALSE),
 ('Epazote',           '🌿', '{pungent,medicinal,earthy}', 'Traditional Mexican bean herb',                     0, '{mexican}', '{beans,soup,quesadillas,tamales}', '{oregano,cumin}', FALSE),
@@ -85,7 +85,7 @@ INSERT INTO spices (name, icon, flavor_notes, adds, heat_level, cuisine_tags, di
 ('Black Cardamom',    '🖤', '{smoky,camphor,bold}', 'Bacon-of-spices smokiness',                               0, '{indian,chinese}', '{curry,biryani,stews,rice,lamb}', '{cardamom,cloves}', FALSE),
 ('Amchur',            '🥭', '{sour,fruity,mango}', 'Dry mango tang',                                           0, '{indian}', '{curry,lentils,chutney,vegetables}', '{cumin,coriander}', FALSE),
 ('Asafoetida',        '🧄', '{pungent,oniony,funky}', 'Hing — garlic-onion depth',                             0, '{indian}', '{lentils,curry,vegetables,dal,pickles}', '{cumin,mustard seed}', FALSE),
-('Galangal',          '🫚', '{sharp,citrusy,piney}', 'Thai ginger\'s sharper cousin',                          1, '{thai,indonesian,asian}', '{tom kha,curry,soup,chicken,fish}', '{lemongrass,ginger}', FALSE),
+('Galangal',          '🫚', '{sharp,citrusy,piney}', 'Thai ginger''s sharper cousin',                          1, '{thai,indonesian,asian}', '{tom kha,curry,soup,chicken,fish}', '{lemongrass,ginger}', FALSE),
 ('Kaffir Lime',       '🍃', '{citrusy,floral,intense}', 'Thai curry-leaf citrus',                              0, '{thai,southeast_asian}', '{curry,soup,chicken,fish,rice}', '{lemongrass,galangal}', FALSE),
 ('Nutritional Yeast', '🧀', '{cheesy,nutty,umami}', 'Vegan cheese vibes',                                      0, '{american,vegan}', '{pasta,popcorn,vegetables,sauces,soup}', '{garlic powder,onion powder}', FALSE),
 ('Smoked Salt',       '🧂', '{salty,smoky,intense}', 'Smoke without the fire',                                 0, '{american}', '{bbq,steak,vegetables,eggs,soup}', '{smoked paprika,black pepper}', FALSE),
@@ -97,3 +97,93 @@ INSERT INTO spices (name, icon, flavor_notes, adds, heat_level, cuisine_tags, di
 ('Chinese Mustard',   '🟡', '{sharp,hot,sinus-clearing}', 'Hot-mustard bite',                                  3, '{chinese}', '{egg rolls,duck,pork,sandwiches}', '{mustard powder,horseradish powder}', FALSE),
 ('Sage Rubbed',       '🌿', '{earthy,velvety,soft}', 'Fluffy rubbed sage',                                     0, '{american,italian}', '{turkey,stuffing,pork,butter sauce}', '{poultry seasoning,thyme}', FALSE)
 ON CONFLICT (name) DO NOTHING;
+
+-- ============================================================================
+-- SEED: Additional preset blends (mixing 053 + 057 catalog spices)
+-- Idempotent: NOT EXISTS on blend names, ON CONFLICT on ingredients.
+-- ============================================================================
+
+INSERT INTO spice_blends (user_id, name, icon, description, dish_tags, source)
+SELECT v.user_id, v.name, v.icon, v.description, v.dish_tags, v.source
+FROM (VALUES
+(NULL::integer, 'Everything Bagel',   '🥯', 'Sesame-garlic bagel topper', '{bagels,bread,eggs,salmon,avocado}'::text[], 'preset'),
+(NULL::integer, 'Shawarma Blend',     '🥙', 'Warm Middle-Eastern wrap spice', '{chicken,lamb,beef,wraps,rice}'::text[], 'preset'),
+(NULL::integer, 'Jerk Rub',           '🌴', 'Jamaican allspice fire', '{chicken,pork,shrimp,rice,grill}'::text[], 'preset'),
+(NULL::integer, 'Fajita Mix',         '🫑', 'Sizzling Tex-Mex fajita dust', '{fajitas,chicken,steak,peppers,onions}'::text[], 'preset'),
+(NULL::integer, 'Adobo Mix',          '🧂', 'Latin all-purpose blend', '{chicken,rice,beans,pork,vegetables}'::text[], 'preset'),
+(NULL::integer, 'Chai Blend',         '🍵', 'Warming tea & baking spice', '{tea,coffee,dessert,oatmeal,baking}'::text[], 'preset'),
+(NULL::integer, 'Steakhouse Rub',     '🥩', 'Coarse crusty steak dust', '{steak,burgers,pork,potatoes,grill}'::text[], 'preset'),
+(NULL::integer, 'House Seasoned Salt','🧂', 'Kitchen workhorse finishing salt', '{chicken,vegetables,eggs,fries,soup}'::text[], 'preset')
+) AS v(user_id, name, icon, description, dish_tags, source)
+WHERE NOT EXISTS (
+  SELECT 1 FROM spice_blends b WHERE b.user_id IS NULL AND b.name = v.name
+);
+
+INSERT INTO spice_blend_ingredients (blend_id, spice_id, parts, note)
+SELECT b.id, s.id, v.parts, v.note
+FROM (VALUES
+('Everything Bagel',    'Sesame Seed',     2.0, NULL),
+('Everything Bagel',    'Poppy Seed',      2.0, NULL),
+('Everything Bagel',    'Minced Garlic',   2.0, 'dried works best'),
+('Everything Bagel',    'Onion Flakes',    2.0, NULL),
+('Everything Bagel',    'Salt',            1.5, 'flaky if you have it'),
+
+('Shawarma Blend',      'Cumin',           2.0, 'earthy core'),
+('Shawarma Blend',      'Coriander',       2.0, NULL),
+('Shawarma Blend',      'Turmeric',        1.0, 'color'),
+('Shawarma Blend',      'Paprika',         1.5, NULL),
+('Shawarma Blend',      'Garlic Powder',   1.0, NULL),
+('Shawarma Blend',      'Cinnamon',        0.5, 'warmth'),
+('Shawarma Blend',      'Cayenne',         0.5, 'to taste'),
+('Shawarma Blend',      'Black Pepper',    0.5, NULL),
+
+('Jerk Rub',            'Allspice',        2.0, 'the signature'),
+('Jerk Rub',            'Thyme',           2.0, NULL),
+('Jerk Rub',            'Cayenne',         1.0, 'scotch bonnet stand-in'),
+('Jerk Rub',            'Garlic Powder',   1.0, NULL),
+('Jerk Rub',            'Onion Powder',    1.0, NULL),
+('Jerk Rub',            'Salt',            1.0, NULL),
+('Jerk Rub',            'Black Pepper',    1.0, NULL),
+('Jerk Rub',            'Nutmeg',          0.5, NULL),
+('Jerk Rub',            'Cinnamon',        0.5, NULL),
+
+('Fajita Mix',          'Chili Powder',    3.0, 'the base'),
+('Fajita Mix',          'Cumin',           2.0, NULL),
+('Fajita Mix',          'Paprika',         1.5, NULL),
+('Fajita Mix',          'Garlic Powder',   1.0, NULL),
+('Fajita Mix',          'Onion Powder',    1.0, NULL),
+('Fajita Mix',          'Oregano',         0.5, 'Mexican oregano if you have it'),
+('Fajita Mix',          'Cayenne',         0.25, 'optional heat'),
+
+('Adobo Mix',           'Garlic Powder',   3.0, 'dominant'),
+('Adobo Mix',           'Onion Powder',    2.0, NULL),
+('Adobo Mix',           'Oregano',         2.0, NULL),
+('Adobo Mix',           'Cumin',           1.0, NULL),
+('Adobo Mix',           'Black Pepper',    1.0, NULL),
+('Adobo Mix',           'Turmeric',        0.5, 'color'),
+
+('Chai Blend',          'Green Cardamom',  3.0, 'the star'),
+('Chai Blend',          'Cinnamon',        3.0, NULL),
+('Chai Blend',          'Ginger',          2.0, NULL),
+('Chai Blend',          'Cloves',          1.0, NULL),
+('Chai Blend',          'Black Pepper',    0.5, 'bite'),
+('Chai Blend',          'Star Anise',      0.5, 'licorice note'),
+
+('Steakhouse Rub',      'Black Pepper',    3.0, 'coarse ground'),
+('Steakhouse Rub',      'Garlic Powder',   2.0, NULL),
+('Steakhouse Rub',      'Onion Flakes',    2.0, NULL),
+('Steakhouse Rub',      'Paprika',         1.0, NULL),
+('Steakhouse Rub',      'Coriander Seed',  1.0, 'cracked'),
+('Steakhouse Rub',      'Dill Seed',       0.5, NULL),
+('Steakhouse Rub',      'Cayenne',         0.5, 'optional'),
+
+('House Seasoned Salt', 'Salt',            4.0, 'the carrier'),
+('House Seasoned Salt', 'Paprika',         1.0, NULL),
+('House Seasoned Salt', 'Garlic Powder',   1.0, NULL),
+('House Seasoned Salt', 'Onion Powder',    1.0, NULL),
+('House Seasoned Salt', 'Black Pepper',    0.5, NULL),
+('House Seasoned Salt', 'Celery Seed',     0.25, 'subtle depth')
+) AS v(blend_name, spice_name, parts, note)
+JOIN spice_blends b ON b.user_id IS NULL AND b.name = v.blend_name
+JOIN spices s ON s.name = v.spice_name
+ON CONFLICT (blend_id, spice_id) DO NOTHING;
