@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
 const { authenticateToken } = require('../middleware/auth');
+const { canonicalizeCategory } = require('../utils/canonicalCategory');
 
 // Search products in MDL
 router.get('/search', async (req, res) => {
@@ -147,7 +148,7 @@ router.post('/admin/product', authenticateToken, async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
     `, [
-      product_name.trim(), slug, category || null,
+      product_name.trim(), slug, category ? canonicalizeCategory(category) : null,
       average_price ?? null, default_price_low ?? null, default_price_high ?? null,
       best_store || null, common_size || null, common_unit || null,
       icon_emoji || null, notes || null
@@ -198,7 +199,7 @@ router.put('/admin/product/:id', authenticateToken, async (req, res) => {
       WHERE id = $14
       RETURNING *
     `, [
-      product_name, category, average_price,
+      product_name, category ? canonicalizeCategory(category) : null, average_price,
       default_price_low, default_price_high,
       best_store, common_stores, common_size, common_unit,
       typical_shelf_life_days, typical_location,

@@ -6,6 +6,7 @@ import Sidebar from '../components/Sidebar';
 import PageTransition from '../components/PageTransition';
 import MDLProductsPanel from '../components/admin/MDLProductsPanel';
 import { createProduct, searchProducts } from '../api/mdl';
+import { CANONICAL_CATEGORIES, detectCategory, detectIcon } from '../utils/categoryDetector';
 
 /**
  * MDLProducts — standalone admin product database page.
@@ -116,14 +117,28 @@ const MDLProducts = () => {
                   type="text" required placeholder="Product name *"
                   value={newProduct.product_name}
                   onChange={(e) => setNewProduct({ ...newProduct, product_name: e.target.value })}
+                  onBlur={(e) => {
+                    // Convenience: suggest category + icon from the product name
+                    const guessCat = detectCategory(e.target.value);
+                    const guessIcon = detectIcon(e.target.value);
+                    setNewProduct(prev => ({
+                      ...prev,
+                      category: prev.category || guessCat || '',
+                      icon_emoji: prev.icon_emoji || guessIcon || ''
+                    }));
+                  }}
                   className="input-field col-span-2" autoFocus
                 />
-                <input
-                  type="text" placeholder="Category"
+                <select
                   value={newProduct.category}
                   onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
                   className="input-field"
-                />
+                >
+                  <option value="">Category…</option>
+                  {CANONICAL_CATEGORIES.map((cc) => (
+                    <option key={cc.name} value={cc.name}>{cc.icon} {cc.name}</option>
+                  ))}
+                </select>
                 <input
                   type="number" step="0.01" min="0" placeholder="Avg price"
                   value={newProduct.average_price}

@@ -176,7 +176,9 @@ const Sidebar = ({ onAction }) => {
     'History': History,
     'Store': Store,
     'Sparkles': Sparkles,
-    'GraduationCap': GraduationCap
+    'GraduationCap': GraduationCap,
+    'Flame': Flame,
+    'Database': Database
   };
 
   // Legacy items (will be phased out as API pages are configured)

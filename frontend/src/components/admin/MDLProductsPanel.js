@@ -7,6 +7,7 @@ import {
   getAdminStats, searchProducts, getProductCategories,
   updateProduct, addPriceRecord, runMdlBackup
 } from '../../api/mdl';
+import { CANONICAL_CATEGORIES, canonicalizeCategory, getCategoryIcon } from '../../utils/categoryDetector';
 
 /**
  * MDL Product Database admin panel.
@@ -153,13 +154,24 @@ const MDLProductsPanel = () => {
             className={`${inputCls} pl-9`}
           />
         </div>
-        <select value={category} onChange={(e) => setCategory(e.target.value)} className={`${inputCls} sm:w-48`}>
+        <select value={category} onChange={(e) => setCategory(e.target.value)} className={`${inputCls} sm:w-52`}>
           <option value="">All categories</option>
-          {categories.map((c) => (
-            <option key={c.category} value={c.category}>
-              {c.category} ({c.count})
-            </option>
-          ))}
+          {CANONICAL_CATEGORIES.map((cc) => {
+            const n = categories.find(c => c.category === cc.name)?.count;
+            return (
+              <option key={cc.name} value={cc.name}>
+                {cc.icon} {cc.name}{n ? ` (${n})` : ''}
+              </option>
+            );
+          })}
+          {/* any legacy/unmapped buckets still in the DB */}
+          {categories
+            .filter(c => c.category && !CANONICAL_CATEGORIES.some(cc => cc.name === c.category))
+            .map((c) => (
+              <option key={c.category} value={c.category}>
+                📦 {c.category} ({c.count})
+              </option>
+            ))}
         </select>
         <button onClick={doSearch} disabled={searching} className="btn-primary text-sm flex items-center gap-2">
           <Search className="w-4 h-4" /> {searching ? 'Searching…' : 'Search'}
@@ -205,7 +217,13 @@ const MDLProductsPanel = () => {
                       <span className="font-medium text-gray-900 dark:text-white">{p.product_name}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">{p.category || '—'}</td>
+                  <td className="px-4 py-2.5">
+                    {p.category ? (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-xs font-medium whitespace-nowrap">
+                        {getCategoryIcon(p.category)} {canonicalizeCategory(p.category)}
+                      </span>
+                    ) : '—'}
+                  </td>
                   <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
                     {p.average_price ? `$${Number(p.average_price).toFixed(2)}` : '—'}
                   </td>
@@ -276,11 +294,12 @@ const MDLProductsPanel = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
-                  <input className={inputCls} list="mdl-cat-list" value={form.category}
-                    onChange={(e) => setForm({ ...form, category: e.target.value })} />
-                  <datalist id="mdl-cat-list">
-                    {categories.map((c) => <option key={c.category} value={c.category} />)}
-                  </datalist>
+                  <select className={inputCls} value={canonicalizeCategory(form.category)}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                    {CANONICAL_CATEGORIES.map((cc) => (
+                      <option key={cc.name} value={cc.name}>{cc.icon} {cc.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Avg Price ($)</label>

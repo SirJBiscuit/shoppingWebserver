@@ -132,7 +132,13 @@ const runMigrations = async () => {
     { file: '047_household_members.sql', name: 'Household Members' },
     { file: '048_mdl_hardening.sql', name: 'MDL Hardening' },
     { file: '049_store_unification.sql', name: 'Store Unification' },
-    { file: '050_beta_admin_extensions.sql', name: 'Beta Admin Extensions' }
+    { file: '050_beta_admin_extensions.sql', name: 'Beta Admin Extensions' },
+    { file: '051_changelog_notifications_review.sql', name: 'Changelog & Notifications' },
+    { file: '052_canonical_categories.sql', name: 'Canonical Categories' },
+    { file: '053_spice_system.sql', name: 'Spice System' },
+    { file: '054_spice_levels.sql', name: 'Spice Levels' },
+    { file: '055_household_eatout.sql', name: 'Household Eating Out' },
+    { file: '056_spices_sidebar_and_mdl_categories.sql', name: 'Spice Sidebar & MDL Categories' }
   ];
 
   for (const migration of migrations) {
