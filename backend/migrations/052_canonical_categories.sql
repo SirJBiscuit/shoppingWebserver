@@ -37,6 +37,9 @@ BEGIN
     WHEN 'seafood' THEN 'Meat & Seafood'
     WHEN 'deli' THEN 'Meat & Seafood'
     WHEN 'fish' THEN 'Meat & Seafood'
+    WHEN 'meat department' THEN 'Meat & Seafood'
+    WHEN 'meat & fish' THEN 'Meat & Seafood'
+    WHEN 'uncategorized' THEN 'Other'
     WHEN 'dairy' THEN 'Dairy & Eggs'
     WHEN 'eggs' THEN 'Dairy & Eggs'
     WHEN 'ice cream' THEN 'Frozen'
@@ -87,7 +90,7 @@ WHERE category IS NOT NULL
   AND canonical_category(category) IS DISTINCT FROM category;
 
 -- 3. Template items
-DO $$
+DO $do$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM information_schema.columns
@@ -100,10 +103,10 @@ BEGIN
         AND canonical_category(category) IS DISTINCT FROM category
     $$inner$$;
   END IF;
-END $$;
+END $do$;
 
 -- 4. Staging area (post-checkout items)
-DO $$
+DO $do$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM information_schema.columns
@@ -116,4 +119,4 @@ BEGIN
         AND canonical_category(category) IS DISTINCT FROM category
     $$inner$$;
   END IF;
-END $$;
+END $do$;
