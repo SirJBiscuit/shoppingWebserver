@@ -1,10 +1,13 @@
 const db = require('../database/db');
+const { resolveCategory } = require('../utils/categories');
 
 /**
  * Update or create item preferences when user edits/adds an item
  */
 async function updateItemPreferences(userId, itemData) {
-  const { item_name, item_icon, category, price, quantity, unit } = itemData;
+  const { item_name, item_icon, price, quantity, unit } = itemData;
+  // Always store the canonical form so categories-table joins work
+  const category = itemData.category ? resolveCategory(itemData.category, item_name) : null;
   
   try {
     // Check if item exists

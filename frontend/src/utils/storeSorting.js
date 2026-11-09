@@ -1,5 +1,7 @@
 // Store-based intelligent sorting with temperature and fragility rules
 
+import { canonicalizeCategory } from './categoryDetector';
+
 const TEMPERATURE_ZONES = {
   frozen: { priority: 1000, name: 'Frozen' },
   refrigerated: { priority: 900, name: 'Refrigerated' },
@@ -12,23 +14,19 @@ const FRAGILITY_RULES = {
   normal: { priority: 0, items: [] }
 };
 
-// Default category ordering (used when no store template exists)
+// Default category ordering — canonical names only
 const DEFAULT_CATEGORY_ORDER = {
   'Produce': 1,
   'Bakery': 2,
-  'Deli': 3,
-  'Meat & Seafood': 4,
+  'Meat & Seafood': 3,
   'Pantry Staples': 5,
-  'Canned Goods': 6,
-  'Pasta & Rice': 7,
   'Snacks': 8,
   'Beverages': 9,
   'Breakfast': 10,
-  'Condiments': 11,
-  'Baking': 12,
-  'Cleaning': 13,
+  'Condiments & Sauces': 11,
+  'Household': 13,
   'Personal Care': 14,
-  'Dairy': 15,
+  'Dairy & Eggs': 15,
   'Frozen': 16
 };
 
@@ -74,20 +72,21 @@ export const getFragility = (item) => {
   return 'normal';
 };
 
-// Get category sort order
+// Get category sort order (canonicalizes legacy/free-text labels first)
 export const getCategoryOrder = (category, storeTemplate = null) => {
+  const canon = canonicalizeCategory(category);
   if (storeTemplate && storeTemplate.categoryOrder) {
-    return storeTemplate.categoryOrder[category] || 999;
+    return storeTemplate.categoryOrder[canon] || 999;
   }
-  return DEFAULT_CATEGORY_ORDER[category] || 999;
+  return DEFAULT_CATEGORY_ORDER[canon] || 999;
 };
 
 // Smart sort items with temperature and fragility rules
 export const smartSortItems = (items, storeTemplate = null) => {
   return [...items].sort((a, b) => {
     // 1. Category order (store layout)
-    const categoryA = a.category || 'Other';
-    const categoryB = b.category || 'Other';
+    const categoryA = canonicalizeCategory(a.category || a.category_name);
+    const categoryB = canonicalizeCategory(b.category || b.category_name);
     const categoryOrderA = getCategoryOrder(categoryA, storeTemplate);
     const categoryOrderB = getCategoryOrder(categoryB, storeTemplate);
     

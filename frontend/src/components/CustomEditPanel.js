@@ -5,6 +5,7 @@ import CustomNumberPad from './CustomNumberPad';
 import CustomDropdownList from './CustomDropdownList';
 import IconPicker from './IconPicker';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
+import { canonicalizeCategory } from '../utils/categoryDetector';
 
 /**
  * CustomEditPanel - Modern, animated item editing panel
@@ -43,7 +44,7 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave }) => {
         quantity: item.quantity || 1,
         unit: item.unit || '',
         price: item.price || '',
-        category: item.category_name || item.category || '',
+        category: canonicalizeCategory(item.category_name || item.category || ''),
         item_icon: item.item_icon || '',
         notes: item.notes || ''
       });
@@ -73,42 +74,24 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave }) => {
     { value: 'bag', label: 'bag' },
   ];
 
+  // Canonical categories — values match the categories table so items
+  // join correctly for icons + shopping order
   const categoryOptions = [
     { value: '', label: 'Select Category', disabled: true },
-    { value: 'header1', label: '🍽️ Meal Categories', isHeader: true },
-    { value: 'Breakfast', label: '🍳 Breakfast' },
-    { value: 'Lunch', label: '🥪 Lunch / Work' },
-    { value: 'Dinner', label: '🍽️ Dinner' },
-    { value: 'Snacks', label: '🍿 Snacks & Treats' },
-    { value: 'header2', label: '🛒 Food Categories', isHeader: true },
-    { value: 'Produce', label: '🥬 Produce & Vegetables' },
-    { value: 'Fruits', label: '🍎 Fruits' },
-    { value: 'Dairy', label: '🥛 Dairy & Eggs' },
-    { value: 'Meat', label: '🥩 Meat & Seafood' },
+    { value: 'header2', label: '🛒 Food', isHeader: true },
+    { value: 'Produce', label: '🥬 Produce' },
+    { value: 'Meat & Seafood', label: '🥩 Meat & Seafood' },
+    { value: 'Dairy & Eggs', label: '🥛 Dairy & Eggs' },
     { value: 'Bakery', label: '🍞 Bakery & Bread' },
-    { value: 'Deli', label: '🥪 Deli & Prepared' },
-    { value: 'Pantry', label: '🥫 Pantry Staples' },
-    { value: 'Canned', label: '🥫 Canned Goods' },
     { value: 'Frozen', label: '❄️ Frozen Foods' },
+    { value: 'Breakfast', label: '🍳 Breakfast' },
+    { value: 'Pantry Staples', label: '🥫 Pantry Staples' },
+    { value: 'Snacks', label: '🍿 Snacks & Treats' },
     { value: 'Beverages', label: '🥤 Beverages & Drinks' },
-    { value: 'Condiments', label: '🧂 Condiments & Sauces' },
-    { value: 'Spices', label: '🌶️ Spices & Seasonings' },
-    { value: 'header3', label: '🏠 Household', isHeader: true },
-    { value: 'Cleaning', label: '🧹 Cleaning Supplies' },
-    { value: 'Paper', label: '🧻 Paper Products' },
-    { value: 'Kitchen', label: '🍴 Kitchen Supplies' },
-    { value: 'Laundry', label: '🧺 Laundry' },
-    { value: 'Storage', label: '📦 Storage & Organization' },
-    { value: 'header4', label: '🧴 Personal Care', isHeader: true },
-    { value: 'Bathroom', label: '🚿 Bathroom Supplies' },
+    { value: 'Condiments & Sauces', label: '🧂 Condiments & Sauces' },
+    { value: 'header3', label: '🏠 Non-Food', isHeader: true },
+    { value: 'Household', label: '� Household' },
     { value: 'Personal Care', label: '🧴 Personal Care' },
-    { value: 'Health', label: '💊 Health & Medicine' },
-    { value: 'Beauty', label: '💄 Beauty & Cosmetics' },
-    { value: 'header5', label: '🐾 Other', isHeader: true },
-    { value: 'Pet', label: '🐾 Pet Supplies' },
-    { value: 'Baby', label: '👶 Baby & Kids' },
-    { value: 'Automotive', label: '🚗 Automotive' },
-    { value: 'Garden', label: '🌱 Garden & Outdoor' },
     { value: 'Other', label: '📦 Other' },
   ];
 

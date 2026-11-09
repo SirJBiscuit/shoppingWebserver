@@ -4,6 +4,7 @@ const db = require('../database/db');
 const { authenticateToken } = require('../middleware/auth');
 const { updateItemPreferences } = require('../services/itemPreferences');
 const { recordItemCheckOff, getPersonalizedSortOrder } = require('../services/sortingLearning');
+const { canonicalizeCategory, resolveCategory } = require('../utils/categories');
 
 const router = express.Router();
 
@@ -16,9 +17,9 @@ function determineStorageLocation(itemName, category) {
   const freezerKeywords = ['frozen', 'ice cream', 'popsicle', 'ice', 'freezer'];
   const freezerCategories = ['frozen', 'ice cream'];
 
-  // Fridge items
+  // Fridge items (canonical category names, lowercased)
   const fridgeKeywords = ['milk', 'cheese', 'yogurt', 'butter', 'cream', 'eggs', 'fresh', 'meat', 'chicken', 'beef', 'fish', 'juice', 'soda'];
-  const fridgeCategories = ['dairy', 'produce', 'fruits', 'vegetables', 'meat', 'deli', 'seafood', 'beverages'];
+  const fridgeCategories = ['dairy & eggs', 'produce', 'meat & seafood'];
 
   // Check freezer
   if (freezerCategories.includes(cat) || freezerKeywords.some(k => name.includes(k))) {
@@ -230,13 +231,17 @@ router.post('/lists/:id/items',
         [req.user.id, itemName]
       );
 
+      // Always store a canonical category so the categories-table join
+      // (icon + shopping order) works for every item
+      const resolvedCategory = resolveCategory(category, itemName);
+
       let itemId = null;
       if (itemResult.rows.length > 0) {
         itemId = itemResult.rows[0].id;
       } else {
         const newItem = await db.query(
           'INSERT INTO items (user_id, name, category, typical_quantity, typical_unit) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-          [req.user.id, itemName, category, quantity, unit]
+          [req.user.id, itemName, resolvedCategory, quantity, unit]
         );
         itemId = newItem.rows[0].id;
       }
@@ -245,7 +250,7 @@ router.post('/lists/:id/items',
         `INSERT INTO shopping_list_items 
          (shopping_list_id, item_id, item_name, quantity, unit, price, category, item_icon, notes, aisle_number, aisle_name, upc, is_on_sale, original_price)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
-        [listId, itemId, itemName, quantity, unit, price, category, icon, notes, aisleNumber, aisleName, upc, isOnSale, originalPrice]
+        [listId, itemId, itemName, quantity, unit, price, resolvedCategory, icon, notes, aisleNumber, aisleName, upc, isOnSale, originalPrice]
       );
 
       // Update item preferences
@@ -253,7 +258,7 @@ router.post('/lists/:id/items',
         await updateItemPreferences(req.user.id, {
           item_name: itemName,
           item_icon: icon,
-          category: category,
+          category: resolvedCategory,
           price: price,
           quantity: quantity,
           unit: unit
@@ -300,7 +305,7 @@ const updateShoppingListItem = async (req, res) => {
     }
     if (category !== undefined) {
       updates.push(`category = $${paramCount++}`);
-      values.push(category);
+      values.push(canonicalizeCategory(category));
     }
     if (item_icon !== undefined) {
       updates.push(`item_icon = $${paramCount++}`);
@@ -669,7 +674,7 @@ router.post('/templates', async (req, res) => {
       await client.query(
         `INSERT INTO template_items (template_id, item_name, quantity, unit, category, item_icon)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [template.id, item.item_name, item.quantity || 1, item.unit || '', item.category || '', item.item_icon || '']
+        [template.id, item.item_name, item.quantity || 1, item.unit || '', resolveCategory(item.category, item.item_name), item.item_icon || '']
       );
     }
 

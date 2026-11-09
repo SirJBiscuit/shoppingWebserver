@@ -1,6 +1,8 @@
 // Store layouts with aisle information for different stores
 // This helps organize shopping lists by store location and aisle
 
+import { canonicalizeCategory } from '../utils/categoryDetector';
+
 export const storeLayouts = {
   walmart: {
     name: 'Walmart',
@@ -216,6 +218,8 @@ export const storeLayouts = {
 };
 
 // Get aisle for a category at a specific store
+// Compares canonicalized names on both sides — layout tables use legacy
+// labels ('Deli', 'Fruits') while items now carry canonical categories.
 export const getAisleForCategory = (storeName, category) => {
   if (!storeName || !category) return null;
   
@@ -228,9 +232,10 @@ export const getAisleForCategory = (storeName, category) => {
     return null;
   }
   
+  const canon = canonicalizeCategory(category).toLowerCase();
   const aisle = store.aisles.find(a => 
     a.categories.some(cat => 
-      cat.toLowerCase() === category.toLowerCase()
+      canonicalizeCategory(cat).toLowerCase() === canon
     )
   );
   
@@ -247,8 +252,8 @@ export const sortItemsByStoreAisle = (items, storeName) => {
   if (!store) return items;
   
   return [...items].sort((a, b) => {
-    const categoryA = a.category_name || a.category || 'Other';
-    const categoryB = b.category_name || b.category || 'Other';
+    const categoryA = canonicalizeCategory(a.category_name || a.category);
+    const categoryB = canonicalizeCategory(b.category_name || b.category);
     
     const aisleA = getAisleForCategory(storeName, categoryA);
     const aisleB = getAisleForCategory(storeName, categoryB);

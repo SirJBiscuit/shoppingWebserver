@@ -11,7 +11,7 @@ import ExpirationBadge from '../components/ExpirationBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { useToast } from '../hooks/useToast';
-import { detectIcon } from '../utils/categoryDetector';
+import { detectIcon, canonicalizeCategory, getCategoryIcon, getCategoryOrder } from '../utils/categoryDetector';
 
 const Pantry = () => {
   const navigate = useNavigate();
@@ -138,32 +138,31 @@ const Pantry = () => {
         return location === activeTab;
       });
 
-  // Category order for proper sorting
+  // Category order for proper sorting (canonical names)
   const categoryOrder = {
     'Produce': 1,
-    'Fruits': 2,
-    'Dairy': 3,
-    'Meat': 4,
+    'Meat & Seafood': 2,
+    'Dairy & Eggs': 3,
     'Bakery': 5,
-    'Deli': 6,
     'Frozen': 7,
-    'Pantry': 8,
-    'Canned': 9,
-    'Condiments': 10,
-    'Spices': 11,
+    'Pantry Staples': 8,
+    'Condiments & Sauces': 10,
+    'Breakfast': 11,
     'Snacks': 12,
     'Beverages': 13,
+    'Household': 14,
+    'Personal Care': 15,
     'Other': 99
   };
 
-  // Group items by category
+  // Group items by category (canonical names — matches the categories table)
   const groupedItems = filteredItems.reduce((acc, item) => {
-    const category = item.category_name || item.category || 'Other';
+    const category = canonicalizeCategory(item.category_name || item.category);
     if (!acc[category]) {
       acc[category] = {
         items: [],
-        icon: item.category_icon || '📦',
-        order: categoryOrder[category] || 50
+        icon: item.category_icon || getCategoryIcon(category),
+        order: categoryOrder[category] || getCategoryOrder(category)
       };
     }
     acc[category].items.push(item);

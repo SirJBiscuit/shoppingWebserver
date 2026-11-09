@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import CustomEditPanel from './CustomEditPanel';
 // import ItemTooltip from './ItemTooltip'; // Component doesn't exist
 // import SmartSuggestionTooltip from './SmartSuggestionTooltip'; // Component doesn't exist
-import { detectIcon, detectCategory } from '../utils/categoryDetector';
+import { detectIcon, detectCategory, canonicalizeCategory, getCategoryIcon, getCategoryOrder } from '../utils/categoryDetector';
 import { getAisleForCategory, sortItemsByStoreAisle } from '../data/storeLayouts';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
@@ -115,14 +115,15 @@ const ItemListContent = (props) => {
     return acc;
   }, {});
 
-  // Group by category
+  // Group by category — canonicalize so legacy free-text categories
+  // ('Meat', 'Pantry', ...) land in their canonical group with the right icon
   const groupedItems = Object.values(combinedItems).reduce((acc, item) => {
-    const category = item.category_name || item.category || 'Other';
+    const category = canonicalizeCategory(item.category_name || item.category);
     if (!acc[category]) {
       acc[category] = {
         items: [],
-        icon: item.category_icon || '📦',
-        order: item.category_order || 999
+        icon: item.category_icon || getCategoryIcon(category),
+        order: item.category_order || getCategoryOrder(category)
       };
     }
     acc[category].items.push(item);
@@ -391,7 +392,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
   };
   
   // Get aisle information if store is specified
-  const category = item.category_name || item.category || 'Other';
+  const category = canonicalizeCategory(item.category_name || item.category);
   const aisle = storeName ? getAisleForCategory(storeName, category) : null;
   
   // Check if item exists in inventory and get smart suggestions

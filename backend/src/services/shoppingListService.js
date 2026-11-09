@@ -3,6 +3,7 @@
 
 const db = require('../database/db');
 const listCache = require('./listCache');
+const { resolveCategory } = require('../utils/categories');
 
 class ShoppingListService {
   
@@ -221,7 +222,7 @@ class ShoppingListService {
           item.quantity || 1,
           item.unit || '',
           item.price || null,
-          item.category || '',
+          resolveCategory(item.category, item.item_name),
           item.item_icon || '',
           item.aisle_number || null,
           item.notes || ''

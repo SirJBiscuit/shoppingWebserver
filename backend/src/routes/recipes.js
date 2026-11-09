@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../database/db');
 const { authenticateToken } = require('../middleware/auth');
+const { resolveCategory } = require('../utils/categories');
 const { 
   scrapeRecipe,
   scrapeFoodNetworkRecipe, 
@@ -296,15 +297,16 @@ router.post('/:id/to-shopping-list', authenticateToken, async (req, res) => {
         // Store original recipe amounts for reference
         await db.query(`
           INSERT INTO shopping_list_items (
-            shopping_list_id, item_name, quantity, unit,
+            shopping_list_id, item_name, quantity, unit, category,
             recipe_id, original_recipe_quantity, original_recipe_unit, is_converted
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `, [
           shoppingListId, 
           ing.item_name, 
           ing.quantity,  // Will add smart conversion in frontend
           ing.unit,
+          resolveCategory(null, ing.item_name),
           req.params.id,  // Track which recipe this came from
           ing.quantity,   // Original recipe amount
           ing.unit,       // Original recipe unit
