@@ -5,6 +5,7 @@ import {
   TrendingUp, MapPin, DollarSign, Tag, ChevronDown 
 } from 'lucide-react';
 import { customTheme, getColorScheme, getAnimation } from '../utils/customTheme';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * CustomSearchBar - Enhanced search with MDL integration, filters, and aisle support
@@ -41,6 +42,11 @@ const CustomSearchBar = ({
   categories = [],
   className = ''
 }) => {
+  const { user } = useAuth();
+  const isAdmin = user?.is_admin === true || user?.isAdmin === true;
+  // Admins don't get voice/barcode controls
+  if (isAdmin) { showVoice = false; showBarcode = false; }
+
   const [query, setQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);

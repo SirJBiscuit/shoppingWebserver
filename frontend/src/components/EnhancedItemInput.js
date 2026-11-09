@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Mic, Camera, StickyNote, Tag, DollarSign, Hash, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const EnhancedItemInput = ({ onAddItem, categories }) => {
+  const { user } = useAuth();
+  const isAdmin = user?.is_admin === true || user?.isAdmin === true;
   const [itemName, setItemName] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [price, setPrice] = useState('');
@@ -110,7 +113,8 @@ const EnhancedItemInput = ({ onAddItem, categories }) => {
             />
           </div>
 
-          {/* Voice Input Button */}
+          {/* Voice Input Button — hidden for admin */}
+          {!isAdmin && (
           <button
             onClick={startVoiceInput}
             className={`p-3 rounded-lg transition-all ${
@@ -122,6 +126,7 @@ const EnhancedItemInput = ({ onAddItem, categories }) => {
           >
             <Mic className="w-5 h-5" />
           </button>
+          )}
 
           {/* Advanced Toggle */}
           <button

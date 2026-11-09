@@ -372,8 +372,8 @@ const Sidebar = ({ onAction }) => {
                 ))}
               </>
             ) : sidebarPages.length > 0 ? (
-              /* API-driven pages (if available) */
-              sidebarPages.map((page) => {
+              /* API-driven pages (if available) — Settings excluded, it lives in the System section */
+              sidebarPages.filter((page) => page.page_path !== '/settings').map((page) => {
                 const Icon = iconMap[page.icon_name] || Home;
                 return (
                   <button

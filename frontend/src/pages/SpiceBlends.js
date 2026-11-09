@@ -15,11 +15,92 @@ import { playSound } from '../utils/soundEffects';
 const HEAT_LABELS = ['No heat', 'Mild', 'Warm', 'Spicy', 'Hot', 'Inferno'];
 const BLEND_ICONS = ['🧂', '🌶️', '🌿', '🔥', '🍛', '🌮', '🥘', '✨'];
 
-// Parts → teaspoons (client mirror of the suggester scaling)
-const partsToTsp = (ingredients) => {
-  const total = ingredients.reduce((s, i) => s + parseFloat(i.parts || 1), 0) || 1;
-  return (ing) => Math.max(0.25, Math.round((ing.parts / total) * 9 * 4) / 4);
+// Batch yield options — total blend output in teaspoons
+// 1 fl oz ≈ 6 tsp, 1 tsp of dried spice ≈ 2.5 g
+const YIELD_OPTIONS = [
+  { label: '1x batch', tsp: 9 },
+  { label: '2x batch', tsp: 18 },
+  { label: '4 oz', tsp: 24 },
+  { label: '8 oz', tsp: 48 },
+  { label: '16 oz', tsp: 96 },
+  { label: '100 g', tsp: 40 },
+  { label: 'Bulk 500 g', tsp: 200 },
+];
+const TSP_PER_OZ = 6;
+const G_PER_TSP = 2.5;
+
+const formatAmount = (tsp, unitMode) => {
+  if (unitMode === 'oz') return `${(tsp / TSP_PER_OZ).toFixed(2).replace(/\.?0+$/, '')} oz`;
+  if (unitMode === 'g') return `${Math.round(tsp * G_PER_TSP)} g`;
+  return `${Math.round(tsp * 4) / 4} tsp`;
 };
+
+// Parts → teaspoons at a given total yield
+const partsToTsp = (ingredients, yieldTsp = 9) => {
+  const total = ingredients.reduce((s, i) => s + parseFloat(i.parts || 1), 0) || 1;
+  return (ing) => Math.max(0.25, Math.round((ing.parts / total) * yieldTsp * 4) / 4);
+};
+
+// Approx tsp the user has: level% × container size
+const haveTsp = (ing) =>
+  ing.owned ? Math.round(((ing.level_percent ?? 100) / 100) * (ing.container_tsp ?? 12) * 2) / 2 : null;
+
+// Jar-style fill bar color by level
+const levelColor = (pct) =>
+  pct >= 50 ? 'bg-emerald-500' : pct >= 25 ? 'bg-amber-500' : 'bg-red-500';
+
+// Swirling-spices mixing animation shown while a blend is created/suggested
+const MixingOverlay = ({ icons = ['🧂', '🌶️', '🌿'], onDone }) => (
+  <motion.div
+    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    className="fixed inset-0 z-[130] bg-black/60 flex items-center justify-center"
+  >
+    <motion.div
+      initial={{ scale: 0.9, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1, transition: { duration: 0.2 } }}
+      onAnimationComplete={() => setTimeout(onDone, 1400)}
+      className="relative w-64 h-64 flex items-center justify-center"
+    >
+      {/* swirling ingredient icons */}
+      {icons.slice(0, 8).map((ic, i) => (
+        <motion.span
+          key={i}
+          className="absolute text-3xl"
+          animate={{
+            rotate: [0, 720],
+            x: [80 * Math.cos((i / icons.length) * Math.PI * 2), 0],
+            y: [80 * Math.sin((i / icons.length) * Math.PI * 2), 0],
+            scale: [1, 0.4],
+            opacity: [1, 0.6],
+          }}
+          transition={{ duration: 1.3, ease: 'easeInOut' }}
+        >
+          {ic}
+        </motion.span>
+      ))}
+      {/* bowl */}
+      <motion.div
+        className="text-7xl"
+        animate={{ rotate: [0, -6, 6, -4, 0], scale: [1, 1.08, 1] }}
+        transition={{ duration: 1.3, ease: 'easeInOut' }}
+      >
+        🥣
+      </motion.div>
+      {/* sparkle burst at the end */}
+      <motion.span
+        className="absolute text-4xl"
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: [0, 1.4, 0], opacity: [0, 1, 0] }}
+        transition={{ delay: 1.15, duration: 0.5 }}
+      >
+        ✨
+      </motion.span>
+      <p className="absolute -bottom-8 text-white font-semibold text-sm tracking-wide">
+        Mixing your blend…
+      </p>
+    </motion.div>
+  </motion.div>
+);
 
 const HeatMeter = ({ level }) => (
   <div className="flex items-center gap-0.5" title={HEAT_LABELS[level] || 'No heat'}>
@@ -57,6 +138,12 @@ const SpiceBlends = () => {
 
   const [expandedBlend, setExpandedBlend] = useState(null);
   const [deleteBlend, setDeleteBlend] = useState(null);
+
+  // Batch yield + display unit
+  const [yieldTsp, setYieldTsp] = useState(9);
+  const [unitMode, setUnitMode] = useState('tsp');
+  // Mixing animation
+  const [mixing, setMixing] = useState(null); // {icons, onDone}
 
   useEffect(() => {
     const load = async () => {
@@ -104,6 +191,17 @@ const SpiceBlends = () => {
     return spices.filter((s) => !q || s.name.toLowerCase().includes(q));
   }, [spices, rackSearch]);
 
+  // Update a spice's container fill level
+  const setLevel = async (spice, level) => {
+    const clamped = Math.max(0, Math.min(100, level));
+    setSpices((prev) => prev.map((s) => (s.id === spice.id ? { ...s, level_percent: clamped } : s)));
+    try {
+      await api.patch(`/spices/rack/${spice.id}`, { level_percent: clamped });
+    } catch {
+      showError('Could not save level');
+    }
+  };
+
   // ------------------------------------------------------------------
   // Suggester
   // ------------------------------------------------------------------
@@ -113,8 +211,14 @@ const SpiceBlends = () => {
     setSuggestion(null);
     try {
       const { data } = await api.get(`/spices/suggest?dish=${encodeURIComponent(dishInput.trim())}`);
-      setSuggestion(data);
-      playSound('check');
+      // Play mixing animation with the suggested spices before revealing
+      const icons = (data.ingredients || []).map((i) => i.icon);
+      if (icons.length) {
+        setMixing({ icons, onDone: () => { setMixing(null); setSuggestion(data); playSound('check'); } });
+      } else {
+        setSuggestion(data);
+        playSound('check');
+      }
     } catch {
       showError('Suggestion failed — try again');
     } finally {
@@ -140,6 +244,10 @@ const SpiceBlends = () => {
     }
   };
 
+  const startMixingSave = (icons, doSave) => {
+    setMixing({ icons: icons.length ? icons : ['🧂'], onDone: () => { setMixing(null); doSave(); } });
+  };
+
   // ------------------------------------------------------------------
   // Builder
   // ------------------------------------------------------------------
@@ -147,7 +255,7 @@ const SpiceBlends = () => {
     const s = spices.find((sp) => sp.id === Number(id));
     return s ? { spice_id: s.id, name: s.name, icon: s.icon, parts } : null;
   }).filter(Boolean);
-  const builderTsp = partsToTsp(builderList);
+  const builderTsp = partsToTsp(builderList, yieldTsp);
 
   const adjustPart = (id, delta) => {
     setBuilderIngredients((prev) => {
@@ -162,23 +270,27 @@ const SpiceBlends = () => {
       return;
     }
     setSavingBlend(true);
-    try {
-      await api.post('/spices/blends', {
-        name: builderName.trim(),
-        description: builderDesc.trim(),
-        icon: builderIcon,
-        ingredients: builderList.map((i) => ({ spice_id: i.spice_id, parts: i.parts })),
-      });
-      await refreshBlends();
-      setBuilderOpen(false);
-      setBuilderName(''); setBuilderDesc(''); setBuilderIngredients({});
-      success('Blend created!');
-      playSound('check');
-    } catch {
-      showError('Could not create blend');
-    } finally {
-      setSavingBlend(false);
-    }
+    const icons = builderList.map((i) => i.icon);
+    const doSave = async () => {
+      try {
+        await api.post('/spices/blends', {
+          name: builderName.trim(),
+          description: builderDesc.trim(),
+          icon: builderIcon,
+          ingredients: builderList.map((i) => ({ spice_id: i.spice_id, parts: i.parts })),
+        });
+        await refreshBlends();
+        setBuilderOpen(false);
+        setBuilderName(''); setBuilderDesc(''); setBuilderIngredients({});
+        success('Blend created!');
+        playSound('check');
+      } catch {
+        showError('Could not create blend');
+      } finally {
+        setSavingBlend(false);
+      }
+    };
+    startMixingSave(icons, doSave);
   };
 
   const confirmDeleteBlend = async () => {
@@ -290,6 +402,31 @@ const SpiceBlends = () => {
                       <div className="text-2xl mb-1">{s.icon}</div>
                       <div className="text-sm font-semibold text-gray-900 dark:text-white leading-tight">{s.name}</div>
                       <div className="mt-1"><HeatMeter level={s.heat_level} /></div>
+                      {/* Container fill level */}
+                      {s.owned && (
+                        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400">{s.level_percent}%</span>
+                            <div className="flex gap-0.5">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setLevel(s, s.level_percent - 25); }}
+                                className="w-4 h-4 rounded bg-gray-200 dark:bg-gray-700 text-[10px] leading-none text-gray-600 dark:text-gray-300"
+                              >−</button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setLevel(s, s.level_percent + 25); }}
+                                className="w-4 h-4 rounded bg-gray-200 dark:bg-gray-700 text-[10px] leading-none text-gray-600 dark:text-gray-300"
+                              >+</button>
+                            </div>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                            <motion.div
+                              className={`h-full ${levelColor(s.level_percent)}`}
+                              animate={{ width: `${s.level_percent}%` }}
+                              transition={{ duration: 0.3 }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </motion.button>
                   ))}
                 </div>
@@ -299,18 +436,62 @@ const SpiceBlends = () => {
             {/* ============ BLENDS TAB ============ */}
             {tab === 'blends' && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                <button
-                  onClick={() => setBuilderOpen(true)}
-                  className="mb-4 flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-medium shadow-lg shadow-orange-500/30 hover:shadow-xl transition-shadow"
-                >
-                  <Plus className="w-4 h-4" /> Create a blend
-                </button>
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  <button
+                    onClick={() => setBuilderOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-medium shadow-lg shadow-orange-500/30 hover:shadow-xl transition-shadow"
+                  >
+                    <Plus className="w-4 h-4" /> Create a blend
+                  </button>
+
+                  {/* Batch yield selector */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Batch:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {YIELD_OPTIONS.map((y) => (
+                        <button
+                          key={y.tsp}
+                          onClick={() => setYieldTsp(y.tsp)}
+                          className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+                            yieldTsp === y.tsp
+                              ? 'bg-orange-500 text-white'
+                              : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
+                          }`}
+                        >
+                          {y.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Display unit toggle */}
+                  <div className="flex items-center gap-1">
+                    {['tsp', 'oz', 'g'].map((u) => (
+                      <button
+                        key={u}
+                        onClick={() => setUnitMode(u)}
+                        className={`px-2 py-1 rounded-lg text-xs font-mono font-medium transition-colors ${
+                          unitMode === u
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
+                        }`}
+                      >
+                        {u}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {blends.map((b) => {
                     const open = expandedBlend === b.id;
-                    const tsp = partsToTsp(b.ingredients);
+                    const tsp = partsToTsp(b.ingredients, yieldTsp);
                     const owned = b.ingredients.filter((i) => i.owned).length;
+                    // "can I make this batch?" — need vs estimated on-hand
+                    const shortages = b.ingredients.filter((i) => {
+                      const have = haveTsp(i);
+                      return have !== null && have < tsp(i);
+                    }).length;
                     return (
                       <motion.div
                         key={b.id}
@@ -325,6 +506,7 @@ const SpiceBlends = () => {
                               <p className="text-xs text-gray-500 dark:text-gray-400">{b.description}</p>
                               <p className="text-xs mt-1 text-orange-600 dark:text-orange-400 font-medium">
                                 {owned}/{b.ingredients.length} in rack · {b.source === 'preset' ? 'Preset' : 'Yours'}
+                                {shortages > 0 && <span className="ml-1 text-red-500">· {shortages} too low for this batch</span>}
                               </p>
                             </div>
                           </button>
@@ -347,17 +529,25 @@ const SpiceBlends = () => {
                               className="overflow-hidden"
                             >
                               <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-1.5">
-                                {b.ingredients.map((i) => (
-                                  <div key={i.spice_id} className="flex items-center gap-2 text-sm">
-                                    <span>{i.icon}</span>
-                                    <span className={`flex-1 ${i.owned ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
-                                      {i.name}
-                                      {!i.owned && <span className="ml-1 text-[10px] text-red-400">(missing)</span>}
-                                    </span>
-                                    <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{tsp(i)} tsp</span>
-                                  </div>
-                                ))}
-                                <p className="text-[11px] text-gray-400 pt-1">Amounts scaled for ~4 servings</p>
+                                {b.ingredients.map((i) => {
+                                  const need = tsp(i);
+                                  const have = haveTsp(i);
+                                  const short = have !== null && have < need;
+                                  return (
+                                    <div key={i.spice_id} className="flex items-center gap-2 text-sm">
+                                      <span>{i.icon}</span>
+                                      <span className={`flex-1 ${i.owned ? (short ? 'text-red-500 dark:text-red-400' : 'text-gray-900 dark:text-white') : 'text-gray-400 dark:text-gray-500'}`}>
+                                        {i.name}
+                                        {!i.owned && <span className="ml-1 text-[10px] text-red-400">(missing)</span>}
+                                        {short && <span className="ml-1 text-[10px] text-red-400">(only ~{formatAmount(have, unitMode)} left)</span>}
+                                      </span>
+                                      <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{formatAmount(need, unitMode)}</span>
+                                    </div>
+                                  );
+                                })}
+                                <p className="text-[11px] text-gray-400 pt-1">
+                                  Yield ≈ {formatAmount(yieldTsp, unitMode)} total · amounts scale with your batch size
+                                </p>
                               </div>
                             </motion.div>
                           )}
@@ -421,30 +611,48 @@ const SpiceBlends = () => {
                           </div>
 
                           <div className="space-y-2 mb-4">
-                            {suggestion.ingredients.map((i, idx) => (
-                              <motion.div
-                                key={i.spice_id}
-                                initial={{ opacity: 0, x: -15 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: idx * 0.08 }}
-                                className={`flex items-center gap-3 p-3 rounded-xl ${
-                                  i.owned
-                                    ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
-                                    : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
-                                }`}
-                              >
-                                <span className="text-2xl">{i.icon}</span>
-                                <div className="flex-1">
-                                  <div className="font-semibold text-gray-900 dark:text-white text-sm">
-                                    {i.name} <span className="font-mono text-orange-600 dark:text-orange-400">· {i.amount}</span>
+                            {suggestion.ingredients.map((i, idx) => {
+                              const scale = yieldTsp / 9; // suggester base yield is 9 tsp
+                              const need = Math.round(i.tsp * scale * 4) / 4;
+                              const have = i.have_tsp;
+                              const short = i.owned && have !== null && have < need;
+                              return (
+                                <motion.div
+                                  key={i.spice_id}
+                                  initial={{ opacity: 0, x: -15 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: idx * 0.08 }}
+                                  className={`flex items-center gap-3 p-3 rounded-xl ${
+                                    !i.owned
+                                      ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                                      : short
+                                      ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-800'
+                                      : 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                                  }`}
+                                >
+                                  <span className="text-2xl">{i.icon}</span>
+                                  <div className="flex-1">
+                                    <div className="font-semibold text-gray-900 dark:text-white text-sm">
+                                      {i.name} <span className="font-mono text-orange-600 dark:text-orange-400">· {formatAmount(need, unitMode)}</span>
+                                    </div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                                      {i.adds}
+                                      {i.owned && (
+                                        <span className={`ml-1 font-medium ${short ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'}`}>
+                                          · have ~{formatAmount(have, unitMode)}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">{i.adds}</div>
-                                </div>
-                                {i.owned
-                                  ? <Check className="w-4 h-4 text-green-500" />
-                                  : <ShoppingCart className="w-4 h-4 text-red-400" />}
-                              </motion.div>
-                            ))}
+                                  {short && (
+                                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">LOW</span>
+                                  )}
+                                  {!short && (i.owned
+                                    ? <Check className="w-4 h-4 text-green-500" />
+                                    : <ShoppingCart className="w-4 h-4 text-red-400" />)}
+                                </motion.div>
+                              );
+                            })}
                           </div>
 
                           {suggestion.missing.length > 0 && (
@@ -526,7 +734,7 @@ const SpiceBlends = () => {
                       <div key={i.spice_id} className="flex items-center gap-2 p-2 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
                         <span className="text-lg">{i.icon}</span>
                         <span className="flex-1 text-sm font-medium text-gray-900 dark:text-white">
-                          {i.name} <span className="text-xs text-gray-400">≈{builderTsp(i)} tsp</span>
+                          {i.name} <span className="text-xs text-gray-400">≈{formatAmount(builderTsp(i), unitMode)}</span>
                         </span>
                         <button onClick={() => adjustPart(i.spice_id, -0.25)} className="p-1 rounded bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600">
                           <Minus className="w-3 h-3" />
@@ -584,6 +792,11 @@ const SpiceBlends = () => {
               </motion.div>
             </motion.div>
           )}
+        </AnimatePresence>
+
+        {/* Mixing animation overlay */}
+        <AnimatePresence>
+          {mixing && <MixingOverlay icons={mixing.icons} onDone={mixing.onDone} />}
         </AnimatePresence>
 
         {/* Delete confirm */}

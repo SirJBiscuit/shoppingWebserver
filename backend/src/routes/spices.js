@@ -9,11 +9,14 @@ router.use(authenticateToken);
 // Spice catalog + user rack
 // ============================================================================
 
-// GET /api/spices — all spices, each flagged with whether the user owns it
+// GET /api/spices — all spices, each flagged with whether the user owns it + fill level
 router.get('/', async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT s.*, (r.spice_id IS NOT NULL) AS owned
+      `SELECT s.*,
+              (r.spice_id IS NOT NULL) AS owned,
+              COALESCE(r.level_percent, 100) AS level_percent,
+              COALESCE(r.container_tsp, 12) AS container_tsp
        FROM spices s
        LEFT JOIN user_spice_rack r ON r.spice_id = s.id AND r.user_id = $1
        ORDER BY s.is_common DESC, s.name ASC`,
@@ -50,6 +53,31 @@ router.post('/rack', async (req, res) => {
   }
 });
 
+// PATCH /api/spices/rack/:spiceId { level_percent, container_tsp } — set fill level
+router.patch('/rack/:spiceId', async (req, res) => {
+  try {
+    const level = Math.max(0, Math.min(100, parseInt(req.body.level_percent, 10)));
+    if (Number.isNaN(level)) return res.status(400).json({ error: 'level_percent 0-100 is required' });
+    const container = req.body.container_tsp != null
+      ? Math.max(0.5, Math.min(500, parseFloat(req.body.container_tsp)))
+      : null;
+
+    const result = await db.query(
+      `INSERT INTO user_spice_rack (user_id, spice_id, level_percent, container_tsp)
+       VALUES ($1, $2, $3, COALESCE($4, 12))
+       ON CONFLICT (user_id, spice_id)
+       DO UPDATE SET level_percent = $3,
+                     container_tsp = COALESCE($4, user_spice_rack.container_tsp)
+       RETURNING level_percent, container_tsp`,
+      [req.user.id, req.params.spiceId, level, container]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating spice level:', error);
+    res.status(500).json({ error: 'Failed to update spice level' });
+  }
+});
+
 // ============================================================================
 // Blends
 // ============================================================================
@@ -66,7 +94,9 @@ router.get('/blends', async (req, res) => {
                     'parts', i.parts, 'note', i.note,
                     'flavor_notes', s.flavor_notes, 'adds', s.adds,
                     'heat_level', s.heat_level,
-                    'owned', (r.spice_id IS NOT NULL)
+                    'owned', (r.spice_id IS NOT NULL),
+                    'level_percent', COALESCE(r.level_percent, 100),
+                    'container_tsp', COALESCE(r.container_tsp, 12)
                   ) ORDER BY i.parts DESC
                 ) FILTER (WHERE s.id IS NOT NULL), '[]'
               ) AS ingredients
@@ -208,7 +238,9 @@ router.get('/suggest', async (req, res) => {
 
     const profile = DISH_PROFILES.find((p) => p.match.some((m) => dish.includes(m)));
     const spices = await db.query(
-      `SELECT s.*, (r.spice_id IS NOT NULL) AS owned
+      `SELECT s.*, (r.spice_id IS NOT NULL) AS owned,
+              COALESCE(r.level_percent, 100) AS level_percent,
+              COALESCE(r.container_tsp, 12) AS container_tsp
        FROM spices s
        LEFT JOIN user_spice_rack r ON r.spice_id = s.id AND r.user_id = $1`,
       [req.user.id]
@@ -254,6 +286,12 @@ router.get('/suggest', async (req, res) => {
         heat_level: s.heat_level,
         flavor_notes: s.flavor_notes,
         adds: s.adds,
+        // how much the user roughly has left in their container
+        level_percent: s.owned ? s.level_percent : null,
+        container_tsp: s.owned ? s.container_tsp : null,
+        have_tsp: s.owned
+          ? Math.round((s.level_percent / 100) * s.container_tsp * 2) / 2
+          : null,
       };
     });
 
