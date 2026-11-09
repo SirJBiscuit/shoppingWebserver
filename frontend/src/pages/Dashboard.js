@@ -78,7 +78,7 @@ import ChangelogViewer from '../components/ChangelogViewer';
 import CalculatorWidget from '../components/CalculatorWidget';
 import useScrollSound from '../hooks/useScrollSound';
 import { playSound } from '../utils/soundEffects';
-import { savePreference, getPreference, trackItem } from '../api/mdl';
+import { savePreference, getPreference, trackItem, reportAisle } from '../api/mdl';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -662,12 +662,29 @@ const Dashboard = () => {
     }
   };
 
-  const handlePriceLearningSubmit = async (priceData) => {
+  const handlePriceLearningSubmit = async ({ itemName, price, store, aisleNumber, notes }) => {
     try {
-      // TODO: Send to backend API when stores route is ready
-      // For now, just show success
-      success('Price data saved! Thank you for contributing.');
-      setShowPriceLearning(false);
+      // MDL integration — the track-item pipeline (item names, price stats,
+      // patterns) also feeds the beta-tester contribution counts shown to admins
+      learnPrice(itemName, price);
+      await trackItem({
+        itemName,
+        price,
+        quantity: 1,
+        unit: notes || '',
+        store: store || activeList?.store_name || null,
+        listId: activeList?.id || null,
+        userTyped: true,
+      });
+      if (aisleNumber) {
+        // Aisle learning — feeds the Most-Likely-Aisle predictions
+        reportAisle({
+          itemName,
+          aisleNumber,
+          storeId: store || activeList?.store_name || null,
+          wasCorrect: null,
+        });
+      }
     } catch (err) {
       console.error('Error saving price data:', err);
       error('Failed to save price data');
@@ -1775,19 +1792,19 @@ const Dashboard = () => {
                           }`}>
                             {checkedCount}/{items.length}
                           </span>
+                          <button
+                            onClick={() => {
+                              setNewListName(activeList.name);
+                              setNewListStore(activeList.store_name || '');
+                              setEditingListName(true);
+                            }}
+                            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex-shrink-0"
+                            title="Edit list name"
+                          >
+                            <Edit2 className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                          </button>
                         </div>
                       </div>
-                      <button
-                        onClick={() => {
-                          setNewListName(activeList.name);
-                          setNewListStore(activeList.store_name || '');
-                          setEditingListName(true);
-                        }}
-                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex-shrink-0"
-                        title="Edit list name"
-                      >
-                        <Edit2 className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
-                      </button>
                     </div>
                   </div>
                 )}
@@ -2552,6 +2569,8 @@ const Dashboard = () => {
         isOpen={showPriceLearning}
         onClose={() => setShowPriceLearning(false)}
         onSubmit={handlePriceLearningSubmit}
+        device={isMobile ? 'mobile' : isTablet ? 'tablet' : 'desktop'}
+        isBetaTester={!!(user?.isBetaTester || user?.is_beta_tester)}
         storeLocation={activeList?.store_name ? { name: activeList.store_name } : null}
         onAddToList={activeList ? async (itemData) => {
           try {
