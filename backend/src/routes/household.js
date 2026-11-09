@@ -423,11 +423,306 @@ router.get('/check-item', authenticateToken, async (req, res) => {
 
     res.json({
       liked_by: result.rows.filter(r => r.preference === 'like'),
+      sometimes_by: result.rows.filter(r => r.preference === 'sometimes'),
       disliked_by: result.rows.filter(r => r.preference === 'dislike')
     });
   } catch (error) {
     console.error('Error checking item:', error);
     res.status(500).json({ error: 'Failed to check item' });
+  }
+});
+
+// ============================================
+// EATING OUT (restaurant/delivery pattern engine)
+// NOTE: these root-level GET routes must stay above /:id
+// ============================================
+
+const DOW_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** Reuse snack swaps to suggest a lighter/cheaper take on a restaurant item */
+const suggestSwap = (name) => {
+  const n = (name || '').toLowerCase();
+  const hit = SNACK_SWAPS.find(s => s.match.some(m => n.includes(m)));
+  return hit ? hit.to : null;
+};
+
+/**
+ * GET /api/household/eat-out — all logs (newest first) w/ member info
+ */
+router.get('/eat-out', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT e.*, m.name AS member_name, m.avatar_emoji, m.color AS member_color
+       FROM household_eat_out_logs e
+       LEFT JOIN household_members m ON e.member_id = m.id
+       WHERE e.user_id = $1
+       ORDER BY e.eaten_on DESC, e.created_at DESC LIMIT 200`,
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching eat-out logs:', error);
+    res.status(500).json({ error: 'Failed to fetch eat-out logs' });
+  }
+});
+
+/**
+ * GET /api/household/eat-out/patterns
+ * Learns each member's restaurant rhythm: weekday histograms, usual dishes,
+ * average spend, predicted "eat out" days, healthier swaps + savings estimate.
+ */
+router.get('/eat-out/patterns', authenticateToken, async (req, res) => {
+  try {
+    const rows = (await db.query(
+      `SELECT e.*, m.name AS member_name, m.avatar_emoji, m.color AS member_color
+       FROM household_eat_out_logs e
+       LEFT JOIN household_members m ON e.member_id = m.id
+       WHERE e.user_id = $1 AND e.eaten_on > CURRENT_DATE - INTERVAL '120 days'
+       ORDER BY e.eaten_on DESC`,
+      [req.user.id]
+    )).rows;
+
+    const members = await db.query(
+      'SELECT id, name, avatar_emoji, color FROM household_members WHERE user_id = $1',
+      [req.user.id]
+    );
+
+    // ---- per member+restaurant aggregation ----
+    const byKey = {}; // `${member_id||'household'}|${restaurant}`
+    const houseDow = [0,0,0,0,0,0,0];
+    let totalSpend = 0, daysWithSpend = new Set();
+
+    for (const r of rows) {
+      const dow = new Date(r.eaten_on + 'T00:00:00').getDay();
+      houseDow[dow]++;
+      if (r.total_cost) { totalSpend += parseFloat(r.total_cost); daysWithSpend.add(r.eaten_on.toISOString().slice(0,10)); }
+
+      const key = `${r.member_id || 'household'}|${(r.restaurant || '').toLowerCase()}`;
+      byKey[key] = byKey[key] || {
+        member_id: r.member_id, member_name: r.member_name, avatar_emoji: r.avatar_emoji,
+        member_color: r.member_color, ordered_for: r.ordered_for,
+        restaurant: r.restaurant, count: 0, dow: [0,0,0,0,0,0,0],
+        dishes: {}, spend: 0, spendCount: 0, last_visit: r.eaten_on
+      };
+      const agg = byKey[key];
+      agg.count++;
+      agg.dow[dow]++;
+      (r.items || []).forEach(it => {
+        const n = it.name || it;
+        if (n) agg.dishes[n] = (agg.dishes[n] || 0) + 1;
+      });
+      if (r.total_cost) { agg.spend += parseFloat(r.total_cost); agg.spendCount++; }
+      if (r.eaten_on > agg.last_visit) agg.last_visit = r.eaten_on;
+    }
+
+    const topDow = (arr) => {
+      const max = Math.max(...arr);
+      return max === 0 ? null : arr.indexOf(max);
+    };
+
+    const restaurantPatterns = Object.values(byKey).map(p => {
+      const usualDow = topDow(p.dow);
+      const topDishes = Object.entries(p.dishes).sort((a, b) => b[1] - a[1]).slice(0, 4)
+        .map(([name, times]) => ({ name, times, swap: suggestSwap(name) }));
+      return {
+        member_id: p.member_id, member_name: p.member_name, avatar_emoji: p.avatar_emoji,
+        member_color: p.member_color, ordered_for: p.ordered_for,
+        restaurant: p.restaurant, visits: p.count,
+        usual_day: usualDow != null ? DOW_NAMES[usualDow] : null,
+        usual_dow: usualDow,
+        weekday_counts: p.dow,
+        top_dishes: topDishes,
+        avg_spend: p.spendCount ? Math.round(p.spend / p.spendCount * 100) / 100 : null,
+        last_visit: p.last_visit,
+        // enough visits to call it a habit?
+        confident: p.count >= 2
+      };
+    }).sort((a, b) => b.visits - a.visits);
+
+    // ---- predicted eat-out days (household weekday rhythm) ----
+    const predictedDays = houseDow.map((c, d) => ({ dow: d, name: DOW_NAMES[d], count: c }))
+      .filter(d => d.count >= 2)
+      .sort((a, b) => b.count - a.count);
+
+    // ---- savings + calorie-friendly suggestions ----
+    const monthsSpan = Math.max(1, Math.round(rows.length ?
+      (Date.now() - new Date(rows[rows.length - 1].eaten_on)) / (1000*60*60*24*30) + 1 : 1));
+    const avgPerVisit = daysWithSpend.size ? totalSpend / daysWithSpend.size : 0;
+    const estHomeCostPerVisit = 12; // ~feeding a household at home
+    const monthlyEstimate = {
+      eat_out_visits: Math.round(daysWithSpend.size / monthsSpan),
+      avg_spend: Math.round(avgPerVisit * 100) / 100,
+      monthly_spend: Math.round(avgPerVisit * daysWithSpend.size / monthsSpan * 100) / 100,
+      potential_savings: Math.round((avgPerVisit - estHomeCostPerVisit) * daysWithSpend.size / monthsSpan * 100) / 100
+    };
+
+    res.json({
+      restaurant_patterns: restaurantPatterns,
+      predicted_days: predictedDays,
+      weekday_counts: houseDow,
+      monthly_estimate: monthlyEstimate,
+      members: members.rows
+    });
+  } catch (error) {
+    console.error('Error building eat-out patterns:', error);
+    res.status(500).json({ error: 'Failed to build patterns' });
+  }
+});
+
+/** POST /api/household/eat-out — log a restaurant/delivery run */
+router.post('/eat-out', authenticateToken, async (req, res) => {
+  try {
+    const { member_id, restaurant, items, total_cost, ordered_for, notes, eaten_on } = req.body;
+    if (!restaurant || !restaurant.trim()) {
+      return res.status(400).json({ error: 'restaurant is required' });
+    }
+    const result = await db.query(
+      `INSERT INTO household_eat_out_logs
+        (user_id, member_id, restaurant, items, total_cost, ordered_for, notes, eaten_on)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [
+        req.user.id, member_id || null, restaurant.trim(),
+        JSON.stringify(Array.isArray(items) ? items : []),
+        total_cost || null, ordered_for || null, notes || null,
+        eaten_on || new Date().toISOString().slice(0, 10)
+      ]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error logging eat-out:', error);
+    res.status(500).json({ error: 'Failed to log eat-out' });
+  }
+});
+
+/** PUT /api/household/eat-out/:logId */
+router.put('/eat-out/:logId', authenticateToken, async (req, res) => {
+  try {
+    const { member_id, restaurant, items, total_cost, ordered_for, notes, eaten_on } = req.body;
+    const result = await db.query(
+      `UPDATE household_eat_out_logs SET
+        member_id = $1, restaurant = $2, items = $3, total_cost = $4,
+        ordered_for = $5, notes = $6, eaten_on = $7
+       WHERE id = $8 AND user_id = $9 RETURNING *`,
+      [
+        member_id || null, restaurant, JSON.stringify(Array.isArray(items) ? items : []),
+        total_cost || null, ordered_for || null, notes || null,
+        eaten_on || new Date().toISOString().slice(0, 10),
+        req.params.logId, req.user.id
+      ]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating eat-out log:', error);
+    res.status(500).json({ error: 'Failed to update log' });
+  }
+});
+
+/** DELETE /api/household/eat-out/:logId */
+router.delete('/eat-out/:logId', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      'DELETE FROM household_eat_out_logs WHERE id = $1 AND user_id = $2 RETURNING id',
+      [req.params.logId, req.user.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting eat-out log:', error);
+    res.status(500).json({ error: 'Failed to delete log' });
+  }
+});
+
+// ============================================
+// HOUSEHOLD RANDOM MEAL (everyone's liked foods)
+// ============================================
+
+/**
+ * GET /api/household/random-food
+ * Weighted pick across ALL members' liked foods. 'sometimes' counts at half
+ * weight; a food anyone dislikes is downweighted unless someone loves it.
+ */
+router.get('/random-food', authenticateToken, async (req, res) => {
+  try {
+    const prefs = await db.query(
+      `SELECT fp.*, m.name AS member_name, m.avatar_emoji
+       FROM household_member_food_prefs fp
+       JOIN household_members m ON fp.member_id = m.id
+       WHERE m.user_id = $1`,
+      [req.user.id]
+    );
+    if (prefs.rows.length === 0) return res.json({ food: null, message: 'Add liked foods to members first!' });
+
+    const byFood = {}; // name -> {weight, fans[]}
+    for (const p of prefs.rows) {
+      const key = p.food_name.toLowerCase();
+      byFood[key] = byFood[key] || { food_name: p.food_name, tier: p.tier, weight: 0, fans: [], calories_per_serving: p.calories_per_serving };
+      if (p.preference === 'dislike') { byFood[key].weight -= 2; continue; }
+      const w = (TIER_WEIGHTS[p.tier] || 4) * (p.preference === 'sometimes' ? 0.5 : 1);
+      byFood[key].weight += w;
+      byFood[key].fans.push({ name: p.member_name, emoji: p.avatar_emoji, pref: p.preference, tier: p.tier });
+      if ((TIER_WEIGHTS[p.tier] || 0) > (TIER_WEIGHTS[byFood[key].tier] || 0)) byFood[key].tier = p.tier;
+    }
+
+    const bag = [];
+    Object.values(byFood).forEach(f => {
+      for (let i = 0; i < Math.max(0, Math.round(f.weight)); i++) bag.push(f);
+    });
+    if (!bag.length) return res.json({ food: null, message: 'No liked foods across the household yet!' });
+
+    res.json({ food: bag[Math.floor(Math.random() * bag.length)], pool_size: bag.length });
+  } catch (error) {
+    console.error('Error picking household food:', error);
+    res.status(500).json({ error: 'Failed to pick food' });
+  }
+});
+
+// ============================================
+// DAILY CALORIE INTAKE
+// ============================================
+
+/** POST /api/household/:id/calories {calories} — upsert today's total */
+router.post('/:id/calories', authenticateToken, async (req, res) => {
+  try {
+    const member = await getMemberOr404(req.params.id, req.user.id, res);
+    if (!member) return;
+    const cal = parseInt(req.body.calories, 10);
+    if (!cal || cal <= 0 || cal > 20000) {
+      return res.status(400).json({ error: 'calories must be 1-20000' });
+    }
+    const result = await db.query(
+      `INSERT INTO household_member_calorie_logs (member_id, calories, notes)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (member_id, logged_on)
+       DO UPDATE SET calories = household_member_calorie_logs.calories + EXCLUDED.calories,
+                     notes = COALESCE(EXCLUDED.notes, household_member_calorie_logs.notes)
+       RETURNING *`,
+      [member.id, cal, req.body.notes || null]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error logging calories:', error);
+    res.status(500).json({ error: 'Failed to log calories' });
+  }
+});
+
+/** GET /api/household/:id/calories?days=14 — intake history */
+router.get('/:id/calories', authenticateToken, async (req, res) => {
+  try {
+    const member = await getMemberOr404(req.params.id, req.user.id, res);
+    if (!member) return;
+    const days = Math.min(90, parseInt(req.query.days, 10) || 14);
+    const result = await db.query(
+      `SELECT logged_on, SUM(calories) AS calories
+       FROM household_member_calorie_logs
+       WHERE member_id = $1 AND logged_on > CURRENT_DATE - $2::int * INTERVAL '1 day'
+       GROUP BY logged_on ORDER BY logged_on DESC`,
+      [member.id, days]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching calories:', error);
+    res.status(500).json({ error: 'Failed to fetch calories' });
   }
 });
 
@@ -440,7 +735,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     const member = await getMemberOr404(req.params.id, req.user.id, res);
     if (!member) return;
 
-    const [latestHealth, foodPrefs, traits, chores, waterToday, healthHistory] = await Promise.all([
+    const [latestHealth, foodPrefs, traits, chores, waterToday, healthHistory, caloriesToday, eatOutLogs] = await Promise.all([
       getLatestHealth(member.id),
       db.query('SELECT * FROM household_member_food_prefs WHERE member_id = $1 ORDER BY preference, tier, food_name', [member.id]),
       db.query('SELECT * FROM household_member_traits WHERE member_id = $1 ORDER BY created_at DESC', [member.id]),
@@ -453,6 +748,16 @@ router.get('/:id', authenticateToken, async (req, res) => {
       db.query(
         `SELECT * FROM household_member_health_logs WHERE member_id = $1
          ORDER BY logged_at DESC LIMIT 30`,
+        [member.id]
+      ),
+      db.query(
+        `SELECT COALESCE(SUM(calories),0) AS total FROM household_member_calorie_logs
+         WHERE member_id = $1 AND logged_on = CURRENT_DATE`,
+        [member.id]
+      ),
+      db.query(
+        `SELECT * FROM household_eat_out_logs WHERE member_id = $1
+         ORDER BY eaten_on DESC LIMIT 20`,
         [member.id]
       )
     ]);
@@ -472,7 +777,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
       traits: traits.rows,
       chores: chores.rows,
       water_today_oz: parseInt(waterToday.rows[0].total, 10),
-      health_history: healthHistory.rows
+      calories_today: parseInt(caloriesToday.rows[0].total, 10),
+      health_history: healthHistory.rows,
+      eat_out_logs: eatOutLogs.rows
     });
   } catch (error) {
     console.error('Error fetching member:', error);
@@ -603,6 +910,9 @@ router.post('/:id/foods', authenticateToken, async (req, res) => {
     if (!food_name || !food_name.trim()) {
       return res.status(400).json({ error: 'food_name is required' });
     }
+    if (preference && !['like', 'sometimes', 'dislike'].includes(preference)) {
+      return res.status(400).json({ error: 'Invalid preference' });
+    }
 
     const result = await db.query(
       `INSERT INTO household_member_food_prefs
@@ -623,6 +933,38 @@ router.post('/:id/foods', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error saving food pref:', error);
     res.status(500).json({ error: 'Failed to save food preference' });
+  }
+});
+
+/** PUT /api/household/foods/:prefId — edit an existing pref */
+router.put('/foods/:prefId', authenticateToken, async (req, res) => {
+  try {
+    const { food_name, preference, tier, calories_per_serving, serving_unit, notes } = req.body;
+    if (preference && !['like', 'sometimes', 'dislike'].includes(preference)) {
+      return res.status(400).json({ error: 'Invalid preference' });
+    }
+    const result = await db.query(
+      `UPDATE household_member_food_prefs fp SET
+        food_name = COALESCE($1, fp.food_name),
+        preference = COALESCE($2, fp.preference),
+        tier = COALESCE(UPPER($3), fp.tier),
+        calories_per_serving = COALESCE($4, fp.calories_per_serving),
+        serving_unit = COALESCE($5, fp.serving_unit),
+        notes = COALESCE($6, fp.notes)
+       FROM household_members m
+       WHERE fp.id = $7 AND fp.member_id = m.id AND m.user_id = $8
+       RETURNING fp.*`,
+      [
+        food_name?.trim() || null, preference || null, tier || null,
+        calories_per_serving ?? null, serving_unit ?? null, notes ?? null,
+        req.params.prefId, req.user.id
+      ]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating food pref:', error);
+    res.status(500).json({ error: 'Failed to update food preference' });
   }
 });
 
@@ -673,6 +1015,30 @@ router.post('/:id/traits', authenticateToken, async (req, res) => {
   }
 });
 
+/** PUT /api/household/traits/:traitId — edit a trait */
+router.put('/traits/:traitId', authenticateToken, async (req, res) => {
+  try {
+    const { category, description } = req.body;
+    if (category && !['like', 'dislike', 'pet_peeve', 'habit'].includes(category)) {
+      return res.status(400).json({ error: 'Invalid category' });
+    }
+    const result = await db.query(
+      `UPDATE household_member_traits t SET
+        category = COALESCE($1, t.category),
+        description = COALESCE($2, t.description)
+       FROM household_members m
+       WHERE t.id = $3 AND t.member_id = m.id AND m.user_id = $4
+       RETURNING t.*`,
+      [category || null, description?.trim() || null, req.params.traitId, req.user.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating trait:', error);
+    res.status(500).json({ error: 'Failed to update trait' });
+  }
+});
+
 router.delete('/traits/:traitId', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(
@@ -699,15 +1065,18 @@ router.post('/:id/chores', authenticateToken, async (req, res) => {
     const member = await getMemberOr404(req.params.id, req.user.id, res);
     if (!member) return;
 
-    const { title, frequency, xp_value } = req.body;
+    const { title, frequency, xp_value, repeat_days } = req.body;
     if (!title || !title.trim()) {
       return res.status(400).json({ error: 'title is required' });
     }
+    const days = Array.isArray(repeat_days)
+      ? repeat_days.map(d => parseInt(d, 10)).filter(d => d >= 0 && d <= 6)
+      : null;
 
     const result = await db.query(
-      `INSERT INTO household_member_chores (member_id, title, frequency, xp_value)
-       VALUES ($1,$2,$3,$4) RETURNING *`,
-      [member.id, title.trim(), frequency || 'daily', xp_value || 10]
+      `INSERT INTO household_member_chores (member_id, title, frequency, xp_value, repeat_days)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [member.id, title.trim(), frequency || 'daily', xp_value || 10, days]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -730,6 +1099,36 @@ router.post('/chores/:choreId/complete', authenticateToken, async (req, res) => 
   } catch (error) {
     console.error('Error completing chore:', error);
     res.status(500).json({ error: 'Failed to complete chore' });
+  }
+});
+
+/** PUT /api/household/chores/:choreId — edit title/frequency/xp/repeat days */
+router.put('/chores/:choreId', authenticateToken, async (req, res) => {
+  try {
+    const { title, frequency, xp_value, repeat_days, active } = req.body;
+    const days = Array.isArray(repeat_days)
+      ? repeat_days.map(d => parseInt(d, 10)).filter(d => d >= 0 && d <= 6)
+      : null;
+    const result = await db.query(
+      `UPDATE household_member_chores c SET
+        title = COALESCE($1, c.title),
+        frequency = COALESCE($2, c.frequency),
+        xp_value = COALESCE($3, c.xp_value),
+        repeat_days = COALESCE($4::smallint[], c.repeat_days),
+        active = COALESCE($5, c.active)
+       FROM household_members m
+       WHERE c.id = $6 AND c.member_id = m.id AND m.user_id = $7
+       RETURNING c.*`,
+      [
+        title?.trim() || null, frequency || null, xp_value ?? null,
+        days, active ?? null, req.params.choreId, req.user.id
+      ]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating chore:', error);
+    res.status(500).json({ error: 'Failed to update chore' });
   }
 });
 

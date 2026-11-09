@@ -8,6 +8,7 @@ import {
 import householdAPI from '../services/householdAPI';
 import HouseholdMemberModal from '../components/HouseholdMemberModal';
 import ConfirmModal from '../limbo/modals/ConfirmModal';
+import EatOutPanel from '../components/household/EatOutPanel';
 import Sidebar from '../components/Sidebar';
 
 const TIER_COLORS = {
@@ -40,6 +41,22 @@ const cmToFtIn = (cm) => {
 };
 const todayStr = () => new Date().toDateString();
 const wasDoneToday = (ts) => ts && new Date(ts).toDateString() === todayStr();
+const DOW_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const DayPicker = ({ days, onToggle }) => (
+  <div className="flex gap-1">
+    {DOW_LABELS.map((d, i) => {
+      const on = days.includes(i);
+      return (
+        <button key={d} type="button" onClick={() => onToggle(i)}
+          className={`w-7 h-7 rounded-lg text-[10px] font-bold transition-colors ${
+            on ? 'bg-primary-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+          }`}>
+          {d}
+        </button>
+      );
+    })}
+  </div>
+);
 
 const Household = () => {
   const [members, setMembers] = useState([]);
@@ -54,7 +71,11 @@ const Household = () => {
   // per-tab form state
   const [foodForm, setFoodForm] = useState({ food_name: '', preference: 'like', tier: 'B', calories_per_serving: '', serving_unit: '' });
   const [traitInputs, setTraitInputs] = useState({ like: '', dislike: '', pet_peeve: '', habit: '' });
-  const [choreForm, setChoreForm] = useState({ title: '', frequency: 'daily' });
+  const [choreForm, setChoreForm] = useState({ title: '', frequency: 'daily', repeat_days: [] });
+  const [editingChore, setEditingChore] = useState(null);
+  const [editingFood, setEditingFood] = useState(null);
+  const [editingTrait, setEditingTrait] = useState(null);
+  const [calorieInput, setCalorieInput] = useState('');
   const [waterCustom, setWaterCustom] = useState('');
   const [healthForm, setHealthForm] = useState({ weight_lbs: '', body_fat_pct: '', muscle_pct: '' });
   const [randomFood, setRandomFood] = useState(null);
@@ -126,29 +147,70 @@ const Household = () => {
   const saveFood = async (e) => {
     e.preventDefault();
     if (!foodForm.food_name.trim()) return;
-    await householdAPI.saveFoodPref(selected.id, {
+    const payload = {
       ...foodForm,
       calories_per_serving: foodForm.calories_per_serving ? parseInt(foodForm.calories_per_serving, 10) : null
-    });
+    };
+    if (editingFood) await householdAPI.updateFoodPref(editingFood.id, payload);
+    else await householdAPI.saveFoodPref(selected.id, payload);
     setFoodForm({ food_name: '', preference: 'like', tier: 'B', calories_per_serving: '', serving_unit: '' });
+    setEditingFood(null);
     refreshSelected(); loadMembers();
+  };
+
+  const editFood = (f) => {
+    setEditingFood(f);
+    setFoodForm({
+      food_name: f.food_name, preference: f.preference, tier: f.tier,
+      calories_per_serving: f.calories_per_serving ?? '', serving_unit: f.serving_unit || ''
+    });
   };
 
   // ---------- Traits ----------
   const addTrait = async (category) => {
     const text = traitInputs[category].trim();
     if (!text) return;
-    await householdAPI.addTrait(selected.id, category, text);
+    if (editingTrait) {
+      await householdAPI.updateTrait(editingTrait.id, { category, description: text });
+      setEditingTrait(null);
+    } else {
+      await householdAPI.addTrait(selected.id, category, text);
+    }
     setTraitInputs({ ...traitInputs, [category]: '' });
     refreshSelected();
   };
 
+  const editTrait = (t) => {
+    setEditingTrait(t);
+    setTraitInputs({ ...traitInputs, [t.category]: t.description });
+  };
+
   // ---------- Chores ----------
-  const addChore = async (e) => {
+  const saveChore = async (e) => {
     e.preventDefault();
     if (!choreForm.title.trim()) return;
-    await householdAPI.addChore(selected.id, choreForm);
-    setChoreForm({ title: '', frequency: 'daily' });
+    const payload = { ...choreForm, repeat_days: choreForm.repeat_days.length ? choreForm.repeat_days : null };
+    if (editingChore) {
+      await householdAPI.updateChore(editingChore.id, payload);
+      setEditingChore(null);
+    } else {
+      await householdAPI.addChore(selected.id, payload);
+    }
+    setChoreForm({ title: '', frequency: 'daily', repeat_days: [] });
+    refreshSelected(); loadMembers();
+  };
+
+  const editChore = (c) => {
+    setEditingChore(c);
+    setChoreForm({ title: c.title, frequency: c.frequency, repeat_days: c.repeat_days || [] });
+  };
+
+  // ---------- Calories ----------
+  const logCalories = async () => {
+    const cal = parseInt(calorieInput, 10);
+    if (!cal || cal <= 0) return;
+    await householdAPI.logCalories(selected.id, cal);
+    setCalorieInput('');
     refreshSelected(); loadMembers();
   };
 
@@ -478,6 +540,7 @@ const Household = () => {
                         <select className={inputCls} value={foodForm.preference}
                           onChange={(e) => setFoodForm({ ...foodForm, preference: e.target.value })}>
                           <option value="like">❤️ Like</option>
+                          <option value="sometimes">🤷 Sometimes</option>
                           <option value="dislike">💔 Dislike</option>
                         </select>
                       </div>
@@ -518,6 +581,10 @@ const Household = () => {
                                 <span key={f.id} className="group px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
                                   {f.food_name}
                                   {f.calories_per_serving ? <span className="text-xs text-gray-400">{f.calories_per_serving}cal</span> : null}
+                                  <button onClick={() => editFood(f)}
+                                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary-500 transition-opacity">
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
                                   <button onClick={() => { householdAPI.deleteFoodPref(f.id).then(refreshSelected); }}
                                     className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity">
                                     <Trash2 className="w-3.5 h-3.5" />
@@ -530,6 +597,29 @@ const Household = () => {
                       })}
                     </div>
 
+                    {/* Sometimes */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-4 mb-6">
+                      <h3 className="font-bold text-gray-900 dark:text-white mb-3">🤷 Sometimes — okay once in a while</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {(selected.food_prefs || []).filter(f => f.preference === 'sometimes').map(f => (
+                          <span key={f.id} className="group px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 rounded-lg text-sm font-medium flex items-center gap-2">
+                            {f.food_name}
+                            <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] font-black ${TIER_COLORS[f.tier]}`}>{f.tier}</span>
+                            <button onClick={() => editFood(f)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary-500 transition-opacity">
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => { householdAPI.deleteFoodPref(f.id).then(refreshSelected); }}
+                              className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </span>
+                        ))}
+                        {(selected.food_prefs || []).filter(f => f.preference === 'sometimes').length === 0 && (
+                          <span className="text-sm text-gray-400">Nothing here — mark foods {selected.name} is neutral on</span>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Disliked */}
                     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-4">
                       <h3 className="font-bold text-gray-900 dark:text-white mb-3">💔 Disliked — don't buy for {selected.name}</h3>
@@ -537,6 +627,9 @@ const Household = () => {
                         {(selected.food_prefs || []).filter(f => f.preference === 'dislike').map(f => (
                           <span key={f.id} className="group px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg text-sm font-medium flex items-center gap-2">
                             {f.food_name}
+                            <button onClick={() => editFood(f)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary-500 transition-opacity">
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
                             <button onClick={() => { householdAPI.deleteFoodPref(f.id).then(refreshSelected); }}
                               className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity">
                               <Trash2 className="w-3.5 h-3.5" />
@@ -574,6 +667,10 @@ const Household = () => {
                             {items.map(t => (
                               <span key={t.id} className="group px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 flex items-center gap-2">
                                 {t.description}
+                                <button onClick={() => editTrait(t)}
+                                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-primary-500 transition-opacity">
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
                                 <button onClick={() => { householdAPI.deleteTrait(t.id).then(refreshSelected); }}
                                   className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity">
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -591,7 +688,7 @@ const Household = () => {
                 {/* ---------- CHORES ---------- */}
                 {activeTab === 'chores' && (
                   <motion.div key="ch" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                    <form onSubmit={addChore} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow mb-6 flex flex-wrap gap-2 items-end">
+                    <form onSubmit={saveChore} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow mb-6 flex flex-wrap gap-2 items-end">
                       <div className="flex-1 min-w-[160px]">
                         <label className="text-xs text-gray-500">Chore</label>
                         <input className={inputCls} placeholder="e.g. Take out trash" value={choreForm.title}
@@ -606,10 +703,27 @@ const Household = () => {
                           <option value="monthly">Monthly</option>
                         </select>
                       </div>
+                      <div>
+                        <label className="text-xs text-gray-500">Repeats on</label>
+                        <DayPicker days={choreForm.repeat_days}
+                          onToggle={(d) => setChoreForm({
+                            ...choreForm,
+                            repeat_days: choreForm.repeat_days.includes(d)
+                              ? choreForm.repeat_days.filter(x => x !== d)
+                              : [...choreForm.repeat_days, d]
+                          })} />
+                        <p className="text-[10px] text-gray-400 mt-1">blank = every day</p>
+                      </div>
                       <motion.button whileTap={{ scale: 0.95 }} type="submit"
                         className="px-4 py-2 bg-primary-500 text-white rounded-xl font-semibold flex items-center gap-1 hover:bg-primary-600 transition-colors">
-                        <Plus className="w-4 h-4" /> Add
+                        <Plus className="w-4 h-4" /> {editingChore ? 'Save' : 'Add'}
                       </motion.button>
+                      {editingChore && (
+                        <button type="button" onClick={() => { setEditingChore(null); setChoreForm({ title: '', frequency: 'daily', repeat_days: [] }); }}
+                          className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                          Cancel
+                        </button>
+                      )}
                     </form>
 
                     <div className="space-y-2">
@@ -628,7 +742,11 @@ const Household = () => {
                                 <p className={`font-semibold ${done ? 'text-green-700 dark:text-green-300 line-through' : 'text-gray-900 dark:text-white'}`}>
                                   {c.title}
                                 </p>
-                                <p className="text-xs text-gray-500 capitalize">{c.frequency}{c.last_completed_at ? ` · last done ${new Date(c.last_completed_at).toLocaleDateString()}` : ''}</p>
+                                <p className="text-xs text-gray-500 capitalize">
+                                  {c.frequency}
+                                  {c.repeat_days?.length > 0 && ` · ${c.repeat_days.map(d => DOW_LABELS[d]).join(' ')}`}
+                                  {c.last_completed_at ? ` · last done ${new Date(c.last_completed_at).toLocaleDateString()}` : ''}
+                                </p>
                               </div>
                             </div>
                             <div className="flex gap-2">
@@ -639,6 +757,10 @@ const Household = () => {
                                   Done
                                 </motion.button>
                               )}
+                              <button onClick={() => editChore(c)}
+                                className="p-2 text-gray-400 hover:text-primary-500 transition-colors">
+                                <Pencil className="w-4 h-4" />
+                              </button>
                               <button onClick={() => { householdAPI.deleteChore(c.id).then(refreshSelected); }}
                                 className="p-2 text-gray-400 hover:text-red-500 transition-colors">
                                 <Trash2 className="w-4 h-4" />
@@ -703,6 +825,46 @@ const Household = () => {
                       </div>
                     </div>
 
+                    {/* Calorie intake */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+                      <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <Flame className="w-5 h-5 text-orange-500" /> Calories Today
+                      </h3>
+                      <p className="text-4xl font-black text-orange-500 mb-1">
+                        {selected.calories_today || 0}
+                        <span className="text-lg font-normal text-gray-400">
+                          {stats.calorie_target ? `/${stats.calorie_target.toLocaleString()} kcal` : ' kcal'}
+                        </span>
+                      </p>
+                      {stats.calorie_target && (
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-4">
+                          <motion.div
+                            animate={{ width: `${Math.min(100, ((selected.calories_today || 0) / stats.calorie_target) * 100)}%` }}
+                            className={`h-full rounded-full ${(selected.calories_today || 0) > stats.calorie_target ? 'bg-gradient-to-r from-amber-400 to-red-500' : 'bg-gradient-to-r from-orange-400 to-amber-500'}`}
+                          />
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {[300, 500, 700, 1000].map(cal => (
+                          <motion.button key={cal} whileTap={{ scale: 0.9 }}
+                            onClick={async () => { await householdAPI.logCalories(selected.id, cal); refreshSelected(); loadMembers(); }}
+                            className="px-4 py-2 bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 rounded-xl font-semibold text-sm hover:bg-orange-200 transition-colors">
+                            +{cal}
+                          </motion.button>
+                        ))}
+                        <div className="flex gap-1 flex-1 min-w-[110px]">
+                          <input className={inputCls} type="number" placeholder="custom" value={calorieInput}
+                            onChange={(e) => setCalorieInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), logCalories())} />
+                          <motion.button whileTap={{ scale: 0.9 }} onClick={logCalories}
+                            className="px-3 py-2 bg-orange-500 text-white rounded-xl flex-shrink-0">
+                            <Plus className="w-4 h-4" />
+                          </motion.button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-400">Logs add up across the day — resets each morning.</p>
+                    </div>
+
                     {/* Health log */}
                     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
                       <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
@@ -736,6 +898,39 @@ const Household = () => {
                         )}
                       </div>
                     </div>
+                  </motion.div>
+                )}
+                {/* ---------- EATING OUT ---------- */}
+                {activeTab === 'eating out' && (
+                  <motion.div key="eo" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                    {(selected.eat_out_logs || []).length === 0 ? (
+                      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-8 text-center">
+                        <p className="text-gray-500 dark:text-gray-400 mb-4">
+                          No restaurant runs logged for {selected.name} yet — the shared Eating Out Planner below learns everyone's habits.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-5 mb-4">
+                        <h3 className="font-bold text-gray-900 dark:text-white mb-3">🍔 {selected.name}'s recent runs</h3>
+                        <div className="space-y-1.5">
+                          {selected.eat_out_logs.map(l => (
+                            <div key={l.id} className="flex items-center gap-2 text-sm">
+                              <span className="font-medium text-gray-800 dark:text-gray-200">{l.restaurant}</span>
+                              <span className="text-xs text-gray-400 flex-1">
+                                {new Date(l.eaten_on + 'T00:00:00').toLocaleDateString()}
+                                {l.items?.length > 0 && ` · ${l.items.map(i => i.name || i).filter(Boolean).slice(0, 2).join(', ')}`}
+                              </span>
+                              {l.total_cost != null && (
+                                <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                                  ${parseFloat(l.total_cost).toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <EatOutPanel members={members} />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -784,6 +979,9 @@ const Household = () => {
                   </div>
                 </div>
               )}
+
+              {/* Eating out planner — calendar + learned patterns */}
+              {members.length > 0 && <EatOutPanel members={members} />}
 
               {/* Member cards */}
               {members.length > 0 ? (
