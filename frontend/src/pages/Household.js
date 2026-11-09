@@ -100,10 +100,21 @@ const Household = () => {
   useEffect(() => { loadMembers(); }, [loadMembers]);
 
   const openMember = async (id) => {
-    const res = await householdAPI.getMember(id);
-    setSelected(res.data);
-    setActiveTab('overview');
-    setRandomFood(null);
+    try {
+      const res = await householdAPI.getMember(id);
+      setSelected(res.data);
+      setActiveTab('overview');
+      setRandomFood(null);
+    } catch (err) {
+      console.error('Error opening member:', err);
+      setConfirmState({
+        title: "Can't open member",
+        message: 'The member detail request failed — backend may need a restart or the latest migration.',
+        type: 'danger',
+        confirmText: 'OK',
+        onConfirm: () => setConfirmState(null)
+      });
+    }
   };
 
   const refreshSelected = async () => {

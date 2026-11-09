@@ -750,16 +750,17 @@ router.get('/:id', authenticateToken, async (req, res) => {
          ORDER BY logged_at DESC LIMIT 30`,
         [member.id]
       ),
+      // Tolerate migration 055 not yet applied — detail page still loads
       db.query(
         `SELECT COALESCE(SUM(calories),0) AS total FROM household_member_calorie_logs
          WHERE member_id = $1 AND logged_on = CURRENT_DATE`,
         [member.id]
-      ),
+      ).catch(() => ({ rows: [{ total: 0 }] })),
       db.query(
         `SELECT * FROM household_eat_out_logs WHERE member_id = $1
          ORDER BY eaten_on DESC LIMIT 20`,
         [member.id]
-      )
+      ).catch(() => ({ rows: [] }))
     ]);
 
     const stats = computeStats(member, latestHealth);
