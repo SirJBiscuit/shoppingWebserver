@@ -2,9 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Flame, Search, Plus, Trash2, Sparkles, Save, X, ChefHat,
-  Wand2, Check, ShoppingCart, Minus,
+  Wand2, Check, ShoppingCart, Minus, Pencil, Copy, Filter,
 } from 'lucide-react';
 import api from '../services/api';
+import { getLists, addItem } from '../api/shopping';
 import Sidebar from '../components/Sidebar';
 import PageTransition from '../components/PageTransition';
 import ConfirmDialog from '../limbo/modals/ConfirmDialog';
@@ -138,6 +139,9 @@ const SpiceBlends = () => {
 
   const [expandedBlend, setExpandedBlend] = useState(null);
   const [deleteBlend, setDeleteBlend] = useState(null);
+  const [editingBlend, setEditingBlend] = useState(null); // blend id when editing
+  const [makeableOnly, setMakeableOnly] = useState(false); // 'can I make it?' filter
+  const [addingToList, setAddingToList] = useState(null); // blend id while adding
 
   // Batch yield + display unit
   const [yieldTsp, setYieldTsp] = useState(9);
@@ -286,24 +290,93 @@ const SpiceBlends = () => {
     const icons = builderList.map((i) => i.icon);
     const doSave = async () => {
       try {
-        await api.post('/spices/blends', {
+        const payload = {
           name: builderName.trim(),
           description: builderDesc.trim(),
           icon: builderIcon,
           ingredients: builderList.map((i) => ({ spice_id: i.spice_id, parts: i.parts })),
-        });
+        };
+        if (editingBlend) {
+          await api.put(`/spices/blends/${editingBlend}`, payload);
+        } else {
+          await api.post('/spices/blends', payload);
+        }
         await refreshBlends();
-        setBuilderOpen(false);
+        closeBuilder();
         setBuilderName(''); setBuilderDesc(''); setBuilderIngredients({});
-        success('Blend created!');
+        success(editingBlend ? 'Blend updated!' : 'Blend created!');
         playSound('check');
       } catch {
-        showError('Could not create blend');
+        showError(editingBlend ? 'Could not update blend' : 'Could not create blend');
       } finally {
         setSavingBlend(false);
       }
     };
     startMixingSave(icons, doSave);
+  };
+
+  // Edit an owned blend, or clone a preset into an editable copy
+  const openBlendEditor = (b) => {
+    setBuilderName(b.name);
+    setBuilderIcon(b.icon || '🧂');
+    setBuilderDesc(b.description || '');
+    setBuilderIngredients(
+      Object.fromEntries((b.ingredients || []).map((i) => [i.spice_id, parseFloat(i.parts) || 1]))
+    );
+    setEditingBlend(b.user_id ? b.id : null); // preset -> POSTs a new copy
+    setBuilderSearch('');
+    setBuilderOpen(true);
+  };
+
+  const closeBuilder = () => {
+    setBuilderOpen(false);
+    setEditingBlend(null);
+  };
+
+  // "I made this" — deduct the tsp consumed from each container
+  const markMade = async (b) => {
+    try {
+      await api.post(`/spices/blends/${b.id}/made`, { yield_tsp: yieldTsp });
+      const { data: freshSpices } = await api.get('/spices');
+      setSpices(freshSpices || []);
+      await refreshBlends();
+      success('Nice! Container levels updated');
+      playSound('check');
+    } catch {
+      showError('Could not record usage');
+    }
+  };
+
+  // Push missing + too-low ingredients onto the active shopping list
+  const addMissingToList = async (b, need) => {
+    const missing = b.ingredients.filter((i) => {
+      const have = haveTsp(i);
+      return !i.owned || (have !== null && have < need(i));
+    });
+    if (!missing.length) return;
+    setAddingToList(b.id);
+    try {
+      const { data: lists } = await getLists();
+      const list = (lists || []).find((l) => !l.is_completed) || (lists || [])[0];
+      if (!list) {
+        showError('No shopping list found — create one first');
+        return;
+      }
+      for (const i of missing) {
+        await addItem(list.id, {
+          itemName: i.name,
+          quantity: 1,
+          unit: 'jar',
+          category: 'Condiments & Sauces',
+          icon: i.icon,
+        });
+      }
+      success(`Added ${missing.length} spice${missing.length > 1 ? 's' : ''} to "${list.name || 'your list'}"`);
+    } catch {
+      showError('Could not add to shopping list');
+    } finally {
+      setAddingToList(null);
+    }
   };
 
   const confirmDeleteBlend = async () => {
@@ -317,6 +390,19 @@ const SpiceBlends = () => {
       setDeleteBlend(null);
     }
   };
+
+  // Can the user actually mix this blend right now?
+  const canMake = (b) => {
+    const need = partsToTsp(b.ingredients || [], yieldTsp);
+    return (b.ingredients || []).length > 0 &&
+      b.ingredients.every((i) => i.owned && haveTsp(i) >= need(i));
+  };
+
+  const visibleBlends = useMemo(() => {
+    const list = makeableOnly ? blends.filter(canMake) : blends;
+    return [...list].sort((a, b) => Number(canMake(b)) - Number(canMake(a)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blends, makeableOnly, yieldTsp]);
 
   const tabs = [
     { id: 'rack', label: 'My Spice Rack', icon: ChefHat, count: ownedCount },
@@ -496,10 +582,22 @@ const SpiceBlends = () => {
                       </button>
                     ))}
                   </div>
+
+                  {/* Can-I-make-it filter */}
+                  <button
+                    onClick={() => setMakeableOnly((v) => !v)}
+                    className={`ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      makeableOnly
+                        ? 'bg-green-500 text-white'
+                        : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
+                    }`}
+                  >
+                    <Filter className="w-3.5 h-3.5" /> Can I make it?
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {blends.map((b) => {
+                  {visibleBlends.map((b) => {
                     const open = expandedBlend === b.id;
                     const tsp = partsToTsp(b.ingredients, yieldTsp);
                     const owned = b.ingredients.filter((i) => i.owned).length;
@@ -526,14 +624,23 @@ const SpiceBlends = () => {
                               </p>
                             </div>
                           </button>
-                          {b.user_id && (
+                          <div className="flex items-center">
                             <button
-                              onClick={() => setDeleteBlend(b)}
-                              className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                              onClick={() => openBlendEditor(b)}
+                              title={b.user_id ? 'Edit blend' : 'Make it mine (edit a copy)'}
+                              className="p-1.5 text-gray-400 hover:text-orange-500 transition-colors"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              {b.user_id ? <Pencil className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                             </button>
-                          )}
+                            {b.user_id && (
+                              <button
+                                onClick={() => setDeleteBlend(b)}
+                                className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         <AnimatePresence>
@@ -564,6 +671,32 @@ const SpiceBlends = () => {
                                 <p className="text-[11px] text-gray-400 pt-1">
                                   Yield ≈ {formatAmount(yieldTsp, unitMode)} total · amounts scale with your batch size
                                 </p>
+
+                                {/* Card actions */}
+                                <div className="flex gap-2 pt-2">
+                                  <button
+                                    onClick={() => markMade(b)}
+                                    disabled={!canMake(b)}
+                                    title={canMake(b) ? 'Record this batch — deducts from containers' : 'You are missing spices or running too low'}
+                                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500 text-white hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                  >
+                                    <Check className="w-3.5 h-3.5" /> Made this
+                                  </button>
+                                  {(() => {
+                                    const need = partsToTsp(b.ingredients, yieldTsp);
+                                    const missing = b.ingredients.filter((i) => !i.owned || (haveTsp(i) !== null && haveTsp(i) < need(i))).length;
+                                    return missing > 0 ? (
+                                      <button
+                                        onClick={() => addMissingToList(b, need)}
+                                        disabled={addingToList === b.id}
+                                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 transition-colors"
+                                      >
+                                        <ShoppingCart className="w-3.5 h-3.5" />
+                                        {addingToList === b.id ? 'Adding…' : `${missing} missing → list`}
+                                      </button>
+                                    ) : null;
+                                  })()}
+                                </div>
                               </div>
                             </motion.div>
                           )}
@@ -701,7 +834,7 @@ const SpiceBlends = () => {
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 z-[95] bg-black/50 flex items-center justify-center p-4"
-              onClick={() => setBuilderOpen(false)}
+              onClick={closeBuilder}
             >
               <motion.div
                 initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }}
@@ -709,8 +842,8 @@ const SpiceBlends = () => {
                 className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto custom-scrollbar p-6"
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">New Blend</h2>
-                  <button onClick={() => setBuilderOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-600">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">{editingBlend ? 'Edit Blend' : 'New Blend'}</h2>
+                  <button onClick={closeBuilder} className="p-1.5 text-gray-400 hover:text-gray-600">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
@@ -803,7 +936,7 @@ const SpiceBlends = () => {
                   disabled={savingBlend}
                   className="w-full py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  <Save className="w-4 h-4" /> {savingBlend ? 'Saving…' : 'Save Blend'}
+                  <Save className="w-4 h-4" /> {savingBlend ? 'Saving…' : editingBlend ? 'Save Changes' : 'Save Blend'}
                 </button>
               </motion.div>
             </motion.div>

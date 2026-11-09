@@ -310,6 +310,45 @@ router.get('/suggest', async (req, res) => {
   }
 });
 
+// POST /api/spices/blends/:id/made { yield_tsp }
+// "I just mixed this blend" — scale parts to the batch yield and deduct the
+// tsp consumed from each owned ingredient's container level.
+router.post('/blends/:id/made', async (req, res) => {
+  try {
+    const yieldTsp = Math.max(1, Math.min(500, parseFloat(req.body.yield_tsp) || 9));
+    const ing = await db.query(
+      `SELECT i.spice_id, i.parts, s.name
+       FROM spice_blend_ingredients i
+       JOIN spices s ON s.id = i.spice_id
+       WHERE i.blend_id = $1`,
+      [req.params.id]
+    );
+    if (ing.rows.length === 0) {
+      return res.status(404).json({ error: 'Blend not found or has no ingredients' });
+    }
+
+    const totalParts = ing.rows.reduce((s, r) => s + parseFloat(r.parts), 0) || 1;
+    const consumed = [];
+    for (const r of ing.rows) {
+      const tspUsed = (parseFloat(r.parts) / totalParts) * yieldTsp;
+      const result = await db.query(
+        `UPDATE user_spice_rack
+         SET level_percent = GREATEST(0, level_percent - ROUND(($3 / container_tsp) * 100)::smallint)
+         WHERE user_id = $1 AND spice_id = $2
+         RETURNING level_percent`,
+        [req.user.id, r.spice_id, tspUsed]
+      );
+      if (result.rows.length) {
+        consumed.push({ spice_id: r.spice_id, name: r.name, level_percent: result.rows[0].level_percent });
+      }
+    }
+    res.json({ ok: true, consumed });
+  } catch (error) {
+    console.error('Error recording blend usage:', error);
+    res.status(500).json({ error: 'Failed to record usage' });
+  }
+});
+
 // GET /api/spices/pairings/:spiceId — what pairs with a spice (combination game)
 router.get('/pairings/:spiceId', async (req, res) => {
   try {
