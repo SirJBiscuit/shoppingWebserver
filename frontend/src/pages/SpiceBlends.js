@@ -6,12 +6,13 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { getLists, addItem } from '../api/shopping';
-import Sidebar from '../components/Sidebar';
-import PageTransition from '../components/PageTransition';
+import LabShell from '../components/lab/LabShell';
+import MixingOverlay from '../components/lab/MixingOverlay';
 import ConfirmDialog from '../limbo/modals/ConfirmDialog';
 import Toast from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import { playSound } from '../utils/soundEffects';
+import { Portal } from '../utils/autoPlacement';
 
 const HEAT_LABELS = ['No heat', 'Mild', 'Warm', 'Spicy', 'Hot', 'Inferno'];
 const BLEND_ICONS = ['🧂', '🌶️', '🌿', '🔥', '🍛', '🌮', '🥘', '✨'];
@@ -49,59 +50,6 @@ const haveTsp = (ing) =>
 // Jar-style fill bar color by level
 const levelColor = (pct) =>
   pct >= 50 ? 'bg-emerald-500' : pct >= 25 ? 'bg-amber-500' : 'bg-red-500';
-
-// Swirling-spices mixing animation shown while a blend is created/suggested
-const MixingOverlay = ({ icons = ['🧂', '🌶️', '🌿'], onDone }) => (
-  <motion.div
-    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-    className="fixed inset-0 z-[130] bg-black/60 flex items-center justify-center"
-  >
-    <motion.div
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1, transition: { duration: 0.2 } }}
-      onAnimationComplete={() => setTimeout(onDone, 1400)}
-      className="relative w-64 h-64 flex items-center justify-center"
-    >
-      {/* swirling ingredient icons */}
-      {icons.slice(0, 8).map((ic, i) => (
-        <motion.span
-          key={i}
-          className="absolute text-3xl"
-          animate={{
-            rotate: [0, 720],
-            x: [80 * Math.cos((i / icons.length) * Math.PI * 2), 0],
-            y: [80 * Math.sin((i / icons.length) * Math.PI * 2), 0],
-            scale: [1, 0.4],
-            opacity: [1, 0.6],
-          }}
-          transition={{ duration: 1.3, ease: 'easeInOut' }}
-        >
-          {ic}
-        </motion.span>
-      ))}
-      {/* bowl */}
-      <motion.div
-        className="text-7xl"
-        animate={{ rotate: [0, -6, 6, -4, 0], scale: [1, 1.08, 1] }}
-        transition={{ duration: 1.3, ease: 'easeInOut' }}
-      >
-        🥣
-      </motion.div>
-      {/* sparkle burst at the end */}
-      <motion.span
-        className="absolute text-4xl"
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: [0, 1.4, 0], opacity: [0, 1, 0] }}
-        transition={{ delay: 1.15, duration: 0.5 }}
-      >
-        ✨
-      </motion.span>
-      <p className="absolute -bottom-8 text-white font-semibold text-sm tracking-wide">
-        Mixing your blend…
-      </p>
-    </motion.div>
-  </motion.div>
-);
 
 const HeatMeter = ({ level }) => (
   <div className="flex items-center gap-0.5" title={HEAT_LABELS[level] || 'No heat'}>
@@ -419,52 +367,17 @@ const SpiceBlends = () => {
   }
 
   return (
-    <PageTransition>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-        <Sidebar />
-        <div className="lg:ml-72">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <LabShell
+      icon={Flame}
+      gradient="from-orange-500 to-red-600"
+      title="Spice Lab"
+      subtitle={`${ownedCount} spices in your rack · ${blends.length} blends`}
+      tabs={tabs}
+      activeTab={tab}
+      onTabChange={(id) => { setTab(id); if (id === 'blends') refreshBlends(); }}
+      accent="orange"
+    >
 
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center mr-4 shadow-lg">
-                  <Flame className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Spice Lab</h1>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {ownedCount} spices in your rack · {blends.length} blends
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-              {tabs.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => {
-                    setTab(t.id);
-                    if (t.id === 'blends') refreshBlends();
-                  }}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-all ${
-                    tab === t.id
-                      ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30'
-                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-orange-400'
-                  }`}
-                >
-                  <t.icon className="w-4 h-4" />
-                  {t.label}
-                  {t.count != null && (
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${tab === t.id ? 'bg-white/20' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'}`}>
-                      {t.count}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
 
             {/* ============ RACK TAB ============ */}
             {tab === 'rack' && (
@@ -825,11 +738,9 @@ const SpiceBlends = () => {
                 </AnimatePresence>
               </motion.div>
             )}
-          </div>
-        </div>
 
         {/* ============ BLEND BUILDER MODAL ============ */}
-        <AnimatePresence>
+        <Portal><AnimatePresence>
           {builderOpen && (
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -941,7 +852,7 @@ const SpiceBlends = () => {
               </motion.div>
             </motion.div>
           )}
-        </AnimatePresence>
+        </AnimatePresence></Portal>
 
         {/* Mixing animation overlay */}
         <AnimatePresence>
@@ -960,13 +871,12 @@ const SpiceBlends = () => {
         />
 
         {/* Toasts */}
-        <div className="fixed bottom-4 right-4 z-[120] space-y-2">
+        <Portal><div className="fixed bottom-4 right-4 z-[120] space-y-2">
           {toasts.map((t) => (
             <Toast key={t.id} message={t.message} type={t.type} onClose={() => hideToast(t.id)} />
           ))}
-        </div>
-      </div>
-    </PageTransition>
+        </div></Portal>
+    </LabShell>
   );
 };
 
