@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChefHat, Clock, Users, Star, X, Plus, Trash2, Heart } from 'lucide-react';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * RecipeCardSlider - Horizontal 3D card slider with flip animations
@@ -180,7 +181,7 @@ const RecipeCardSlider = ({
                       <div className="h-48 overflow-hidden">
                         <img 
                           src={recipe.image_url} 
-                          alt={recipe.recipe_name}
+                          alt={recipe.recipe_name || recipe.name}
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -194,7 +195,7 @@ const RecipeCardSlider = ({
                     <div className="p-6">
                       <div className="flex items-start justify-between mb-3">
                         <h3 className="text-2xl font-bold text-gray-900 dark:text-white line-clamp-2 flex-1">
-                          {recipe.recipe_name}
+                          {recipe.recipe_name || recipe.name}
                         </h3>
                         {!isPlaceholder && (
                           <button
@@ -254,7 +255,7 @@ const RecipeCardSlider = ({
                 >
                   <div className="w-full h-full bg-gradient-to-br from-primary-600 to-primary-800 rounded-2xl shadow-2xl p-6 text-white overflow-y-auto">
                     <div className="flex items-start justify-between mb-4">
-                      <h3 className="text-xl font-bold">{recipe.recipe_name}</h3>
+                      <h3 className="text-xl font-bold">{recipe.recipe_name || recipe.name}</h3>
                       <button
                         onClick={(e) => handleCardFlip(recipe.id, e)}
                         className="flip-trigger hover:scale-110 transition-transform"
@@ -310,7 +311,7 @@ const RecipeCardSlider = ({
       </div>
 
       {/* Zoomed Modal */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {zoomedRecipe && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -331,7 +332,7 @@ const RecipeCardSlider = ({
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 flex items-start justify-between z-10">
                 <div className="flex-1">
                   <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                    {zoomedRecipe.recipe_name}
+                    {zoomedRecipe.recipe_name || zoomedRecipe.name}
                   </h2>
                   <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                     <span className="flex items-center gap-1">
@@ -360,7 +361,7 @@ const RecipeCardSlider = ({
                 {zoomedRecipe.image_url && (
                   <img 
                     src={zoomedRecipe.image_url} 
-                    alt={zoomedRecipe.recipe_name}
+                    alt={zoomedRecipe.recipe_name || zoomedRecipe.name}
                     className="w-full h-64 object-cover rounded-xl mb-6"
                   />
                 )}
@@ -381,7 +382,7 @@ const RecipeCardSlider = ({
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
 
       <style jsx>{`
         .hide-scrollbar::-webkit-scrollbar {

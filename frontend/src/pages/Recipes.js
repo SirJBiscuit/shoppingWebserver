@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, ChefHat, Clock, Users, Trash2, ShoppingCart, Star, Package, LogOut, Settings, Edit2, Sparkles } from 'lucide-react';
+import { Plus, ChefHat, Clock, Users, Trash2, ShoppingCart, Star, Package, LogOut, Settings, Edit2, Sparkles, GraduationCap, Layers, Library } from 'lucide-react';
 import { recipesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
@@ -8,7 +8,10 @@ import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import RecipeModal from '../components/RecipeModal';
 import RecipeCardSlider from '../components/recipes/RecipeCardSlider';
+import RecipeRolodex from '../components/recipes/RecipeRolodex';
+import TeachableRecipe from '../components/recipes/TeachableRecipe';
 import QuickRecipeTemplates from '../components/recipes/QuickRecipeTemplates';
+import ConfirmModal from '../limbo/modals/ConfirmModal';
 
 const Recipes = () => {
   const navigate = useNavigate();
@@ -19,6 +22,9 @@ const Recipes = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [showQuickTemplates, setShowQuickTemplates] = useState(false);
+  const [showTeach, setShowTeach] = useState(false);
+  const [deckView, setDeckView] = useState('rolodex'); // 'rolodex' | 'slider'
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   useEffect(() => {
     fetchRecipes();
@@ -64,15 +70,18 @@ const Recipes = () => {
     }
   };
 
-  const handleDeleteRecipe = async (id) => {
-    if (window.confirm('Are you sure you want to delete this recipe?')) {
-      try {
-        await recipesAPI.deleteRecipe(id);
-        fetchRecipes();
-        checkCanMake();
-      } catch (error) {
-        console.error('Failed to delete recipe:', error);
-      }
+  const handleDeleteRecipe = (id) => setDeleteTarget(id);
+
+  const confirmDeleteRecipe = async () => {
+    const id = deleteTarget;
+    setDeleteTarget(null);
+    if (!id) return;
+    try {
+      await recipesAPI.deleteRecipe(id);
+      fetchRecipes();
+      checkCanMake();
+    } catch (error) {
+      console.error('Failed to delete recipe:', error);
     }
   };
 
@@ -123,6 +132,14 @@ const Recipes = () => {
               </div>
               <div className="flex gap-3">
                 <button
+                  onClick={() => setShowTeach(true)}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                  title="Step-by-step quick recipe entry"
+                >
+                  <GraduationCap className="w-5 h-5" />
+                  Teach
+                </button>
+                <button
                   onClick={() => setShowQuickTemplates(true)}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2"
                 >
@@ -146,18 +163,46 @@ const Recipes = () => {
               </div>
             </div>
 
-            {/* Recipe Card Slider - 3D Horizontal Carousel */}
+            {/* Recipe deck — flip-book rolodex or horizontal slider */}
             <div className="mb-12">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                <ChefHat className="w-6 h-6 text-primary-600" />
-                Recipe Collection
-              </h2>
-              <RecipeCardSlider
-                recipes={recipes}
-                onAddRecipe={() => setShowCreateModal(true)}
-                onDeleteRecipe={handleDeleteRecipe}
-                onToggleFavorite={handleToggleFavorite}
-              />
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <ChefHat className="w-6 h-6 text-primary-600" />
+                  Recipe Collection
+                </h2>
+                <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                  <button
+                    onClick={() => setDeckView('rolodex')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${deckView === 'rolodex' ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    title="Flip-book rolodex"
+                  >
+                    <Library className="w-3.5 h-3.5" /> Rolodex
+                  </button>
+                  <button
+                    onClick={() => setDeckView('slider')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${deckView === 'slider' ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    title="Horizontal card slider"
+                  >
+                    <Layers className="w-3.5 h-3.5" /> Slider
+                  </button>
+                </div>
+              </div>
+              {deckView === 'rolodex' ? (
+                <RecipeRolodex
+                  recipes={recipes}
+                  onAddRecipe={() => setShowCreateModal(true)}
+                  onDeleteRecipe={handleDeleteRecipe}
+                  onToggleFavorite={handleToggleFavorite}
+                  onAddToList={handleAddToShoppingList}
+                />
+              ) : (
+                <RecipeCardSlider
+                  recipes={recipes}
+                  onAddRecipe={() => setShowCreateModal(true)}
+                  onDeleteRecipe={handleDeleteRecipe}
+                  onToggleFavorite={handleToggleFavorite}
+                />
+              )}
             </div>
 
             {/* What Can I Make Section */}
@@ -248,6 +293,23 @@ const Recipes = () => {
                 onClose={() => setShowQuickTemplates(false)}
               />
             )}
+
+            {/* Teachable Recipe wizard */}
+            <TeachableRecipe
+              isOpen={showTeach}
+              onClose={() => setShowTeach(false)}
+              onSave={handleCreateRecipe}
+            />
+
+            <ConfirmModal
+              isOpen={deleteTarget !== null}
+              title="Delete recipe?"
+              message="This recipe and its ingredients will be removed. This can't be undone."
+              confirmText="Delete"
+              type="danger"
+              onConfirm={confirmDeleteRecipe}
+              onCancel={() => setDeleteTarget(null)}
+            />
           </div>
         </div>
       </div>
