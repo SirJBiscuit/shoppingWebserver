@@ -364,7 +364,7 @@ const CustomRadialMenu = ({
                       disabled={action.disabled}
                       className={`
                         ${isListLayout 
-                          ? 'flex items-center gap-3 justify-start bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-2 border-gray-200 dark:border-gray-700 rounded-lg'
+                          ? 'flex items-center gap-3 justify-start pl-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-2 border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden'
                           : `${colorClass} text-white rounded-full`
                         }
                         shadow-lg hover:shadow-xl
@@ -385,11 +385,22 @@ const CustomRadialMenu = ({
                       }
                       title={action.label}
                     >
-                      {/* Icon */}
+                      {/* Left accent strip — color-coded per action (list only) */}
+                      {isListLayout && (
+                        <span className={`absolute left-0 top-0 bottom-0 w-1.5 ${colorClass}`} />
+                      )}
+
+                      {/* Icon — colored chip in list layout, flat elsewhere */}
                       {Icon && (
-                        <div className={isListLayout ? 'flex-shrink-0' : ''}>
-                          <Icon className={config.icon} />
-                        </div>
+                        isListLayout ? (
+                          <div className={`flex-shrink-0 rounded-lg p-1.5 text-white ${colorClass}`}>
+                            <Icon className={config.icon} />
+                          </div>
+                        ) : (
+                          <div className="flex-shrink-0">
+                            <Icon className={config.icon} />
+                          </div>
+                        )
                       )}
 
                       {/* Label (inline for list layout) */}
