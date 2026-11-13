@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Flame, Search, Plus, Trash2, Sparkles, Save, X, ChefHat,
-  Wand2, Check, ShoppingCart, Minus, Pencil, Copy, Filter,
+  Wand2, Check, ShoppingCart, Minus, Pencil, Copy, Filter, ListChecks, Pin,
 } from 'lucide-react';
 import api from '../services/api';
 import { getLists, addItem } from '../api/shopping';
@@ -86,6 +86,11 @@ const SpiceBlends = () => {
   const [savingBlend, setSavingBlend] = useState(false);
 
   const [expandedBlend, setExpandedBlend] = useState(null);
+  const [pairMap, setPairMap] = useState({}); // spice_id → owned pairing names (swap hints)
+  const [rackSelectMode, setRackSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [pinnedBlendId, setPinnedBlendId] = useState(null); // floating draggable card
   const [deleteBlend, setDeleteBlend] = useState(null);
   const [editingBlend, setEditingBlend] = useState(null); // blend id when editing
   const [makeableOnly, setMakeableOnly] = useState(false); // 'can I make it?' filter
@@ -149,7 +154,63 @@ const SpiceBlends = () => {
     }
   };
 
+  // Swap hints — lazy-fetch pairings for missing/short ingredients when a blend opens
+  const loadSwapHints = async (b) => {
+    const need = partsToTsp(b.ingredients, yieldTsp);
+    const ids = b.ingredients
+      .filter((i) => !i.owned || (haveTsp(i) !== null && haveTsp(i) < need(i)))
+      .map((i) => i.spice_id)
+      .filter((id) => pairMap[id] === undefined);
+    if (!ids.length) return;
+    const results = await Promise.all(
+      ids.map((id) =>
+        api.get(`/spices/pairings/${id}`)
+          .then((r) => [id, (r.data?.pairs || []).filter((p) => p.owned).map((p) => p.name)])
+          .catch(() => [id, null])
+      )
+    );
+    setPairMap((prev) => {
+      const next = { ...prev };
+      for (const [id, names] of results) if (names) next[id] = names;
+      return next;
+    });
+  };
+
+  const expandBlend = (b) => {
+    const open = expandedBlend === b.id;
+    setExpandedBlend(open ? null : b.id);
+    if (!open) loadSwapHints(b);
+  };
+
+  // Rack multi-select — batch owned toggles for mobile users stocking a rack
+  const toggleSelect = (s) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
+      return next;
+    });
+
+  const batchSetOwned = async (owned) => {
+    if (!selectedIds.size) return;
+    setBatchBusy(true);
+    const ids = [...selectedIds];
+    setSpices((prev) => prev.map((s) => (ids.includes(s.id) ? { ...s, owned } : s)));
+    ids.forEach((id) => syncBlendIngredient(id, { owned }));
+    playSound(owned ? 'pop' : 'uncheck');
+    try {
+      await Promise.all(ids.map((id) => api.post('/spices/rack', { spiceId: id, owned })));
+      success(`${ids.length} spice${ids.length > 1 ? 's' : ''} ${owned ? 'added to' : 'removed from'} your rack`);
+    } catch {
+      showError('Some rack updates failed');
+    } finally {
+      setBatchBusy(false);
+      setSelectedIds(new Set());
+      setRackSelectMode(false);
+    }
+  };
+
   const ownedCount = spices.filter((s) => s.owned).length;
+  const pinnedBlend = blends.find((b) => b.id === pinnedBlendId) || null;
   const filteredSpices = useMemo(() => {
     const q = rackSearch.toLowerCase();
     return spices.filter((s) => !q || s.name.toLowerCase().includes(q));
@@ -382,18 +443,64 @@ const SpiceBlends = () => {
             {/* ============ RACK TAB ============ */}
             {tab === 'rack' && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                <div className="relative mb-4 max-w-md">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    value={rackSearch}
-                    onChange={(e) => setRackSearch(e.target.value)}
-                    placeholder="Search spices…"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                  />
+                <div className="flex items-center gap-2 mb-4 max-w-md">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      value={rackSearch}
+                      onChange={(e) => setRackSearch(e.target.value)}
+                      placeholder="Search spices…"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                    />
+                  </div>
+                  <button
+                    onClick={() => { setRackSelectMode((m) => !m); setSelectedIds(new Set()); }}
+                    className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors ${
+                      rackSelectMode
+                        ? 'bg-blue-500 text-white border-blue-500'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600'
+                    }`}
+                    title="Select multiple spices to add/remove at once"
+                  >
+                    <ListChecks className="w-4 h-4" /> Select
+                  </button>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                  Tap spices you have at home — blends and suggestions will flag what you're missing.
+                  {rackSelectMode
+                    ? 'Tap spices to select, then use the bar below to update them all.'
+                    : "Tap spices you have at home — blends and suggestions will flag what you're missing."}
                 </p>
+                {rackSelectMode && (
+                  <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gray-900/95 dark:bg-gray-700 text-white shadow-2xl">
+                    <span className="text-xs font-medium whitespace-nowrap">{selectedIds.size} selected</span>
+                    <button
+                      onClick={() => setSelectedIds(new Set(filteredSpices.map((s) => s.id)))}
+                      className="px-2.5 py-1.5 rounded-lg bg-gray-600 hover:bg-gray-500 text-xs font-semibold"
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => batchSetOwned(true)}
+                      disabled={!selectedIds.size || batchBusy}
+                      className="px-2.5 py-1.5 rounded-lg bg-green-500 hover:bg-green-600 text-xs font-semibold disabled:opacity-40"
+                    >
+                      Own
+                    </button>
+                    <button
+                      onClick={() => batchSetOwned(false)}
+                      disabled={!selectedIds.size || batchBusy}
+                      className="px-2.5 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-xs font-semibold disabled:opacity-40"
+                    >
+                      Remove
+                    </button>
+                    <button
+                      onClick={() => { setRackSelectMode(false); setSelectedIds(new Set()); }}
+                      className="px-2.5 py-1.5 rounded-lg bg-gray-600 hover:bg-gray-500 text-xs font-semibold"
+                    >
+                      Done
+                    </button>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                   {filteredSpices.map((s, i) => (
                     <motion.button
@@ -402,16 +509,25 @@ const SpiceBlends = () => {
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: Math.min(i * 0.02, 0.4) }}
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => toggleSpice(s)}
+                      onClick={() => (rackSelectMode ? toggleSelect(s) : toggleSpice(s))}
                       className={`relative p-3 rounded-xl border-2 text-left transition-all ${
                         s.owned
                           ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-400 dark:border-orange-600 shadow-md'
                           : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 opacity-70 hover:opacity-100 hover:border-gray-300'
-                      }`}
+                      } ${rackSelectMode && selectedIds.has(s.id) ? 'ring-2 ring-blue-500 border-blue-500' : ''}`}
                     >
                       {s.owned && (
                         <div className="absolute -top-2 -right-2 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
                           <Check className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                      {rackSelectMode && (
+                        <div className={`absolute top-2 left-2 w-4 h-4 rounded border-2 flex items-center justify-center ${
+                          selectedIds.has(s.id)
+                            ? 'bg-blue-500 border-blue-500'
+                            : 'border-gray-300 dark:border-gray-600 bg-white/60 dark:bg-gray-800/60'
+                        }`}>
+                          {selectedIds.has(s.id) && <Check className="w-2.5 h-2.5 text-white" />}
                         </div>
                       )}
                       <div className="text-2xl mb-1">{s.icon}</div>
@@ -526,7 +642,7 @@ const SpiceBlends = () => {
                         className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 shadow-sm"
                       >
                         <div className="flex items-start justify-between">
-                          <button onClick={() => setExpandedBlend(open ? null : b.id)} className="flex items-start gap-3 text-left flex-1">
+                          <button onClick={() => expandBlend(b)} className="flex items-start gap-3 text-left flex-1">
                             <span className="text-3xl">{b.icon}</span>
                             <div>
                               <h3 className="font-bold text-gray-900 dark:text-white">{b.name}</h3>
@@ -538,6 +654,13 @@ const SpiceBlends = () => {
                             </div>
                           </button>
                           <div className="flex items-center">
+                            <button
+                              onClick={() => setPinnedBlendId(pinnedBlendId === b.id ? null : b.id)}
+                              title={pinnedBlendId === b.id ? 'Unpin card' : 'Pin as floating card'}
+                              className={`p-1.5 transition-colors ${pinnedBlendId === b.id ? 'text-orange-500' : 'text-gray-400 hover:text-orange-500'}`}
+                            >
+                              <Pin className="w-4 h-4" />
+                            </button>
                             <button
                               onClick={() => openBlendEditor(b)}
                               title={b.user_id ? 'Edit blend' : 'Make it mine (edit a copy)'}
@@ -570,14 +693,21 @@ const SpiceBlends = () => {
                                   const have = haveTsp(i);
                                   const short = have !== null && have < need;
                                   return (
-                                    <div key={i.spice_id} className="flex items-center gap-2 text-sm">
-                                      <span>{i.icon}</span>
-                                      <span className={`flex-1 ${i.owned ? (short ? 'text-red-500 dark:text-red-400' : 'text-gray-900 dark:text-white') : 'text-gray-400 dark:text-gray-500'}`}>
-                                        {i.name}
-                                        {!i.owned && <span className="ml-1 text-[10px] text-red-400">(missing)</span>}
-                                        {short && <span className="ml-1 text-[10px] text-red-400">(only ~{formatAmount(have, unitMode)} left)</span>}
-                                      </span>
-                                      <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{formatAmount(need, unitMode)}</span>
+                                    <div key={i.spice_id} className="text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <span>{i.icon}</span>
+                                        <span className={`flex-1 ${i.owned ? (short ? 'text-red-500 dark:text-red-400' : 'text-gray-900 dark:text-white') : 'text-gray-400 dark:text-gray-500'}`}>
+                                          {i.name}
+                                          {!i.owned && <span className="ml-1 text-[10px] text-red-400">(missing)</span>}
+                                          {short && <span className="ml-1 text-[10px] text-red-400">(only ~{formatAmount(have, unitMode)} left)</span>}
+                                        </span>
+                                        <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{formatAmount(need, unitMode)}</span>
+                                      </div>
+                                      {(!i.owned || short) && pairMap[i.spice_id]?.length > 0 && (
+                                        <p className="ml-6 mt-0.5 text-[10px] text-amber-600 dark:text-amber-400">
+                                          try instead: {pairMap[i.spice_id].slice(0, 3).join(', ')} — in your rack
+                                        </p>
+                                      )}
                                     </div>
                                   );
                                 })}
@@ -853,6 +983,72 @@ const SpiceBlends = () => {
             </motion.div>
           )}
         </AnimatePresence></Portal>
+
+        {/* Draggable pinned recipe card — float a blend while you work */}
+        <Portal>
+          {pinnedBlend && (() => {
+            const b = pinnedBlend;
+            const need = partsToTsp(b.ingredients, yieldTsp);
+            const missing = b.ingredients.filter((i) => !i.owned || (haveTsp(i) !== null && haveTsp(i) < need(i))).length;
+            return (
+              <motion.div
+                drag
+                dragMomentum={false}
+                whileDrag={{ scale: 1.03 }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="fixed bottom-4 left-4 z-[110] w-64 bg-white dark:bg-gray-800 border border-orange-300 dark:border-orange-700 rounded-2xl shadow-2xl p-3 cursor-grab active:cursor-grabbing"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xl">{b.icon}</span>
+                    <span className="font-bold text-sm text-gray-900 dark:text-white truncate">{b.name}</span>
+                  </div>
+                  <button
+                    onClick={() => setPinnedBlendId(null)}
+                    className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
+                  {b.ingredients.map((i) => {
+                    const n = need(i);
+                    const have = haveTsp(i);
+                    const short = have !== null && have < n;
+                    return (
+                      <div key={i.spice_id} className="flex items-center gap-1.5 text-xs">
+                        <span>{i.icon}</span>
+                        <span className={`flex-1 truncate ${i.owned && !short ? 'text-gray-700 dark:text-gray-300' : 'text-red-400'}`}>
+                          {i.name}{!i.owned ? ' (missing)' : short ? ' (low)' : ''}
+                        </span>
+                        <span className="font-mono text-[10px] text-gray-400">{formatAmount(n, unitMode)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-1.5 mt-2.5">
+                  <button
+                    onClick={() => markMade(b)}
+                    disabled={!canMake(b)}
+                    className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold bg-green-500 text-white hover:bg-green-600 disabled:opacity-40"
+                  >
+                    <Check className="w-3 h-3" /> Made
+                  </button>
+                  {missing > 0 && (
+                    <button
+                      onClick={() => addMissingToList(b, need)}
+                      disabled={addingToList === b.id}
+                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50"
+                    >
+                      <ShoppingCart className="w-3 h-3" /> {addingToList === b.id ? '…' : `${missing} → list`}
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })()}
+        </Portal>
 
         {/* Mixing animation overlay */}
         <AnimatePresence>
