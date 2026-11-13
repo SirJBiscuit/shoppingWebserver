@@ -30,32 +30,76 @@ const BudgetTrackerContent = ({
   const [budget, setBudget] = useState(100);
   const [showBudgetInput, setShowBudgetInput] = useState(false);
   const [tempBudget, setTempBudget] = useState('100');
+  const [prevBudget, setPrevBudget] = useState(null); // {budget, store_name, name} from API
+  const [prevDismissed, setPrevDismissed] = useState(false);
 
   const remaining = budget - totalCost;
   const percentUsed = (totalCost / budget) * 100;
   const isOverBudget = totalCost > budget;
   const isNearBudget = percentUsed > 80 && !isOverBudget;
 
-  // Load budget from localStorage (per-list)
+  // localStorage gives an instant value; the API is source of truth and
+  // also returns a previous-budget suggestion for lists without one.
   useEffect(() => {
-    if (listId) {
-      const saved = localStorage.getItem(`shoppingBudget_${listId}`);
-      if (saved) {
-        setBudget(parseFloat(saved));
-        setTempBudget(saved);
-      } else {
-        // Default budget from AVE or fallback
-        setBudget(maxBudget || 100);
-        setTempBudget((maxBudget || 100).toString());
-      }
+    if (!listId) return;
+    const saved = localStorage.getItem(`shoppingBudget_${listId}`);
+    if (saved) {
+      setBudget(parseFloat(saved));
+      setTempBudget(saved);
+    } else {
+      setBudget(maxBudget || 100);
+      setTempBudget((maxBudget || 100).toString());
     }
-  }, [listId]);
+    setPrevDismissed(false);
+    (async () => {
+      try {
+        const res = await fetch(`/api/shopping/lists/${listId}/budget`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.budget != null && !saved) {
+          const amount = parseFloat(data.budget);
+          setBudget(amount);
+          setTempBudget(amount.toString());
+          localStorage.setItem(`shoppingBudget_${listId}`, amount.toString());
+        }
+        if (data.previous?.budget != null) setPrevBudget(data.previous);
+      } catch {
+        // suggestion is non-critical
+      }
+    })();
+  }, [listId, maxBudget]);
+
+  const persistBudget = (id, amount) => {
+    fetch(`/api/shopping/lists/${id}/budget`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ budget: amount })
+    }).catch(() => {});
+  };
+
+  const usePrevBudget = () => {
+    if (!prevBudget) return;
+    const amount = parseFloat(prevBudget.budget);
+    setBudget(amount);
+    setTempBudget(amount.toString());
+    if (listId) {
+      localStorage.setItem(`shoppingBudget_${listId}`, amount.toString());
+      persistBudget(listId, amount);
+    }
+    setPrevDismissed(true);
+  };
 
   const saveBudget = () => {
     const newBudget = parseFloat(tempBudget) || 100;
     setBudget(newBudget);
     if (listId) {
       localStorage.setItem(`shoppingBudget_${listId}`, newBudget.toString());
+      persistBudget(listId, newBudget);
     }
     setShowBudgetInput(false);
   };
@@ -130,6 +174,34 @@ const BudgetTrackerContent = ({
             />
             <button onClick={saveBudget} className="btn-primary">
               Save
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Previous-budget suggestion — appears when a past list had a different budget */}
+      {prevBudget && !prevDismissed && parseFloat(prevBudget.budget) !== budget && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="mb-4 flex items-center justify-between gap-2 rounded-lg border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/30 px-3 py-2"
+        >
+          <span className="text-xs text-primary-700 dark:text-primary-300">
+            Last{prevBudget.store_name ? ` time at ${prevBudget.store_name}` : ' list'}: <b>${parseFloat(prevBudget.budget).toFixed(2)}</b>
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={usePrevBudget}
+              className="text-xs font-semibold px-2 py-1 rounded bg-primary-600 text-white hover:bg-primary-700"
+            >
+              Use it
+            </button>
+            <button
+              onClick={() => setPrevDismissed(true)}
+              className="text-xs px-1.5 py-1 text-primary-500 hover:text-primary-700"
+              title="Dismiss"
+            >
+              ✕
             </button>
           </div>
         </motion.div>

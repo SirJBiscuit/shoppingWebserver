@@ -783,4 +783,66 @@ router.post('/price-history', async (req, res) => {
   }
 });
 
+// List budget: current value + previous-budget suggestion (requires migration 059)
+router.get('/lists/:id/budget', async (req, res) => {
+  try {
+    const cur = await db.query(
+      'SELECT id, name, store_name, budget FROM shopping_lists WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.user.id]
+    );
+    if (cur.rows.length === 0) {
+      return res.status(404).json({ error: 'List not found' });
+    }
+    const list = cur.rows[0];
+
+    // Most recent budget on another list — prefer same store, then same name
+    const prev = await db.query(
+      `SELECT budget, store_name, name FROM shopping_lists
+       WHERE user_id = $1 AND id != $2 AND budget IS NOT NULL
+       ORDER BY CASE
+           WHEN store_name IS NOT NULL AND store_name = $3 THEN 0
+           WHEN name = $4 THEN 1
+           ELSE 2
+         END, created_at DESC
+       LIMIT 1`,
+      [req.user.id, req.params.id, list.store_name, list.name]
+    );
+
+    res.json({ budget: list.budget, previous: prev.rows[0] || null });
+  } catch (error) {
+    if (error.code === '42703') {
+      return res.json({ budget: null, previous: null, migration_needed: true });
+    }
+    console.error('Get budget error:', error);
+    res.status(500).json({ error: 'Failed to fetch budget' });
+  }
+});
+
+// Save (or clear with null) a list's budget
+router.put('/lists/:id/budget', async (req, res) => {
+  const raw = req.body.budget;
+  const budget = raw === null || raw === '' || raw === undefined ? null : parseFloat(raw);
+
+  if (budget !== null && (!Number.isFinite(budget) || budget < 0)) {
+    return res.status(400).json({ error: 'Budget must be a positive number' });
+  }
+
+  try {
+    const result = await db.query(
+      'UPDATE shopping_lists SET budget = $1 WHERE id = $2 AND user_id = $3 RETURNING id, name, store_name, budget',
+      [budget, req.params.id, req.user.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'List not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    if (error.code === '42703') {
+      return res.status(503).json({ error: 'Budget column missing — migration 059 required' });
+    }
+    console.error('Save budget error:', error);
+    res.status(500).json({ error: 'Failed to save budget' });
+  }
+});
+
 module.exports = router;
