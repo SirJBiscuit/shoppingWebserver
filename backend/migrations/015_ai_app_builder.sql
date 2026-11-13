@@ -121,13 +121,13 @@ SELECT * FROM (VALUES
     '["posts", "comments", "categories", "search", "admin-panel"]',
     '{"react": "// Blog platform template code here", "css": "/* Styles */"}',
     true,
- ) AS t(name, description, category, type, platform, features, code, is_public, downloads)
-WHERE NOT EXISTS (SELECT 1 FROM app_templates)   220
-);
-pets (idemotent + only once user id 1 xis)
--- Insert some default code snippets
-SELECT * FROM(
-INSERT INTO code_snippets (user_id, name, code, category, description, language, is_public, usage_count) VALUES
+    220
+)) AS t(name, description, category, type, platform, features, code, is_public, downloads)
+WHERE NOT EXISTS (SELECT 1 FROM app_templates);
+
+-- Insert some default code snippets (idempotent + only when user id 1 exists)
+INSERT INTO code_snippets (user_id, name, code, category, description, language, is_public, usage_count)
+SELECT * FROM (VALUES
 (
     1,
     'Login Form',
