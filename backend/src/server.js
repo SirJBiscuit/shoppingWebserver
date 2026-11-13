@@ -111,6 +111,7 @@ app.use('/api/changelog', changelogRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/price-review', priceReviewRoutes);
 app.use('/api/spices', spicesRoutes);
+app.use('/api/plate', plateRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
