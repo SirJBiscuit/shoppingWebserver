@@ -190,7 +190,6 @@ const Sidebar = ({ onAction }) => {
     { path: '/pantry-new-v2', icon: Store, label: 'Home Inventory', color: 'text-green-600', feature: 'pantry' },
     { path: '/recipes', icon: ChefHat, label: 'Recipe Book', color: 'text-orange-600', feature: 'recipes' },
     { path: '/lab', icon: FlaskConical, label: 'Homemade Lab', color: 'text-violet-600' },
-    { path: '/spices', icon: Flame, label: 'Spice Lab', color: 'text-red-600', feature: 'spice_blends' },
     { path: '/household', icon: Users, label: 'Household', color: 'text-pink-600', feature: 'household' },
     // { path: '/meal-plan', icon: Calendar, label: 'Meal Planner', color: 'text-purple-600', feature: 'meal_planner' }, // Disabled
     // { path: '/stats', icon: BarChart3, label: 'Statistics', color: 'text-pink-600', feature: 'statistics' }, // Disabled

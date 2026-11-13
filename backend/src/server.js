@@ -159,7 +159,8 @@ const runMigrations = async () => {
     { file: '062_changelog_admin_enhancements.sql', name: 'Changelog Admin Enhancements' },
     { file: '063_smoothie_lab_preset_recipes.sql', name: 'Smoothie Lab Preset Recipes' },
     { file: '064_mdl_auto_categorization.sql', name: 'MDL Auto-Categorization' },
-    { file: '065_plate_system.sql', name: 'Plate System' }
+    { file: '065_plate_system.sql', name: 'Plate System' },
+    { file: '066_spice_lab_sidebar_remove.sql', name: 'Spice Lab Sidebar Remove' }
   ];
 
   for (const migration of migrations) {
