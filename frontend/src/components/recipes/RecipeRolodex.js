@@ -21,7 +21,8 @@ const RecipeRolodex = ({
   onAddToList,
 }) => {
   const [index, setIndex] = useState(0);
-  const [flipping, setFlipping] = useState(false);
+  const [leaving, setLeaving] = useState([]);   // absolute indices animating off the binding
+  const [entering, setEntering] = useState([]); // absolute indices flipping back down (prev)
   const [zoomed, setZoomed] = useState(null);   // recipe object
   const [detail, setDetail] = useState(null);   // fetched full recipe w/ ingredients
   const [detailLoading, setDetailLoading] = useState(false);
@@ -39,18 +40,23 @@ const RecipeRolodex = ({
       .finally(() => setDetailLoading(false));
   }, [zoomed]);
 
+  // No waiting: the index moves the moment you tap/drag — the outgoing card
+  // animates off the binding in parallel, so rapid taps just keep flipping.
   const flipNext = () => {
-    if (flipping || count < 2) return;
-    if (safeIndex >= count - 1) { setIndex(0); return; } // wrap around
-    setFlipping(true);
+    if (count < 2) return;
+    setLeaving((l) => (l.includes(safeIndex) ? l : [...l, safeIndex]));
+    setIndex((i) => (i + 1) % count);
   };
   const flipPrev = () => {
-    if (flipping || count < 2) return;
-    setIndex((i) => (i - 1 + count) % count);
+    if (count < 2) return;
+    const prev = (safeIndex - 1 + count) % count;
+    setEntering((e) => (e.includes(prev) ? e : [...e, prev]));
+    setIndex(prev);
   };
 
+  // Endless deck — positions wrap so the stack never runs out behind the top card
   const visible = [];
-  for (let i = 0; i < Math.min(3, count - safeIndex); i++) visible.push(recipes[safeIndex + i]);
+  for (let i = 0; i < Math.min(3, count); i++) visible.push({ recipe: recipes[(safeIndex + i) % count], absIdx: (safeIndex + i) % count });
 
   const getCategoryEmoji = (category) => ({
     breakfast: '🍳', lunch: '🥗', dinner: '🍽️', dessert: '🍰',
@@ -76,23 +82,24 @@ const RecipeRolodex = ({
               <p className="text-sm opacity-90 mt-2">Start your recipe rolodex</p>
             </button>
           ) : (
-            visible.map((recipe, i) => {
+            visible.map(({ recipe, absIdx }, i) => {
               const isTop = i === 0;
+              const isEntering = entering.includes(absIdx);
               return (
                 <motion.div
-                  key={`${recipe.id}-${safeIndex + i}`}
+                  key={recipe.id}
+                  initial={isEntering ? { rotateX: -170, opacity: 0, y: 0, scale: 1 } : false}
                   drag={isTop ? 'y' : false}
                   dragConstraints={{ top: 0, bottom: 0 }}
-                  dragElastic={0.15}
+                  dragElastic={0.22}
+                  whileDrag={isTop ? { rotateX: -14 } : undefined}
                   onDragEnd={(e, info) => {
-                    if (isTop && (info.offset.y > 60 || info.velocity.y > 350)) flipNext();
+                    if (isTop && (info.offset.y > 40 || info.velocity.y > 220)) flipNext();
                   }}
-                  onClick={() => isTop && !flipping && setZoomed(recipe)}
-                  animate={isTop
-                    ? { rotateX: flipping ? -160 : 0, y: 0, scale: 1, opacity: flipping ? 0.6 : 1 }
-                    : { rotateX: 0, y: i * 16, scale: 1 - i * 0.06, opacity: 1 }}
-                  transition={{ rotateX: { duration: 0.45, ease: 'easeIn' }, y: { type: 'spring', stiffness: 260, damping: 24 }, scale: { type: 'spring', stiffness: 260, damping: 24 } }}
-                  onAnimationComplete={() => { if (isTop && flipping) { setIndex((v) => v + 1); setFlipping(false); } }}
+                  onClick={() => isTop && setZoomed(recipe)}
+                  animate={{ rotateX: 0, y: i * 16, scale: 1 - i * 0.06, opacity: 1 }}
+                  transition={{ rotateX: { duration: 0.26, ease: [0.3, 0, 0.4, 1] }, y: { type: 'spring', stiffness: 380, damping: 22 }, scale: { type: 'spring', stiffness: 380, damping: 22 }, opacity: { duration: 0.18 } }}
+                  onAnimationComplete={() => { if (isEntering) setEntering((en) => en.filter((x) => x !== absIdx)); }}
                   style={{ transformOrigin: 'top center', transformStyle: 'preserve-3d', zIndex: 10 - i }}
                   className={`absolute inset-0 ${isTop ? 'cursor-pointer' : ''}`}
                 >
@@ -143,24 +150,58 @@ const RecipeRolodex = ({
               );
             })
           )}
+          {/* Cards mid-flight off the binding — non-interactive overlays */}
+          {leaving.map((absIdx) => {
+            const recipe = recipes[absIdx];
+            if (!recipe) return null;
+            return (
+              <motion.div
+                key={`leave-${absIdx}`}
+                initial={{ rotateX: 0, opacity: 1, y: 0, scale: 1 }}
+                animate={{ rotateX: -170, opacity: 0 }}
+                transition={{ rotateX: { duration: 0.28, ease: [0.55, 0, 1, 0.6] }, opacity: { duration: 0.22, delay: 0.08 } }}
+                onAnimationComplete={() => setLeaving((l) => l.filter((x) => x !== absIdx))}
+                style={{ transformOrigin: 'top center', transformStyle: 'preserve-3d', zIndex: 30, pointerEvents: 'none' }}
+                className="absolute inset-0"
+              >
+                <div className="w-full h-full bg-gradient-to-br from-white to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-700">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 flex items-center justify-evenly">
+                    {[...Array(7)].map((_, h) => (
+                      <span key={h} className="w-2.5 h-2.5 rounded-full bg-gray-400 dark:bg-gray-500 shadow-inner" />
+                    ))}
+                  </div>
+                  {recipe.image_url && !recipe.image_url.startsWith('emoji:') ? (
+                    <img src={recipe.image_url} alt={recipe.name} className="w-full h-40 object-cover" />
+                  ) : (
+                    <div className="h-40 bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center">
+                      <span className="text-7xl">{recipe.image_url?.startsWith('emoji:') ? recipe.image_url.slice(6) : <ChefHat className="w-16 h-16 text-white/60" />}</span>
+                    </div>
+                  )}
+                  <div className="p-5">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white line-clamp-2">{recipe.name}</h3>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
 
         {/* Controls */}
         {count > 1 && (
           <div className="flex items-center gap-3 mt-6">
-            <button onClick={flipPrev} disabled={flipping} className="p-2 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-primary-600 disabled:opacity-40 shadow">
+            <button onClick={flipPrev} className="p-2 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-primary-600 shadow">
               <ChevronLeft className="w-5 h-5" />
             </button>
             <div className="flex gap-1.5">
               {recipes.map((_, d) => (
                 <button
                   key={d}
-                  onClick={() => !flipping && setIndex(d)}
+                  onClick={() => setIndex(d)}
                   className={`w-2 h-2 rounded-full transition-colors ${d === safeIndex ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'}`}
                 />
               ))}
             </div>
-            <button onClick={flipNext} disabled={flipping} className="p-2 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-primary-600 disabled:opacity-40 shadow">
+            <button onClick={flipNext} className="p-2 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-primary-600 shadow">
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
