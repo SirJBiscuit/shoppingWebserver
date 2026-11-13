@@ -46,6 +46,7 @@ const CategoryRecipeLab = ({
   mixingText = 'Mixing it up…',
   allLabel = 'Recipes',
   emptyHint = 'No recipes found for this lab yet.',
+  builder, // optional <Component onSaved={fn}/> — adds a 'Build' tab
 }) => {
   const { success, error: showError, toasts, hideToast } = useToast();
   const { user } = useAuth();
@@ -192,6 +193,7 @@ const CategoryRecipeLab = ({
   const tabs = [
     { id: 'all', label: allLabel, icon: Icon, count: recipes.length },
     { id: 'makeable', label: 'Makeable Now', icon: FlaskConical, count: makeableCount },
+    ...(builder ? [{ id: 'build', label: 'Build', icon: BookPlus }] : []),
   ];
 
   if (loading) {
@@ -214,7 +216,9 @@ const CategoryRecipeLab = ({
       accent={accent}
       maxWidth="max-w-5xl"
     >
-      {recipes.length === 0 ? (
+      {builder && tab === 'build' ? (
+        React.cloneElement(builder, { onSaved: load })
+      ) : recipes.length === 0 ? (
         <div className="text-center py-16 text-gray-500 dark:text-gray-400">
           <FlaskConical className="w-10 h-10 mx-auto mb-3 opacity-40" />
           <p className="font-medium">Nothing here yet</p>

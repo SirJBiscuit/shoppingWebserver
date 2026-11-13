@@ -1,6 +1,7 @@
 import React from 'react';
 import { CupSoda } from 'lucide-react';
 import CategoryRecipeLab from '../components/lab/CategoryRecipeLab';
+import SmoothieBuilder from '../components/lab/SmoothieBuilder';
 
 const SMOOTHIE_ICONS = {
   'Berry Blast': '🫐',
@@ -28,6 +29,7 @@ const SmoothieLab = () => (
     mixingText="Blending it up…"
     allLabel="Smoothies"
     emptyHint="Preset smoothies arrive with migration 063 — or tag a recipe 'smoothie'."
+    builder={<SmoothieBuilder />}
   />
 );
 
