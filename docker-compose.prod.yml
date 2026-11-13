@@ -97,6 +97,8 @@ services:
 volumes:
   postgres_data:
     driver: local
+  shop_storage:
+    driver: local
 
 networks:
   shop_network:

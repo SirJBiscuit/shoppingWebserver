@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 
 const authRoutes = require('./routes/auth');
 const shoppingRoutes = require('./routes/shopping');
@@ -97,6 +98,12 @@ app.use('/api/beta/feedback', betaFeedbackRoutes);
 app.use('/api/layouts', layoutsRoutes);
 app.use('/api/ave', aveRoutes);
 app.use('/api/admin/storage', storageRoutes);
+
+// Serve uploaded files — storage.js writes to ../../storage/{category}
+app.use('/storage', express.static(path.join(__dirname, '../../storage'), {
+  maxAge: '30d',
+  immutable: true
+}));
 app.use('/api/sidebar', sidebarRoutes);
 app.use('/api/household', householdRoutes);
 app.use('/api/changelog', changelogRoutes);
