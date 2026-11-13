@@ -52,10 +52,10 @@ BEGIN
   ) THEN
     EXECUTE $$
       INSERT INTO mdl_category_learned (normalized_name, category, times_seen, confidence, source)
-      SELECT LOWER(TRIM(i.item_name)), canonical_category(i.category), COUNT(*),
+      SELECT LOWER(TRIM(i.name)), canonical_category(i.category), COUNT(*),
              LEAST(0.90, 0.55 + COUNT(*)::decimal / 20), 'usage'
       FROM items i
-      WHERE i.item_name IS NOT NULL AND btrim(i.item_name) <> ''
+      WHERE i.name IS NOT NULL AND btrim(i.name) <> ''
         AND canonical_category(i.category) <> 'Other'
       GROUP BY 1, 2
       ON CONFLICT (normalized_name, category) DO UPDATE

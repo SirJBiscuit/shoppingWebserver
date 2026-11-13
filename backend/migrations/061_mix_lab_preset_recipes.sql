@@ -13,6 +13,40 @@ ALTER TABLE recipes ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE;
 ALTER TABLE recipes ALTER COLUMN user_id DROP NOT NULL;
 
 -- ============================================================================
+-- SCHEMA RECONCILE: migration 034 created recipes with recipe_name and
+-- recipe_ingredients with ingredient_name, while routes + these seeds use
+-- name/item_name. Add the modern columns, backfill from legacy ones, and drop
+-- the legacy NOT NULLs so both conventions coexist safely.
+-- ============================================================================
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS name VARCHAR(255);
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS instructions TEXT;
+DO $do$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'recipes' AND column_name = 'recipe_name'
+  ) THEN
+    EXECUTE 'UPDATE recipes SET name = recipe_name WHERE name IS NULL';
+    EXECUTE 'ALTER TABLE recipes ALTER COLUMN recipe_name DROP NOT NULL';
+  END IF;
+END $do$;
+
+ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS item_name VARCHAR(255);
+ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS is_optional BOOLEAN DEFAULT FALSE;
+ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS is_pantry_staple BOOLEAN DEFAULT FALSE;
+ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+DO $do$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'recipe_ingredients' AND column_name = 'ingredient_name'
+  ) THEN
+    EXECUTE 'UPDATE recipe_ingredients SET item_name = ingredient_name WHERE item_name IS NULL';
+    EXECUTE 'ALTER TABLE recipe_ingredients ALTER COLUMN ingredient_name DROP NOT NULL';
+  END IF;
+END $do$;
+
+-- ============================================================================
 -- SEED: preset mix recipes
 -- ============================================================================
 
