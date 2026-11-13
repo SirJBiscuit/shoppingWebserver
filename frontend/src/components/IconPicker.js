@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import PickerSearchBar from './PickerSearchBar';
+import { Portal } from '../utils/autoPlacement';
+import AnimatedScrollbar3D from './3DAnimatedScrollbar';
 
 // Comprehensive icon library with keywords for search
 const ICON_DATA = [
@@ -391,6 +393,8 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedTags, setSelectedTags] = useState(currentTags);
   const [size, setSize] = useState(null); // {w,h} px — set once user drags the resize grip
+  const [showAllIcons, setShowAllIcons] = useState(false); // grid is capped until user expands
+  const ICON_LIMIT = 60;
 
   const startResize = (e) => {
     e.preventDefault();
@@ -455,12 +459,12 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName
       
       // Return intersection of category and search results
       if (selectedCategory === 'All') {
-        return matchedIcons;
+        return [...new Set(matchedIcons)];
       }
-      return icons.filter(icon => matchedIcons.includes(icon));
+      return [...new Set(icons.filter(icon => matchedIcons.includes(icon)))];
     }
     
-    return icons;
+    return [...new Set(icons)];
   };
 
   const handleIconSelect = (icon) => {
@@ -477,10 +481,11 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+    <Portal>
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-2 sm:p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div
         data-icon-modal
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-[95vw] sm:max-w-4xl lg:max-w-5xl max-h-[95vh] sm:max-h-[92vh] overflow-hidden flex flex-col relative"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-[95vw] sm:max-w-2xl max-h-[95vh] sm:max-h-[85vh] overflow-hidden flex flex-col relative"
         style={size ? { width: size.w, height: size.h, maxWidth: '95vw', maxHeight: '95vh' } : undefined}
       >
         {/* resize grip — bottom-right corner (desktop) */}
@@ -505,7 +510,7 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName
           {/* Search — shared picker search bar (icons + glyphs use the same one) */}
           <PickerSearchBar
             value={searchTerm}
-            onChange={setSearchTerm}
+            onChange={(v) => { setSearchTerm(v); setShowAllIcons(false); }}
             placeholder="Search icons & glyphs…"
             autoFocus
             className="mb-3 py-2"
@@ -540,7 +545,7 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName
             {categories.map((category) => (
               <button
                 key={category}
-                onClick={() => setSelectedCategory(category)}
+                onClick={() => { setSelectedCategory(category); setShowAllIcons(false); }}
                 className={`px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                   selectedCategory === category
                     ? 'bg-primary-600 text-white'
@@ -554,9 +559,10 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName
         </div>
 
         {/* Icon Grid */}
-        <div className="p-3 sm:p-4 lg:p-6 overflow-y-auto flex-1 custom-scrollbar">
+        <AnimatedScrollbar3D className="flex-1 min-h-0" height="100%" autoHide={false} thumbColor="bg-gradient-to-b from-primary-400 to-primary-600" glowColor="primary">
+          <div className="p-3 sm:p-4 lg:p-6">
           <div className="grid grid-cols-6 xs:grid-cols-7 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5 sm:gap-2">
-            {getFilteredIcons().map((icon, index) => (
+            {getFilteredIcons().slice(0, showAllIcons ? undefined : ICON_LIMIT).map((icon, index) => (
               <button
                 key={index}
                 onClick={() => handleIconSelect(icon)}
@@ -569,6 +575,16 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName
               </button>
             ))}
           </div>
+          {!showAllIcons && getFilteredIcons().length > ICON_LIMIT && (
+            <div className="text-center pt-3 pb-1">
+              <button
+                onClick={() => setShowAllIcons(true)}
+                className="px-4 py-2 rounded-lg bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 text-sm font-medium hover:bg-primary-200 dark:hover:bg-primary-800/60 transition-colors"
+              >
+                Show all {getFilteredIcons().length} icons
+              </button>
+            </div>
+          )}
           {getFilteredIcons().length === 0 && (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               <p className="text-sm sm:text-base">No icons found</p>
@@ -576,12 +592,13 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName
             </div>
           )}
         </div>
+        </AnimatedScrollbar3D>
 
         {/* Footer */}
         <div className="p-3 sm:p-4 lg:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
           <div className="flex justify-between items-center text-xs sm:text-sm">
             <span className="text-gray-600 dark:text-gray-400">
-              {getFilteredIcons().length} icons
+              {showAllIcons ? getFilteredIcons().length : Math.min(ICON_LIMIT, getFilteredIcons().length)} of {getFilteredIcons().length} icons
             </span>
             <button onClick={onClose} className="btn-secondary text-sm sm:text-base px-3 sm:px-4 py-1.5 sm:py-2">
               Cancel
@@ -590,6 +607,7 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName
         </div>
       </div>
     </div>
+    </Portal>
   );
 };
 
