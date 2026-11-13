@@ -45,6 +45,8 @@ const AdminBetaDashboard = lazy(() => import('./pages/AdminBetaDashboard'));
 const SpiceBlends = lazy(() => import('./pages/SpiceBlends'));
 const HomemadeLab = lazy(() => import('./pages/HomemadeLab'));
 const MixLab = lazy(() => import('./pages/MixLab'));
+const SmoothieLab = lazy(() => import('./pages/SmoothieLab'));
+const MealLab = lazy(() => import('./pages/MealLab'));
 
 // Loading component
 const PageLoader = () => (
@@ -104,6 +106,8 @@ const AnimatedRoutes = () => {
         <Route path="/spices" element={<PrivateRoute><SpiceBlends /></PrivateRoute>} />
         <Route path="/lab" element={<PrivateRoute><HomemadeLab /></PrivateRoute>} />
         <Route path="/lab/mix" element={<PrivateRoute><MixLab /></PrivateRoute>} />
+        <Route path="/lab/smoothie" element={<PrivateRoute><SmoothieLab /></PrivateRoute>} />
+        <Route path="/lab/meal" element={<PrivateRoute><MealLab /></PrivateRoute>} />
         {/* <Route path="/meal-plan" element={<PrivateRoute><MealPlan /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
         {/* <Route path="/stats" element={<PrivateRoute><Statistics /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
         {/* <Route path="/discover" element={<PrivateRoute><RecipeDiscover /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}

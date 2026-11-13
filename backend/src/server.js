@@ -154,7 +154,8 @@ const runMigrations = async () => {
     { file: '059_list_budgets.sql', name: 'List Budgets' },
     { file: '060_homemade_lab_sidebar.sql', name: 'Homemade Lab Sidebar' },
     { file: '061_mix_lab_preset_recipes.sql', name: 'Mix Lab Preset Recipes' },
-    { file: '062_changelog_admin_enhancements.sql', name: 'Changelog Admin Enhancements' }
+    { file: '062_changelog_admin_enhancements.sql', name: 'Changelog Admin Enhancements' },
+    { file: '063_smoothie_lab_preset_recipes.sql', name: 'Smoothie Lab Preset Recipes' }
   ];
 
   for (const migration of migrations) {

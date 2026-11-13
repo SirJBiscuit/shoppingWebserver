@@ -35,8 +35,8 @@ const LABS = [
     icon: Salad,
     gradient: 'from-green-500 to-emerald-600',
     description: 'Build meals from what is in your home inventory right now.',
-    path: null,
-    ready: false,
+    path: '/lab/meal',
+    ready: true,
   },
   {
     id: 'smoothie',
@@ -44,8 +44,8 @@ const LABS = [
     icon: CupSoda,
     gradient: 'from-pink-500 to-rose-600',
     description: 'Smoothie recipes generated from your available fruit and extras.',
-    path: null,
-    ready: false,
+    path: '/lab/smoothie',
+    ready: true,
   },
   {
     id: 'plate',
