@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Portal } from '../utils/autoPlacement';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * MixingOverlay - shared "combining ingredients" animation for the labs.

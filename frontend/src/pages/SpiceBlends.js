@@ -198,10 +198,19 @@ const SpiceBlends = () => {
     ids.forEach((id) => syncBlendIngredient(id, { owned }));
     playSound(owned ? 'pop' : 'uncheck');
     try {
-      await Promise.all(ids.map((id) => api.post('/spices/rack', { spiceId: id, owned })));
-      success(`${ids.length} spice${ids.length > 1 ? 's' : ''} ${owned ? 'added to' : 'removed from'} your rack`);
-    } catch {
-      showError('Some rack updates failed');
+      const results = await Promise.allSettled(
+        ids.map((id) => api.post('/spices/rack', { spiceId: id, owned }))
+      );
+      const failed = ids.filter((_, i) => results[i].status === 'rejected');
+      if (failed.length) {
+        // Revert the ones that didn't stick so UI matches the server
+        setSpices((prev) => prev.map((s) => (failed.includes(s.id) ? { ...s, owned: !owned } : s)));
+        failed.forEach((id) => syncBlendIngredient(id, { owned: !owned }));
+        const ok = ids.length - failed.length;
+        showError(`${failed.length} update${failed.length > 1 ? 's' : ''} failed${ok ? ` (${ok} applied)` : ''}`);
+      } else {
+        success(`${ids.length} spice${ids.length > 1 ? 's' : ''} ${owned ? 'added to' : 'removed from'} your rack`);
+      }
     } finally {
       setBatchBusy(false);
       setSelectedIds(new Set());

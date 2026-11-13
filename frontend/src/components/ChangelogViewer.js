@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Calendar, GitCommit, User, Tag, TrendingUp, 
   Sparkles, Zap, Bug, Settings, FileText, Package,
-  ChevronDown, ChevronUp, Filter, Search, Download, Shield, Users, RefreshCw
+  ChevronDown, ChevronUp, Filter, Search, Download, Shield, Users, RefreshCw, Flag
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Portal } from '../utils/autoPlacement';
@@ -351,17 +351,37 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
                 <h3 className="text-lg font-bold text-purple-900 dark:text-purple-200">Coming Soon</h3>
               </div>
               <div className="space-y-2">
-                {upcoming.map((f) => (
-                  <div key={f.id} className="flex items-start gap-3 p-3 rounded-lg bg-white/70 dark:bg-gray-800/60">
-                    <Zap className="w-4 h-4 mt-0.5 text-purple-500 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{f.title}</p>
-                      {f.description && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{f.description}</p>
-                      )}
+                {upcoming.map((f) => {
+                  const pri = { high: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300', medium: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300', low: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400' }[f.priority] || null;
+                  return (
+                    <div key={f.id} className="flex items-start gap-3 p-3 rounded-lg bg-white/70 dark:bg-gray-800/60">
+                      <Zap className="w-4 h-4 mt-0.5 text-purple-500 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">{f.title}</p>
+                          {pri && f.priority !== 'medium' && (
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${pri}`}>
+                              <Flag className="w-2.5 h-2.5" /> {f.priority === 'high' ? 'High priority' : 'Low priority'}
+                            </span>
+                          )}
+                          {f.status === 'in_progress' && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                              In progress
+                            </span>
+                          )}
+                        </div>
+                        {f.description && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{f.description}</p>
+                        )}
+                        {f.target_date && (
+                          <p className="text-[10px] text-purple-500 dark:text-purple-400 mt-0.5">
+                            Expected {new Date(f.target_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

@@ -72,8 +72,9 @@ router.get('/', authenticateToken, async (req, res) => {
     const [commits, features, user] = await Promise.all([
       loadCommits(),
       db.query(
-        `SELECT id, title, description, category, status, target_date, released_at, beta_only, created_at
-         FROM changelog_features ORDER BY created_at DESC`
+        `SELECT id, title, description, category, status, priority, target_date, released_at, beta_only, sort_order, created_at
+         FROM changelog_features WHERE is_hidden = FALSE
+         ORDER BY status ASC, sort_order ASC, created_at DESC`
       ),
       db.query('SELECT is_beta_tester, is_admin FROM users WHERE id = $1', [req.user.id]),
     ]);
@@ -82,10 +83,11 @@ router.get('/', authenticateToken, async (req, res) => {
     const isAdminUser = user.rows[0]?.is_admin === true;
     // beta_only entries are only visible to beta testers (and admins)
     const visible = features.rows.filter((f) => !f.beta_only || isBeta || isAdminUser);
+    const sortUpcoming = (rows) => rows.sort((a, b) => (a.sort_order - b.sort_order) || (new Date(b.created_at) - new Date(a.created_at)));
 
     res.json({
       commits,
-      upcoming: visible.filter((f) => f.status !== 'released'),
+      upcoming: sortUpcoming(visible.filter((f) => f.status !== 'released')),
       entries: visible.filter((f) => f.status === 'released'),
       total: commits.length,
     });
@@ -100,13 +102,15 @@ router.get('/', authenticateToken, async (req, res) => {
 // Add an upcoming feature (shown to users in "Coming Soon")
 router.post('/admin/features', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const { title, description, category = 'feature', target_date, status = 'planned', beta_only = false } = req.body;
+    const { title, description, category = 'feature', target_date, status = 'planned', beta_only = false, priority = 'medium' } = req.body;
     if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
 
     const result = await db.query(
-      `INSERT INTO changelog_features (title, description, category, status, target_date, beta_only, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [title.trim(), description || null, category, status, target_date || null, beta_only === true, req.user.id]
+      `INSERT INTO changelog_features (title, description, category, status, target_date, beta_only, priority, sort_order, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7,
+               COALESCE((SELECT MAX(sort_order) FROM changelog_features WHERE status != 'released'), 0) + 1, $8)
+       RETURNING *`,
+      [title.trim(), description || null, category, status, target_date || null, beta_only === true, priority, req.user.id]
     );
     res.status(201).json({ feature: result.rows[0] });
   } catch (error) {
@@ -119,8 +123,9 @@ router.post('/admin/features', authenticateToken, isAdmin, async (req, res) => {
 router.get('/admin/features', authenticateToken, isAdmin, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT id, title, description, category, status, target_date, released_at, beta_only, notify_on_release, created_at, updated_at
-       FROM changelog_features ORDER BY created_at DESC`
+      `SELECT id, title, description, category, status, priority, sort_order, is_hidden, target_date, released_at, beta_only, notify_on_release, created_at, updated_at
+       FROM changelog_features
+       ORDER BY CASE WHEN status = 'released' THEN 1 ELSE 0 END, sort_order ASC, created_at DESC`
     );
     res.json(result.rows);
   } catch (error) {
@@ -133,9 +138,9 @@ router.get('/admin/features', authenticateToken, isAdmin, async (req, res) => {
 router.patch('/admin/features/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, category, status, target_date, notify_on_release, beta_only } = req.body;
+    const { title, description, category, status, target_date, notify_on_release, beta_only, priority, sort_order, is_hidden } = req.body;
 
-    const fields = { title, description, category, status, target_date, notify_on_release, beta_only };
+    const fields = { title, description, category, status, target_date, notify_on_release, beta_only, priority, sort_order, is_hidden };
     const updates = [];
     const values = [];
     let n = 1;
@@ -179,6 +184,78 @@ router.patch('/admin/features/:id', authenticateToken, isAdmin, async (req, res)
   } catch (error) {
     console.error('Error updating changelog feature:', error);
     res.status(500).json({ error: 'Failed to update feature' });
+  }
+});
+
+// Persist drag-sort order for upcoming features — body: { ids: [id1, id2, ...] }
+router.post('/admin/features/reorder', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids array required' });
+    }
+    const cases = ids.map((id, i) => `WHEN id = ${parseInt(id, 10) || 0} THEN ${i + 1}`).join(' ');
+    await db.query(
+      `UPDATE changelog_features SET sort_order = CASE ${cases} END
+       WHERE id = ANY($1::int[])`,
+      [ids.map((id) => parseInt(id, 10) || 0)]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error reordering changelog features:', error);
+    res.status(500).json({ error: 'Failed to reorder features' });
+  }
+});
+
+// Bulk-release upcoming features with ONE compressed patch-note notification.
+// body: { ids: [..], summary?: string }
+router.post('/admin/features/bulk-release', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { ids, summary } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids array required' });
+    }
+    const intIds = ids.map((id) => parseInt(id, 10) || 0).filter(Boolean);
+
+    const updated = await db.query(
+      `UPDATE changelog_features
+       SET status = 'released', released_at = COALESCE(released_at, NOW()), updated_at = NOW()
+       WHERE id = ANY($1::int[]) AND status != 'released'
+       RETURNING id, title, description, beta_only, notify_on_release`,
+      [intIds]
+    );
+    const released = updated.rows;
+    if (released.length === 0) return res.json({ released: 0, notified: 0 });
+
+    // One compressed notification per audience, not one-per-feature.
+    let notified = 0;
+    const notifyable = released.filter((f) => f.notify_on_release !== false);
+    if (notifyable.length > 0) {
+      const titles = notifyable.map((f) => `• ${f.title}`).join('\n');
+      const body = summary?.trim() || `Just shipped:\n${titles}`;
+      const notifyBeta = notifyable.some((f) => f.beta_only);
+      const notifyAll = notifyable.some((f) => !f.beta_only);
+      for (const betaOnly of [false, true]) {
+        if (betaOnly && !notifyBeta) continue;
+        if (!betaOnly && !notifyAll) continue;
+        const ins = await db.query(
+          `INSERT INTO user_notifications (user_id, type, title, message, data)
+           SELECT id, 'feature_release', $1, $2, $3 FROM users
+           ${betaOnly ? 'WHERE is_beta_tester = TRUE' : ''}`,
+          [
+            `Update released: ${notifyable.length} new feature${notifyable.length === 1 ? '' : 's'}`,
+            body,
+            JSON.stringify({ changelog_feature_ids: notifyable.map((f) => f.id) }),
+          ]
+        );
+        notified += ins.rowCount;
+      }
+    }
+
+    res.json({ released: released.length, notified });
+  } catch (error) {
+    console.error('Error bulk-releasing changelog features:', error);
+    res.status(500).json({ error: 'Failed to bulk release features' });
   }
 });
 

@@ -17,7 +17,7 @@ import EditorToolbar from '../components/editor/EditorToolbar';
 import EditorOverlay, { EditorModeIndicator, EditableContainer } from '../components/editor/EditorOverlay';
 import PropertiesPanel from '../components/editor/PropertiesPanel';
 import ItemList from '../components/ItemList';
-import StoreUsuals from './components/StoreUsuals';
+import StoreUsuals from '../components/StoreUsuals';
 import SmartSuggestions from '../components/SmartSuggestions';
 import PantryQuickView from '../components/PantryQuickView';
 import ShoppingListRecipes from '../components/ShoppingListRecipes';
