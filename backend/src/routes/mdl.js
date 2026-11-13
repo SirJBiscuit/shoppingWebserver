@@ -8,6 +8,38 @@ const router = express.Router();
 const db = require('../database/db');
 const { authenticateToken } = require('../middleware/auth');
 const { canonicalizeCategory } = require('../utils/canonicalCategory');
+const { detectCategoryForName } = require('../utils/categories');
+
+/**
+ * Learn a name -> canonical category mapping (064 mdl_category_learned).
+ * Confidence grows with repetition; keeps mdl_item_names predictions fresh.
+ * Never throws — learning must not break the caller's write path.
+ */
+const learnCategory = async (itemName, category, source = 'usage', baseConfidence = 0.60) => {
+  try {
+    const normalized = String(itemName || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const canonical = canonicalizeCategory(category);
+    if (!normalized || canonical === 'Other') return;
+    await db.query(
+      `INSERT INTO mdl_category_learned (normalized_name, category, times_seen, confidence, source)
+       VALUES ($1, $2, 1, $3, $4)
+       ON CONFLICT (normalized_name, category) DO UPDATE SET
+         times_seen = mdl_category_learned.times_seen + 1,
+         confidence = LEAST(0.95, mdl_category_learned.confidence + 0.02),
+         updated_at = CURRENT_TIMESTAMP`,
+      [normalized, canonical, baseConfidence, source]
+    );
+    await db.query(
+      `UPDATE mdl_item_names n
+       SET predicted_category = $2, category_confidence = $3, is_trained = true
+       WHERE n.normalized_name = $1
+         AND (n.category_confidence IS NULL OR n.category_confidence <= $3)`,
+      [normalized, canonical, baseConfidence]
+    );
+  } catch (e) {
+    console.warn('learnCategory failed (non-fatal):', e.message);
+  }
+};
 
 // Search products in MDL
 router.get('/search', async (req, res) => {
@@ -156,6 +188,7 @@ router.post('/admin/product', authenticateToken, async (req, res) => {
       !!is_best
     ]);
 
+    if (category) await learnCategory(product_name, category, 'product', 0.90);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     if (error.code === '23505') {
@@ -610,7 +643,7 @@ router.post('/preferences', authenticateToken, async (req, res) => {
  */
 router.post('/track-item', authenticateToken, async (req, res) => {
   try {
-    const { itemName, price, quantity, unit, store, listId, wasSuggestion, userTyped } = req.body;
+    const { itemName, price, quantity, unit, store, listId, wasSuggestion, userTyped, category } = req.body;
     if (!itemName || !itemName.trim()) {
       return res.status(400).json({ error: 'itemName is required' });
     }
@@ -686,6 +719,14 @@ router.post('/track-item', authenticateToken, async (req, res) => {
       [req.user.id, itemNameId, store || null]
     );
 
+    // Category learning: explicit client category is the strongest signal
+    const resolvedCategory = category && category.trim()
+      ? canonicalizeCategory(category)
+      : detectCategoryForName(itemName) || null;
+    if (category && canonicalizeCategory(category) !== 'Other') {
+      await learnCategory(itemName, category, 'usage');
+    }
+
     // Seed the product catalog organically (never fails the track call)
     if (itemName.trim().length > 2) {
       try {
@@ -693,13 +734,17 @@ router.post('/track-item', authenticateToken, async (req, res) => {
         await db.query(
           `INSERT INTO product_master_data
              (product_name, slug, category, average_price, icon_emoji, times_purchased, last_price_update)
-           VALUES ($1, $2, 'uncategorized', $3, $4, 1, NOW())
+           VALUES ($1, $2, $3, $4, $5, 1, NOW())
            ON CONFLICT (product_name) DO UPDATE SET
              times_purchased = product_master_data.times_purchased + 1,
+             category = CASE
+               WHEN product_master_data.category IN ('uncategorized', 'Other')
+                 THEN COALESCE(EXCLUDED.category, product_master_data.category)
+               ELSE product_master_data.category END,
              average_price = COALESCE(product_master_data.average_price, EXCLUDED.average_price),
              icon_emoji = COALESCE(product_master_data.icon_emoji, EXCLUDED.icon_emoji),
              last_price_update = NOW()`,
-          [itemName.trim(), slug, price || null, req.body.icon || null]
+          [itemName.trim(), slug, resolvedCategory || 'Other', price || null, req.body.icon || null]
         );
       } catch (e) {
         console.warn('Product catalog upsert failed (non-fatal):', e.message);
@@ -1227,6 +1272,111 @@ router.delete('/favorites/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error deleting favorite:', error);
     res.status(500).json({ error: 'Failed to delete favorite' });
+  }
+});
+
+// ============================================================================
+// Auto-categorization (064)
+// ============================================================================
+
+/**
+ * GET /api/mdl/categorize/:itemName
+ * Best canonical category guess for a name. Sources, in priority order:
+ *  learned (mdl_category_learned) -> product db -> past usage -> keyword -> Other
+ */
+router.get('/categorize/:itemName', authenticateToken, async (req, res) => {
+  try {
+    const raw = req.params.itemName;
+    const normalized = raw.trim().toLowerCase().replace(/\s+/g, ' ');
+
+    // 1. Learned mapping (strongest signal — grows with confirmations)
+    const learned = await db.query(
+      `SELECT category, confidence, times_seen FROM mdl_category_learned
+       WHERE normalized_name = $1
+       ORDER BY confidence DESC, times_seen DESC LIMIT 1`,
+      [normalized]
+    );
+    if (learned.rows[0]) {
+      return res.json({ category: learned.rows[0].category, confidence: parseFloat(learned.rows[0].confidence), source: 'learned' });
+    }
+
+    // 2. Curated product database
+    const product = await db.query(
+      `SELECT canonical_category(category) AS category FROM product_master_data
+       WHERE LOWER(TRIM(product_name)) = $1 AND canonical_category(category) <> 'Other'
+       LIMIT 1`,
+      [normalized]
+    );
+    if (product.rows[0]) {
+      return res.json({ category: product.rows[0].category, confidence: 0.9, source: 'product' });
+    }
+
+    // 3. Majority vote across this user's + global list history
+    const usage = await db.query(
+      `SELECT canonical_category(category) AS cat, COUNT(*) AS n
+       FROM shopping_list_items
+       WHERE LOWER(TRIM(item_name)) = $1 AND canonical_category(category) <> 'Other'
+       GROUP BY 1 ORDER BY n DESC LIMIT 1`,
+      [normalized]
+    );
+    if (usage.rows[0]) {
+      return res.json({ category: usage.rows[0].cat, confidence: Math.min(0.85, 0.5 + usage.rows[0].n / 20), source: 'usage' });
+    }
+
+    // 4. Keyword detection
+    const detected = detectCategoryForName(raw);
+    if (detected) {
+      return res.json({ category: detected, confidence: 0.4, source: 'keyword' });
+    }
+
+    res.json({ category: 'Other', confidence: 0, source: 'fallback' });
+  } catch (err) {
+    console.error('Categorize failed:', err);
+    res.status(500).json({ error: 'Categorization failed' });
+  }
+});
+
+/**
+ * POST /api/mdl/categorize/learn
+ * Teach the system: "this name belongs in this category". Called when a user
+ * explicitly picks/corrects a category.
+ */
+router.post('/categorize/learn', authenticateToken, async (req, res) => {
+  try {
+    const { itemName, category } = req.body;
+    if (!itemName || !category) {
+      return res.status(400).json({ error: 'itemName and category are required' });
+    }
+    await learnCategory(itemName, category, 'usage', 0.80);
+    res.json({ learned: true, category: canonicalizeCategory(category) });
+  } catch (err) {
+    console.error('Categorize learn failed:', err);
+    res.status(500).json({ error: 'Learn failed' });
+  }
+});
+
+/**
+ * GET /api/mdl/categorize/pending/list
+ * Item names the system has seen but has no confident category for —
+ * feeds a future "teach me" UI.
+ */
+router.get('/categorize/pending/list', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT n.normalized_name, n.total_uses,
+              (n.original_variations->>0) AS display_name
+       FROM mdl_item_names n
+       WHERE (n.predicted_category IS NULL OR COALESCE(n.category_confidence, 0) < 0.5)
+         AND EXISTS (
+           SELECT 1 FROM mdl_user_item_history h WHERE h.item_name_id = n.id
+         )
+       ORDER BY n.total_uses DESC
+       LIMIT 50`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Pending categorize list failed:', err);
+    res.status(500).json({ error: 'Failed to load uncategorized items' });
   }
 });
 
