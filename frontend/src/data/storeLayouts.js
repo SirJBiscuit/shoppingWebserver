@@ -220,6 +220,12 @@ export const storeLayouts = {
 // Get aisle for a category at a specific store
 // Compares canonicalized names on both sides — layout tables use legacy
 // labels ('Deli', 'Fruits') while items now carry canonical categories.
+
+// Custom stores legitimately have no preset layout — log each miss once
+// instead of once per item per render.
+const _loggedStoreMisses = new Set();
+const _loggedAisleMisses = new Set();
+
 export const getAisleForCategory = (storeName, category) => {
   if (!storeName || !category) return null;
   
@@ -228,7 +234,10 @@ export const getAisleForCategory = (storeName, category) => {
   
   // Debug logging
   if (!store) {
-    console.log(`Store not found: "${storeName}" (key: "${storeKey}"). Available stores:`, Object.keys(storeLayouts));
+    if (!_loggedStoreMisses.has(storeKey)) {
+      _loggedStoreMisses.add(storeKey);
+      console.log(`Store not found: "${storeName}" (key: "${storeKey}"). Available stores:`, Object.keys(storeLayouts));
+    }
     return null;
   }
   
@@ -240,7 +249,11 @@ export const getAisleForCategory = (storeName, category) => {
   );
   
   if (!aisle) {
-    console.log(`No aisle found for category "${category}" in store "${storeName}"`);
+    const missKey = `${storeKey}:${canon}`;
+    if (!_loggedAisleMisses.has(missKey)) {
+      _loggedAisleMisses.add(missKey);
+      console.log(`No aisle found for category "${category}" in store "${storeName}"`);
+    }
   }
   
   return aisle;
