@@ -67,7 +67,8 @@ CREATE INDEX IF NOT EXISTS idx_generation_logs_user ON ai_generation_logs(user_i
 
 -- Insert some default templates (idempotent: skipped once any templates exist)
 INSERT INTO app_templates (name, description, category, type, platform, features, code, is_public, downloads)
-SELECT * FROM (VALUES
+SELECT name, description, category, type, platform, features::jsonb, code::jsonb, is_public, downloads
+FROM (VALUES
 (
     'E-Commerce Store',
     'Complete online store with product catalog, cart, and checkout',
