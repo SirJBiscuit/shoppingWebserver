@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { customTheme } from '../utils/customTheme';
+import { Portal, useIsMobile } from '../utils/autoPlacement';
 
 /**
  * CustomRadialMenu - Universal radial/dropdown menu system
@@ -70,8 +71,17 @@ const CustomRadialMenu = ({
   };
 
   const config = sizes[size];
-  const gap = spacings[spacing] || radius;
   const visibleActions = actions.filter(action => action.show !== false);
+
+  // Re-renders on resize so the clamp below stays current while open
+  const isMobile = useIsMobile();
+
+  // Shrink the radial/arc spread on small screens so the scatter can fit
+  const rawGap = spacings[spacing] || radius;
+  const gap = Math.min(
+    rawGap,
+    Math.max(48, Math.min(window.innerWidth, window.innerHeight) / 2 - config.button / 2 - 16)
+  );
 
   const handlePrimaryClick = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -183,6 +193,40 @@ const CustomRadialMenu = ({
     };
   };
 
+  // Clamp the container center so every action (plus its label) stays
+  // inside the viewport — union bounds over all computed positions.
+  const getClampedCenter = () => {
+    if (visibleActions.length === 0) return buttonPosition;
+
+    const MARGIN = 8;
+    const halfBtn = config.button / 2;
+    const isList = layout === 'list' || (layout === 'auto' && shape === 'list');
+    const halfW = isList ? 100 : halfBtn; // list items are 200px wide
+    const labelPad = (!isList && showLabels) ? (isMobile ? 26 : 34) : 0;
+
+    let minX = 0, maxX = 0, minY = 0, maxY = 0;
+    visibleActions.forEach((_, i) => {
+      const pos = getButtonPosition(i, visibleActions.length);
+      minX = Math.min(minX, pos.x - halfW);
+      maxX = Math.max(maxX, pos.x + halfW);
+      minY = Math.min(minY, pos.y - halfBtn);
+      maxY = Math.max(maxY, pos.y + halfBtn + labelPad);
+    });
+
+    return {
+      x: Math.min(
+        Math.max(buttonPosition.x, -minX + MARGIN),
+        window.innerWidth - maxX - MARGIN
+      ),
+      y: Math.min(
+        Math.max(buttonPosition.y, -minY + MARGIN),
+        window.innerHeight - maxY - MARGIN
+      )
+    };
+  };
+
+  const menuCenter = isOpen ? getClampedCenter() : buttonPosition;
+
   // Animation variants
   const containerVariants = {
     hidden: { scale: 0, opacity: 0 },
@@ -255,10 +299,10 @@ const CustomRadialMenu = ({
         )}
       </motion.button>
 
-      {/* Menu Overlay */}
+      {/* Menu Overlay — portaled so `fixed` is truly viewport-fixed */}
       <AnimatePresence>
         {isOpen && (
-          <>
+          <Portal>
             {/* Optional Backdrop */}
             {showBackdrop && (
               <motion.div
@@ -286,8 +330,8 @@ const CustomRadialMenu = ({
               exit="hidden"
               className="fixed pointer-events-none z-[101]"
               style={{
-                left: buttonPosition.x,
-                top: buttonPosition.y,
+                left: menuCenter.x,
+                top: menuCenter.y,
                 transform: 'translate(-50%, -50%)'
               }}
             >
@@ -386,7 +430,7 @@ const CustomRadialMenu = ({
                 );
               })}
             </motion.div>
-          </>
+          </Portal>
         )}
       </AnimatePresence>
     </div>

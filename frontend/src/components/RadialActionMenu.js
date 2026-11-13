@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
+import { Portal, useIsMobile } from '../utils/autoPlacement';
 
 /**
  * RadialActionMenu - A beautiful radial/circular action menu
@@ -43,6 +44,27 @@ const RadialActionMenu = ({
   const visibleActions = actions.filter(action => action.show !== false);
   const angleStep = (2 * Math.PI) / visibleActions.length;
 
+  // Re-renders on resize so the clamp below stays current while open
+  const isMobile = useIsMobile();
+
+  // Viewport-aware radius + center clamp so the scatter never overflows.
+  // Falls back gracefully when the menu can't fully fit anyway.
+  const MARGIN = 8;
+  const labelPad = showLabels ? (isMobile ? 26 : 34) : 0;
+  const effRadius = Math.min(
+    config.radius,
+    Math.max(48, Math.min(window.innerWidth, window.innerHeight) / 2 - config.button / 2 - MARGIN)
+  );
+  const halfW = effRadius + config.button / 2;
+  const centerX = Math.min(
+    Math.max(buttonPosition.x, halfW + MARGIN),
+    window.innerWidth - halfW - MARGIN
+  );
+  const centerY = Math.min(
+    Math.max(buttonPosition.y, halfW + MARGIN),
+    window.innerHeight - halfW - labelPad - MARGIN
+  );
+
   const handleActionClick = (action) => {
     if (action.onClick) {
       action.onClick();
@@ -73,8 +95,8 @@ const RadialActionMenu = ({
   // Calculate position for each action button
   const getButtonPosition = (index) => {
     const angle = angleStep * index - Math.PI / 2; // Start from top
-    const x = Math.cos(angle) * config.radius;
-    const y = Math.sin(angle) * config.radius;
+    const x = Math.cos(angle) * effRadius;
+    const y = Math.sin(angle) * effRadius;
     return { x, y };
   };
 
@@ -149,10 +171,10 @@ const RadialActionMenu = ({
         )}
       </motion.button>
 
-      {/* Overlay Widget */}
+      {/* Overlay Widget — portaled so `fixed` is truly viewport-fixed */}
       <AnimatePresence>
         {isOpen && (
-          <>
+          <Portal>
             {/* Optional Backdrop (off by default) */}
             {showBackdrop && (
               <motion.div
@@ -180,10 +202,10 @@ const RadialActionMenu = ({
               exit="hidden"
               className="fixed pointer-events-none z-[101]"
               style={{ 
-                left: buttonPosition.x,
-                top: buttonPosition.y,
-                width: config.radius * 2 + config.button, 
-                height: config.radius * 2 + config.button,
+                left: centerX,
+                top: centerY,
+                width: effRadius * 2 + config.button, 
+                height: effRadius * 2 + config.button,
                 transform: 'translate(-50%, -50%)'
               }}
             >
@@ -251,7 +273,7 @@ const RadialActionMenu = ({
               );
             })}
           </motion.div>
-          </>
+          </Portal>
         )}
       </AnimatePresence>
     </>
