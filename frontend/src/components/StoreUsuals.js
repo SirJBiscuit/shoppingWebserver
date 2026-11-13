@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Store, Repeat } from 'lucide-react';
+import { Plus, Store, Repeat, EyeOff, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 
@@ -13,18 +13,30 @@ import api from '../services/api';
  *   onAdd     - ({ item, quantity, unit }) => void — reuse Dashboard's addSuggestion
  *   limit     - chip count (default 8)
  */
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const timeOfDay = (h) => (h < 11 ? 'mornings' : h < 15 ? 'afternoons' : h < 19 ? 'evenings' : 'nights');
+
 const StoreUsuals = ({ storeName, items = [], onAdd, limit = 8 }) => {
   const [usuals, setUsuals] = useState([]);
+  const [shopTime, setShopTime] = useState(null);
   const [dismissed, setDismissed] = useState(new Set());
+  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await api.get('/mdl/store-usuals', {
-          params: { store: storeName || undefined, limit: limit * 2 },
-        });
-        if (!cancelled) setUsuals(data || []);
+        const [{ data }, pref] = await Promise.all([
+          api.get('/mdl/store-usuals', {
+            params: { store: storeName || undefined, limit: limit * 2 },
+          }),
+          api.get('/mdl/preferences/hide_store_usuals').catch(() => null),
+        ]);
+        if (!cancelled) {
+          setUsuals(data?.items || data || []);
+          setShopTime(data?.shop_time || null);
+          if (pref?.data?.value === '1') setHidden(true);
+        }
       } catch {
         // predictions are non-critical — render nothing on failure
       }
@@ -41,7 +53,12 @@ const StoreUsuals = ({ storeName, items = [], onAdd, limit = 8 }) => {
     (u) => !onList.has(u.item_name.toLowerCase()) && !dismissed.has(u.item_name)
   ).slice(0, limit);
 
-  if (!visible.length) return null;
+  if (!visible.length || hidden) return null;
+
+  const hideForever = () => {
+    setHidden(true);
+    api.post('/mdl/preferences', { key: 'hide_store_usuals', value: '1' }).catch(() => {});
+  };
 
   const dismiss = (e, name) => {
     e.stopPropagation();
@@ -55,6 +72,19 @@ const StoreUsuals = ({ storeName, items = [], onAdd, limit = 8 }) => {
         <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
           {storeName ? `Your usuals at ${storeName}` : 'Your usuals'}
         </span>
+        {shopTime && (
+          <span className="flex items-center gap-1 text-[10px] text-gray-400" title="When you typically add items">
+            <Clock className="w-3 h-3" />
+            usually shops {DOW[shopTime.dow]} {timeOfDay(shopTime.hour)}
+          </span>
+        )}
+        <button
+          onClick={hideForever}
+          className="ml-auto p-1 text-gray-300 hover:text-gray-500 transition-colors"
+          title="Hide these suggestions"
+        >
+          <EyeOff className="w-3.5 h-3.5" />
+        </button>
       </div>
       <div className="flex flex-wrap gap-1.5">
         <AnimatePresence>

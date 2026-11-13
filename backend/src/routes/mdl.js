@@ -912,7 +912,19 @@ router.get('/store-usuals', authenticateToken, async (req, res) => {
       }
     }
 
-    res.json(rows);
+    // Typical shop timing for this store — most common day + hour in history
+    let shop_time = null;
+    const t = await db.query(
+      `SELECT MODE() WITHIN GROUP (ORDER BY h.day_of_week) AS dow,
+              MODE() WITHIN GROUP (ORDER BY h.hour_of_day) AS hour,
+              COUNT(*) AS events
+       FROM mdl_user_item_history h
+       WHERE h.user_id = $1 AND ($2::text IS NULL OR LOWER(h.store_name) = LOWER($2))`,
+      [req.user.id, store || null]
+    );
+    if (t.rows[0]?.events >= 3) shop_time = t.rows[0];
+
+    res.json({ items: rows, shop_time });
   } catch (error) {
     console.error('Store usuals error:', error);
     res.status(500).json({ error: 'Failed to fetch store usuals' });
