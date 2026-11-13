@@ -10,7 +10,7 @@ import { Portal } from '../../utils/autoPlacement';
  *   icons   - array of emoji glyphs (max 8 shown)
  *   bowl    - center emoji (default 🥣)
  *   text    - caption under the bowl (default 'Mixing your blend…')
- *   onDone  - fired ~1.4s after the swirl animation starts
+ *   onDone  - fired ~0.85s after the swirl animation starts
  */
 const MixingOverlay = ({ icons = ['🧂', '🌶️', '🌿'], bowl = '🥣', text = 'Mixing your blend…', onDone }) => (
   <Portal><motion.div
@@ -20,7 +20,7 @@ const MixingOverlay = ({ icons = ['🧂', '🌶️', '🌿'], bowl = '🥣', tex
     <motion.div
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1, transition: { duration: 0.2 } }}
-      onAnimationComplete={() => setTimeout(onDone, 1400)}
+      onAnimationComplete={() => setTimeout(onDone, 750)}
       className="relative w-64 h-64 flex items-center justify-center"
     >
       {/* swirling ingredient icons */}
@@ -35,7 +35,7 @@ const MixingOverlay = ({ icons = ['🧂', '🌶️', '🌿'], bowl = '🥣', tex
             scale: [1, 0.4],
             opacity: [1, 0.6],
           }}
-          transition={{ duration: 1.3, ease: 'easeInOut' }}
+          transition={{ duration: 0.65, ease: 'easeInOut' }}
         >
           {ic}
         </motion.span>
@@ -44,7 +44,7 @@ const MixingOverlay = ({ icons = ['🧂', '🌶️', '🌿'], bowl = '🥣', tex
       <motion.div
         className="text-7xl"
         animate={{ rotate: [0, -6, 6, -4, 0], scale: [1, 1.08, 1] }}
-        transition={{ duration: 1.3, ease: 'easeInOut' }}
+        transition={{ duration: 0.65, ease: 'easeInOut' }}
       >
         {bowl}
       </motion.div>
@@ -53,7 +53,7 @@ const MixingOverlay = ({ icons = ['🧂', '🌶️', '🌿'], bowl = '🥣', tex
         className="absolute text-4xl"
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: [0, 1.4, 0], opacity: [0, 1, 0] }}
-        transition={{ delay: 1.15, duration: 0.5 }}
+        transition={{ delay: 0.55, duration: 0.35 }}
       >
         ✨
       </motion.span>

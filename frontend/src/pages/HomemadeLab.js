@@ -74,10 +74,10 @@ const HomemadeLab = () => {
           return (
             <motion.button
               key={lab.id}
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.06 }}
-              whileHover={lab.ready ? { y: -4 } : undefined}
+              transition={{ delay: i * 0.03, duration: 0.16, ease: 'easeOut' }}
+              whileHover={lab.ready ? { y: -4, transition: { duration: 0.12 } } : undefined}
               onClick={() => lab.ready && lab.path && navigate(lab.path)}
               disabled={!lab.ready}
               className={`relative text-left p-5 rounded-2xl border transition-all ${
