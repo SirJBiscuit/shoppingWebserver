@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import {
   Sparkles, Plus, Trash2, Rocket, RefreshCw, Eye, EyeOff, Pencil, Check, X,
-  GripVertical, Flag, ListChecks, FlaskConical,
+  GripVertical, Flag, ListChecks, FlaskConical, LayoutList, Columns3, ThumbsUp,
 } from 'lucide-react';
 import api from '../../services/api';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
@@ -44,6 +44,7 @@ const ChangelogPanel = () => {
   const [releasing, setReleasing] = useState(false);
   const [releaseAnim, setReleaseAnim] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [view, setView] = useState('list'); // list | board
   const orderRef = useRef([]);
 
   const showMsg = (text, type = 'success') => {
@@ -136,6 +137,7 @@ const ChangelogPanel = () => {
       priority: f.priority || 'medium',
       target_date: f.target_date ? f.target_date.slice(0, 10) : '',
       beta_only: !!f.beta_only,
+      progress: f.progress ?? 0,
     });
   };
 
@@ -148,6 +150,7 @@ const ChangelogPanel = () => {
       priority: editFields.priority,
       target_date: editFields.target_date || null,
       beta_only: editFields.beta_only,
+      progress: editFields.progress,
     });
     if (ok) { setEditingId(null); showMsg('Feature updated'); }
   };
@@ -197,9 +200,19 @@ const ChangelogPanel = () => {
           <Sparkles className="w-5 h-5 text-purple-600" />
           Upcoming Features (visible to users)
         </h3>
-        <button onClick={load} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" title="Refresh">
-          <RefreshCw className="w-4 h-4 text-gray-500" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setView(view === 'list' ? 'board' : 'list')}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+            title={view === 'list' ? 'Kanban board view' : 'List view'}
+          >
+            {view === 'list' ? <Columns3 className="w-4 h-4" /> : <LayoutList className="w-4 h-4" />}
+            {view === 'list' ? 'Board' : 'List'}
+          </button>
+          <button onClick={load} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" title="Refresh">
+            <RefreshCw className="w-4 h-4 text-gray-500" />
+          </button>
+        </div>
       </div>
 
       {msg && (
@@ -256,7 +269,7 @@ const ChangelogPanel = () => {
       </div>
 
       {/* Bulk-select bar — compressed patch-note release */}
-      {!loading && upcoming.length > 0 && (
+      {!loading && view === 'list' && upcoming.length > 0 && (
         <div className="flex items-center gap-2">
           <button
             onClick={() => { setSelectMode(!selectMode); setSelectedIds(new Set()); }}
@@ -290,9 +303,24 @@ const ChangelogPanel = () => {
         </div>
       )}
 
-      {/* Upcoming list — drag to reorder */}
+      {/* Upcoming — list (drag-sort) or board (kanban columns) */}
       {loading ? (
         <div className="text-center py-8 text-gray-500">Loading…</div>
+      ) : view === 'board' ? (
+        <FeatureBoard
+          features={features}
+          patch={patch}
+          onDelete={(f) => setDeleteTarget(f)}
+          onStartEdit={startEdit}
+          editingId={editingId}
+          editFields={editFields}
+          setEditFields={setEditFields}
+          onSaveEdit={saveEdit}
+          onCancelEdit={() => setEditingId(null)}
+          onRelease={(id) => release(id)}
+          releasing={releasing}
+          onReload={load}
+        />
       ) : upcoming.length === 0 ? (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
           <Eye className="w-10 h-10 mx-auto mb-2 opacity-30" />
@@ -324,8 +352,8 @@ const ChangelogPanel = () => {
         </Reorder.Group>
       )}
 
-      {/* Released history */}
-      {released.length > 0 && (
+      {/* Released history (list view — board shows its own released column) */}
+      {view === 'list' && released.length > 0 && (
         <div>
           <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Released</h4>
           <div className="space-y-1">
@@ -502,6 +530,195 @@ const UpcomingRow = ({
         )}
       </AnimatePresence>
     </Reorder.Item>
+  );
+};
+
+/* ================= Kanban board ================= */
+
+const BOARD_COLS = [
+  { key: 'planned',     label: 'Planned',     accent: 'bg-gray-400',   dropBg: 'bg-gray-50 dark:bg-gray-800/40' },
+  { key: 'in_progress', label: 'In Progress', accent: 'bg-blue-500',   dropBg: 'bg-blue-50 dark:bg-blue-900/20' },
+  { key: 'released',    label: 'Released',    accent: 'bg-green-500',  dropBg: 'bg-green-50 dark:bg-green-900/20' },
+];
+
+/**
+ * FeatureBoard — Trello-style status columns. Drag a card between columns to
+ * change status; dropping into Released fires release (patch-note notify).
+ */
+const FeatureBoard = ({
+  features, patch, onDelete, onStartEdit, editingId, editFields, setEditFields,
+  onSaveEdit, onCancelEdit, onRelease, releasing, onReload,
+}) => {
+  const [dragOver, setDragOver] = useState(null);
+
+  const onDragStart = (e, id) => {
+    e.dataTransfer.setData('text/plain', String(id));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const onDrop = (e, col) => {
+    e.preventDefault();
+    setDragOver(null);
+    const id = parseInt(e.dataTransfer.getData('text/plain'), 10);
+    const f = features.find((x) => x.id === id);
+    if (!f || f.status === col) return;
+    if (col === 'released') onRelease(id);
+    else patch(id, { status: col });
+  };
+
+  const cols = BOARD_COLS.map((c) => ({ ...c, items: features.filter((f) => f.status === c.key) }));
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {cols.map((col) => (
+        <div
+          key={col.key}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(col.key); }}
+          onDragLeave={() => setDragOver((d) => (d === col.key ? null : d))}
+          onDrop={(e) => onDrop(e, col.key)}
+          className={`rounded-xl border-2 min-h-[140px] p-2 transition-colors ${
+            dragOver === col.key
+              ? 'border-purple-400 dark:border-purple-600 ' + col.dropBg
+              : 'border-gray-200 dark:border-gray-700 ' + col.dropBg
+          }`}
+        >
+          <div className="flex items-center gap-2 px-1 pb-2">
+            <span className={`w-2 h-2 rounded-full ${col.accent}`} />
+            <h4 className="text-xs font-bold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+              {col.label}
+            </h4>
+            <span className="text-[10px] text-gray-400 ml-auto">{col.items.length}</span>
+          </div>
+
+          <div className="space-y-2">
+            {col.items.map((f) => (
+              <BoardCard
+                key={f.id}
+                f={f}
+                onDragStart={onDragStart}
+                onDelete={onDelete}
+                onStartEdit={onStartEdit}
+                onRelease={onRelease}
+                releasing={releasing}
+                patch={patch}
+                editing={editingId === f.id}
+                editFields={editFields}
+                setEditFields={setEditFields}
+                onSaveEdit={onSaveEdit}
+                onCancelEdit={onCancelEdit}
+                onReload={onReload}
+              />
+            ))}
+            {col.items.length === 0 && (
+              <p className="text-[11px] text-gray-400 text-center py-4">Drop cards here</p>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const BoardCard = ({
+  f, onDragStart, onDelete, onStartEdit, onRelease, releasing, patch,
+  editing, editFields, setEditFields, onSaveEdit, onCancelEdit, onReload,
+}) => {
+  const set = (key) => (e) => setEditFields((prev) => ({ ...prev, [key]: e.target.value }));
+  const [prog, setProg] = useState(f.progress || 0);
+  useEffect(() => setProg(f.progress || 0), [f.progress]);
+
+  return (
+    <div
+      draggable={!editing}
+      onDragStart={(e) => onDragStart(e, f.id)}
+      className={`rounded-lg border bg-white dark:bg-gray-800 p-2.5 cursor-grab active:cursor-grabbing ${
+        f.is_hidden ? 'opacity-50' : ''
+      } border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700 transition-colors`}
+    >
+      <div className="flex items-start gap-1.5">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1 flex-wrap">
+            <p className="text-sm font-medium text-gray-900 dark:text-white leading-tight">{f.title}</p>
+            <PriorityBadge p={f.priority} />
+            {f.beta_only && (
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">beta</span>
+            )}
+            {(f.vote_count || 0) > 0 && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300" title="User votes">
+                <ThumbsUp className="w-2.5 h-2.5" /> {f.vote_count}
+              </span>
+            )}
+          </div>
+          {f.description && (
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{f.description}</p>
+          )}
+        </div>
+        <div className="flex flex-col gap-0.5 flex-shrink-0">
+          <button onClick={onStartEdit} className="p-1 text-gray-400 hover:text-purple-500" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
+          <button onClick={() => onDelete(f)} className="p-1 text-gray-400 hover:text-red-500" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+        </div>
+      </div>
+
+      {/* progress — slider for in_progress, static bar elsewhere */}
+      {f.status === 'in_progress' && !editing && (
+        <div className="mt-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="range" min="0" max="100" step="5" value={prog}
+              onChange={(e) => setProg(parseInt(e.target.value, 10))}
+              onMouseUp={() => prog !== (f.progress || 0) && patch(f.id, { progress: prog })}
+              onTouchEnd={() => prog !== (f.progress || 0) && patch(f.id, { progress: prog })}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="flex-1 h-1.5 accent-blue-500 cursor-pointer"
+            />
+            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 w-8 text-right">{prog}%</span>
+          </div>
+        </div>
+      )}
+      {f.status !== 'in_progress' && (f.progress || 0) > 0 && (
+        <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+          <div className={`h-full rounded-full ${f.status === 'released' ? 'bg-green-500' : 'bg-gray-400'}`} style={{ width: `${Math.min(100, f.progress)}%` }} />
+        </div>
+      )}
+
+      {/* compact inline edit */}
+      {editing && (
+        <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 space-y-1.5" onPointerDown={(e) => e.stopPropagation()}>
+          <input
+            value={editFields.title || ''}
+            onChange={set('title')}
+            className="w-full px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-xs"
+          />
+          <textarea
+            value={editFields.description || ''}
+            onChange={set('description')}
+            rows={2}
+            className="w-full px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-xs"
+          />
+          <div className="flex items-center gap-1.5">
+            <input
+              type="range" min="0" max="100" step="5"
+              value={editFields.progress ?? f.progress ?? 0}
+              onChange={(e) => setEditFields((p) => ({ ...p, progress: parseInt(e.target.value, 10) }))}
+              className="flex-1 h-1 accent-blue-500"
+            />
+            <span className="text-[10px] w-8 text-right text-gray-500">{editFields.progress ?? f.progress ?? 0}%</span>
+            <button onClick={onSaveEdit} className="p-1 text-green-600" title="Save"><Check className="w-3.5 h-3.5" /></button>
+            <button onClick={onCancelEdit} className="p-1 text-gray-400" title="Cancel"><X className="w-3.5 h-3.5" /></button>
+          </div>
+        </div>
+      )}
+
+      {f.status !== 'released' && !editing && (
+        <button
+          onClick={() => onRelease(f.id)}
+          disabled={releasing}
+          className="mt-2 w-full flex items-center justify-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-green-700 bg-green-50 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50 disabled:opacity-40 transition-colors"
+        >
+          <Rocket className="w-3 h-3" /> Release
+        </button>
+      )}
+    </div>
   );
 };
 

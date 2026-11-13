@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Calendar, GitCommit, User, Tag, TrendingUp, 
   Sparkles, Zap, Bug, Settings, FileText, Package,
-  ChevronDown, ChevronUp, Filter, Search, Download, Shield, Users, RefreshCw, Flag
+  ChevronDown, ChevronUp, Filter, Search, Download, Shield, Users, RefreshCw, Flag, ThumbsUp
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Portal } from '../utils/autoPlacement';
@@ -87,6 +87,27 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
       console.error('Error loading changelog:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleVote = async (featureId) => {
+    // optimistic flip
+    setUpcoming((prev) => prev.map((f) => f.id === featureId
+      ? { ...f, my_vote: !f.my_vote, vote_count: (f.vote_count || 0) + (f.my_vote ? -1 : 1) }
+      : f));
+    try {
+      const res = await fetch(`/api/changelog/features/${featureId}/vote`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (!res.ok) throw new Error();
+      const { voted, vote_count } = await res.json();
+      setUpcoming((prev) => prev.map((f) => f.id === featureId ? { ...f, my_vote: voted, vote_count } : f));
+    } catch {
+      // revert on failure
+      setUpcoming((prev) => prev.map((f) => f.id === featureId
+        ? { ...f, my_vote: !f.my_vote, vote_count: (f.vote_count || 0) + (f.my_vote ? -1 : 1) }
+        : f));
     }
   };
 
@@ -378,7 +399,35 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
                             Expected {new Date(f.target_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </p>
                         )}
+                        {(f.status === 'in_progress' || (f.progress || 0) > 0) && (
+                          <div className="mt-1.5 flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${Math.min(100, f.progress || 0)}%` }}
+                                className="h-full bg-blue-500 rounded-full"
+                              />
+                            </div>
+                            <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                              {Math.min(100, f.progress || 0)}%
+                            </span>
+                          </div>
+                        )}
                       </div>
+                      {f.voting_enabled !== false && (
+                        <button
+                          onClick={() => toggleVote(f.id)}
+                          title={f.my_vote ? 'Remove your vote' : 'Vote — you want this!'}
+                          className={`flex-shrink-0 flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg border-2 transition-colors ${
+                            f.my_vote
+                              ? 'border-purple-500 bg-purple-500 text-white'
+                              : 'border-purple-200 dark:border-purple-800 text-purple-500 hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30'
+                          }`}
+                        >
+                          <ThumbsUp className="w-3.5 h-3.5" />
+                          <span className="text-[10px] font-bold">{f.vote_count || 0}</span>
+                        </button>
+                      )}
                     </div>
                   );
                 })}

@@ -72,9 +72,19 @@ router.get('/', authenticateToken, async (req, res) => {
     const [commits, features, user] = await Promise.all([
       loadCommits(),
       db.query(
-        `SELECT id, title, description, category, status, priority, target_date, released_at, beta_only, sort_order, created_at
-         FROM changelog_features WHERE is_hidden = FALSE
-         ORDER BY status ASC, sort_order ASC, created_at DESC`
+        `SELECT f.id, f.title, f.description, f.category, f.status, f.priority, f.target_date,
+                f.released_at, f.beta_only, f.sort_order, f.created_at, f.progress, f.voting_enabled,
+                COALESCE(v.vote_count, 0)::int AS vote_count,
+                (my.user_id IS NOT NULL) AS my_vote
+         FROM changelog_features f
+         LEFT JOIN (
+           SELECT feature_id, COUNT(*) AS vote_count FROM changelog_feature_votes GROUP BY feature_id
+         ) v ON v.feature_id = f.id
+         LEFT JOIN changelog_feature_votes my
+           ON my.feature_id = f.id AND my.user_id = $1
+         WHERE f.is_hidden = FALSE
+         ORDER BY f.status ASC, f.sort_order ASC, f.created_at DESC`,
+        [req.user.id]
       ),
       db.query('SELECT is_beta_tester, is_admin FROM users WHERE id = $1', [req.user.id]),
     ]);
@@ -94,6 +104,56 @@ router.get('/', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error loading changelog:', error);
     res.json({ commits: [], upcoming: [], entries: [], total: 0 });
+  }
+});
+
+// Toggle a vote on an upcoming feature — one vote per user per feature
+router.post('/features/:id/vote', authenticateToken, async (req, res) => {
+  try {
+    const feature = await db.query(
+      `SELECT id, status, beta_only, voting_enabled FROM changelog_features
+       WHERE id = $1 AND is_hidden = FALSE`,
+      [req.params.id]
+    );
+    if (feature.rows.length === 0) return res.status(404).json({ error: 'Feature not found' });
+
+    const f = feature.rows[0];
+    if (f.status === 'released') return res.status(400).json({ error: 'Cannot vote on released features' });
+    if (f.voting_enabled === false) return res.status(403).json({ error: 'Voting is disabled for this feature' });
+
+    // beta_only features can only be voted on by beta testers / admins
+    if (f.beta_only) {
+      const u = await db.query('SELECT is_beta_tester, is_admin FROM users WHERE id = $1', [req.user.id]);
+      if (!u.rows[0]?.is_beta_tester && !u.rows[0]?.is_admin) {
+        return res.status(403).json({ error: 'Beta testers only' });
+      }
+    }
+
+    const existing = await db.query(
+      'SELECT id FROM changelog_feature_votes WHERE feature_id = $1 AND user_id = $2',
+      [f.id, req.user.id]
+    );
+
+    let voted;
+    if (existing.rows.length > 0) {
+      await db.query('DELETE FROM changelog_feature_votes WHERE id = $1', [existing.rows[0].id]);
+      voted = false;
+    } else {
+      await db.query(
+        'INSERT INTO changelog_feature_votes (feature_id, user_id) VALUES ($1, $2)',
+        [f.id, req.user.id]
+      );
+      voted = true;
+    }
+
+    const { rows } = await db.query(
+      'SELECT COUNT(*)::int AS count FROM changelog_feature_votes WHERE feature_id = $1',
+      [f.id]
+    );
+    res.json({ voted, vote_count: rows[0].count });
+  } catch (error) {
+    console.error('Error toggling vote:', error);
+    res.status(500).json({ error: 'Failed to vote' });
   }
 });
 
@@ -123,9 +183,15 @@ router.post('/admin/features', authenticateToken, isAdmin, async (req, res) => {
 router.get('/admin/features', authenticateToken, isAdmin, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT id, title, description, category, status, priority, sort_order, is_hidden, target_date, released_at, beta_only, notify_on_release, created_at, updated_at
-       FROM changelog_features
-       ORDER BY CASE WHEN status = 'released' THEN 1 ELSE 0 END, sort_order ASC, created_at DESC`
+      `SELECT f.id, f.title, f.description, f.category, f.status, f.priority, f.sort_order,
+              f.is_hidden, f.target_date, f.released_at, f.beta_only, f.notify_on_release,
+              f.progress, f.voting_enabled, f.created_at, f.updated_at,
+              COALESCE(v.vote_count, 0)::int AS vote_count
+       FROM changelog_features f
+       LEFT JOIN (
+         SELECT feature_id, COUNT(*) AS vote_count FROM changelog_feature_votes GROUP BY feature_id
+       ) v ON v.feature_id = f.id
+       ORDER BY CASE WHEN f.status = 'released' THEN 1 ELSE 0 END, f.sort_order ASC, f.created_at DESC`
     );
     res.json(result.rows);
   } catch (error) {
@@ -138,9 +204,9 @@ router.get('/admin/features', authenticateToken, isAdmin, async (req, res) => {
 router.patch('/admin/features/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, category, status, target_date, notify_on_release, beta_only, priority, sort_order, is_hidden } = req.body;
+    const { title, description, category, status, target_date, notify_on_release, beta_only, priority, sort_order, is_hidden, progress, voting_enabled } = req.body;
 
-    const fields = { title, description, category, status, target_date, notify_on_release, beta_only, priority, sort_order, is_hidden };
+    const fields = { title, description, category, status, target_date, notify_on_release, beta_only, priority, sort_order, is_hidden, progress, voting_enabled };
     const updates = [];
     const values = [];
     let n = 1;
@@ -152,7 +218,10 @@ router.patch('/admin/features/:id', authenticateToken, isAdmin, async (req, res)
     }
     if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
 
-    if (status === 'released') updates.push(`released_at = COALESCE(released_at, NOW())`);
+    if (status === 'released') {
+      updates.push(`released_at = COALESCE(released_at, NOW())`);
+      if (req.body.progress === undefined) updates.push(`progress = 100`);
+    }
     updates.push(`updated_at = NOW()`);
     values.push(id);
 
