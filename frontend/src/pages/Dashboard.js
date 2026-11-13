@@ -210,6 +210,8 @@ const Dashboard = () => {
   const [editingListName, setEditingListName] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [newListStore, setNewListStore] = useState('');
+  const [newStoreNick, setNewStoreNick] = useState('');
+  const [storeNicks, setStoreNicks] = useState({}); // per-user store aliases (MDL 'store_nicks' pref)
   const [showAisleConfig, setShowAisleConfig] = useState(false);
   const [showStoreManager, setShowStoreManager] = useState(false);
   const [addItemsMinimized, setAddItemsMinimized] = useState(false);
@@ -239,6 +241,23 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Error loading item preferences:', error);
     }
+  };
+
+  // Store nicknames — per-user aliases stored as a JSON blob under one MDL pref key
+  const loadStoreNicks = async () => {
+    try {
+      const raw = await getPreference('store_nicks');
+      if (raw) setStoreNicks(JSON.parse(raw) || {});
+    } catch { /* nickname map is cosmetic */ }
+  };
+
+  const saveStoreNickname = (store, nick) => {
+    if (!store) return;
+    const next = { ...storeNicks };
+    const k = store.toLowerCase();
+    if (nick?.trim()) next[k] = nick.trim(); else delete next[k];
+    setStoreNicks(next);
+    savePreference('store_nicks', JSON.stringify(next)).catch(() => {});
   };
 
   // Load custom stores from database
@@ -285,6 +304,7 @@ const Dashboard = () => {
           loadItemPreferences(),
           loadInventory(),
           loadCustomStores(),
+          loadStoreNicks(),
         ]).catch(err => console.error('Error loading secondary data:', err));
         
         // NON-CRITICAL: Load suggestions last
@@ -732,6 +752,9 @@ const Dashboard = () => {
       await shoppingAPI.updateList(activeList.id, updateData);
       setActiveList({ ...activeList, ...updateData });
       await loadLists();
+
+      // Save the store nickname (per-user alias — stored on the store, not the list)
+      if (newListStore) saveStoreNickname(newListStore, newStoreNick);
       
       // Auto-enable smart sort when store is set for efficient shopping
       if (newListStore && !smartSort) {
@@ -743,6 +766,7 @@ const Dashboard = () => {
       setEditingListName(false);
       setNewListName('');
       setNewListStore('');
+      setNewStoreNick('');
     } catch (err) {
       console.error('Error updating list:', err);
       console.error('Error response:', err.response?.data);
@@ -757,6 +781,7 @@ const Dashboard = () => {
         setEditingListName(false);
         setNewListName('');
         setNewListStore('');
+        setNewStoreNick('');
       }
     }
   };
@@ -1842,6 +1867,7 @@ const Dashboard = () => {
                             onClick={() => {
                               setNewListName(activeList.name);
                               setNewListStore(activeList.store_name || '');
+                              setNewStoreNick(storeNicks[(activeList.store_name || '').toLowerCase()] || '');
                               setEditingListName(true);
                             }}
                             className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex-shrink-0"
@@ -1865,8 +1891,8 @@ const Dashboard = () => {
                           {/* Current Store Badge */}
                           <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                             <Store className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                            <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
-                              {activeList.store_name}
+                            <span className="text-sm font-semibold text-blue-700 dark:text-blue-300" title={storeNicks[(activeList.store_name || '').toLowerCase()] ? `Nickname for ${activeList.store_name}` : undefined}>
+                              {storeNicks[(activeList.store_name || '').toLowerCase()] || activeList.store_name}
                             </span>
                           </div>
                           
@@ -1875,6 +1901,7 @@ const Dashboard = () => {
                             onClick={() => {
                               setNewListName(activeList.name);
                               setNewListStore(activeList.store_name || '');
+                              setNewStoreNick(storeNicks[(activeList.store_name || '').toLowerCase()] || '');
                               setEditingListName(true);
                             }}
                             className="px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors flex items-center gap-1"
@@ -1915,6 +1942,7 @@ const Dashboard = () => {
                             onClick={() => {
                               setNewListName(activeList.name);
                               setNewListStore('');
+                              setNewStoreNick('');
                               setEditingListName(true);
                             }}
                             className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
@@ -2857,6 +2885,7 @@ const Dashboard = () => {
                       setEditingListName(false);
                       setNewListName('');
                       setNewListStore('');
+                      setNewStoreNick('');
                     }
                   }}
                 />
@@ -2896,6 +2925,15 @@ const Dashboard = () => {
                     </optgroup>
                   )}
                 </select>
+                {newListStore && (
+                  <input
+                    type="text"
+                    value={newStoreNick}
+                    onChange={(e) => setNewStoreNick(e.target.value)}
+                    placeholder={`Nickname for ${newListStore} (e.g. "Wally's") — saved for you`}
+                    className="input-field mt-2 text-sm"
+                  />
+                )}
                 <button
                   onClick={() => {
                     setEditingListName(false);
@@ -2920,6 +2958,7 @@ const Dashboard = () => {
                   setEditingListName(false);
                   setNewListName('');
                   setNewListStore('');
+                  setNewStoreNick('');
                 }}
                 className="btn-secondary flex-1"
               >

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ShoppingCart, Store, Tag } from 'lucide-react';
 import MenuPanel from './MenuPanel';
 import { getAvailableStores } from '../data/storeLayouts';
@@ -33,13 +33,26 @@ const NewListModal = ({ isOpen, onClose, onCreateList, existingLists = [] }) => 
     onClose();
   };
 
+  // Per-store name memory — reuse names previous lists at this store used
+  const storeNames = useMemo(() => {
+    if (!storeName || storeName === 'custom') return [];
+    const sn = storeName.toLowerCase();
+    const seen = new Set();
+    return existingLists
+      .filter((l) => (l.store_name || '').toLowerCase() === sn && l.name)
+      .map((l) => l.name)
+      .filter((n) => !seen.has(n.toLowerCase()) && seen.add(n.toLowerCase()))
+      .slice(0, 3);
+  }, [existingLists, storeName]);
+
   const suggestedNames = [
+    ...storeNames,
     `Shopping List ${existingLists.length + 1}`,
     'Weekly Groceries',
     'Quick Trip',
     'Meal Prep',
     'Party Shopping'
-  ];
+  ].filter((n, i, a) => a.indexOf(n) === i).slice(0, 5);
 
   return (
     <MenuPanel
