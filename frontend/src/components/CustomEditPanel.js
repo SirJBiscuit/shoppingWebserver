@@ -6,6 +6,7 @@ import CustomDropdownList from './CustomDropdownList';
 import IconPicker from './IconPicker';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
 import { canonicalizeCategory } from '../utils/categoryDetector';
+import { Portal } from '../utils/autoPlacement';
 
 /**
  * CustomEditPanel - Modern, animated item editing panel
@@ -21,7 +22,7 @@ import { canonicalizeCategory } from '../utils/categoryDetector';
  * - Responsive design
  * - Dark mode support
  */
-const CustomEditPanel = ({ item, isOpen, onClose, onSave }) => {
+const CustomEditPanel = ({ item, isOpen, onClose, onSave, anchor }) => {
   const [formData, setFormData] = useState({
     item_name: '',
     quantity: 1,
@@ -121,9 +122,29 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave }) => {
     onClose();
   };
 
+  // Anchor-aware placement: appear next to the clicked edit button when
+  // coordinates arrive; centered otherwise. Desktop only — the panel is
+  // nearly full-width on mobile so anchoring buys nothing there.
+  const anchorPos = (() => {
+    if (!anchor || window.innerWidth < 768) return null;
+    const M = 8;
+    const W = Math.min(672, window.innerWidth - M * 2);
+    const H = Math.min(window.innerHeight * 0.9, 720);
+    const left = Math.min(Math.max(anchor.cx - W / 2, M), window.innerWidth - W - M);
+    if (anchor.bottom + 8 + H <= window.innerHeight - M) {
+      return { left, top: anchor.bottom + 8, width: W };
+    }
+    if (anchor.top - 8 - H >= M) {
+      // Pin the bottom edge so the panel hugs the button at any height
+      return { left, bottom: window.innerHeight - anchor.top + 8, width: W };
+    }
+    return { left, top: M, width: W };
+  })();
+
   if (!isOpen) return null;
 
   return (
+    <Portal>
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
@@ -138,6 +159,7 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave }) => {
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
+          style={anchorPos ? { position: 'fixed', left: anchorPos.left, top: anchorPos.top, bottom: anchorPos.bottom, width: anchorPos.width } : undefined}
         >
           {/* Header with Gradient */}
           <div className="relative bg-gradient-to-r from-primary-500 to-purple-600 p-6 text-white">
@@ -428,6 +450,7 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave }) => {
         )}
       </motion.div>
     </AnimatePresence>
+    </Portal>
   );
 };
 

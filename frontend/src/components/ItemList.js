@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye, MoreVertical, Tag, Minus, Plus } from 'lucide-react';
+import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye, MoreVertical, Tag, Minus, Plus, Heart } from 'lucide-react';
 import { motion } from 'framer-motion';
 import CustomEditPanel from './CustomEditPanel';
 import CustomContextMenu from './CustomContextMenu';
+import FavoritePicker from './FavoritePicker';
+import { getFavorites } from '../api/mdl';
+import { Portal } from '../utils/autoPlacement';
 // import ItemTooltip from './ItemTooltip'; // Component doesn't exist
 // import SmartSuggestionTooltip from './SmartSuggestionTooltip'; // Component doesn't exist
 import { detectIcon, detectCategory, canonicalizeCategory, getCategoryIcon, getCategoryOrder } from '../utils/categoryDetector';
@@ -63,9 +66,38 @@ const ItemListContent = (props) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [noteItem, setNoteItem] = useState(null);
   const [noteText, setNoteText] = useState('');
+  const [editAnchor, setEditAnchor] = useState(null);
+
+  // Opens the edit panel near the clicked button — the focused element's
+  // rect doubles as the click anchor; falls back to centered when absent.
+  const openEditPanel = (target) => {
+    const el = document.activeElement;
+    const r = el && el !== document.body ? el.getBoundingClientRect() : null;
+    setEditAnchor(r ? { cx: r.left + r.width / 2, top: r.top, bottom: r.bottom } : null);
+    setEditingItem(target);
+    setShowEditModal(true);
+  };
 
   // Cross-store price comparison — one batched fetch for all unchecked items
   const [priceCompare, setPriceCompare] = useState({});
+
+  // Household favorites — one batched fetch, indexed by item name (lowercase)
+  const [itemFavorites, setItemFavorites] = useState({});
+  const [favItem, setFavItem] = useState(null); // item for "whose favorite?" modal
+  useEffect(() => {
+    let cancelled = false;
+    getFavorites('item').then((favs) => {
+      if (cancelled || !favs?.length) { setItemFavorites({}); return; }
+      const idx = {};
+      for (const f of favs) {
+        const k = (f.entity_name || '').toLowerCase();
+        idx[k] = idx[k] || [];
+        idx[k].push(f);
+      }
+      setItemFavorites(idx);
+    });
+    return () => { cancelled = true; };
+  }, [favItem]); // re-fetch after the favorite picker closes
   const itemsKey = items.map(i => `${i.item_name}:${i.is_checked}`).join('|');
   useEffect(() => {
     const names = [...new Set(
@@ -186,6 +218,7 @@ const ItemListContent = (props) => {
               onCopyMove={onCopyMove}
               triggerAnimation={triggerAnimation}
               isNextItem={item.id === nextItemId}
+              onOpenEdit={openEditPanel}
               setEditingItem={setEditingItem}
               setShowEditModal={setShowEditModal}
               setNoteItem={setNoteItem}
@@ -202,6 +235,8 @@ const ItemListContent = (props) => {
               showAisles={showAisles}
               strikethroughCompleted={strikethroughCompleted}
               compactView={compactView}
+              favorites={itemFavorites[(item.item_name || '').toLowerCase()]}
+              onOpenFavorites={() => setFavItem(item)}
             />
           ))}
         </div>
@@ -228,6 +263,7 @@ const ItemListContent = (props) => {
                   onCopyMove={onCopyMove}
                   triggerAnimation={triggerAnimation}
                   isNextItem={item.id === nextItemId}
+                  onOpenEdit={openEditPanel}
                   setEditingItem={setEditingItem}
                   setShowEditModal={setShowEditModal}
                   storeName={storeName}
@@ -245,6 +281,8 @@ const ItemListContent = (props) => {
                   showAisles={showAisles}
                   strikethroughCompleted={strikethroughCompleted}
                   compactView={compactView}
+                  favorites={itemFavorites[(item.item_name || '').toLowerCase()]}
+                  onOpenFavorites={() => setFavItem(item)}
                 />
               ))}
             </div>
@@ -256,6 +294,7 @@ const ItemListContent = (props) => {
     {/* Edit Item Modal */}
     <CustomEditPanel
       item={editingItem}
+      anchor={editAnchor}
       isOpen={showEditModal}
       onClose={() => {
         setShowEditModal(false);
@@ -275,6 +314,7 @@ const ItemListContent = (props) => {
 
     {/* Note Modal */}
     {noteItem && (
+      <Portal>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
@@ -316,6 +356,15 @@ const ItemListContent = (props) => {
           </div>
         </div>
       </div>
+      </Portal>
+    )}
+
+    {/* Whose favorite? — household member marks for this item */}
+    {favItem && (
+      <FavoritePicker
+        entityName={favItem.item_name}
+        onClose={() => setFavItem(null)}
+      />
     )}
     </>
   );
@@ -369,7 +418,7 @@ const StorePriceBadge = ({ itemName, currentPrice, priceCompare }) => {
   );
 };
 
-const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit, onQuantityChange, priceCompare, showButtonLabels }) => {
+const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit, onQuantityChange, priceCompare, showButtonLabels, favorites, onOpenFavorites, onOpenEdit }) => {
   const [editingAisle, setEditingAisle] = useState(false);
   const [aisleNumber, setAisleNumber] = useState('');
   const [aisleName, setAisleName] = useState('');
@@ -533,13 +582,16 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
   // Right-click / long-press context menu actions
   const contextMenuItems = [
     { icon: Check, label: item.is_checked ? 'Uncheck item' : 'Check off', onClick: handleCheck },
-    { icon: Edit2, label: 'Edit', onClick: () => { setEditingItem(item); setShowEditModal(true); } },
+    { icon: Edit2, label: 'Edit', onClick: () => onOpenEdit(item) },
     { icon: FileText, label: 'Add note', onClick: () => { setNoteItem(item); setNoteText(item.notes || ''); } },
     ...(onLookForThis && !item.is_checked
       ? [{ icon: Eye, label: 'Look for this', onClick: () => onLookForThis(item) }]
       : []),
     ...(onCopyMove
       ? [{ icon: Copy, label: 'Copy / move to list', onClick: () => onCopyMove(item) }]
+      : []),
+    ...(onOpenFavorites
+      ? [{ icon: Heart, label: 'Whose favorite?', color: 'text-pink-500', onClick: () => onOpenFavorites(item) }]
       : []),
     { separator: true },
     { icon: Trash2, label: 'Delete', color: 'text-red-500', onClick: () => { (item.ids || [item.id]).forEach(id => onDelete(id)); } },
@@ -648,6 +700,17 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                       }`}
                     >
                       <span>{item.item_name}</span>
+                      {favorites?.length > 0 && (
+                        <span className="inline-flex items-center -space-x-1" title={
+                          favorites.map(f => `${f.member_name || 'Household'}: ${f.preference}`).join('\n')
+                        }>
+                          {favorites.slice(0, 3).map((f) => (
+                            <span key={f.id} className="text-sm">
+                              {f.avatar_emoji || '👤'}{f.preference === 'favorite' ? '❤️' : f.preference === 'hated' ? '🚫' : ''}
+                            </span>
+                          ))}
+                        </span>
+                      )}
                       {item.count > 1 && (
                         <span className="px-2 py-0.5 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 text-xs font-bold rounded-full">
                           x{formatQuantityPlain(item.count)}
@@ -769,8 +832,8 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                 <div className="hidden sm:flex items-start space-x-2">
                   <ActionButton
                     onClick={() => {
-                      setEditingItem(item);
-                      setShowEditModal(true);
+                      onOpenEdit(item);
+                      /* anchored near the clicked button via focused element */
                     }}
                     className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 transition-colors"
                     title="Edit item"
@@ -836,7 +899,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                     <MoreVertical className="w-5 h-5" />
                   </button>
                   {showMobileMenu && (
-                    <>
+                    <Portal><>
                       <div className="fixed inset-0 z-30" onClick={() => setShowMobileMenu(false)} />
                       <div className="absolute right-0 top-full mt-1 z-40 w-44 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl py-1">
                         {item.count === 1 && (onQuantityChange || onEdit) && (
@@ -861,7 +924,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                           </div>
                         )}
                         <button
-                          onClick={() => { setShowMobileMenu(false); setEditingItem(item); setShowEditModal(true); }}
+                          onClick={() => { setShowMobileMenu(false); onOpenEdit(item); }}
                           className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                         >
                           <Edit2 className="w-5 h-5 text-blue-500" /> Edit
@@ -895,7 +958,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                           <Trash2 className="w-5 h-5" /> Delete
                         </button>
                       </div>
-                    </>
+                    </></Portal>
                   )}
                 </div>
               </div>
