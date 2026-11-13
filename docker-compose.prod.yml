@@ -48,6 +48,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # rw required: auto-updater writes .update-requested for update-server.sh
       - /opt/cloudmc-shop:/opt/cloudmc-shop
+      # persist /storage/{category} uploads across rebuilds
+      - shop_storage:/storage
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
