@@ -47,6 +47,7 @@ const HomemadeLab = lazy(() => import('./pages/HomemadeLab'));
 const MixLab = lazy(() => import('./pages/MixLab'));
 const SmoothieLab = lazy(() => import('./pages/SmoothieLab'));
 const MealLab = lazy(() => import('./pages/MealLab'));
+const PlateLab = lazy(() => import('./pages/PlateLab'));
 
 // Loading component
 const PageLoader = () => (
@@ -107,6 +108,7 @@ const AnimatedRoutes = () => {
         <Route path="/lab" element={<PrivateRoute><HomemadeLab /></PrivateRoute>} />
         <Route path="/lab/mix" element={<PrivateRoute><MixLab /></PrivateRoute>} />
         <Route path="/lab/smoothie" element={<PrivateRoute><SmoothieLab /></PrivateRoute>} />
+        <Route path="/lab/plate" element={<PrivateRoute><PlateLab /></PrivateRoute>} />
         <Route path="/lab/meal" element={<PrivateRoute><MealLab /></PrivateRoute>} />
         {/* <Route path="/meal-plan" element={<PrivateRoute><MealPlan /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
         {/* <Route path="/stats" element={<PrivateRoute><Statistics /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}

@@ -53,8 +53,8 @@ const LABS = [
     icon: Pizza,
     gradient: 'from-violet-500 to-purple-600',
     description: 'Balance your plate — food groups, macros, and household tracking.',
-    path: null,
-    ready: false,
+    path: '/lab/plate',
+    ready: true,
   },
 ];
 

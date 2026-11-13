@@ -44,6 +44,7 @@ const changelogRoutes = require('./routes/changelog');
 const notificationsRoutes = require('./routes/notifications');
 const priceReviewRoutes = require('./routes/priceReview');
 const spicesRoutes = require('./routes/spices');
+const plateRoutes = require('./routes/plate');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -156,7 +157,8 @@ const runMigrations = async () => {
     { file: '061_mix_lab_preset_recipes.sql', name: 'Mix Lab Preset Recipes' },
     { file: '062_changelog_admin_enhancements.sql', name: 'Changelog Admin Enhancements' },
     { file: '063_smoothie_lab_preset_recipes.sql', name: 'Smoothie Lab Preset Recipes' },
-    { file: '064_mdl_auto_categorization.sql', name: 'MDL Auto-Categorization' }
+    { file: '064_mdl_auto_categorization.sql', name: 'MDL Auto-Categorization' },
+    { file: '065_plate_system.sql', name: 'Plate System' }
   ];
 
   for (const migration of migrations) {
