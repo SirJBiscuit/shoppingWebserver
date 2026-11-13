@@ -65,8 +65,9 @@ CREATE INDEX IF NOT EXISTS idx_snippets_category ON code_snippets(category);
 CREATE INDEX IF NOT EXISTS idx_snippets_user ON code_snippets(user_id);
 CREATE INDEX IF NOT EXISTS idx_generation_logs_user ON ai_generation_logs(user_id);
 
--- Insert some default templates
-INSERT INTO app_templates (name, description, category, type, platform, features, code, is_public, downloads) VALUES
+-- Insert some default templates (idempotent: skipped once any templates exist)
+INSERT INTO app_templates (name, description, category, type, platform, features, code, is_public, downloads)
+SELECT * FROM (VALUES
 (
     'E-Commerce Store',
     'Complete online store with product catalog, cart, and checkout',
@@ -120,10 +121,12 @@ INSERT INTO app_templates (name, description, category, type, platform, features
     '["posts", "comments", "categories", "search", "admin-panel"]',
     '{"react": "// Blog platform template code here", "css": "/* Styles */"}',
     true,
-    220
+ ) AS t(name, description, category, type, platform, features, code, is_public, downloads)
+WHERE NOT EXISTS (SELECT 1 FROM app_templates)   220
 );
-
+pets (idemotent + only once user id 1 xis)
 -- Insert some default code snippets
+SELECT * FROM(
 INSERT INTO code_snippets (user_id, name, code, category, description, language, is_public, usage_count) VALUES
 (
     1,
@@ -174,7 +177,9 @@ INSERT INTO code_snippets (user_id, name, code, category, description, language,
     'javascript',
     true,
     350
-);
+)) AS s(user_id, name, code, category, description, language, is_public, usage_count)
+WHERE NOT EXISTS (SELECT 1 FROM code_snippets)
+  AND EXISTS (SELECT 1 FROM users WHERE id = 1);
 
 COMMENT ON TABLE ai_generated_apps IS 'Stores AI-generated applications created by users';
 COMMENT ON TABLE app_templates IS 'Pre-built app templates for quick start';

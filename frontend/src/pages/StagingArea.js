@@ -41,8 +41,9 @@ const StagingArea = () => {
   const loadPantryPreview = async () => {
     try {
       const response = await inventoryAPI.getItems();
-      // Get recent items, limit to 20
-      const recentItems = response.data.items?.slice(0, 20) || [];
+      // getItems unwraps axios' .data already — accept array or {items} shapes
+      const items = Array.isArray(response) ? response : (response?.items || response?.data?.items || []);
+      const recentItems = items.slice(0, 20);
       setPantryItems(recentItems);
     } catch (error) {
       console.error('Error loading pantry preview:', error);

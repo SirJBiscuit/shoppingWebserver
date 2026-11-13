@@ -3,7 +3,15 @@
 -- ============================================================================
 
 -- 1. Beta-tester gating on feature flags (admin hides a feature from beta testers)
-ALTER TABLE feature_flags ADD COLUMN IF NOT EXISTS hide_from_beta BOOLEAN DEFAULT FALSE;
+--    feature_flags comes from 020 (not in every deploy list) — if it's absent
+--    or shaped differently, skip the flag work rather than roll back the
+--    tables below.
+DO $$
+BEGIN
+  IF to_regclass('feature_flags') IS NOT NULL THEN
+    ALTER TABLE feature_flags ADD COLUMN IF NOT EXISTS hide_from_beta BOOLEAN DEFAULT FALSE;
+  END IF;
+END $$;
 
 -- 2. Changelog features — admin-managed roadmap entries shown to all users.
 --    status: 'planned' | 'in_progress' | 'released'
@@ -58,9 +66,12 @@ CREATE INDEX IF NOT EXISTS idx_mdl_review_queue_status ON mdl_review_queue(statu
 -- Older seeds may not have feature_key unique — ON CONFLICT below needs it.
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'feature_flags_feature_key_key'
-  ) THEN
+  IF to_regclass('feature_flags') IS NOT NULL
+     AND EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'feature_flags' AND column_name = 'feature_key')
+     AND NOT EXISTS (
+       SELECT 1 FROM pg_constraint WHERE conname = 'feature_flags_feature_key_key'
+     ) THEN
     BEGIN
       ALTER TABLE feature_flags ADD CONSTRAINT feature_flags_feature_key_key UNIQUE (feature_key);
     EXCEPTION WHEN duplicate_object THEN NULL;
@@ -71,12 +82,22 @@ END $$;
 -- 5. Seed feature flags for the new/ungated surfaces.
 --    console_viewer + clear_cache are hidden from beta testers by default —
 --    the admin can flip hide_from_beta in Feature Management.
-INSERT INTO feature_flags (feature_key, feature_name, description, category, min_tier, is_enabled, hide_from_beta, display_order)
-VALUES
-  ('console_viewer',  'Console Viewer',   'On-device debug console',        'tools',    'guest', TRUE, TRUE,  90),
-  ('clear_cache',     'Clear Cache',      'Clear cached app data button',   'tools',    'guest', TRUE, TRUE,  91),
-  ('notepad',         'Notepad',          'Floating notes workspace',       'tools',    'guest', TRUE, FALSE, 92),
-  ('price_learning',  'Learn Prices',     'Quick price-learning popup',     'tools',    'guest', TRUE, FALSE, 93),
-  ('changelog',       'Changelog',        'Release notes & roadmap viewer', 'system',   'guest', TRUE, FALSE, 94),
-  ('notifications',   'Notifications',    'Toolbar notification bell',      'system',   'guest', TRUE, FALSE, 95)
-ON CONFLICT (feature_key) DO NOTHING;
+DO $$
+BEGIN
+  IF to_regclass('feature_flags') IS NOT NULL
+     AND EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'feature_flags' AND column_name = 'min_tier')
+     AND EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'feature_flags' AND column_name = 'hide_from_beta')
+  THEN
+    INSERT INTO feature_flags (feature_key, feature_name, description, category, min_tier, is_enabled, hide_from_beta, display_order)
+    VALUES
+      ('console_viewer',  'Console Viewer',   'On-device debug console',        'tools',    'guest', TRUE, TRUE,  90),
+      ('clear_cache',     'Clear Cache',      'Clear cached app data button',   'tools',    'guest', TRUE, FALSE, 91),
+      ('notepad',         'Notepad',          'Floating notes workspace',       'tools',    'guest', TRUE, FALSE, 92),
+      ('price_learning',  'Learn Prices',     'Quick price-learning popup',     'tools',    'guest', TRUE, FALSE, 93),
+      ('changelog',       'Changelog',        'Release notes & roadmap viewer', 'system',   'guest', TRUE, FALSE, 94),
+      ('notifications',   'Notifications',    'Toolbar notification bell',      'system',   'guest', TRUE, FALSE, 95)
+    ON CONFLICT (feature_key) DO NOTHING;
+  END IF;
+END $$;

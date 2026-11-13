@@ -5,6 +5,9 @@ import './styles/mobile.css';
 import './styles/optimization.css';
 import './styles/tutorial.css';
 import App from './App';
+import { installSessionGuard } from './services/sessionGuard';
+
+installSessionGuard();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

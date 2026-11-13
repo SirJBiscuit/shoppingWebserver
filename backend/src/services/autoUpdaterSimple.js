@@ -10,7 +10,11 @@ class SimpleAutoUpdater {
     this.isChecking = false;
     this.githubRepo = 'SirJBiscuit/shoppingWebserver';
     this.githubBranch = 'main';
-    this.updateFlagPath = '/opt/cloudmc-shop/.update-requested';
+    // Host-side flag file consumed by update-server.sh (see docker-compose
+    // volume mount). Configurable so non-/opt/cloudmc-shop deploys still work.
+    this.updateFlagPath = process.env.UPDATE_FLAG_PATH || '/opt/cloudmc-shop/.update-requested';
+    // Commit already flagged this boot — prevents writing/logging every cycle.
+    this.requestedCommit = null;
   }
 
   async initialize() {
@@ -56,10 +60,13 @@ class SimpleAutoUpdater {
         console.log(`   Latest:  ${latestCommit.sha.substring(0, 7)}`);
         console.log(`   Message: ${latestCommit.message}`);
         
-        // Request update by creating flag file
-        await this.requestUpdate(latestCommit);
+        // Request update by creating flag file (once per commit per boot)
+        if (this.requestedCommit !== latestCommit.sha) {
+          await this.requestUpdate(latestCommit);
+        }
       } else {
         console.log('✅ Up to date');
+        this.requestedCommit = null;
       }
       
     } catch (error) {
@@ -71,8 +78,8 @@ class SimpleAutoUpdater {
 
   async getCurrentVersion() {
     try {
-      const result = await db.get('SELECT current_version FROM system_status WHERE id = 1');
-      return result?.current_version || null;
+      const result = await db.query('SELECT current_version FROM system_status WHERE id = 1');
+      return result?.rows?.[0]?.current_version || null;
     } catch (error) {
       console.warn('Could not get current version from database');
       return null;
@@ -116,18 +123,22 @@ class SimpleAutoUpdater {
       await fs.writeFile(this.updateFlagPath, flagContent);
       console.log('📝 Update flag file created');
       console.log('   A cron job or manual run of ./update-server.sh will apply the update');
-      
+
       // Also update database
-      await db.run(`
-        UPDATE system_status 
-        SET update_available = true, 
-            updated_at = CURRENT_TIMESTAMP 
+      await db.query(`
+        UPDATE system_status
+        SET update_available = true,
+            updated_at = CURRENT_TIMESTAMP
         WHERE id = 1
       `);
-      
+
     } catch (error) {
       console.error('❌ Error requesting update:', error.message);
+      console.error('   Update cannot be applied until the flag path is writable —');
+      console.error('   mount the repo dir or set UPDATE_FLAG_PATH in docker-compose.');
     }
+    // Whether it succeeded or not, don't re-attempt every 60s for this commit.
+    this.requestedCommit = commitInfo.sha;
   }
 
   stop() {

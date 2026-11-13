@@ -17,7 +17,7 @@ router.get('/queue', authenticateToken, isAdmin, async (req, res) => {
     const status = ['pending', 'approved', 'rejected'].includes(req.query.status)
       ? req.query.status : 'pending';
     const result = await db.query(
-      `SELECT q.*, u.username, u.display_name
+      `SELECT q.*, u.username
        FROM mdl_review_queue q
        LEFT JOIN users u ON q.user_id = u.id
        WHERE q.status = $1

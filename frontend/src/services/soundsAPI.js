@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+// Empty default = same-origin /api (works in dev via proxy and in production).
+const API_URL = process.env.REACT_APP_API_URL || '';
 
 const soundsAPI = {
   // Get all available sounds

@@ -34,7 +34,7 @@ router.get('/search', async (req, res) => {
       paramCount++;
     }
     
-    query += ` ORDER BY times_purchased DESC, product_name ASC LIMIT $${paramCount}`;
+    query += ` ORDER BY is_best DESC, times_purchased DESC, product_name ASC LIMIT $${paramCount}`;
     params.push(limit);
     
     const result = await db.query(query, params);
@@ -129,7 +129,7 @@ router.post('/admin/product', authenticateToken, async (req, res) => {
       product_name, category, average_price,
       default_price_low, default_price_high,
       best_store, common_size, common_unit,
-      icon_emoji, notes
+      icon_emoji, notes, aisle, brand, is_best
     } = req.body;
 
     if (!product_name || !product_name.trim()) {
@@ -144,14 +144,16 @@ router.post('/admin/product', authenticateToken, async (req, res) => {
     const result = await db.query(`
       INSERT INTO product_master_data
         (product_name, slug, category, average_price, default_price_low,
-         default_price_high, best_store, common_size, common_unit, icon_emoji, notes)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         default_price_high, best_store, common_size, common_unit, icon_emoji,
+         notes, aisle, brand, is_best)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *
     `, [
       product_name.trim(), slug, category ? canonicalizeCategory(category) : null,
       average_price ?? null, default_price_low ?? null, default_price_high ?? null,
       best_store || null, common_size || null, common_unit || null,
-      icon_emoji || null, notes || null
+      icon_emoji || null, notes || null, aisle || null, brand || null,
+      !!is_best
     ]);
 
     res.status(201).json(result.rows[0]);
@@ -177,7 +179,7 @@ router.put('/admin/product/:id', authenticateToken, async (req, res) => {
       default_price_low, default_price_high,
       best_store, common_stores, common_size, common_unit,
       typical_shelf_life_days, typical_location,
-      icon_emoji, notes
+      icon_emoji, notes, aisle, brand, is_best
     } = req.body;
     
     const result = await db.query(`
@@ -195,6 +197,9 @@ router.put('/admin/product/:id', authenticateToken, async (req, res) => {
         typical_location = COALESCE($11, typical_location),
         icon_emoji = COALESCE($12, icon_emoji),
         notes = COALESCE($13, notes),
+        aisle = COALESCE($15, aisle),
+        brand = COALESCE($16, brand),
+        is_best = COALESCE($17, is_best),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $14
       RETURNING *
@@ -203,7 +208,7 @@ router.put('/admin/product/:id', authenticateToken, async (req, res) => {
       default_price_low, default_price_high,
       best_store, common_stores, common_size, common_unit,
       typical_shelf_life_days, typical_location,
-      icon_emoji, notes, id
+      icon_emoji, notes, id, aisle, brand, is_best
     ]);
     
     if (result.rows.length === 0) {
@@ -313,48 +318,65 @@ const resolveStoreId = async (storeId) => {
 router.get('/aisle/:itemName/:storeId', authenticateToken, async (req, res) => {
   try {
     const { itemName } = req.params;
-    const storeId = await resolveStoreId(req.params.storeId);
+
+    // Aisle prediction is best-effort — if the MDL tables aren't migrated yet
+    // (migration 040 can abort mid-file on some deployments), degrade to
+    // "no prediction" instead of 500ing the whole dashboard.
+    let storeId = null;
+    try {
+      storeId = await resolveStoreId(req.params.storeId);
+    } catch (lookupErr) {
+      console.warn('Aisle prediction: store lookup failed:', lookupErr.message);
+    }
 
     // First, try learned data for this specific store
     if (storeId) {
-      const aisleResult = await db.query(`
-        SELECT la.aisle_number, la.confidence_score, la.report_count
-        FROM mdl_location_aisles la
-        JOIN mdl_item_names n ON la.item_name_id = n.id
-        WHERE n.normalized_name = normalize_item_name($1)
-          AND la.specific_store_id = $2
-          AND la.confidence_score > 0.5
-        ORDER BY la.confidence_score DESC, la.report_count DESC
-        LIMIT 1
-      `, [itemName, storeId]);
+      try {
+        const aisleResult = await db.query(`
+          SELECT la.aisle_number, la.confidence_score, la.report_count
+          FROM mdl_location_aisles la
+          JOIN mdl_item_names n ON la.item_name_id = n.id
+          WHERE n.normalized_name = normalize_item_name($1)
+            AND la.specific_store_id = $2
+            AND la.confidence_score > 0.5
+          ORDER BY la.confidence_score DESC, la.report_count DESC
+          LIMIT 1
+        `, [itemName, storeId]);
 
-      if (aisleResult.rows.length > 0) {
-        return res.json({
-          aisle: aisleResult.rows[0].aisle_number,
-          confidence: aisleResult.rows[0].confidence_score,
-          source: 'learned',
-          reports: aisleResult.rows[0].report_count
-        });
+        if (aisleResult.rows.length > 0) {
+          return res.json({
+            aisle: aisleResult.rows[0].aisle_number,
+            confidence: aisleResult.rows[0].confidence_score,
+            source: 'learned',
+            reports: aisleResult.rows[0].report_count
+          });
+        }
+      } catch (learnedErr) {
+        console.warn('Aisle prediction: learned lookup failed:', learnedErr.message);
       }
     }
 
     // Fallback: category-based mapping (this store first, then any store)
-    const categoryResult = await db.query(`
-      SELECT ca.aisle_number, ca.item_count, ca.store_id
-      FROM shopping_list_items sli
-      JOIN mdl_category_aisles ca ON LOWER(sli.category) = LOWER(ca.category)
-      WHERE LOWER(sli.item_name) = LOWER($1)
-        AND (ca.store_id = $2 OR ca.store_id IS NULL)
-      ORDER BY (ca.store_id IS NOT NULL AND ca.store_id = $2) DESC, ca.item_count DESC
-      LIMIT 1
-    `, [itemName, storeId || -1]);
+    try {
+      const categoryResult = await db.query(`
+        SELECT ca.aisle_number, ca.item_count, ca.store_id
+        FROM shopping_list_items sli
+        JOIN mdl_category_aisles ca ON LOWER(sli.category) = LOWER(ca.category)
+        WHERE LOWER(sli.item_name) = LOWER($1)
+          AND (ca.store_id = $2 OR ca.store_id IS NULL)
+        ORDER BY (ca.store_id IS NOT NULL AND ca.store_id = $2) DESC, ca.item_count DESC
+        LIMIT 1
+      `, [itemName, storeId || -1]);
 
-    if (categoryResult.rows.length > 0) {
-      return res.json({
-        aisle: categoryResult.rows[0].aisle_number,
-        confidence: Math.min(0.9, 0.3 + (categoryResult.rows[0].item_count || 0) / 10),
-        source: 'category'
-      });
+      if (categoryResult.rows.length > 0) {
+        return res.json({
+          aisle: categoryResult.rows[0].aisle_number,
+          confidence: Math.min(0.9, 0.3 + (categoryResult.rows[0].item_count || 0) / 10),
+          source: 'category'
+        });
+      }
+    } catch (catErr) {
+      console.warn('Aisle prediction: category fallback failed:', catErr.message);
     }
 
     // No prediction available
@@ -934,6 +956,205 @@ router.get('/backups', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error listing backups:', error);
     res.status(500).json({ error: 'Failed to list backups' });
+  }
+});
+
+// ============================================================================
+// SIZE / WEIGHT / UNIT PRESETS (admin-managed, simple names, color-coded)
+// ============================================================================
+
+// List presets — optionally filtered to a category (includes global presets)
+router.get('/size-presets', authenticateToken, async (req, res) => {
+  try {
+    const { category } = req.query;
+    const result = await db.query(
+      `SELECT * FROM mdl_size_presets
+       WHERE category IS NULL OR category = $1
+       ORDER BY preset_type, sort_order`,
+      [category || null]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error getting size presets:', error);
+    res.status(500).json({ error: 'Failed to get size presets' });
+  }
+});
+
+// Admin: create preset
+router.post('/admin/size-presets', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const { category, preset_type, label, value, sort_order, color } = req.body;
+    if (!label || !value) return res.status(400).json({ error: 'label and value required' });
+    const result = await db.query(
+      `INSERT INTO mdl_size_presets (category, preset_type, label, value, sort_order, color)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (category, preset_type, value) DO UPDATE SET
+         label = EXCLUDED.label, sort_order = EXCLUDED.sort_order, color = EXCLUDED.color
+       RETURNING *`,
+      [category || null, preset_type || 'size', label, value, sort_order ?? 0, color || 'gray']
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating size preset:', error);
+    res.status(500).json({ error: 'Failed to create size preset' });
+  }
+});
+
+// Admin: delete preset
+router.delete('/admin/size-presets/:id', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    await db.query('DELETE FROM mdl_size_presets WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting size preset:', error);
+    res.status(500).json({ error: 'Failed to delete size preset' });
+  }
+});
+
+// ============================================================================
+// PER-STORE PRODUCT VARIANTS (sub-entries for different store locations)
+// ============================================================================
+
+// Get all store variants for a product
+router.get('/admin/product/:id/variants', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT * FROM mdl_product_variants WHERE product_id = $1 ORDER BY store_name, size_value',
+      [req.params.id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error getting variants:', error);
+    res.status(500).json({ error: 'Failed to get variants' });
+  }
+});
+
+// Admin: upsert a store variant
+router.post('/admin/product/:id/variants', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const { store_name, aisle, price, size_value, is_best, notes } = req.body;
+    if (!store_name || !store_name.trim()) {
+      return res.status(400).json({ error: 'store_name required' });
+    }
+    const result = await db.query(
+      `INSERT INTO mdl_product_variants (product_id, store_name, aisle, price, size_value, is_best, notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (product_id, store_name, size_value) DO UPDATE SET
+         aisle = COALESCE(EXCLUDED.aisle, mdl_product_variants.aisle),
+         price = COALESCE(EXCLUDED.price, mdl_product_variants.price),
+         is_best = COALESCE(EXCLUDED.is_best, mdl_product_variants.is_best),
+         notes = COALESCE(EXCLUDED.notes, mdl_product_variants.notes),
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [req.params.id, store_name.trim(), aisle || null, price ?? null,
+       size_value || '', is_best || null, notes || null]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error saving variant:', error);
+    res.status(500).json({ error: 'Failed to save variant' });
+  }
+});
+
+// Admin: delete a variant
+router.delete('/admin/variants/:variantId', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    await db.query('DELETE FROM mdl_product_variants WHERE id = $1', [req.params.variantId]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting variant:', error);
+    res.status(500).json({ error: 'Failed to delete variant' });
+  }
+});
+
+// Admin: mark one variant as the "best version" (clears other stores' flag)
+router.post('/admin/variants/:variantId/mark-best', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    await db.query(
+      `UPDATE mdl_product_variants SET is_best = FALSE, updated_at = CURRENT_TIMESTAMP
+       WHERE product_id = (SELECT product_id FROM mdl_product_variants WHERE id = $1)`,
+      [req.params.variantId]
+    );
+    const result = await db.query(
+      `UPDATE mdl_product_variants SET is_best = TRUE, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1 RETURNING *`,
+      [req.params.variantId]
+    );
+    res.json(result.rows[0] || null);
+  } catch (error) {
+    console.error('Error marking best variant:', error);
+    res.status(500).json({ error: 'Failed to mark best variant' });
+  }
+});
+
+// ============================================================================
+// HOUSEHOLD-MEMBER FAVORITES (items / brands / ingredients / meals / restaurants)
+// ============================================================================
+
+// Get favorites for this user — optionally filtered by entity
+router.get('/favorites', authenticateToken, async (req, res) => {
+  try {
+    const { entity_type, entity_name } = req.query;
+    let query = `
+      SELECT f.*, m.name AS member_name, m.avatar_emoji, m.color AS member_color
+      FROM mdl_item_favorites f
+      LEFT JOIN household_members m ON f.member_id = m.id
+      WHERE f.user_id = $1`;
+    const params = [req.user.id];
+    if (entity_type) { params.push(entity_type); query += ` AND f.entity_type = $${params.length}`; }
+    if (entity_name) { params.push(entity_name); query += ` AND LOWER(f.entity_name) = LOWER($${params.length})`; }
+    query += ' ORDER BY f.created_at DESC';
+    const result = await db.query(query, params);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error getting favorites:', error);
+    res.status(500).json({ error: 'Failed to get favorites' });
+  }
+});
+
+// Set a member's preference on an entity (favorite / like / hated)
+router.post('/favorites', authenticateToken, async (req, res) => {
+  try {
+    const { member_id, entity_type, entity_name, product_id, preference } = req.body;
+    if (!entity_name || !preference) {
+      return res.status(400).json({ error: 'entity_name and preference required' });
+    }
+    if (!['favorite', 'like', 'hated'].includes(preference)) {
+      return res.status(400).json({ error: 'preference must be favorite, like, or hated' });
+    }
+    const result = await db.query(
+      `INSERT INTO mdl_item_favorites
+         (user_id, member_id, entity_type, entity_name, product_id, preference)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (user_id, member_id, entity_type, entity_name)
+       DO UPDATE SET preference = EXCLUDED.preference,
+                     product_id = EXCLUDED.product_id,
+                     updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [req.user.id, member_id || null, entity_type || 'item',
+       entity_name.trim(), product_id || null, preference]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error saving favorite:', error);
+    res.status(500).json({ error: 'Failed to save favorite' });
+  }
+});
+
+// Remove a favorite mark
+router.delete('/favorites/:id', authenticateToken, async (req, res) => {
+  try {
+    await db.query('DELETE FROM mdl_item_favorites WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.user.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting favorite:', error);
+    res.status(500).json({ error: 'Failed to delete favorite' });
   }
 });
 

@@ -121,7 +121,10 @@ const runMigrations = async () => {
   
   const migrations = [
     { file: 'add_sound_system.sql', name: 'Sound System' },
+    { file: '015_ai_app_builder.sql', name: 'AI App Builder' },
+    { file: '020_feature_flags.sql', name: 'Feature Flags' },
     { file: '035_create_mdl_system.sql', name: 'MDL Product Database' },
+    { file: '037_auto_update_system.sql', name: 'Auto Update System' },
     { file: '039_item_training_system.sql', name: 'Item Training System' },
     { file: '040_mdl_system.sql', name: 'MDL Learning System' },
     { file: '041_mdl_user_preferences.sql', name: 'MDL User Preferences' },
@@ -139,7 +142,8 @@ const runMigrations = async () => {
     { file: '054_spice_levels.sql', name: 'Spice Levels' },
     { file: '055_household_eatout.sql', name: 'Household Eating Out' },
     { file: '056_spices_sidebar_and_mdl_categories.sql', name: 'Spice Sidebar & MDL Categories' },
-    { file: '057_spice_catalog_expansion.sql', name: 'Spice Catalog Expansion' }
+    { file: '057_spice_catalog_expansion.sql', name: 'Spice Catalog Expansion' },
+    { file: '058_mdl_product_enhancements.sql', name: 'MDL Product Enhancements' }
   ];
 
   for (const migration of migrations) {

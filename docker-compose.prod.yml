@@ -46,7 +46,8 @@ services:
       FRONTEND_URL: ${FRONTEND_URL}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /opt/cloudmc-shop:/opt/cloudmc-shop:ro
+      # rw required: auto-updater writes .update-requested for update-server.sh
+      - /opt/cloudmc-shop:/opt/cloudmc-shop
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

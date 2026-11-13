@@ -6,6 +6,7 @@ import {
   ChevronDown, ChevronUp, Filter, Search, Download, Shield, Users
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { Portal } from '../utils/autoPlacement';
 
 const ChangelogViewer = ({ isOpen, onClose }) => {
   const { user } = useAuth();
@@ -26,17 +27,13 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
 
-  const checkAdminStatus = async () => {
+  const checkAdminStatus = () => {
+    // Read the flag stored at login — probing /api/system/check-updates
+    // 403s for every non-admin and spams the console.
     try {
-      const response = await fetch('/api/system/check-updates', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      if (response.ok) {
-        setIsAdmin(true);
-      }
-    } catch (error) {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      setIsAdmin(!!(user.isAdmin || user.is_admin));
+    } catch {
       setIsAdmin(false);
     }
   };
@@ -177,7 +174,7 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <Portal><div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -465,7 +462,7 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
           </div>
         </div>
       </motion.div>
-    </div>
+    </div></Portal>
   );
 };
 

@@ -232,4 +232,129 @@ export const runMdlBackup = async () => {
   }
 };
 
+// ============================================================================
+// SIZE / WEIGHT / UNIT PRESETS
+// ============================================================================
+
+export const getSizePresets = async (category = '') => {
+  try {
+    const response = await mdlAPI.get('/size-presets', {
+      params: { category: category || undefined }
+    });
+    return response.data;
+  } catch (error) {
+    return [];
+  }
+};
+
+export const createSizePreset = async (data) => {
+  try {
+    const response = await mdlAPI.post('/admin/size-presets', data);
+    return response.data;
+  } catch (error) {
+    console.warn('Create preset failed:', error.message);
+    return null;
+  }
+};
+
+export const deleteSizePreset = async (id) => {
+  try {
+    await mdlAPI.delete(`/admin/size-presets/${id}`);
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
+// ============================================================================
+// PER-STORE PRODUCT VARIANTS
+// ============================================================================
+
+export const getProductVariants = async (productId) => {
+  try {
+    const response = await mdlAPI.get(`/admin/product/${productId}/variants`);
+    return response.data;
+  } catch (error) {
+    return [];
+  }
+};
+
+export const saveProductVariant = async (productId, data) => {
+  try {
+    const response = await mdlAPI.post(`/admin/product/${productId}/variants`, data);
+    return response.data;
+  } catch (error) {
+    console.warn('Save variant failed:', error.message);
+    return null;
+  }
+};
+
+export const deleteProductVariant = async (variantId) => {
+  try {
+    await mdlAPI.delete(`/admin/variants/${variantId}`);
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
+export const markBestVariant = async (variantId) => {
+  try {
+    const response = await mdlAPI.post(`/admin/variants/${variantId}/mark-best`);
+    return response.data;
+  } catch (error) {
+    console.warn('Mark best failed:', error.message);
+    return null;
+  }
+};
+
+// ============================================================================
+// HOUSEHOLD-MEMBER FAVORITES (item / brand / ingredient / meal / restaurant)
+// ============================================================================
+
+export const getFavorites = async (entityType = '', entityName = '') => {
+  try {
+    const response = await mdlAPI.get('/favorites', {
+      params: {
+        entity_type: entityType || undefined,
+        entity_name: entityName || undefined
+      }
+    });
+    return response.data;
+  } catch (error) {
+    return [];
+  }
+};
+
+export const setFavorite = async (data) => {
+  try {
+    const response = await mdlAPI.post('/favorites', data);
+    return response.data;
+  } catch (error) {
+    console.warn('Set favorite failed:', error.message);
+    return null;
+  }
+};
+
+export const removeFavorite = async (id) => {
+  try {
+    await mdlAPI.delete(`/favorites/${id}`);
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
+// Household members (for the "whose favorite?" picker)
+export const getHouseholdMembers = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/household`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    });
+    return response.data;
+  } catch (error) {
+    return [];
+  }
+};
+
 export default mdlAPI;

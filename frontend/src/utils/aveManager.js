@@ -409,7 +409,8 @@ class AVEManager {
       const response = await fetch('/api/ave/layouts', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           userId: this.userId,
@@ -434,7 +435,7 @@ class AVEManager {
    */
   async loadFromDatabase() {
     try {
-      const response = await fetch(`/api/ave/layouts/${this.userId}`);
+      const response = await fetch(`/api/ave/layouts/${this.userId}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } });
       
       if (!response.ok) {
         return null;
@@ -456,7 +457,8 @@ class AVEManager {
       await fetch('/api/ave/snapshots', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Content-Type': 'application/json'
         },
         body: JSON.stringify(snapshot)
       });
@@ -470,7 +472,7 @@ class AVEManager {
    */
   async loadSnapshot(snapshotId) {
     try {
-      const response = await fetch(`/api/ave/snapshots/${snapshotId}`);
+      const response = await fetch(`/api/ave/snapshots/${snapshotId}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } });
       
       if (!response.ok) {
         return null;
@@ -488,7 +490,7 @@ class AVEManager {
    */
   async getSnapshots() {
     try {
-      const response = await fetch(`/api/ave/snapshots?userId=${this.userId}`);
+      const response = await fetch(`/api/ave/snapshots?userId=${this.userId}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } });
       
       if (!response.ok) {
         return [];

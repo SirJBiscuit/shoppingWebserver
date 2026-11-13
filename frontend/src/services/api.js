@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { expireSession } from './sessionGuard';
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
@@ -29,10 +30,16 @@ api.interceptors.response.use(
     const url = error.config?.url || '';
     const isAuthEndpoint = url.startsWith('/auth/') || url.startsWith('/beta/');
 
-    if (error.response?.status === 401 && !isAuthEndpoint) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+    // 401 = missing token; 403 + this body = rejected/dead JWT. Other 403s
+    // (admin gates, feature access) must NOT kill the session.
+    const status = error.response?.status;
+    const deadToken = status === 403 &&
+      error.response.data?.error === 'Invalid or expired token';
+
+    // A 401 while a token IS stored means the caller sent no auth header —
+    // not an expired session. Only expire when localStorage has no token.
+    if ((deadToken || (status === 401 && !localStorage.getItem('token'))) && !isAuthEndpoint) {
+      expireSession();
     }
     return Promise.reject(error);
   }

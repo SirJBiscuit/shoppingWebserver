@@ -46,6 +46,7 @@ CREATE TRIGGER price_history_updated_at
   EXECUTE FUNCTION update_price_history_updated_at();
 
 -- View for pending reviews
+DROP VIEW IF EXISTS price_history_pending;
 CREATE OR REPLACE VIEW price_history_pending AS
 SELECT 
   ph.*,
@@ -57,6 +58,7 @@ WHERE ph.status = 'pending'
 ORDER BY ph.created_at DESC;
 
 -- View for outliers
+DROP VIEW IF EXISTS price_history_outliers;
 CREATE OR REPLACE VIEW price_history_outliers AS
 SELECT 
   ph.*,
@@ -75,6 +77,7 @@ WHERE ph.is_outlier = true
 ORDER BY ph.outlier_score DESC, ph.created_at DESC;
 
 -- View for statistics
+DROP VIEW IF EXISTS price_history_stats;
 CREATE OR REPLACE VIEW price_history_stats AS
 SELECT 
   COUNT(*) as total_prices,
