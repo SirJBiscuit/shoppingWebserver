@@ -860,6 +860,66 @@ router.get('/price/:itemName', authenticateToken, async (req, res) => {
 });
 
 // ============================================================================
+// STORE USUALS — per-store "you usually buy" predictions
+// ============================================================================
+
+/**
+ * GET /api/mdl/store-usuals?store=&limit=
+ * Most-bought items at the given store (history rows store_name match).
+ * If the store has fewer than `limit` items, tops up with the user's
+ * global usuals — each row carries store_match so the UI can label
+ * "at Walmart" vs "usually".
+ */
+router.get('/store-usuals', authenticateToken, async (req, res) => {
+  try {
+    const { store } = req.query;
+    const lim = Math.min(parseInt(req.query.limit) || 8, 25);
+
+    const base = `
+      SELECT n.normalized_name AS item_name, n.predicted_icon, n.predicted_category,
+             COUNT(*) AS times_bought,
+             MAX(h.created_at) AS last_bought,
+             (ARRAY_AGG(h.price    ORDER BY h.created_at DESC))[1] AS last_price,
+             (ARRAY_AGG(h.quantity ORDER BY h.created_at DESC))[1] AS last_quantity,
+             (ARRAY_AGG(h.unit     ORDER BY h.created_at DESC))[1] AS last_unit
+      FROM mdl_user_item_history h
+      JOIN mdl_item_names n ON n.id = h.item_name_id
+      WHERE h.user_id = $1`;
+
+    let rows = [];
+    if (store) {
+      const r = await db.query(
+        `${base} AND LOWER(h.store_name) = LOWER($2)
+         GROUP BY n.normalized_name, n.predicted_icon, n.predicted_category
+         ORDER BY times_bought DESC, last_bought DESC LIMIT $3`,
+        [req.user.id, store, lim]
+      );
+      rows = r.rows.map((row) => ({ ...row, store_match: true }));
+    }
+
+    if (rows.length < lim) {
+      const have = new Set(rows.map((r) => r.item_name));
+      const r = await db.query(
+        `${base} GROUP BY n.normalized_name, n.predicted_icon, n.predicted_category
+         ORDER BY times_bought DESC, last_bought DESC LIMIT $2`,
+        [req.user.id, lim * 2]
+      );
+      for (const row of r.rows) {
+        if (rows.length >= lim) break;
+        if (!have.has(row.item_name)) {
+          rows.push({ ...row, store_match: false });
+        }
+      }
+    }
+
+    res.json(rows);
+  } catch (error) {
+    console.error('Store usuals error:', error);
+    res.status(500).json({ error: 'Failed to fetch store usuals' });
+  }
+});
+
+// ============================================================================
 // USER LOCATION
 // ============================================================================
 

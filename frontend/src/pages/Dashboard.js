@@ -17,6 +17,7 @@ import EditorToolbar from '../components/editor/EditorToolbar';
 import EditorOverlay, { EditorModeIndicator, EditableContainer } from '../components/editor/EditorOverlay';
 import PropertiesPanel from '../components/editor/PropertiesPanel';
 import ItemList from '../components/ItemList';
+import StoreUsuals from './components/StoreUsuals';
 import SmartSuggestions from '../components/SmartSuggestions';
 import PantryQuickView from '../components/PantryQuickView';
 import ShoppingListRecipes from '../components/ShoppingListRecipes';
@@ -2503,10 +2504,20 @@ const Dashboard = () => {
                 </button>
               </div>
               {showSuggestions && (
-                <SmartSuggestions
-                  suggestions={suggestions}
-                  onAddSuggestion={addSuggestion}
-                />
+                <>
+                  {/* Per-store "usually buy" quick-add chips (MDL) */}
+                  <StoreUsuals
+                    storeName={activeList?.store_name}
+                    items={items}
+                    onAdd={addSuggestion}
+                  />
+                  <div className="mt-3">
+                    <SmartSuggestions
+                      suggestions={suggestions}
+                      onAddSuggestion={addSuggestion}
+                    />
+                  </div>
+                </>
               )}
             </div>
 
