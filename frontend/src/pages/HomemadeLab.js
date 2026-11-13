@@ -26,8 +26,8 @@ const LABS = [
     icon: UtensilsCrossed,
     gradient: 'from-amber-500 to-orange-600',
     description: 'Pesto, tzatziki, guac — mixes that cross-reference what you already have.',
-    path: null,
-    ready: false,
+    path: '/lab/mix',
+    ready: true,
   },
   {
     id: 'meal',

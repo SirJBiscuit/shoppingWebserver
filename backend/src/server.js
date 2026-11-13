@@ -152,7 +152,8 @@ const runMigrations = async () => {
     { file: '057_spice_catalog_expansion.sql', name: 'Spice Catalog Expansion' },
     { file: '058_mdl_product_enhancements.sql', name: 'MDL Product Enhancements' },
     { file: '059_list_budgets.sql', name: 'List Budgets' },
-    { file: '060_homemade_lab_sidebar.sql', name: 'Homemade Lab Sidebar' }
+    { file: '060_homemade_lab_sidebar.sql', name: 'Homemade Lab Sidebar' },
+    { file: '061_mix_lab_preset_recipes.sql', name: 'Mix Lab Preset Recipes' }
   ];
 
   for (const migration of migrations) {
