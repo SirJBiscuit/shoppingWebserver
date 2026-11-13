@@ -19,6 +19,7 @@ import { useOverlayTarget, useOverlayHotkeys } from '../../overlay/OverlayIntera
 import { BT, PAGE_COLORS, loadDoc, saveDoc, exportPageText, makeHistory, blockHelpers } from './notepadStore';
 import { ICON_DATA } from '../IconPicker';
 import PickerSearchBar from '../PickerSearchBar';
+import { Portal } from '../../utils/autoPlacement';
 
 const THEMES = {
   dark: {
@@ -521,11 +522,20 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
       if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); saveDoc(userId, doc); showToast('Saved'); }
       if (mod && e.key.toLowerCase() === 'f') { e.preventDefault(); setShowFind(true); }
       if (mod && e.key.toLowerCase() === 'c' && pageSelRef.current) { e.preventDefault(); copyPageRef.current(); }
+      // Delete/Backspace with blocks selected (and no editor focused) = bulk delete
+      if ((e.key === 'Delete' || e.key === 'Backspace') && blockSel.size &&
+          !['TEXTAREA', 'INPUT', 'SELECT'].includes(e.target.tagName) && !e.target.isContentEditable) {
+        e.preventDefault();
+        mutatePage((pg) => { pg.blocks = pg.blocks.filter((blk) => !blockSel.has(blk.id)); });
+        showToast(`Deleted ${blockSel.size} block${blockSel.size === 1 ? '' : 's'}`);
+        setBlockSel(new Set()); setPageSel(false);
+        return;
+      }
       if (e.key === 'Escape') { setMenu(null); setPopup(null); setShowPalette(false); setDueEditId(null); setSelBar(null); setBlockSel(new Set()); setPageSel(false); setWordEraseMode(false); setFolderMenuPage(null); setSlashState(null); setGlyphState(null); }
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
-  }, [isOpen, mode, doc, userId, undo, redo, showToast]);
+  }, [isOpen, mode, doc, userId, undo, redo, showToast, blockSel, mutatePage]);
 
   /* ----- wheel hotkeys via overlay API — window-capture kills Opera/Chrome page-zoom
        Ctrl/⌘+wheel → zoom · Ctrl+Shift+wheel → text scale · Ctrl+Alt+wheel → UI scale ----- */
@@ -730,6 +740,11 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
       return;
     }
     setBlockText(b.id, v);
+    // mark typed so the typewriter replay can't swap this textarea out mid-keystroke
+    setTypedDone((s) => (s.has(b.id) ? s : new Set(s).add(b.id)));
+    // auto-grow while typing (a manually pinned height wins)
+    const ta = e.target;
+    if (!b.h) { ta.style.height = 'auto'; ta.style.height = `${ta.scrollHeight}px`; }
   };
 
   /** Kotlin keyPressed for text blocks — Enter splits/demotes, Backspace merges. */
@@ -754,14 +769,20 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
       }
       if (e.key === 'Escape') { setGlyphState(null); e.preventDefault(); return; }
     }
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter') {
       if ((e.ctrlKey || e.metaKey) && b.type === BT.CHECK) {
         e.preventDefault();
         mutatePage((pg) => { const x = pg.blocks.find((y) => y.id === b.id); if (x) x.checked = !x.checked; });
         return;
       }
+      // Enter semantics per block kind:
+      //   text  → Enter = newline inside the block · Shift+Enter = new block
+      //   lists → Enter = next item (empty row demotes) · Shift+Enter = newline
+      const isList = [BT.CHECK, BT.BULLET, BT.NUMBER].includes(b.type);
+      const wantNewline = b.type === BT.TEXT ? !e.shiftKey : e.shiftKey;
+      if (wantNewline) return; // let the textarea insert \n natively
       e.preventDefault();
-      if ([BT.CHECK, BT.BULLET, BT.NUMBER].includes(b.type) && !b.text.trim()) {
+      if (isList && !b.text.trim()) {
         // empty list row demotes to plain text — the "leave the list" gesture
         mutatePage((pg) => { const x = pg.blocks.find((y) => y.id === b.id); if (x) x.type = BT.TEXT; });
         return;
@@ -950,6 +971,37 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
     while (a > 0 && isWord(text[a - 1])) a--;
     while (b < text.length && isWord(text[b])) b++;
     return a === b ? null : [a, b];
+  };
+
+  /** Auto-size a block textarea — a pinned height (b.h) applies as-is. */
+  const autoSizeTa = (el, h) => {
+    if (!el) return;
+    if (h) { el.style.height = `${h}px`; return; }
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
+
+  /** Bottom-edge block resize grip — live height during drag, one commit on release. */
+  const startBlockResize = (e, b) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = taRefs.current[b.id];
+    if (!el) return;
+    const zoom = settings.zoom || 1;
+    const startY = e.clientY;
+    const startH = el.offsetHeight;
+    let pending = startH;
+    const mv = (ev) => {
+      pending = Math.max(26, Math.round(startH + (ev.clientY - startY) / zoom));
+      el.style.height = `${pending}px`;
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', mv);
+      window.removeEventListener('pointerup', up);
+      if (pending !== startH) patchBlock(b.id, { h: pending });
+    };
+    window.addEventListener('pointermove', mv);
+    window.addEventListener('pointerup', up);
   };
 
   const duplicateLine = (id) => {
@@ -1520,7 +1572,7 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
 
   /* ----- 3-dot launcher (closed notepad orb) ----- */
   const launcher = (
-    <motion.button
+    <Portal><motion.button
       key="launcher"
       drag
       dragMomentum={false}
@@ -1544,12 +1596,12 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
       title="Notepad — drag to move, click to open"
     >
       <MoreVertical className="w-5 h-5" />
-    </motion.button>
+    </motion.button></Portal>
   );
 
   /* ----- compact pill ----- */
   const compactPill = (
-    <motion.div
+    <Portal><motion.div
       key="compact"
       drag
       dragMomentum={false}
@@ -1572,7 +1624,7 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
       >
         <Maximize2 className="w-3.5 h-3.5" />
       </button>
-    </motion.div>
+    </motion.div></Portal>
   );
 
   const isFullscreen = mode === 'fullscreen';
@@ -2159,19 +2211,30 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
                                       }}
                                     />
                                   ) : (
+                                    <>
                                     <textarea
-                                      ref={(el) => { taRefs.current[b.id] = el; }}
+                                      ref={(el) => { taRefs.current[b.id] = el; autoSizeTa(el, b.h); }}
                                       data-block-id={b.id}
                                       value={b.text}
                                       onChange={(e) => handleTaChange(b, e)}
                                       onKeyDown={(e) => handleTaKeyDown(b, e)}
                                       onClick={(e) => handleTaClick(b, e)}
                                       onFocus={() => { activeTa.current = b.id; }}
-                                      rows={Math.min(Math.max(lineCount, 1), 20)}
+                                      rows={1}
                                       placeholder={b.type === BT.CHECK ? 'Checkbox item…' : b.type === BT.TEXT ? 'Type here — try /check, /table…' : 'Type here…'}
-                                      style={{ fontSize: `${settings.textScale || 1}em` }}
-                                      className={`w-full resize-y bg-transparent outline-none placeholder:opacity-40 ${b.checked ? 'line-through opacity-60' : ''} ${theme.text}`}
+                                      style={{ fontSize: `${settings.textScale || 1}em`, height: b.h || undefined, overflowY: b.h ? 'auto' : 'hidden' }}
+                                      className={`w-full resize-none bg-transparent outline-none placeholder:opacity-40 ${b.checked ? 'line-through opacity-60' : ''} ${theme.text}`}
                                     />
+                                    {/* bottom-edge resize grip — always a real drag target, never covered by the checkbox */}
+                                    <div
+                                      onPointerDown={(e) => startBlockResize(e, b)}
+                                      onDoubleClick={() => patchBlock(b.id, { h: null })}
+                                      className={`group/grip relative flex justify-center items-end h-2 -mx-1 cursor-ns-resize ${isMobile ? '' : 'opacity-0 hover:opacity-100 group-hover:opacity-60'} transition-opacity`}
+                                      title={b.h ? 'Drag to resize · double-click to auto-fit' : 'Drag to pin a height'}
+                                    >
+                                      <span className={`w-9 h-1 rounded-full ${b.h ? 'bg-sky-400/80' : 'bg-gray-400/50 group-hover/grip:bg-sky-400/80'}`} />
+                                    </div>
+                                    </>
                                   )
                                 )}
                                 {/* due date chip / picker */}
@@ -2366,8 +2429,8 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
       </div>
 
       {/* ===== context menus — scrollable (Kotlin CtxMenu), bottom-sheet on mobile ===== */}
-      {menu && <div className="fixed inset-0 z-[80]" onClick={(e) => { e.stopPropagation(); setMenu(null); }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setMenu(null); }} />}
-      <AnimatePresence>
+      {menu && <Portal><div className="fixed inset-0 z-[80]" onClick={(e) => { e.stopPropagation(); setMenu(null); }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setMenu(null); }} /></Portal>}
+      <Portal><AnimatePresence>
       {menu && (() => {
         const b = page.blocks.find((x) => x.id === menu.id);
         const isTextish = b && TEXTISH.includes(b.type);
@@ -2485,6 +2548,7 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
                       <MenuRow theme={theme} icon={ChevronUp} tint={TARR} label="Move up" onClick={() => blockAction(menu.id, 'up')} />
                       <MenuRow theme={theme} icon={ChevronDown} tint={TARR} label="Move down" onClick={() => blockAction(menu.id, 'down')} />
                       <MenuRow theme={theme} icon={Copy} tint={TARR} label="Duplicate" onClick={() => blockAction(menu.id, 'dup')} />
+                      <MenuRow theme={theme} icon={CheckSquare} tint={TARR} label="Select blocks…" onClick={() => { setBlockSelMode(true); toggleBlockSel(menu.id); setMenu(null); showToast('Select blocks · Del removes them'); }} />
                       <MenuRow theme={theme} icon={Trash2} danger label="Delete" onClick={() => blockAction(menu.id, 'del')} />
                     </>
                   )}
@@ -2574,10 +2638,10 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
             </motion.div>
         );
       })()}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
 
       {/* ===== slash-command picker ===== */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {slashState && slashMatches().length > 0 && (
           <>
             <div className="fixed inset-0 z-[85]" onClick={(e) => { e.stopPropagation(); setSlashState(null); }} />
@@ -2610,10 +2674,10 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
 
       {/* ===== floating text-selection toolbar (Kotlin sel UI) ===== */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {selBar && (
           <motion.div
             initial={{ opacity: 0, y: 4, scale: 0.92 }}
@@ -2644,7 +2708,7 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
             ))}
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
 
       {/* ===== multi-block selection action bar (Kotlin pageSel banner) ===== */}
       <AnimatePresence>
@@ -2665,7 +2729,7 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
       </AnimatePresence>
 
       {/* ===== glyph picker dropdown ===== */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {glyphState && glyphMatches().length > 0 && (
           <>
             <div className="fixed inset-0 z-[85]" onClick={(e) => { e.stopPropagation(); setGlyphState(null); }} />
@@ -2733,10 +2797,10 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
 
       {/* ===== fixed-position color palette (avoids toolbar overflow clipping) ===== */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {showPalette && palettePos && (
           <>
             <div className="fixed inset-0 z-[85]" onClick={(e) => { e.stopPropagation(); setShowPalette(false); }} />
@@ -2766,11 +2830,11 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
 
       {/* ===== move-to-folder popup ===== */}
       {folderMenuPage != null && (
-        <div className="fixed inset-0 z-[96] flex items-center justify-center bg-black/40" onClick={() => { setFolderMenuPage(null); setFolderEdit(null); }}>
+        <Portal><div className="fixed inset-0 z-[96] flex items-center justify-center bg-black/40" onClick={() => { setFolderMenuPage(null); setFolderEdit(null); }}>
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -2824,12 +2888,12 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
               </button>
             </div>
           </motion.div>
-        </div>
+        </div></Portal>
       )}
 
       {/* ===== popups (MenuPanel) ===== */}
       {popup === 'settings' && (
-        <div className="fixed inset-0 z-[95]" onClick={(e) => e.stopPropagation()}>
+        <Portal><div className="fixed inset-0 z-[95]" onClick={(e) => e.stopPropagation()}>
           <MenuPanel isOpen onClose={() => setPopup(null)} title="Notepad Settings" subtitle="Look, feel, and behavior" icon={Settings} maxWidth="max-w-sm" scrollMaxH="60vh">
             <div className={`space-y-4 ${theme.text}`}>
               <div>
@@ -2927,11 +2991,11 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
               </div>
             </div>
           </MenuPanel>
-        </div>
+        </div></Portal>
       )}
 
       {popup === 'nav' && (
-        <div className="fixed inset-0 z-[95]" onClick={(e) => e.stopPropagation()}>
+        <Portal><div className="fixed inset-0 z-[95]" onClick={(e) => e.stopPropagation()}>
           <MenuPanel isOpen onClose={() => setPopup(null)} title="Jump to Page" subtitle="Quick navigation" icon={FileStack} maxWidth="max-w-sm" scrollMaxH="60vh">
             <div className="space-y-1.5">
               {doc.pages.map((p, i) => (
@@ -2951,11 +3015,11 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
               ))}
             </div>
           </MenuPanel>
-        </div>
+        </div></Portal>
       )}
 
       {popup === 'templates' && (
-        <div className="fixed inset-0 z-[95]" onClick={(e) => e.stopPropagation()}>
+        <Portal><div className="fixed inset-0 z-[95]" onClick={(e) => e.stopPropagation()}>
           <MenuPanel isOpen onClose={() => setPopup(null)} title="New Page from Template" subtitle="Start with a structure" icon={FilePlus2} maxWidth="max-w-sm" scrollMaxH="60vh">
             <div className="grid grid-cols-2 gap-2">
               {PAGE_TEMPLATES.map((tpl) => (
@@ -2971,7 +3035,7 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
               ))}
             </div>
           </MenuPanel>
-        </div>
+        </div></Portal>
       )}
 
       <input
@@ -2984,7 +3048,7 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
 
       {/* ===== due date editor ===== */}
       {dueEditId && (
-        <div className="fixed inset-0 z-[96] flex items-center justify-center bg-black/40" onClick={() => setDueEditId(null)}>
+        <Portal><div className="fixed inset-0 z-[96] flex items-center justify-center bg-black/40" onClick={() => setDueEditId(null)}>
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -3012,7 +3076,7 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
               </button>
             </div>
           </motion.div>
-        </div>
+        </div></Portal>
       )}
 
       <ConfirmModal
