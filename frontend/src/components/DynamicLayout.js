@@ -2,6 +2,8 @@ import React, { Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLayoutHotswap } from '../hooks/useLayoutHotswap';
 import { Loader, AlertCircle, FlaskConical } from 'lucide-react';
+import { Portal } from '../utils/autoPlacement';
+import PlaceholderSection from './PlaceholderSection';
 
 /**
  * Dynamic Layout Component
@@ -102,7 +104,7 @@ const DynamicLayout = ({ children }) => {
     <div className={`min-h-screen ${themeClasses[theme] || themeClasses.standard}`}>
       {/* Beta Tester Badge */}
       {settings.showBetaBadge && (
-        <motion.div
+        <Portal><motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="fixed top-4 right-4 z-50"
@@ -111,7 +113,7 @@ const DynamicLayout = ({ children }) => {
             <FlaskConical className="w-5 h-5" />
             <span className="font-medium">Beta Tester</span>
           </div>
-        </motion.div>
+        </motion.div></Portal>
       )}
 
       {/* Main Content */}
