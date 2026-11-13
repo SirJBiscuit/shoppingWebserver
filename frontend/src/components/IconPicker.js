@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import PickerSearchBar from './PickerSearchBar';
 import { Portal } from '../utils/autoPlacement';
@@ -396,6 +396,50 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName
   const [showAllIcons, setShowAllIcons] = useState(false); // grid is capped until user expands
   const ICON_LIMIT = 60;
 
+  // Custom uploaded icons live under image_type 'item_icon' (128×128 PNGs)
+  const [customIcons, setCustomIcons] = useState([]);
+  const [uploadingIcon, setUploadingIcon] = useState(false);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/images?image_type=item_icon', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (res.ok) setCustomIcons(await res.json());
+      } catch {
+        // non-critical — custom section just stays empty
+      }
+    })();
+  }, []);
+
+  const handleIconUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingIcon(true);
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      fd.append('image_type', 'item_icon');
+      const res = await fetch('/api/images/upload', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: fd
+      });
+      if (res.ok) {
+        const img = await res.json();
+        setCustomIcons(prev => [img, ...prev]);
+        handleIconSelect(img.image_url);
+      }
+    } catch (err) {
+      console.error('Icon upload failed:', err);
+    } finally {
+      setUploadingIcon(false);
+      e.target.value = '';
+    }
+  };
+
   const startResize = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -535,6 +579,38 @@ const IconPicker = ({ currentIcon, currentTags = [], onSelect, onClose, itemName
                 ))}
               </div>
             </div>
+          )}
+        </div>
+
+        {/* Custom Icons — uploaded images (128×128) selectable like emojis */}
+        <div className="px-3 sm:px-4 lg:px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Custom Icons</h3>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingIcon}
+              className="text-xs font-medium px-2 py-1 rounded-lg bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 hover:bg-primary-200 dark:hover:bg-primary-800/60 transition-colors disabled:opacity-50"
+            >
+              {uploadingIcon ? 'Uploading…' : '+ Upload'}
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleIconUpload} />
+          </div>
+          {customIcons.length > 0 ? (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {customIcons.map((img) => (
+                <button
+                  key={img.id}
+                  onClick={() => handleIconSelect(img.image_url)}
+                  className={`w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 ring-2 transition-all hover:scale-110 ${
+                    currentIcon === img.image_url ? 'ring-primary-500' : 'ring-transparent'
+                  }`}
+                >
+                  <img src={img.image_url} alt="custom icon" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 dark:text-gray-500">No custom icons yet — uploads are resized to 128×128.</p>
           )}
         </div>
 

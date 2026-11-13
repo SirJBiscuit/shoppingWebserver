@@ -9,6 +9,8 @@ import CustomKeypad from './CustomKeypad';
 import CustomRadialMenu from './CustomRadialMenu';
 import { useEditor } from '../contexts/EditorContext';
 import { EditableContainer } from './editor/EditorOverlay';
+import { Portal } from '../utils/autoPlacement';
+import ItemIcon from './ItemIcon';
 
 const NextItemSuggestion = (props) => {
   const { isEditorActive, selectWidget, selectedWidget, widgetProperties } = useEditor();
@@ -565,7 +567,7 @@ const NextItemSuggestionContent = ({
         {/* Item Info Row - Mobile Responsive */}
         <div className="flex items-start gap-3 sm:gap-4 mb-3">
           {/* Large Icon */}
-          <span className="text-5xl sm:text-6xl flex-shrink-0">{nextItem.item_icon || '📦'}</span>
+          <span className="text-5xl sm:text-6xl flex-shrink-0"><ItemIcon icon={nextItem.item_icon} emojiClass="text-5xl sm:text-6xl" imgClass="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover" /></span>
           
           <div className="flex-1 min-w-0">
             {/* Item Name */}
@@ -772,7 +774,7 @@ const NextItemSuggestionContent = ({
           <div className="mb-3 p-3 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border-2 border-green-300 dark:border-green-700 rounded-lg">
             <div className="flex items-center gap-3">
               <span className="text-sm font-semibold text-green-700 dark:text-green-300">Up Next:</span>
-              <span className="text-2xl">{peekNextItem.item_icon || '📦'}</span>
+              <ItemIcon icon={peekNextItem.item_icon} />
               <span className="font-semibold text-gray-900 dark:text-white flex-1">{peekNextItem.item_name}</span>
               {peekNextItem.aisle && (
                 <span className="text-xs bg-green-500 text-white px-2 py-1 rounded font-bold">
@@ -827,7 +829,7 @@ const NextItemSuggestionContent = ({
                   <>
                     {/* Mobile: Bottom sheet (no backdrop) */}
                     {deviceType === 'mobile' && (
-                      <div className="fixed bottom-0 left-0 right-0 z-[101]">
+                      <Portal><div className="fixed bottom-0 left-0 right-0 z-[101]">
                         {console.log('🟢 Rendering MOBILE number pad')}
                         <CustomNumberPad
                           value={quickPrice}
@@ -854,12 +856,12 @@ const NextItemSuggestionContent = ({
                           onCancel={() => setShowPriceInput(false)}
                           maxDigits={6}
                         />
-                      </div>
+                      </div></Portal>
                     )}
                     
                     {/* Tablet: Centered widget - uses CustomNumberPad with device="tablet" */}
                     {deviceType === 'tablet' && (
-                      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101]">
+                      <Portal><div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101]">
                         {console.log('🔵 Rendering TABLET number pad with device="tablet"')}
                         <CustomNumberPad
                           value={quickPrice}
@@ -886,12 +888,12 @@ const NextItemSuggestionContent = ({
                           onCancel={() => setShowPriceInput(false)}
                           maxDigits={6}
                         />
-                      </div>
+                      </div></Portal>
                     )}
 
                     {/* Desktop: Draggable widget */}
                     {deviceType === 'desktop' && (
-                      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101]">
+                      <Portal><div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101]">
                         {console.log('🟣 Rendering DESKTOP number pad')}
                         <CustomNumberPad
                           value={quickPrice}
@@ -918,7 +920,7 @@ const NextItemSuggestionContent = ({
                           onCancel={() => setShowPriceInput(false)}
                           maxDigits={6}
                         />
-                      </div>
+                      </div></Portal>
                     )}
                   </>
                 )}
@@ -1116,7 +1118,7 @@ const NextItemSuggestionContent = ({
                       ref={el => sameAisleIconRefs.current[item.id] = el}
                       className="text-2xl flex-shrink-0"
                     >
-                      {item.item_icon || '📦'}
+                      <ItemIcon icon={item.item_icon} />
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className={`font-medium truncate ${
@@ -1164,7 +1166,7 @@ const NextItemSuggestionContent = ({
       </div>
 
       {/* Mobile More Actions - bottom sheet (mobile only) */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {showMoreActions && (
           <>
             <motion.div
@@ -1209,7 +1211,7 @@ const NextItemSuggestionContent = ({
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
     </motion.div>
   );
 };

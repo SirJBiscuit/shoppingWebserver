@@ -31,10 +31,16 @@ router.post('/upload', authenticateToken, upload.single('image'), async (req, re
 
     const { image_type, related_id, folder } = req.body;
     const timestamp = Date.now();
-    const filename = `${req.user.id}_${timestamp}_${req.file.originalname}`;
+    const isIcon = image_type === 'item_icon';
+    const filename = `${req.user.id}_${timestamp}_${req.file.originalname}${isIcon ? '.icon.png' : ''}`;
 
     // Create thumbnail
-    const thumbnailBuffer = await sharp(req.file.buffer)
+    // Custom item icons normalize to a fixed 128×128 PNG — small, uniform,
+    // and fast to render inside list rows. Thumbnail reuses it.
+    const imageBuffer = isIcon
+      ? await sharp(req.file.buffer).resize(128, 128, { fit: 'cover' }).png().toBuffer()
+      : req.file.buffer;
+    const thumbnailBuffer = isIcon ? imageBuffer : await sharp(req.file.buffer)
       .resize(300, 300, { fit: 'inside' })
       .jpeg({ quality: 80 })
       .toBuffer();
@@ -42,7 +48,7 @@ router.post('/upload', authenticateToken, upload.single('image'), async (req, re
     const thumbnailFilename = `thumb_${filename}`;
 
     // Upload to Nextcloud
-    const imageUrl = await nextcloud.uploadImage(req.file.buffer, filename, folder || image_type);
+    const imageUrl = await nextcloud.uploadImage(imageBuffer, filename, folder || image_type);
     const thumbnailUrl = await nextcloud.uploadImage(thumbnailBuffer, thumbnailFilename, folder || image_type);
 
     // Save to database
@@ -50,7 +56,7 @@ router.post('/upload', authenticateToken, upload.single('image'), async (req, re
       INSERT INTO images (user_id, image_url, thumbnail_url, image_type, related_id, file_size, mime_type)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
-    `, [req.user.id, imageUrl, thumbnailUrl, image_type, related_id, req.file.size, req.file.mimetype]);
+    `, [req.user.id, imageUrl, thumbnailUrl, image_type, related_id, imageBuffer.length, isIcon ? 'image/png' : req.file.mimetype]);
 
     // Attach to MDL entities when tagged (non-fatal — upload still succeeds)
     try {

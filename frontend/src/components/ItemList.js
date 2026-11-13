@@ -14,6 +14,7 @@ import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
 import { EditableContainer } from './editor/EditorOverlay';
 import { useEditor } from '../contexts/EditorContext';
+import ItemIcon from './ItemIcon';
 
 const ItemList = (props) => {
   const { items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null, onLookForThis } = props;
@@ -687,7 +688,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   
                   {/* Icon */}
                   <div ref={iconRef} className="text-2xl mr-2 relative">
-                    {item.item_icon || detectIcon(item.item_name)}
+                    <ItemIcon icon={item.item_icon} fallback={detectIcon(item.item_name)} />
                     {!item.item_icon && (
                       <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-yellow-500 animate-pulse" />
                     )}

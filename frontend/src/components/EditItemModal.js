@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import IconPicker from './IconPicker';
+import ItemIcon from './ItemIcon';
+import { Portal } from '../utils/autoPlacement';
 // import ItemHistoryWidget from './ItemHistoryWidget'; // Component doesn't exist
 
 const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
@@ -38,7 +40,7 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <Portal><div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
@@ -68,7 +70,7 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
                 className="w-full p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary-500 dark:hover:border-primary-400 transition-colors flex items-center justify-center"
               >
                 {formData.item_icon ? (
-                  <span className="text-4xl">{formData.item_icon}</span>
+                  <ItemIcon icon={formData.item_icon} emojiClass="text-4xl" imgClass="w-12 h-12 rounded-lg object-cover" />
                 ) : (
                   <span className="text-gray-400">Click to choose icon</span>
                 )}
@@ -280,7 +282,7 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
           onClose={() => setShowIconPicker(false)}
         />
       )}
-    </div>
+    </div></Portal>
   );
 };
 

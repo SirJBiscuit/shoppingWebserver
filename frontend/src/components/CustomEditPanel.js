@@ -4,6 +4,7 @@ import { X, Save, DollarSign, Package, Tag, FileText, Sparkles, TrendingUp, Cloc
 import CustomNumberPad from './CustomNumberPad';
 import CustomDropdownList from './CustomDropdownList';
 import IconPicker from './IconPicker';
+import ItemIcon from './ItemIcon';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
 import { canonicalizeCategory } from '../utils/categoryDetector';
 import { Portal } from '../utils/autoPlacement';
@@ -224,7 +225,7 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave, anchor }) => {
                       transition={{ type: 'spring', stiffness: 300, damping: 15 }}
                       className="text-3xl flex-shrink-0"
                     >
-                      {formData.item_icon || '📦'}
+                      <ItemIcon icon={formData.item_icon} emojiClass="text-3xl" imgClass="w-10 h-10 rounded-lg object-cover" />
                     </motion.span>
                     <div className="text-left min-w-0">
                       <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
