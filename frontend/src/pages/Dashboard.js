@@ -80,6 +80,7 @@ import CalculatorWidget from '../components/CalculatorWidget';
 import useScrollSound from '../hooks/useScrollSound';
 import { playSound } from '../utils/soundEffects';
 import { savePreference, getPreference, trackItem, reportAisle } from '../api/mdl';
+import { Portal } from '../utils/autoPlacement';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -133,6 +134,32 @@ const Dashboard = () => {
   const [versionInfo, setVersionInfo] = useState({ version: 'Loading...', updateAvailable: false });
   const { toasts, hideToast, success, error, warning, info } = useToast();
   const { notification, hideNotification, success: notifySuccess, error: notifyError, ask, confirm, confirmDelete } = useNotification();
+
+  // Admin-only: request a server update. Writes the .update-requested flag
+  // that the host watcher (trigger-update.sh → update-server.sh) consumes.
+  const handleRequestUpdate = () => {
+    confirm(
+      'Update the server now? The app will pull the latest code, rebuild, and may be briefly unavailable.',
+      async () => {
+        try {
+          const res = await fetch('/api/system/update/request', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            success(data.message || 'Update requested — the server will update shortly.');
+          } else {
+            error(data.error || data.details || 'Failed to request update.');
+          }
+        } catch (err) {
+          error('Failed to request update: ' + err.message);
+        }
+      },
+      undefined,
+      'Update Server'
+    );
+  };
   
   // Disable scroll sounds (too annoying)
   useScrollSound(false);
@@ -1646,6 +1673,19 @@ const Dashboard = () => {
             </button>
             )}
 
+            {/* Update Now — admin only, requests the host update via flag file */}
+            {hasFeature('changelog') && versionInfo.updateAvailable && user?.isAdmin && (
+              <button
+                onClick={handleRequestUpdate}
+                className="flex items-center space-x-1 px-2 sm:px-3 py-1.5 rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white text-xs sm:text-sm font-medium transition-colors shadow-sm"
+                title="Pull latest code and rebuild the server"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Update Now</span>
+                <span className="sm:hidden">Update</span>
+              </button>
+            )}
+
             {/* AVE (Admin Visual Editor) Toggle - Admin Only */}
             {user?.isAdmin && (
               <button
@@ -2245,7 +2285,7 @@ const Dashboard = () => {
               
               {/* Price Numpad Modal */}
               {showPriceNumpad && (isMobile || isTablet) && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center">
+                <Portal><div className="fixed inset-0 z-[100] flex items-center justify-center">
                   {/* Backdrop */}
                   <div 
                     className="absolute inset-0 bg-black/50"
@@ -2266,7 +2306,7 @@ const Dashboard = () => {
                       maxDigits={6}
                     />
                   </div>
-                </div>
+                </div></Portal>
               )}
               </div>
               {/* End Add Item Section */}
@@ -2596,7 +2636,7 @@ const Dashboard = () => {
         
         {/* Celebration Overlay - quick confetti burst, then off to After Shop */}
         {showCelebration && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          <Portal><div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
             {[...Array(14)].map((_, i) => (
               <motion.div
                 key={i}
@@ -2632,7 +2672,7 @@ const Dashboard = () => {
               <p className="text-lg text-green-600 dark:text-green-400 font-semibold">+{Math.floor(totalCost * 10)} XP</p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Heading to Unpack…</p>
             </motion.div>
-          </div>
+          </div></Portal>
         )}
         
         {/* Level Up Modal */}
@@ -2646,7 +2686,7 @@ const Dashboard = () => {
         
         {/* Recovery Modal */}
         {showRecovery && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <Portal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -2705,7 +2745,7 @@ const Dashboard = () => {
                 )}
               </div>
             </div>
-          </div>
+          </div></Portal>
         )}
         </div>
       </div>
@@ -2746,7 +2786,7 @@ const Dashboard = () => {
 
       {/* Add Note Modal */}
       {itemForNote && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+        <Portal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <FileText className="w-6 h-6" />
@@ -2775,7 +2815,7 @@ const Dashboard = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div></Portal>
       )}
 
       {/* Custom Notification */}
@@ -2783,7 +2823,7 @@ const Dashboard = () => {
 
       {/* Edit List Name Modal */}
       {editingListName && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+        <Portal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               Edit Shopping List
@@ -2876,7 +2916,7 @@ const Dashboard = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div></Portal>
       )}
 
       {/* Store Manager */}

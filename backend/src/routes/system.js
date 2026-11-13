@@ -578,6 +578,38 @@ router.post('/update/check', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
+// Admin: Request an update — writes the flag file consumed by the host-side
+// watcher (trigger-update.sh → update-server.sh). Same mechanism the
+// auto-updater uses; safe to call manually since the container can't
+// self-restart mid-script.
+router.post('/update/request', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const flagPath = process.env.UPDATE_FLAG_PATH || '/opt/cloudmc-shop/.update-requested';
+    await fs.writeFile(flagPath, JSON.stringify({
+      requested_at: new Date().toISOString(),
+      requested_by: req.user.userId,
+      manual: true
+    }, null, 2));
+
+    await db.query(
+      `UPDATE system_status
+       SET update_available = true, updated_at = CURRENT_TIMESTAMP
+       WHERE id = 1`
+    );
+
+    res.json({
+      success: true,
+      message: 'Update requested — the host watcher will pull and rebuild shortly. The app may restart briefly.'
+    });
+  } catch (error) {
+    console.error('Update request error:', error);
+    res.status(500).json({
+      error: 'Failed to request update',
+      details: 'Flag path may not be writable — check the /opt/cloudmc-shop mount or UPDATE_FLAG_PATH.'
+    });
+  }
+});
+
 // Admin: Manually trigger update (use with caution)
 router.post('/update/perform', authenticateToken, isAdmin, async (req, res) => {
   try {

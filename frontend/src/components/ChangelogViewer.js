@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Calendar, GitCommit, User, Tag, TrendingUp, 
   Sparkles, Zap, Bug, Settings, FileText, Package,
-  ChevronDown, ChevronUp, Filter, Search, Download, Shield, Users
+  ChevronDown, ChevronUp, Filter, Search, Download, Shield, Users, RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Portal } from '../utils/autoPlacement';
+import ConfirmModal from '../limbo/modals/ConfirmModal';
 
 const ChangelogViewer = ({ isOpen, onClose }) => {
   const { user } = useAuth();
@@ -19,11 +20,42 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
   const [viewMode, setViewMode] = useState('timeline'); // timeline, grouped
   const [userView, setUserView] = useState(true); // true = user-friendly, false = admin detailed
   const [isAdmin, setIsAdmin] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
+  const [updateRequested, setUpdateRequested] = useState(false);
+
+  const checkUpdateStatus = async () => {
+    try {
+      const res = await fetch('/api/system/status', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUpdateAvailable(!!data.update_available);
+      }
+    } catch {
+      // non-critical
+    }
+  };
+
+  const requestUpdate = async () => {
+    setShowUpdateConfirm(false);
+    try {
+      const res = await fetch('/api/system/update/request', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (res.ok) setUpdateRequested(true);
+    } catch (err) {
+      console.error('Update request failed:', err);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
       loadChangelog();
       checkAdminStatus();
+      checkUpdateStatus();
     }
   }, [isOpen]);
 
@@ -198,6 +230,18 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {/* Update Now — admin only, when the server flags a pending update */}
+              {isAdmin && updateAvailable && (
+                <button
+                  onClick={() => setShowUpdateConfirm(true)}
+                  disabled={updateRequested}
+                  className="flex items-center gap-2 px-3 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-green-600 rounded-lg transition-colors text-sm font-medium"
+                  title="Pull latest code and rebuild the server"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span className="hidden sm:inline">{updateRequested ? 'Update Requested' : 'Update Now'}</span>
+                </button>
+              )}
               {/* Admin Toggle */}
               {isAdmin && (
                 <button
@@ -462,6 +506,15 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
           </div>
         </div>
       </motion.div>
+      <ConfirmModal
+        isOpen={showUpdateConfirm}
+        title="Update Server"
+        message="Pull the latest code and rebuild? The app may be briefly unavailable while the update applies."
+        confirmText="Update Now"
+        type="warning"
+        onConfirm={requestUpdate}
+        onCancel={() => setShowUpdateConfirm(false)}
+      />
     </div></Portal>
   );
 };
