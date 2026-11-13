@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Check, ShoppingCart, ChevronDown, XCircle, FlaskConical, Timer, Users,
+  Check, ShoppingCart, ChevronDown, XCircle, FlaskConical, Timer, Users, BookPlus,
 } from 'lucide-react';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { getLists, addItem } from '../../api/shopping';
 import LabShell from './LabShell';
 import MixingOverlay from './MixingOverlay';
@@ -47,6 +48,7 @@ const CategoryRecipeLab = ({
   emptyHint = 'No recipes found for this lab yet.',
 }) => {
   const { success, error: showError, toasts, hideToast } = useToast();
+  const { user } = useAuth();
   const [tab, setTab] = useState('all');
   const [recipes, setRecipes] = useState([]);
   const [comparisons, setComparisons] = useState({});
@@ -56,6 +58,20 @@ const CategoryRecipeLab = ({
   const [addingToList, setAddingToList] = useState(null);
   const [mixing, setMixing] = useState(null);
   const [making, setMaking] = useState(null);
+  const [savingToBook, setSavingToBook] = useState(null);
+
+  const saveToBook = async (r) => {
+    setSavingToBook(r.id);
+    try {
+      await api.post(`/recipes/${r.id}/copy`);
+      success(`"${r.name}" saved to your Recipe Book`);
+      playSound('pop');
+    } catch {
+      showError('Could not save to Recipe Book');
+    } finally {
+      setSavingToBook(null);
+    }
+  };
 
   const recipeIcon = (r) => iconMap[r.name] || defaultEmoji;
 
@@ -320,6 +336,17 @@ const CategoryRecipeLab = ({
                             <Check className="w-3.5 h-3.5" />
                             {making === r.id ? 'Recording…' : 'Made this'}
                           </button>
+                          {r.user_id !== user?.id && (
+                            <button
+                              onClick={() => saveToBook(r)}
+                              disabled={savingToBook === r.id}
+                              title="Copy this preset into your Recipe Book"
+                              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
+                            >
+                              <BookPlus className="w-3.5 h-3.5" />
+                              {savingToBook === r.id ? 'Saving…' : 'Send to Recipe Book'}
+                            </button>
+                          )}
                           {need.length > 0 && (
                             <button
                               onClick={() => addMissingToList(r)}

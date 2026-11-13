@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Flame, Search, Plus, Trash2, Sparkles, Save, X, ChefHat,
-  Wand2, Check, ShoppingCart, Minus, Pencil, Copy, Filter, ListChecks, Pin,
+  Wand2, Check, ShoppingCart, Minus, Pencil, Copy, Filter, ListChecks, Pin, BookPlus,
 } from 'lucide-react';
 import api from '../services/api';
 import { getLists, addItem } from '../api/shopping';
@@ -349,6 +349,37 @@ const SpiceBlends = () => {
   const closeBuilder = () => {
     setBuilderOpen(false);
     setEditingBlend(null);
+  };
+
+  const [sendingToBook, setSendingToBook] = useState(null);
+
+  /** Send a blend to the Recipe Book as a 'seasoning' recipe (tsp amounts). */
+  const sendBlendToBook = async (b) => {
+    setSendingToBook(b.id);
+    try {
+      const tsp = partsToTsp(b.ingredients, yieldTsp);
+      await api.post('/recipes', {
+        name: b.name,
+        description: b.description || `Homemade ${b.name} spice blend`,
+        category: 'seasoning',
+        difficulty: 'easy',
+        image_url: b.icon ? `emoji:${b.icon}` : 'emoji:🧂',
+        tags: ['spice-blend', 'homemade'],
+        ingredients: b.ingredients.map((i) => ({
+          item_name: i.name,
+          quantity: Math.round(tsp(i) * 4) / 4,
+          unit: 'tsp',
+          is_pantry_staple: !!i.owned,
+        })),
+        instructions: 'Measure each spice, combine in a jar, and shake well to blend. Store airtight away from light.',
+      });
+      success(`"${b.name}" sent to your Recipe Book`);
+      playSound('pop');
+    } catch {
+      showError('Could not send blend to Recipe Book');
+    } finally {
+      setSendingToBook(null);
+    }
   };
 
   // "I made this" — deduct the tsp consumed from each container
@@ -733,6 +764,15 @@ const SpiceBlends = () => {
                                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500 text-white hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                   >
                                     <Check className="w-3.5 h-3.5" /> Made this
+                                  </button>
+                                  <button
+                                    onClick={() => sendBlendToBook(b)}
+                                    disabled={sendingToBook === b.id}
+                                    title="Save this blend as a recipe in your Recipe Book"
+                                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
+                                  >
+                                    <BookPlus className="w-3.5 h-3.5" />
+                                    {sendingToBook === b.id ? 'Sending…' : 'To Recipe Book'}
                                   </button>
                                   {(() => {
                                     const need = partsToTsp(b.ingredients, yieldTsp);

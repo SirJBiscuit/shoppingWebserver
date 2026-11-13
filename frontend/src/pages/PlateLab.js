@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Pizza, Plus, Trash2, Lightbulb, Check, ArrowRightLeft } from 'lucide-react';
+import { Pizza, Plus, Trash2, Lightbulb, Check, ArrowRightLeft, BookPlus } from 'lucide-react';
 import api from '../services/api';
 import LabShell from '../components/lab/LabShell';
 import Toast from '../components/Toast';
@@ -118,6 +118,33 @@ const PlateLab = () => {
       setEntries((p) => p.filter((e) => e.id !== id));
       await loadPlate();
     } catch { showError('Could not remove entry'); }
+  };
+
+  const [savingMeal, setSavingMeal] = useState(null);
+
+  /** Save a meal group's logged items as a recipe in the Recipe Book. */
+  const saveMealAsRecipe = async (meal, mealEntries) => {
+    setSavingMeal(meal);
+    try {
+      const today = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      const name = `${meal[0].toUpperCase() + meal.slice(1)} — ${today}`;
+      await api.post('/recipes', {
+        name,
+        description: `Logged in Plate Lab on ${today}`,
+        category: meal,
+        difficulty: 'easy',
+        servings: 1,
+        image_url: `emoji:${{ breakfast: '🍳', lunch: '🥗', dinner: '🍽️', snack: '🍿' }[meal] || '🍽️'}`,
+        tags: ['plate-lab'],
+        ingredients: mealEntries.map((e) => ({
+          item_name: e.item_name,
+          quantity: parseFloat(e.servings) || 1,
+          unit: 'serving',
+        })),
+      });
+      success(`"${name}" saved to Recipe Book`);
+    } catch { showError('Could not save meal to Recipe Book'); }
+    finally { setSavingMeal(null); }
   };
 
   const current = members.find((m) => m.id === memberId) || members[0];
@@ -259,7 +286,17 @@ const PlateLab = () => {
             if (!mealEntries.length) return null;
             return (
               <div key={meal} className="mb-3 last:mb-0">
-                <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{meal}</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex-1">{meal}</p>
+                  <button
+                    onClick={() => saveMealAsRecipe(meal, mealEntries)}
+                    disabled={savingMeal === meal}
+                    title="Save this meal as a recipe"
+                    className="text-[10px] flex items-center gap-1 px-2 py-0.5 rounded-md font-semibold text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 disabled:opacity-40 transition-colors"
+                  >
+                    <BookPlus className="w-3 h-3" /> {savingMeal === meal ? 'Saving…' : 'To Recipe Book'}
+                  </button>
+                </div>
                 {mealEntries.map((e) => {
                   const g = groupMeta(e.food_group);
                   return (

@@ -105,13 +105,15 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Create new recipe
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { name, description, servings, prep_time, cook_time, instructions, image_url, ingredients } = req.body;
-    
+    const { name, description, servings, prep_time, cook_time, instructions, image_url, ingredients,
+            category, cuisine, difficulty, tags } = req.body;
+
     const recipeResult = await db.query(`
-      INSERT INTO recipes (user_id, name, description, servings, prep_time, cook_time, instructions, image_url)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO recipes (user_id, name, description, servings, prep_time, cook_time, instructions, image_url, category, cuisine, difficulty, tags)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
-    `, [req.user.id, name, description, servings, prep_time, cook_time, instructions, image_url]);
+    `, [req.user.id, name, description, servings, prep_time, cook_time, instructions, image_url,
+        category || null, cuisine || null, difficulty || 'medium', Array.isArray(tags) ? tags : null]);
     
     const recipe = recipeResult.rows[0];
     
@@ -132,6 +134,46 @@ router.post('/', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to create recipe' });
   }
 });
+
+// Copy a recipe (e.g. a public lab preset) into the user's own book
+router.post('/:id/copy', authenticateToken, async (req, res) => {
+  try {
+    const src = await db.query(`
+      SELECT * FROM recipes WHERE id = $1 AND (user_id = $2 OR is_public = true)
+    `, [req.params.id, req.user.id]);
+
+    if (src.rows.length === 0) {
+      return res.status(404).json({ error: 'Recipe not found' });
+    }
+
+    const s = src.rows[0];
+    const recipeResult = await db.query(`
+      INSERT INTO recipes (user_id, name, description, servings, prep_time, cook_time, total_time,
+        instructions, image_url, category, cuisine, difficulty, tags, rating)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING *
+    `, [req.user.id, s.name, s.description, s.servings, s.prep_time, s.cook_time, s.total_time,
+        s.instructions, s.image_url, s.category, s.cuisine, s.difficulty, s.tags, s.rating]);
+
+    const recipe = recipeResult.rows[0];
+
+    const ings = await db.query('SELECT * FROM recipe_ingredients WHERE recipe_id = $1 ORDER BY sort_order ASC', [s.id]);
+    for (let i = 0; i < ings.rows.length; i++) {
+      const ing = ings.rows[i];
+      await db.query(`
+        INSERT INTO recipe_ingredients (recipe_id, item_name, quantity, unit, is_optional, is_pantry_staple, notes, sort_order)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [recipe.id, ing.item_name, ing.quantity, ing.unit, ing.is_optional || false, ing.is_pantry_staple || false, ing.notes, i]);
+    }
+
+    res.status(201).json(recipe);
+  } catch (error) {
+    console.error('Copy recipe error:', error);
+    res.status(500).json({ error: 'Failed to copy recipe' });
+  }
+});
+
+// 
 
 // Update recipe
 router.patch('/:id', authenticateToken, async (req, res) => {
