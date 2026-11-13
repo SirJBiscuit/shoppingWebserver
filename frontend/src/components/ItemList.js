@@ -15,6 +15,7 @@ import { playSound } from '../utils/soundEffects';
 import { EditableContainer } from './editor/EditorOverlay';
 import { useEditor } from '../contexts/EditorContext';
 import ItemIcon from './ItemIcon';
+import QuickIconPicker from './QuickIconPicker';
 
 const ItemList = (props) => {
   const { items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null, onLookForThis } = props;
@@ -68,6 +69,18 @@ const ItemListContent = (props) => {
   const [noteItem, setNoteItem] = useState(null);
   const [noteText, setNoteText] = useState('');
   const [editAnchor, setEditAnchor] = useState(null);
+  const [iconPickTarget, setIconPickTarget] = useState(null); // {item, anchor}
+
+  // Compact picker anchored to the clicked item icon.
+  const openIconPicker = (target, event) => {
+    const src = event?.currentTarget
+      || (document.activeElement !== document.body ? document.activeElement : null);
+    const r = src?.getBoundingClientRect?.();
+    setIconPickTarget({
+      item: target,
+      anchor: r ? { cx: r.left + r.width / 2, top: r.top, bottom: r.bottom } : null
+    });
+  };
 
   // Opens the edit panel near the clicked button — the focused element's
   // rect doubles as the click anchor; falls back to centered when absent.
@@ -220,6 +233,7 @@ const ItemListContent = (props) => {
               triggerAnimation={triggerAnimation}
               isNextItem={item.id === nextItemId}
               onOpenEdit={openEditPanel}
+              onQuickIcon={openIconPicker}
               setEditingItem={setEditingItem}
               setShowEditModal={setShowEditModal}
               setNoteItem={setNoteItem}
@@ -265,6 +279,7 @@ const ItemListContent = (props) => {
                   triggerAnimation={triggerAnimation}
                   isNextItem={item.id === nextItemId}
                   onOpenEdit={openEditPanel}
+                  onQuickIcon={openIconPicker}
                   setEditingItem={setEditingItem}
                   setShowEditModal={setShowEditModal}
                   storeName={storeName}
@@ -291,6 +306,22 @@ const ItemListContent = (props) => {
         ))
       )}
     </div>
+
+    {/* Quick icon picker — click an item's icon to swap it fast */}
+    {iconPickTarget && (
+      <QuickIconPicker
+        item={iconPickTarget.item}
+        anchor={iconPickTarget.anchor}
+        currentIcon={iconPickTarget.item.item_icon}
+        onSelect={(icon) => {
+          (iconPickTarget.item.ids || [iconPickTarget.item.id]).forEach((id) => {
+            if (onEdit) onEdit({ ...iconPickTarget.item, id, item_icon: icon });
+          });
+          setIconPickTarget(null);
+        }}
+        onClose={() => setIconPickTarget(null)}
+      />
+    )}
 
     {/* Edit Item Modal */}
     <CustomEditPanel
@@ -419,7 +450,7 @@ const StorePriceBadge = ({ itemName, currentPrice, priceCompare }) => {
   );
 };
 
-const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit, onQuantityChange, priceCompare, showButtonLabels, favorites, onOpenFavorites, onOpenEdit }) => {
+const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit, onQuantityChange, priceCompare, showButtonLabels, favorites, onOpenFavorites, onOpenEdit, onQuickIcon }) => {
   const [editingAisle, setEditingAisle] = useState(false);
   const [aisleNumber, setAisleNumber] = useState('');
   const [aisleName, setAisleName] = useState('');
@@ -687,7 +718,12 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   </motion.button>
                   
                   {/* Icon */}
-                  <div ref={iconRef} className="text-2xl mr-2 relative">
+                  <div
+                    ref={iconRef}
+                    className="text-2xl mr-2 relative cursor-pointer"
+                    onClick={(e) => { e.stopPropagation(); if (onQuickIcon) onQuickIcon(item, e); }}
+                    title="Click to change icon"
+                  >
                     <ItemIcon icon={item.item_icon} fallback={detectIcon(item.item_name)} />
                     {!item.item_icon && (
                       <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-yellow-500 animate-pulse" />
