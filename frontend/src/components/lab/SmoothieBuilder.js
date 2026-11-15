@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wand2, BookPlus, X, Loader } from 'lucide-react';
+import { Wand2, BookPlus, X, Loader, Package, Plus, EyeOff } from 'lucide-react';
 import api from '../../services/api';
 import MixingOverlay from './MixingOverlay';
+import LabPantryPicker from './LabPantryPicker';
 import Toast from '../Toast';
 import { useToast } from '../../hooks/useToast';
 import { playSound } from '../../utils/soundEffects';
@@ -70,19 +71,55 @@ const SmoothieBuilder = ({ onSaved }) => {
   const [nameTouched, setNameTouched] = useState(false);
   const [mixing, setMixing] = useState(null); // { after: 'blend' | 'save' }
   const [saving, setSaving] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [addName, setAddName] = useState('');
+  const [addBusy, setAddBusy] = useState(false);
+  // Persisted preference: hide the catch-all 'Other' bucket
+  const [hideOther, setHideOther] = useState(() => localStorage.getItem('smoothieBuilderHideOther') === '1');
+
+  const loadItems = async () => {
+    try {
+      const { data } = await api.get('/inventory');
+      setItems(data || []);
+    } catch {
+      showError('Could not load home inventory');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await api.get('/inventory');
-        setItems(data || []);
-      } catch {
-        showError('Could not load home inventory');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    loadItems();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Add something the builder doesn't list yet — creates the inventory row
+  // and puts a scoop in the glass in one step.
+  const addIngredient = async () => {
+    const n = addName.trim();
+    if (!n || addBusy) return;
+    setAddBusy(true);
+    try {
+      const { data } = await api.post('/inventory', {
+        item_name: n,
+        quantity: 1,
+        unit: '',
+        storage_location: 'pantry',
+      });
+      setItems((p) => [...p, data]);
+      setPicked((p) => ({ ...p, [data.id]: 1 }));
+      setAddName('');
+      playSound('pop');
+    } catch {
+      showError('Could not add ingredient');
+    } finally {
+      setAddBusy(false);
+    }
+  };
+
+  const toggleOther = () => setHideOther((v) => {
+    localStorage.setItem('smoothieBuilderHideOther', v ? '0' : '1');
+    return !v;
+  });
 
   const usable = useMemo(
     () => items.filter((i) => (i.percentage_left ?? 1) > 0),
@@ -217,15 +254,63 @@ const SmoothieBuilder = ({ onSaved }) => {
         </div>
       </div>
 
+      {/* ---- Add ingredient + pantry ---- */}
+      <div className="flex items-center gap-2 mb-4">
+        <div className="relative flex-1">
+          <Plus className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+          <input
+            value={addName}
+            onChange={(e) => setAddName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addIngredient()}
+            placeholder="Add an ingredient (scoops into the glass)…"
+            className="w-full pl-8 pr-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-800 dark:text-gray-200"
+          />
+        </div>
+        <button
+          onClick={addIngredient}
+          disabled={!addName.trim() || addBusy}
+          className="px-3 py-2 rounded-xl text-xs font-semibold text-white bg-pink-500 hover:bg-pink-600 disabled:opacity-40 transition-colors"
+        >
+          {addBusy ? '…' : 'Add'}
+        </button>
+        <button
+          onClick={() => setPickerOpen(true)}
+          title="My Ingredients — toggle what you have"
+          className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+        >
+          <Package className="w-3.5 h-3.5" /> Pantry
+        </button>
+      </div>
+
       {/* ---- Buckets ---- */}
       <div className="space-y-3 mb-5">
         {BUCKETS.map((b) => {
           const list = buckets[b.key];
           if (!list.length) return null;
+          if (b.key === 'other' && hideOther) {
+            return (
+              <button
+                key={b.key}
+                onClick={toggleOther}
+                className="w-full text-left px-3 py-2 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                {b.emoji} Other hidden ({list.length}) — tap to show
+              </button>
+            );
+          }
           return (
             <div key={b.key} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3">
-              <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-                {b.emoji} {b.label} <span className="font-normal">({list.length})</span>
+              <p className="flex items-center justify-between text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                <span>{b.emoji} {b.label} <span className="font-normal">({list.length})</span></span>
+                {b.key === 'other' && (
+                  <button
+                    onClick={toggleOther}
+                    title="Hide this section (remembers your choice)"
+                    className="flex items-center gap-1 text-[10px] font-normal normal-case text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  >
+                    <EyeOff className="w-3 h-3" /> hide
+                  </button>
+                )}
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {list.map((i) => {
@@ -289,6 +374,17 @@ const SmoothieBuilder = ({ onSaved }) => {
       <AnimatePresence>
         {mixing && <MixingOverlay icons={mixing.icons} bowl="🥤" onDone={mixing.onDone} text="Blending it up…" />}
       </AnimatePresence>
+
+      {/* Universal picker — same pantry, same ingredient tracking as the lab page */}
+      <LabPantryPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        title="Smoothie Lab"
+        accent="pink"
+        defaultEmoji="🥤"
+        items={usable.map((i) => ({ name: i.item_name, icon: i.item_icon }))}
+        onChanged={loadItems}
+      />
 
       <Portal><div className="fixed bottom-4 right-4 z-[120] space-y-2">
         {toasts.map((t) => (

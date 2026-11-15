@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Check, ShoppingCart, ChevronDown, XCircle, FlaskConical, Timer, Users, BookPlus,
-  Package,
+  Package, MoreVertical, EyeOff, Undo2, Info,
 } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -63,6 +63,44 @@ const CategoryRecipeLab = ({
   const [making, setMaking] = useState(null);
   const [savingToBook, setSavingToBook] = useState(null);
   const [pantryOpen, setPantryOpen] = useState(false);
+
+  // Recipe visibility & staging — persisted per lab
+  const hiddenKey = `labHiddenRecipes:${title}`;
+  const promotedKey = `labPromoted:${title}`;
+  const [hiddenR, setHiddenR] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(hiddenKey)) || {}; } catch { return {}; }
+  });
+  const [promoted, setPromoted] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(promotedKey)) || {}; } catch { return {}; }
+  });
+  const [rMenu, setRMenu] = useState(null);      // { x, y, r } recipe context menu
+  const [hiddenOpen, setHiddenOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
+
+  const hideRecipe = (r) => setHiddenR((p) => {
+    const next = { ...p, [r.id]: true };
+    localStorage.setItem(hiddenKey, JSON.stringify(next));
+    success(`"${r.name}" hidden — restore it from the hidden tray below`);
+    return next;
+  });
+
+  const unhideRecipe = (id) => setHiddenR((p) => {
+    const next = { ...p };
+    delete next[id];
+    localStorage.setItem(hiddenKey, JSON.stringify(next));
+    return next;
+  });
+
+  // User-built recipes live in 'Can Create' until promoted into the main tab
+  const isCreation = (r) => r.user_id === user?.id || (r.tags || []).includes('custom-builder');
+
+  const promoteRecipe = (r) => setPromoted((p) => {
+    const next = { ...p, [r.id]: true };
+    localStorage.setItem(promotedKey, JSON.stringify(next));
+    success(`"${r.name}" moved to ${allLabel}`);
+    playSound('pop');
+    return next;
+  });
 
   const saveToBook = async (r) => {
     setSavingToBook(r.id);
@@ -135,13 +173,23 @@ const CategoryRecipeLab = ({
   };
 
   const visible = useMemo(() => {
-    const list = tab === 'makeable'
-      ? recipes.filter((r) => comparisons[r.id]?.canMake)
-      : recipes;
+    let list;
+    if (tab === 'create') {
+      // Staging: un-promoted creations + anything makeable right now
+      list = recipes.filter((r) =>
+        (isCreation(r) && !promoted[r.id]) || comparisons[r.id]?.canMake
+      );
+    } else {
+      // Main tab: presets + promoted creations
+      list = recipes.filter((r) => !isCreation(r) || promoted[r.id]);
+    }
     return [...list].sort((a, b) => Number(comparisons[b.id]?.canMake) - Number(comparisons[a.id]?.canMake));
-  }, [tab, recipes, comparisons]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, recipes, comparisons, promoted]);
 
+  const hiddenRecipes = recipes.filter((r) => hiddenR[r.id]);
   const makeableCount = recipes.filter((r) => comparisons[r.id]?.canMake).length;
+  const stagedCount = recipes.filter((r) => isCreation(r) && !promoted[r.id] && !hiddenR[r.id]).length;
 
   // Union of every ingredient this lab's recipes need — feeds the pantry picker
   const pantryItems = useMemo(() => {
@@ -229,8 +277,8 @@ const CategoryRecipeLab = ({
   };
 
   const tabs = [
-    { id: 'all', label: allLabel, icon: Icon, count: recipes.length },
-    { id: 'makeable', label: 'Makeable Now', icon: FlaskConical, count: makeableCount },
+    { id: 'all', label: allLabel, icon: Icon, count: recipes.filter((r) => !hiddenR[r.id] && (!isCreation(r) || promoted[r.id])).length },
+    { id: 'create', label: 'Can Create', icon: FlaskConical, count: makeableCount + stagedCount },
     ...(builder ? [{ id: 'build', label: 'Build', icon: BookPlus }] : []),
   ];
 
@@ -271,14 +319,35 @@ const CategoryRecipeLab = ({
     >
       {builder && tab === 'build' ? (
         React.cloneElement(builder, { onSaved: load })
-      ) : recipes.length === 0 ? (
-        <div className="text-center py-16 text-gray-500 dark:text-gray-400">
-          <FlaskConical className="w-10 h-10 mx-auto mb-3 opacity-40" />
-          <p className="font-medium">Nothing here yet</p>
-          <p className="text-xs mt-1">{emptyHint}</p>
-        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <>
+      {/* How labs chain together — collapsible explainer */}
+      <div className="mb-4">
+        <button
+          onClick={() => setInfoOpen((o) => !o)}
+          className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        >
+          <Info className="w-3.5 h-3.5" />
+          {infoOpen ? 'Hide' : 'How labs, inventory & recipe staging work'}
+        </button>
+        {infoOpen && (
+          <div className="mt-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 space-y-1">
+            <p>1. <strong>My Ingredients</strong> toggles what you have in <strong>Home Inventory</strong> — steppers, units, estimates and "used" all write back to the same inventory.</p>
+            <p>2. <strong>Can Create</strong> lists recipes you can make right now, plus anything you built that isn't promoted yet.</p>
+            <p>3. <strong>Keep in Recipes</strong> (right-click a card) moves a creation into the main list — nothing lands there automatically.</p>
+            <p>4. <strong>Made this</strong> deducts the recipe amounts from Home Inventory.</p>
+            <p>5. <strong>Send to Recipe Book</strong> copies a preset into your book; right-click also hides recipes you don't want to see.</p>
+          </div>
+        )}
+      </div>
+          {recipes.length === 0 ? (
+            <div className="text-center py-16 text-gray-500 dark:text-gray-400">
+              <FlaskConical className="w-10 h-10 mx-auto mb-3 opacity-40" />
+              <p className="font-medium">Nothing here yet</p>
+              <p className="text-xs mt-1">{emptyHint}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {visible.map((r) => {
             const c = comparisons[r.id];
             const open = expanded === r.id;
@@ -294,6 +363,7 @@ const CategoryRecipeLab = ({
                 layout
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
+                onContextMenu={(e) => { e.preventDefault(); setRMenu({ x: e.clientX, y: e.clientY, r }); }}
                 className={`bg-white dark:bg-gray-800 border-2 rounded-2xl p-4 shadow-sm transition-colors ${
                   canMake ? 'border-green-300 dark:border-green-700' : 'border-gray-200 dark:border-gray-700'
                 }`}
@@ -321,7 +391,16 @@ const CategoryRecipeLab = ({
                       </div>
                     </div>
                   </button>
-                  <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 mt-1 transition-transform ${open ? 'rotate-180' : ''}`} />
+                  <div className="flex items-center gap-0.5 flex-shrink-0 mt-1">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setRMenu({ x: e.clientX, y: e.clientY, r }); }}
+                      className="p-1 rounded-lg text-gray-300 dark:text-gray-600 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      title="Recipe options"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+                  </div>
                 </div>
 
                 <AnimatePresence>
@@ -422,7 +501,81 @@ const CategoryRecipeLab = ({
               </motion.div>
             );
           })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Hidden recipes — bring them back anytime */}
+      {hiddenRecipes.length > 0 && tab !== 'build' && (
+        <div className="mt-4">
+          <button
+            onClick={() => setHiddenOpen((o) => !o)}
+            className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          >
+            {hiddenOpen ? '▾' : '▸'} Hidden recipes ({hiddenRecipes.length})
+          </button>
+          {hiddenOpen && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {hiddenRecipes.map((r) => (
+                <span key={r.id} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs text-gray-600 dark:text-gray-300">
+                  {recipeIcon(r)} {r.name}
+                  <button
+                    onClick={() => unhideRecipe(r.id)}
+                    title="Bring back"
+                    className="text-gray-400 hover:text-green-500"
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
+      )}
+
+      {/* Recipe context menu — promote, book, hide */}
+      {rMenu && (
+        <Portal>
+          <div
+            className="fixed inset-0 z-[115]"
+            onClick={() => setRMenu(null)}
+            onContextMenu={(e) => { e.preventDefault(); setRMenu(null); }}
+          />
+          <div
+            className="fixed z-[116] w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl py-1.5"
+            style={{
+              left: Math.min(rMenu.x, window.innerWidth - 240),
+              top: Math.min(rMenu.y, window.innerHeight - 200),
+            }}
+          >
+            <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-400 truncate border-b border-gray-100 dark:border-gray-700">
+              {rMenu.r.name}
+            </p>
+            {isCreation(rMenu.r) && !promoted[rMenu.r.id] && (
+              <button
+                onClick={() => { promoteRecipe(rMenu.r); setRMenu(null); }}
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+              >
+                ⭐ Keep in {allLabel} — promote out of Can Create
+              </button>
+            )}
+            {rMenu.r.user_id !== user?.id && (
+              <button
+                onClick={() => { saveToBook(rMenu.r); setRMenu(null); }}
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+              >
+                📖 Send to Recipe Book
+              </button>
+            )}
+            <button
+              onClick={() => { hideRecipe(rMenu.r); setRMenu(null); }}
+              className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-red-600 dark:text-red-400"
+            >
+              <EyeOff className="w-3 h-3 inline mr-1" /> Hide this recipe
+            </button>
+          </div>
+        </Portal>
       )}
 
       <LabPantryPicker
