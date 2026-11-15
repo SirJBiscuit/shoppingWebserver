@@ -162,7 +162,8 @@ const runMigrations = async () => {
     { file: '065_plate_system.sql', name: 'Plate System' },
     { file: '066_spice_lab_sidebar_remove.sql', name: 'Spice Lab Sidebar Remove' },
     { file: '067_changelog_voting_progress.sql', name: 'Changelog Voting + Progress' },
-    { file: '068_jam_dough_presets.sql', name: 'Jam + Dough Lab Presets' }
+    { file: '068_jam_dough_presets.sql', name: 'Jam + Dough Lab Presets' },
+    { file: '069_inventory_estimated_quantity.sql', name: 'Inventory Estimated Quantity' }
   ];
 
   for (const migration of migrations) {

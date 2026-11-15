@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Search, Package, Check, Loader2, Sparkles } from 'lucide-react';
+import { X, Search, Package, Check, Loader2, Sparkles, ChevronUp, ChevronDown, Minus, Plus } from 'lucide-react';
 import api from '../../services/api';
 import { detectIcon } from '../../utils/categoryDetector';
 import { Portal } from '../../utils/autoPlacement';
@@ -27,6 +27,27 @@ const FILL_PCT = { full: 100, half: 55, low: 20, empty: 4 };
 const FILL_ORDER = ['full', 'half', 'low', 'empty'];
 const FILL_LABEL = { full: 'F', half: 'H', low: 'L', empty: 'E' };
 
+// Units offered by the amount editor — weight, volume, and packaging-ish counts
+const UNITS = ['ct', 'pc', 'cup', 'tbsp', 'tsp', 'oz', 'fl oz', 'lb', 'g', 'kg', 'ml', 'L', 'pt', 'qt', 'gal', 'stick', 'jar', 'can', 'pkg', 'box', 'bag', 'bunch', 'clove', 'slice', 'dozen', 'pinch'];
+
+// Kitchen utilities — "do you have access to…" toggles shared across labs.
+// Staple ingredients map onto these instead of living in inventory.
+const ACCESS = [
+  { id: 'sink',      label: 'Sink',      emoji: '🚰' },
+  { id: 'stove',     label: 'Stove',     emoji: '🔥' },
+  { id: 'oven',      label: 'Oven',      emoji: '♨️' },
+  { id: 'freezer',   label: 'Freezer',   emoji: '🧊' },
+  { id: 'microwave', label: 'Microwave', emoji: '📡' },
+];
+
+// Ingredient name -> utility that covers it (tap the tile to flip the utility)
+const stapleAccessFor = (name) => {
+  const n = name.toLowerCase();
+  if (/\bice\b|ice cubes?|crushed ice/.test(n)) return 'freezer';
+  if (/water/.test(n)) return 'sink';
+  return null;
+};
+
 const ACCENT = {
   pink:    { tile: 'border-pink-400 dark:border-pink-600 bg-pink-50 dark:bg-pink-900/20',    bar: 'from-pink-400 to-rose-500',    text: 'text-pink-600 dark:text-pink-400',    chip: 'bg-pink-500' },
   orange:  { tile: 'border-orange-400 dark:border-orange-600 bg-orange-50 dark:bg-orange-900/20', bar: 'from-orange-400 to-amber-500', text: 'text-orange-600 dark:text-orange-400', chip: 'bg-orange-500' },
@@ -52,6 +73,24 @@ const LabPantryPicker = ({
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all'); // all | have | missing
   const [stockingAll, setStockingAll] = useState(false);
+  const [drafts, setDrafts] = useState({}); // key -> { qty?, est?, used? } inline edit buffers
+  const [access, setAccess] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('labKitchenAccess')) || {}; } catch { return {}; }
+  });
+  const extrasKey = `labPickerExtras:${title}`;
+  const [extras, setExtras] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(extrasKey)) || []; } catch { return []; }
+  });
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newQty, setNewQty] = useState('');
+  const [newUnit, setNewUnit] = useState('');
+
+  const toggleAccess = (id) => setAccess((p) => {
+    const next = { ...p, [id]: !p[id] };
+    localStorage.setItem('labKitchenAccess', JSON.stringify(next));
+    return next;
+  });
 
   const invKey = (name) => name.trim().toLowerCase();
 
@@ -97,29 +136,75 @@ const LabPantryPicker = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Recipe ingredients + user-added extras (deduped by name)
+  const allItems = useMemo(() => {
+    const known = new Set(items.map((i) => invKey(i.name)));
+    return [
+      ...items,
+      ...extras.filter((n) => n && !known.has(invKey(n))).map((n) => ({ name: n, isExtra: true })),
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, extras]);
+
   // Merge picker items with inventory state
-  const rows = useMemo(() => items.map((it) => {
+  const rows = useMemo(() => allItems.map((it) => {
     const inv = inventory[invKey(it.name)] || null;
     const qty = inv ? parseFloat(inv.current_quantity) || 0 : 0;
     const owned = qty > 0;
     const tracked = !!inv;
+    const est = inv ? parseFloat(inv.estimated_quantity) || 0 : 0;
+    const estPct = est > 0 && owned ? Math.max(0, Math.min(100, Math.round((qty / est) * 100))) : null;
     const fillPct = owned
-      ? (inv.fill_level ? FILL_PCT[inv.fill_level] : (inv.percentage_left ?? 100))
+      ? (estPct !== null ? Math.max(estPct, 3) : inv.fill_level ? FILL_PCT[inv.fill_level] : (inv.percentage_left ?? 100))
       : 0;
-    return { ...it, inv, qty, owned, tracked, fillPct };
-  }), [items, inventory]);
+    const stapleId = stapleAccessFor(it.name);
+    const stapleCovered = !!(stapleId && access[stapleId]);
+    return { ...it, inv, qty, est, estPct, owned, tracked, fillPct, stapleId, stapleCovered };
+  }), [allItems, inventory, access]);
 
-  const stocked = rows.filter((r) => r.owned).length;
-  const missingRows = rows.filter((r) => !r.owned);
+  const isCovered = (r) => r.owned || r.stapleCovered;
+  const stocked = rows.filter(isCovered).length;
+  // Staples are utility-covered, never bulk-stocked
+  const missingRows = rows.filter((r) => !r.owned && !r.stapleId);
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows
-      .filter((r) => (filter === 'have' ? r.owned : filter === 'missing' ? !r.owned : true))
+      .filter((r) => (filter === 'have' ? isCovered(r) : filter === 'missing' ? !isCovered(r) : true))
       .filter((r) => !term || r.name.toLowerCase().includes(term));
   }, [rows, search, filter]);
 
   const notify = () => onChanged && onChanged();
+
+  // Custom ingredient — created in inventory and remembered for this lab
+  const addIngredient = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    const key = invKey(name);
+    const qty = parseFloat(newQty) || 1;
+    try {
+      const { data } = await api.post('/inventory', {
+        item_name: name,
+        quantity: qty,
+        unit: newUnit || '',
+        storage_location: 'pantry',
+      });
+      setInventory((p) => ({ ...p, [key]: data }));
+      if (!extras.includes(name) && !items.some((i) => invKey(i.name) === key)) {
+        const next = [...extras, name];
+        setExtras(next);
+        localStorage.setItem(extrasKey, JSON.stringify(next));
+      }
+      setNewName(''); setNewQty(''); setNewUnit(''); setAdding(false);
+      notify();
+    } catch { /* leave form open */ }
+  };
+
+  const removeExtra = (name) => {
+    const next = extras.filter((n) => n !== name);
+    setExtras(next);
+    localStorage.setItem(extrasKey, JSON.stringify(next));
+  };
 
   const toggle = async (row) => {
     const key = invKey(row.name);
@@ -140,6 +225,7 @@ const LabPantryPicker = ({
         await api.patch(`/inventory/${row.inv.id}`, { quantity: nextQty });
         setInventory((p) => ({ ...p, [key]: { ...p[key], current_quantity: nextQty } }));
       }
+      setDrafts((p) => { const d = { ...p }; delete d[key]; return d; });
       notify();
     } catch {
       // leave tile as-is; next open re-syncs
@@ -155,6 +241,39 @@ const LabPantryPicker = ({
       await api.patch(`/inventory/${row.inv.id}/fill-level`, { fill_level: level });
       notify();
     } catch { /* optimistic state stays */ }
+  };
+
+  // --- Amount editing --------------------------------------------------
+  const setDraft = (key, field, value) =>
+    setDrafts((p) => ({ ...p, [key]: { ...(p[key] || {}), [field]: value } }));
+
+  // One commit path for qty/unit/est — drafts merged over current values
+  const commitAmount = async (row, fields = {}) => {
+    if (!row.inv) return;
+    const key = invKey(row.name);
+    const d = drafts[key] || {};
+    const quantity = fields.quantity !== undefined
+      ? fields.quantity
+      : (d.qty !== undefined ? parseFloat(d.qty) || 0 : row.qty);
+    const unit = fields.unit !== undefined ? fields.unit : (row.inv.unit || '');
+    const estimated_quantity = fields.estimated_quantity !== undefined
+      ? fields.estimated_quantity
+      : (d.est !== undefined ? parseFloat(d.est) || null : row.inv.estimated_quantity ?? null);
+    try {
+      await api.patch(`/inventory/${row.inv.id}`, { quantity, unit, estimated_quantity });
+      setInventory((p) => ({ ...p, [key]: { ...p[key], current_quantity: quantity, unit, estimated_quantity } }));
+      setDrafts((p) => { const next = { ...p }; delete next[key]; return next; });
+      notify();
+    } catch { /* draft stays so the user can retry */ }
+  };
+
+  const stepQty = (row, delta) =>
+    commitAmount(row, { quantity: Math.max(0, Math.round((row.qty + delta) * 100) / 100) });
+
+  const applyUsed = (row) => {
+    const used = parseFloat((drafts[invKey(row.name)] || {}).used);
+    if (!used || used <= 0) return;
+    commitAmount(row, { quantity: Math.max(0, Math.round((row.qty - used) * 100) / 100) });
   };
 
   const stockAll = async () => {
@@ -197,8 +316,17 @@ const LabPantryPicker = ({
                 <div className="flex-1 min-w-0">
                   <h2 className="font-bold text-gray-900 dark:text-white truncate">My {title} Ingredients</h2>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {stocked} of {rows.length} stocked — tap to toggle, fill dots set how much
+                    {stocked} of {rows.length} stocked — tap to toggle, arrows & inputs track amounts
                   </p>
+                  {rows.length > 0 && (
+                    <div className="h-1 mt-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                      <motion.div
+                        initial={false}
+                        animate={{ width: `${Math.round((stocked / rows.length) * 100)}%` }}
+                        className={`h-full rounded-full bg-gradient-to-r ${a.bar}`}
+                      />
+                    </div>
+                  )}
                 </div>
                 <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400">
                   <X className="w-5 h-5" />
@@ -231,6 +359,24 @@ const LabPantryPicker = ({
                 ))}
               </div>
 
+              {/* Kitchen access — utilities that auto-cover staples like water/ice */}
+              <div className="flex items-center gap-1.5 px-5 pb-3 flex-wrap">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mr-1">Kitchen</span>
+                {ACCESS.map(({ id, label, emoji }) => (
+                  <button
+                    key={id}
+                    onClick={() => toggleAccess(id)}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors ${
+                      access[id]
+                        ? `${a.chip} text-white border-transparent`
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {emoji} {label}
+                  </button>
+                ))}
+              </div>
+
               {/* Grid */}
               <div className="flex-1 overflow-y-auto px-5 pb-4 min-h-0">
                 {loading ? (
@@ -253,10 +399,11 @@ const LabPantryPicker = ({
                           initial={{ opacity: 0, y: 18, rotateX: -35 }}
                           animate={{ opacity: 1, y: 0, rotateX: 0 }}
                           transition={{ delay: Math.min(i * 0.02, 0.5), type: 'spring', stiffness: 300, damping: 22 }}
+                          whileHover={{ y: -3, rotateX: 4 }}
                           whileTap={{ scale: 0.94 }}
-                          onClick={() => toggle(row)}
+                          onClick={() => (row.stapleId ? toggleAccess(row.stapleId) : toggle(row))}
                           className={`relative overflow-hidden rounded-xl border-2 p-3 text-left cursor-pointer select-none transition-colors ${
-                            row.owned
+                            row.owned || row.stapleCovered
                               ? a.tile
                               : row.tracked
                               ? 'border-dashed border-amber-300 dark:border-amber-600 bg-amber-50/50 dark:bg-amber-900/10'
@@ -275,11 +422,21 @@ const LabPantryPicker = ({
 
                           <div className="relative z-10">
                             <div className="flex items-start justify-between">
-                              <span className="text-2xl leading-none">{icon}</span>
+                              <span className="text-2xl leading-none">
+                                {row.stapleId ? ACCESS.find((x) => x.id === row.stapleId)?.emoji : icon}
+                              </span>
                               {busy.has(key) ? (
                                 <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />
-                              ) : row.owned ? (
+                              ) : row.owned || row.stapleCovered ? (
                                 <Check className={`w-4 h-4 ${a.text}`} />
+                              ) : row.isExtra ? (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); removeExtra(row.name); }}
+                                  title="Remove from this lab's list"
+                                  className="text-gray-300 dark:text-gray-600 hover:text-red-500"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
                               ) : null}
                             </div>
                             <p className={`mt-2 text-xs font-semibold leading-tight ${
@@ -288,34 +445,155 @@ const LabPantryPicker = ({
                               {row.name}
                             </p>
                             <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
-                              {row.owned
-                                ? `${row.qty}${row.inv?.unit ? ` ${row.inv.unit}` : ''}${row.inv?.custom_location_name ? ` · ${row.inv.custom_location_name}` : row.inv?.storage_location ? ` · ${row.inv.storage_location}` : ''}`
+                              {row.stapleId
+                                ? `${ACCESS.find((x) => x.id === row.stapleId)?.label} ${row.stapleCovered ? 'on' : '— tap if you have one'}`
+                                : row.owned
+                                ? `${row.qty}${row.inv?.unit ? ` ${row.inv.unit}` : ''}${row.estPct !== null ? ` · ${row.estPct}%` : ''}${row.inv?.custom_location_name ? ` · ${row.inv.custom_location_name}` : row.inv?.storage_location ? ` · ${row.inv.storage_location}` : ''}`
                                 : row.tracked
                                 ? 'tracked — tap to restock'
                                 : 'tap to stock'}
                             </p>
 
-                            {/* Fill dots — "how much do I have" */}
+                            {/* Amount controls — how much do I have */}
                             {row.owned && (
-                              <div className="flex items-center gap-1 mt-2" onClick={(e) => e.stopPropagation()}>
-                                {FILL_ORDER.map((lvl) => (
-                                  <button
-                                    key={lvl}
-                                    onClick={() => setFill(row, lvl)}
-                                    title={lvl}
-                                    className={`h-1.5 rounded-full transition-all ${
-                                      (row.inv?.fill_level || 'full') === lvl
-                                        ? `w-5 ${a.chip}`
-                                        : 'w-2.5 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400'
-                                    }`}
+                              <div className="mt-2 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                                {/* % remaining bar when an estimate exists */}
+                                {row.estPct !== null && (
+                                  <div>
+                                    <div className="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                                      <motion.div
+                                        initial={false}
+                                        animate={{ width: `${row.estPct}%` }}
+                                        className={`h-full rounded-full bg-gradient-to-r ${a.bar}`}
+                                      />
+                                    </div>
+                                    <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">{row.estPct}% left</p>
+                                  </div>
+                                )}
+
+                                {/* qty stepper + unit */}
+                                <div className="flex items-center gap-1">
+                                  <button onClick={() => stepQty(row, -1)} title="Decrease" className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500">
+                                    <ChevronDown className="w-3.5 h-3.5" />
+                                  </button>
+                                  <input
+                                    type="number" min="0" step="any"
+                                    value={(drafts[key] || {}).qty ?? row.qty}
+                                    onChange={(e) => setDraft(key, 'qty', e.target.value)}
+                                    onBlur={() => commitAmount(row)}
+                                    onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
+                                    className="w-10 px-0.5 py-0.5 text-center text-[10px] rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
                                   />
-                                ))}
+                                  <button onClick={() => stepQty(row, 1)} title="Increase" className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500">
+                                    <ChevronUp className="w-3.5 h-3.5" />
+                                  </button>
+                                  <select
+                                    value={row.inv?.unit || ''}
+                                    onChange={(e) => commitAmount(row, { unit: e.target.value })}
+                                    className="flex-1 min-w-0 px-1 py-0.5 text-[10px] rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                                  >
+                                    <option value="">unit</option>
+                                    {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                                  </select>
+                                </div>
+
+                                {/* est + used + fill dots */}
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number" min="0" step="any" placeholder="est"
+                                    title="Estimated full amount (for % left)"
+                                    value={(drafts[key] || {}).est ?? (row.inv?.estimated_quantity ?? '')}
+                                    onChange={(e) => setDraft(key, 'est', e.target.value)}
+                                    onBlur={() => commitAmount(row)}
+                                    onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
+                                    className="w-11 px-1 py-0.5 text-center text-[10px] rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                                  />
+                                  <input
+                                    type="number" min="0" step="any" placeholder="used"
+                                    title="Amount you used — subtracts from quantity"
+                                    value={(drafts[key] || {}).used ?? ''}
+                                    onChange={(e) => setDraft(key, 'used', e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && applyUsed(row)}
+                                    className="w-11 px-1 py-0.5 text-center text-[10px] rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                                  />
+                                  <button onClick={() => applyUsed(row)} title="Subtract used amount" className={`p-1 rounded text-white ${a.chip} hover:opacity-90`}>
+                                    <Minus className="w-3 h-3" />
+                                  </button>
+                                  <div className="flex items-center gap-1 ml-auto">
+                                    {FILL_ORDER.map((lvl) => (
+                                      <button
+                                        key={lvl}
+                                        onClick={() => setFill(row, lvl)}
+                                        title={lvl}
+                                        className={`h-1.5 rounded-full transition-all ${
+                                          (row.inv?.fill_level || 'full') === lvl
+                                            ? `w-4 ${a.chip}`
+                                            : 'w-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400'
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
                               </div>
                             )}
                           </div>
                         </motion.div>
                       );
                     })}
+
+                    {/* Add custom ingredient */}
+                    {adding ? (
+                      <div className="col-span-2 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 p-3 space-y-2">
+                        <input
+                          autoFocus
+                          value={newName}
+                          onChange={(e) => setNewName(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && addIngredient()}
+                          placeholder="Ingredient name…"
+                          className="w-full px-2 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                        />
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number" min="0" step="any"
+                            value={newQty}
+                            onChange={(e) => setNewQty(e.target.value)}
+                            placeholder="qty"
+                            className="w-14 px-1.5 py-1 text-center text-[10px] rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                          />
+                          <select
+                            value={newUnit}
+                            onChange={(e) => setNewUnit(e.target.value)}
+                            className="flex-1 px-1 py-1 text-[10px] rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                          >
+                            <option value="">unit</option>
+                            {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                          </select>
+                          <button
+                            onClick={addIngredient}
+                            className={`px-3 py-1 rounded-lg text-[10px] font-semibold text-white ${a.chip} hover:opacity-90`}
+                          >
+                            Add
+                          </button>
+                          <button
+                            onClick={() => { setAdding(false); setNewName(''); setNewQty(''); setNewUnit(''); }}
+                            className="px-2 py-1 rounded-lg text-[10px] font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <motion.div
+                        layout
+                        whileHover={{ y: -3, rotateX: 4 }}
+                        whileTap={{ scale: 0.94 }}
+                        onClick={() => setAdding(true)}
+                        className="rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-600 p-3 cursor-pointer select-none flex flex-col items-center justify-center gap-1 text-gray-400 min-h-[96px]"
+                      >
+                        <Plus className="w-5 h-5" />
+                        <span className="text-[10px] font-semibold">Add ingredient</span>
+                      </motion.div>
+                    )}
                   </div>
                 )}
               </div>

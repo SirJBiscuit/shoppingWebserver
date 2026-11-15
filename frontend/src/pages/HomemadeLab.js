@@ -6,6 +6,7 @@ import {
   Citrus, Wheat,
 } from 'lucide-react';
 import LabShell from '../components/lab/LabShell';
+import CustomContextMenu from '../components/CustomContextMenu';
 
 /**
  * HomemadeLab - hub for the "make it at home" labs.
@@ -90,9 +91,27 @@ const HomemadeLab = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {LABS.map((lab, i) => {
           const Icon = lab.icon;
+          const menuItems = [
+            { label: `Open ${lab.name}`, icon: lab.icon, onClick: () => navigate(lab.path) },
+            { separator: true },
+            {
+              label: 'Jump to lab',
+              icon: FlaskConical,
+              submenu: LABS.filter((l) => l.id !== lab.id && l.ready).map((l) => ({
+                label: l.name,
+                icon: l.icon,
+                onClick: () => navigate(l.path),
+              })),
+            },
+          ];
           return (
-            <motion.button
+            <CustomContextMenu
               key={lab.id}
+              trigger="both"
+              disabled={!lab.ready}
+              items={menuItems}
+            >
+            <motion.button
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.03, duration: 0.16, ease: 'easeOut' }}
@@ -125,6 +144,7 @@ const HomemadeLab = () => {
                 </span>
               )}
             </motion.button>
+            </CustomContextMenu>
           );
         })}
       </div>

@@ -508,6 +508,7 @@ router.patch('/:id(\\d+)', authenticateToken, async (req, res) => {
       category,
       quantity,
       unit,
+      estimated_quantity,
       bought_date,
       opened_date,
       is_opened,
@@ -548,6 +549,10 @@ router.patch('/:id(\\d+)', authenticateToken, async (req, res) => {
     if (unit !== undefined) {
       updates.push(`unit = $${paramCount++}`);
       values.push(unit);
+    }
+    if (estimated_quantity !== undefined) {
+      updates.push(`estimated_quantity = $${paramCount++}`);
+      values.push(estimated_quantity);
     }
     if (bought_date !== undefined) {
       updates.push(`bought_date = $${paramCount++}`);
