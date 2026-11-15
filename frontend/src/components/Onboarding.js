@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronRight, ChevronLeft, Check, Zap, BookOpen, Plus, ShoppingCart, Package, ChefHat, Settings as SettingsIcon, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Portal } from '../utils/autoPlacement';
 
 const Onboarding = ({ userId, forceOpen, onClose }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -409,7 +410,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
   const step = steps[currentStep];
 
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -660,7 +661,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
           )}
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Info, CheckCircle, AlertCircle, AlertTriangle, HelpCircle } from 'lucide-react';
+import { Portal } from '../utils/autoPlacement';
 
 /**
  * CustomNotification - A versatile notification/messaging system
@@ -205,7 +206,7 @@ const CustomNotification = ({
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       {isOpen && (
         <>
           {/* Backdrop for center position */}
@@ -320,7 +321,7 @@ const CustomNotification = ({
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

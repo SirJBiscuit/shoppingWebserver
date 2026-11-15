@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, AlertTriangle, XCircle, ShoppingCart, Package } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import api from '../../services/api';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * InventoryComparisonModal - Shows what ingredients you have vs need
@@ -67,7 +68,7 @@ const InventoryComparisonModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <Portal><div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
@@ -256,7 +257,7 @@ const InventoryComparisonModal = ({
           </div>
         )}
       </div>
-    </div>
+    </div></Portal>
   );
 };
 

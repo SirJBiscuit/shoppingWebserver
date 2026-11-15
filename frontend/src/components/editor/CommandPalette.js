@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Command, ArrowRight } from 'lucide-react';
 import { useEditor } from '../../contexts/EditorContext';
 import { WIDGET_TYPES } from '../../utils/widgetConfig';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * CommandPalette - Quick search and add widgets (Cmd+K)
@@ -112,7 +113,7 @@ const CommandPalette = () => {
   if (!isEditorActive) return null;
   
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       {isOpen && (
         <>
           {/* Backdrop */}
@@ -222,7 +223,7 @@ const CommandPalette = () => {
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

@@ -4,6 +4,8 @@ import {
   Flag, Save, RefreshCw, Plus, Trash2, Edit2, Check, X,
   Users, Star, Shield, Zap, Eye, EyeOff, Search, Filter
 } from 'lucide-react';
+import { Portal } from '../../utils/autoPlacement';
+import ConfirmModal from '../../limbo/modals/ConfirmModal';
 
 const AdminFeatureFlagsManager = () => {
   const [flags, setFlags] = useState([]);
@@ -12,6 +14,7 @@ const AdminFeatureFlagsManager = () => {
   const [filterRole, setFilterRole] = useState('all');
   const [editingFlag, setEditingFlag] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [flagToDelete, setFlagToDelete] = useState(null);
 
   useEffect(() => {
     loadFeatureFlags();
@@ -77,8 +80,7 @@ const AdminFeatureFlagsManager = () => {
   };
 
   const deleteFlag = async (flagId) => {
-    if (!confirm('Are you sure you want to delete this feature flag?')) return;
-    
+    // confirmation handled by ConfirmModal before this is called
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/admin/feature-flags/${flagId}`, {
@@ -286,7 +288,7 @@ const AdminFeatureFlagsManager = () => {
                   
                   {!flag.system && (
                     <button
-                      onClick={() => deleteFlag(flag.id)}
+                      onClick={() => setFlagToDelete(flag)}
                       className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
                       title="Delete"
                     >
@@ -307,7 +309,7 @@ const AdminFeatureFlagsManager = () => {
 
       {/* Add/Edit Modal */}
       {(showAddModal || editingFlag) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <Portal><div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -395,8 +397,18 @@ const AdminFeatureFlagsManager = () => {
               </button>
             </div>
           </motion.div>
-        </div>
+        </div></Portal>
       )}
+
+      <ConfirmModal
+        isOpen={flagToDelete !== null}
+        title="Delete Feature Flag"
+        message={`Are you sure you want to delete "${flagToDelete?.name}"? This cannot be undone.`}
+        confirmText="Delete"
+        type="danger"
+        onConfirm={() => { deleteFlag(flagToDelete.id); setFlagToDelete(null); }}
+        onCancel={() => setFlagToDelete(null)}
+      />
     </div>
   );
 };

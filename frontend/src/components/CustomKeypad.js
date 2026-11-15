@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, Move } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Portal } from '../utils/autoPlacement';
 
 /**
  * CustomKeypad - A reusable, responsive keypad component
@@ -222,16 +223,16 @@ const CustomKeypad = ({
     return (
       <>
         {/* Backdrop */}
-        <motion.div 
+        <Portal><motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 bg-black/50 z-[100]"
           onClick={handleClose}
-        />
+        /></Portal>
         
         {/* Bottom Sheet */}
-        <motion.div 
+        <Portal><motion.div 
           variants={mobileVariants}
           initial="hidden"
           animate="visible"
@@ -239,7 +240,7 @@ const CustomKeypad = ({
           className="fixed bottom-0 left-0 right-0 z-[101] max-h-[85vh] overflow-y-auto"
         >
           {renderKeypadContent()}
-        </motion.div>
+        </motion.div></Portal>
       </>
     );
   }
@@ -249,16 +250,16 @@ const CustomKeypad = ({
     return (
       <>
         {/* Backdrop */}
-        <motion.div 
+        <Portal><motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 bg-black/50 z-[100]"
           onClick={handleClose}
-        />
+        /></Portal>
         
         {/* Centered Modal */}
-        <motion.div 
+        <Portal><motion.div 
           variants={containerVariants}
           initial="hidden"
           animate="visible"
@@ -266,7 +267,7 @@ const CustomKeypad = ({
           className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-[90vw] max-w-2xl"
         >
           {renderKeypadContent()}
-        </motion.div>
+        </motion.div></Portal>
       </>
     );
   }
@@ -275,16 +276,16 @@ const CustomKeypad = ({
   return (
     <>
       {/* Backdrop */}
-      <motion.div 
+      <Portal><motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black/30 z-[100]"
         onClick={handleClose}
-      />
+      /></Portal>
       
       {/* Draggable Widget */}
-      <motion.div
+      <Portal><motion.div
         drag
         dragConstraints={{
           left: -window.innerWidth / 2 + 300,
@@ -312,7 +313,7 @@ const CustomKeypad = ({
           
           {renderKeypadContent()}
         </div>
-      </motion.div>
+      </motion.div></Portal>
     </>
   );
 };

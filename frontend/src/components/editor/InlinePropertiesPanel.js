@@ -9,6 +9,7 @@ import {
   X
 } from 'lucide-react';
 import { useEditor } from '../../contexts/EditorContext';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * InlinePropertiesPanel - Context menu for editing widget properties
@@ -48,7 +49,7 @@ const InlinePropertiesPanel = () => {
   if (!selectedWidget || !widget) return null;
   
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       <motion.div
         ref={panelRef}
         initial={{ opacity: 0, scale: 0.9, x: -20 }}
@@ -226,7 +227,7 @@ const InlinePropertiesPanel = () => {
           </button>
         </div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

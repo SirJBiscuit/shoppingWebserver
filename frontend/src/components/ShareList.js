@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Share2, Copy, Mail, MessageCircle, X, Check, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Portal } from '../utils/autoPlacement';
 
 const ShareList = ({ list, items, isOpen, onClose }) => {
   const [copied, setCopied] = useState(false);
@@ -73,7 +74,7 @@ const ShareList = ({ list, items, isOpen, onClose }) => {
   };
 
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -233,7 +234,7 @@ const ShareList = ({ list, items, isOpen, onClose }) => {
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Sparkles, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Portal } from '../utils/autoPlacement';
 
 const XPNotification = ({ xpAmount, message, onComplete }) => {
   const [isVisible, setIsVisible] = useState(true);
@@ -124,7 +125,7 @@ export const XPNotificationContainer = () => {
   };
 
   return (
-    <div className="fixed top-20 right-2 sm:right-4 z-50 space-y-2">
+    <Portal><div className="fixed top-20 right-2 sm:right-4 z-50 space-y-2">
       <AnimatePresence mode="popLayout">
         {notifications.map((notification, index) => (
           <motion.div
@@ -143,7 +144,7 @@ export const XPNotificationContainer = () => {
           </motion.div>
         ))}
       </AnimatePresence>
-    </div>
+    </div></Portal>
   );
 };
 

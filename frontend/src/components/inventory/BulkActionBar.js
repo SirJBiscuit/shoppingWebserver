@@ -1,6 +1,7 @@
 import React from 'react';
 import { Trash2, Star, Edit2, Package, X, CheckSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * BulkActionBar - Floating action bar for bulk operations
@@ -22,7 +23,7 @@ const BulkActionBar = ({
 }) => {
   
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       {selectedCount > 0 && (
         <motion.div
           initial={{ y: 100, opacity: 0 }}
@@ -103,7 +104,7 @@ const BulkActionBar = ({
           </div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

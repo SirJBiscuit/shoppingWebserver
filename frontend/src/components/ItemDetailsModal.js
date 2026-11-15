@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Camera, DollarSign, Calendar, Package, Edit2, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CustomDatePicker from './CustomDatePicker';
+import { Portal } from '../utils/autoPlacement';
 
 const ItemDetailsModal = ({ item, isOpen, onClose, onSave }) => {
   const [editedItem, setEditedItem] = useState(null);
@@ -47,7 +48,7 @@ const ItemDetailsModal = ({ item, isOpen, onClose, onSave }) => {
   const isExpired = daysUntilExpiry !== null && daysUntilExpiry < 0;
 
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -295,7 +296,7 @@ const ItemDetailsModal = ({ item, isOpen, onClose, onSave }) => {
           )}
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

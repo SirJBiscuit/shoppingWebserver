@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Volume2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Portal } from '../utils/autoPlacement';
 
 const VoiceInput = ({ onResult, isOpen, onClose }) => {
   const [isListening, setIsListening] = useState(false);
@@ -133,7 +134,7 @@ const VoiceInput = ({ onResult, isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -249,7 +250,7 @@ const VoiceInput = ({ onResult, isOpen, onClose }) => {
           </p>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

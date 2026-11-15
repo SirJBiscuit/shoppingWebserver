@@ -18,6 +18,7 @@ import APIRouteBuilder from '../components/admin/APIRouteBuilder';
 import DatabaseSchemaEditor from '../components/admin/DatabaseSchemaEditor';
 import VisualPageCreator from '../components/admin/VisualPageCreator';
 import AIAppBuilder from '../components/admin/AIAppBuilder';
+import { Portal } from '../utils/autoPlacement';
 
 const AdminCustomization = () => {
   const [activeTab, setActiveTab] = useState('layout');
@@ -587,7 +588,7 @@ const AdminCustomization = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="fixed bottom-20 md:bottom-6 right-6 flex flex-col space-y-2">
+        <Portal><div className="fixed bottom-20 md:bottom-6 right-6 flex flex-col space-y-2">
           <button
             onClick={exportConfiguration}
             className="bg-green-600 text-white p-3 rounded-full shadow-lg hover:bg-green-700 transition"
@@ -613,7 +614,7 @@ const AdminCustomization = () => {
           >
             <RotateCcw className="w-6 h-6" />
           </button>
-        </div>
+        </div></Portal>
       </div>
     </PageTransition>
   );

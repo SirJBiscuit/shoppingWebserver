@@ -27,13 +27,6 @@
   "background_color": "#ffffff",
   "orientation": "portrait",
   "categories": ["shopping", "productivity", "lifestyle"],
-  "screenshots": [
-    {
-      "src": "screenshot1.png",
-      "type": "image/png",
-      "sizes": "540x720"
-    }
-  ],
   "shortcuts": [
     {
       "name": "New Shopping List",

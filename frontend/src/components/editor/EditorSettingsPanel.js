@@ -11,6 +11,7 @@ import {
   X
 } from 'lucide-react';
 import { useEditor } from '../../contexts/EditorContext';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * EditorSettingsPanel - Comprehensive settings for the editor
@@ -47,16 +48,16 @@ const EditorSettingsPanel = ({ isOpen, onClose }) => {
     <AnimatePresence>
       <>
         {/* Backdrop */}
-        <motion.div
+        <Portal><motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
-        />
+        /></Portal>
         
         {/* Panel */}
-        <motion.div
+        <Portal><motion.div
           initial={{ opacity: 0, scale: 0.95, x: 20 }}
           animate={{ opacity: 1, scale: 1, x: 0 }}
           exit={{ opacity: 0, scale: 0.95, x: 20 }}
@@ -278,7 +279,7 @@ const EditorSettingsPanel = ({ isOpen, onClose }) => {
               Done
             </button>
           </div>
-        </motion.div>
+        </motion.div></Portal>
       </>
     </AnimatePresence>
   );

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useEditor } from '../../contexts/EditorContext';
 import { WIDGET_TYPES } from '../../utils/widgetConfig';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * WidgetLibrary - Left sidebar with all available widgets
@@ -161,7 +162,7 @@ const WidgetLibrary = () => {
   if (!isEditorActive) return null;
   
   return (
-    <motion.div
+    <Portal><motion.div
       initial={{ x: -300, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: -300, opacity: 0 }}
@@ -385,7 +386,7 @@ const WidgetLibrary = () => {
           Drag widgets to canvas or click + to add
         </div>
       </div>
-    </motion.div>
+    </motion.div></Portal>
   );
 };
 

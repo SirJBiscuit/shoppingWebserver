@@ -21,6 +21,7 @@ import {
   RotateCw,
   Settings,
 } from 'lucide-react';
+import { Portal } from '../utils/autoPlacement';
 
 const AVEContextMenu = ({ 
   menuState, 
@@ -163,7 +164,7 @@ const AVEContextMenu = ({
   ];
 
   return (
-    <div
+    <Portal><div
       ref={menuRef}
       className="fixed z-[9999] min-w-[220px] bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 py-2"
       style={{
@@ -250,7 +251,7 @@ const AVEContextMenu = ({
           </button>
         );
       })}
-    </div>
+    </div></Portal>
   );
 };
 

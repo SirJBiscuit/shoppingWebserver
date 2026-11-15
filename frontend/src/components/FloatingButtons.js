@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Grid, List } from 'lucide-react';
+import { Portal } from '../utils/autoPlacement';
 
 const FloatingButtons = ({
   showApps = true,
@@ -36,7 +37,7 @@ const FloatingButtons = ({
     <>
       {/* Floating Apps Menu Button */}
       {showApps && (
-        <div className={`fixed ${positionClass} z-50`} style={{ bottom: `${spacing * 11}px` }}>
+        <Portal><div className={`fixed ${positionClass} z-50`} style={{ bottom: `${spacing * 11}px` }}>
           {/* Apps Dropdown Menu */}
           {showAppsMenu && (
             <motion.div
@@ -74,12 +75,12 @@ const FloatingButtons = ({
             <Grid className={iconSizes[buttonSize]} />
             <span className="text-[10px] sm:text-xs font-semibold whitespace-nowrap">Apps</span>
           </motion.button>
-        </div>
+        </div></Portal>
       )}
 
       {/* Floating Active Shopping List Button */}
       {showActiveList && (
-        <motion.button
+        <Portal><motion.button
           onClick={() => setShowListPanel(true)}
           className={`fixed ${positionClass} z-50 flex flex-col items-center justify-center gap-1 ${sizeClasses[buttonSize]} text-white rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300`}
           style={{
@@ -101,7 +102,7 @@ const FloatingButtons = ({
             </motion.span>
           )}
           <span className="text-[10px] sm:text-xs font-semibold whitespace-nowrap">Active List</span>
-        </motion.button>
+        </motion.button></Portal>
       )}
     </>
   );

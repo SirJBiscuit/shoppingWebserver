@@ -5,6 +5,7 @@ import { useToast } from '../hooks/useToast';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
 import CustomNumberPad from './CustomNumberPad';
 import { searchProducts, getPriceEstimate } from '../api/mdl';
+import { Portal } from '../utils/autoPlacement';
 
 const STORES = ['Walmart', 'Target', 'Kroger', 'Aldi', 'Costco', 'Whole Foods', 'Safeway', 'Publix'];
 const MAX_IMG_PX = 1024; // downscale captures/uploads — keeps photos light
@@ -194,7 +195,7 @@ const PriceLearningModal = ({ isOpen, onClose, onSubmit, storeLocation = null, o
   const close = () => { stopCamera(); onClose(); };
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm" onClick={close}>
+    <Portal><div className="fixed inset-0 z-[80] flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm" onClick={close}>
       <motion.div
         initial={{ opacity: 0, scale: 0.94, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -394,7 +395,7 @@ const PriceLearningModal = ({ isOpen, onClose, onSubmit, storeLocation = null, o
           </div>
         </div>
       )}
-    </div>
+    </div></Portal>
   );
 };
 

@@ -3,6 +3,7 @@ import { Volume2, VolumeX, Play, Upload, Trash2, X } from 'lucide-react';
 import soundsAPI from '../services/soundsAPI';
 import { useToast } from '../hooks/useToast';
 import soundManager from '../utils/soundEffects';
+import { Portal } from '../utils/autoPlacement';
 // import ConfirmModal from './ConfirmModal'; // Will integrate CFS system
 
 const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
@@ -190,13 +191,13 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
           
           {/* Drag and Drop Overlay */}
           {dragActive && (
-            <div className="fixed inset-0 bg-primary-500 bg-opacity-20 border-4 border-dashed border-primary-500 rounded-lg flex items-center justify-center z-50 pointer-events-none">
+            <Portal><div className="fixed inset-0 bg-primary-500 bg-opacity-20 border-4 border-dashed border-primary-500 rounded-lg flex items-center justify-center z-50 pointer-events-none">
               <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl">
                 <Upload className="w-16 h-16 text-primary-600 mx-auto mb-4" />
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">Drop audio file here</p>
                 <p className="text-gray-600 dark:text-gray-400 mt-2">Supports: MP3, WAV, OGG, M4A</p>
               </div>
-            </div>
+            </div></Portal>
           )}
 
           {loading ? (
@@ -422,11 +423,11 @@ const SoundSettings = ({ isOpen, onClose, isAdmin }) => {
   // Otherwise render as modal
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Portal><div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           {renderContent()}
         </div>
-      </div>
+      </div></Portal>
       {/* <ConfirmModal
         isOpen={deleteConfirm !== null}
         onClose={() => setDeleteConfirm(null)}

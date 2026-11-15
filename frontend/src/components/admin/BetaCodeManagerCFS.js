@@ -8,6 +8,7 @@ import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import CustomNotification from '../CustomNotification';
 import CustomDatePicker from '../CustomDatePicker';
+import { Portal } from '../../utils/autoPlacement';
 
 const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) => {
   const { notification, hideNotification, confirm, confirmDelete } = useNotification();
@@ -402,7 +403,7 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
       )}
 
       {/* Generate Modal */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {showGenerateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <motion.div
@@ -499,10 +500,10 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
       
       {/* Edit Modal */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {showEditModal && selectedCode && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <motion.div
@@ -605,10 +606,10 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
 
       {/* Extend Code Modal */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {showExtendModal && extendTarget && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <motion.div
@@ -704,7 +705,7 @@ const BetaCodeManagerCFS = ({ config = {}, isEditing = false, onConfigChange }) 
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
 
       <CustomNotification {...notification} onClose={hideNotification} />
     </div>

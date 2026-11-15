@@ -175,6 +175,7 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [newItemName, setNewItemName] = useState('');
+  const [itemAdvice, setItemAdvice] = useState(null); // { verdict, reasons[] }
   const [newItemQuantity, setNewItemQuantity] = useState('');
   const [newItemSize, setNewItemSize] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
@@ -1189,6 +1190,7 @@ const Dashboard = () => {
       }
 
       setNewItemName('');
+      setItemAdvice(null);
       setNewItemQuantity('');
       setNewItemSize('');
       setNewItemPrice('');
@@ -2253,6 +2255,43 @@ const Dashboard = () => {
                     ))}
                   </div>
                 )}
+
+                {/* Purchase advisor — "already have / just bought / on schedule" hints */}
+                <AnimatePresence>
+                  {itemAdvice && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden mb-3"
+                    >
+                      <div className={`flex items-start gap-2 rounded-lg border-2 px-3 py-2 text-xs ${
+                        itemAdvice.verdict === 'skip'
+                          ? 'border-blue-300 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-700 text-blue-800 dark:text-blue-300'
+                          : itemAdvice.verdict === 'caution'
+                          ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 text-amber-800 dark:text-amber-300'
+                          : 'border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-700 text-green-800 dark:text-green-300'
+                      }`}>
+                        {itemAdvice.verdict === 'buy'
+                          ? <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                          : <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />}
+                        <div className="flex-1">
+                          {itemAdvice.reasons.map((r, i) => (
+                            <p key={i}>{r}</p>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setItemAdvice(null)}
+                          className="flex-shrink-0 p-0.5 opacity-60 hover:opacity-100"
+                          title="Dismiss"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <input

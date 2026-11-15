@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, UserPlus, Save } from 'lucide-react';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
 import CustomDatePicker from './CustomDatePicker';
+import { Portal } from '../utils/autoPlacement';
 
 const AVATAR_EMOJIS = ['😀','😎','🤓','😺','🐶','🦊','🐼','🦁','👦','👧','👨','👩','🧑','👴','👵','🧒','⭐','🌟'];
 const COLORS = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#14b8a6'];
@@ -91,7 +92,7 @@ const HouseholdMemberModal = ({ isOpen, onClose, onSave, member = null }) => {
   const labelCls = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5';
 
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black/10 flex items-center justify-center z-50 p-4"
@@ -308,7 +309,7 @@ const HouseholdMemberModal = ({ isOpen, onClose, onSave, member = null }) => {
           </AnimatedScrollbar3D>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

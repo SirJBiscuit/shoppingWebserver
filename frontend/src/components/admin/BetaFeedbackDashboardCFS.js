@@ -8,6 +8,7 @@ import {
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import CustomNotification from '../CustomNotification';
+import { Portal } from '../../utils/autoPlacement';
 
 const BetaFeedbackDashboardCFS = ({ config = {}, isEditing = false, onConfigChange }) => {
   const { notification, hideNotification, confirmDelete } = useNotification();
@@ -360,7 +361,7 @@ const BetaFeedbackDashboardCFS = ({ config = {}, isEditing = false, onConfigChan
       </AnimatePresence>
 
       {/* Response Modal */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {showResponseModal && selectedFeedback && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <motion.div
@@ -435,7 +436,7 @@ const BetaFeedbackDashboardCFS = ({ config = {}, isEditing = false, onConfigChan
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
       
       <CustomNotification {...notification} onClose={hideNotification} />
     </div>
@@ -551,7 +552,7 @@ const FeedbackCard = ({ feedback, onViewDetails, onRespond, onUpdateStatus, onUp
 
 const FeedbackDetailsModal = ({ feedback, onClose }) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <Portal><div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -658,7 +659,7 @@ const FeedbackDetailsModal = ({ feedback, onClose }) => {
           Close
         </button>
       </motion.div>
-    </div>
+    </div></Portal>
   );
 };
 

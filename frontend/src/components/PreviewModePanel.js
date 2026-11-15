@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, User, Shield, Star, X } from 'lucide-react';
+import { Portal } from '../utils/autoPlacement';
 
 /**
  * PreviewModePanel - Preview app as different user roles
@@ -59,7 +60,7 @@ const PreviewModePanel = ({ currentUser, onRoleChange }) => {
   return (
     <>
       {/* Preview Mode Banner (when active) */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {previewRole && (
           <motion.div
             initial={{ y: -100, opacity: 0 }}
@@ -88,10 +89,10 @@ const PreviewModePanel = ({ currentUser, onRoleChange }) => {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
       
       {/* Floating Toggle Button */}
-      <motion.button
+      <Portal><motion.button
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
@@ -103,10 +104,10 @@ const PreviewModePanel = ({ currentUser, onRoleChange }) => {
         title="Preview as Different User"
       >
         {previewRole ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
-      </motion.button>
+      </motion.button></Portal>
       
       {/* Preview Panel */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {isOpen && (
           <>
             {/* Backdrop */}
@@ -237,7 +238,7 @@ const PreviewModePanel = ({ currentUser, onRoleChange }) => {
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
     </>
   );
 };

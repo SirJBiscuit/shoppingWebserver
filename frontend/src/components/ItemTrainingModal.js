@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, BookOpen, Sparkles, AlertCircle, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { detectIcon, detectCategory, CATEGORIES } from '../utils/categoryDetector';
+import { Portal } from '../utils/autoPlacement';
 
 const ItemTrainingModal = ({ isOpen, onClose, itemName, frequency, isAdmin, onSubmit }) => {
   const [formData, setFormData] = useState({
@@ -49,7 +50,7 @@ const ItemTrainingModal = ({ isOpen, onClose, itemName, frequency, isAdmin, onSu
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -260,7 +261,7 @@ const ItemTrainingModal = ({ isOpen, onClose, itemName, frequency, isAdmin, onSu
           </form>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

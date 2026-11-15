@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Edit3, Grid, Layout, Palette, Wand2 } from 'lucide-react';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * EditorOverlay - Visual overlay for AVE editor mode
@@ -163,7 +164,7 @@ export const EditorModeIndicator = ({ isActive, targetArea }) => {
   if (!isActive) return null;
 
   return (
-    <motion.div
+    <Portal><motion.div
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
@@ -196,7 +197,7 @@ export const EditorModeIndicator = ({ isActive, targetArea }) => {
           repeat: Infinity,
         }}
       />
-    </motion.div>
+    </motion.div></Portal>
   );
 };
 

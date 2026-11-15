@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { WifiOff, Wifi, Cloud, CloudOff, RefreshCw } from 'lucide-react';
+import { Portal } from '../utils/autoPlacement';
 
 const OfflineIndicator = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -74,7 +75,7 @@ const OfflineIndicator = () => {
     <>
       {/* Persistent Offline Banner */}
       {!isOnline && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-orange-500 text-white py-2 px-4 shadow-lg">
+        <Portal><div className="fixed top-0 left-0 right-0 z-50 bg-orange-500 text-white py-2 px-4 shadow-lg">
           <div className="container mx-auto flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <WifiOff className="w-5 h-5 animate-pulse" />
@@ -88,12 +89,12 @@ const OfflineIndicator = () => {
               </div>
             )}
           </div>
-        </div>
+        </div></Portal>
       )}
 
       {/* Online Notification (temporary) */}
       {showNotification && isOnline && (
-        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white py-3 px-4 rounded-lg shadow-lg flex items-center space-x-2 animate-slide-in">
+        <Portal><div className="fixed top-4 right-4 z-50 bg-green-500 text-white py-3 px-4 rounded-lg shadow-lg flex items-center space-x-2 animate-slide-in">
           <Wifi className="w-5 h-5" />
           <span className="font-medium">Back online!</span>
           {pendingSync > 0 && (
@@ -102,15 +103,15 @@ const OfflineIndicator = () => {
               <span className="text-sm">Syncing {pendingSync} changes...</span>
             </>
           )}
-        </div>
+        </div></Portal>
       )}
 
       {/* Sync Status Indicator */}
       {isOnline && pendingSync > 0 && !showNotification && (
-        <div className="fixed bottom-4 right-4 z-40 bg-blue-500 text-white py-2 px-4 rounded-full shadow-lg flex items-center space-x-2 text-sm">
+        <Portal><div className="fixed bottom-4 right-4 z-40 bg-blue-500 text-white py-2 px-4 rounded-full shadow-lg flex items-center space-x-2 text-sm">
           <RefreshCw className="w-4 h-4 animate-spin" />
           <span>Syncing...</span>
-        </div>
+        </div></Portal>
       )}
     </>
   );

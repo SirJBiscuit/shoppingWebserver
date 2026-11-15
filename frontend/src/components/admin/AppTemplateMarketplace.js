@@ -3,6 +3,7 @@ import {
   Store, Download, Star, Search, Filter, Eye, 
   Zap, ShoppingCart, Users, Heart, TrendingUp, Package
 } from 'lucide-react';
+import { Portal } from '../../utils/autoPlacement';
 
 const AppTemplateMarketplace = ({ onSelectTemplate }) => {
   const [templates, setTemplates] = useState([]);
@@ -187,7 +188,7 @@ const AppTemplateMarketplace = ({ onSelectTemplate }) => {
 
       {/* Preview Modal */}
       {showPreview && selectedTemplate && (
-        <div 
+        <Portal><div 
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
           onClick={() => setShowPreview(false)}
         >
@@ -249,7 +250,7 @@ const AppTemplateMarketplace = ({ onSelectTemplate }) => {
               </button>
             </div>
           </div>
-        </div>
+        </div></Portal>
       )}
     </div>
   );

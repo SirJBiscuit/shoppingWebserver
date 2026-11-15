@@ -46,6 +46,7 @@ import React, {
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import AnimatedScrollbar3D from '../components/3DAnimatedScrollbar';
+import { Portal, placeInViewport, useIsMobile } from '../utils/autoPlacement';
 
 /* ============================== item factories ============================== */
 export const oiRow    = (o) => ({ type: 'row', ...o });
@@ -63,16 +64,6 @@ export const useOverlay = () => {
   return ctx;
 };
 
-const useBreakpoint = (px = 640) => {
-  const [m, setM] = useState(() => window.innerWidth < px);
-  useEffect(() => {
-    const h = () => setM(window.innerWidth < px);
-    window.addEventListener('resize', h);
-    return () => window.removeEventListener('resize', h);
-  }, [px]);
-  return m;
-};
-
 const DEFAULT_PALETTE = {
   panel: 'bg-gray-900/95 border-gray-600/60 text-gray-100',
   text: 'text-gray-100',
@@ -87,22 +78,16 @@ export function OverlayInteractionProvider({ children }) {
   const [stack, setStack] = useState([]);   // submenu stack (arrays of items)
   const menuDrag = useDragControls();
   const menuRef = useRef(null);
-  const isMobile = useBreakpoint();
+  const isMobile = useIsMobile(640); // overlay menus go bottom-sheet under 640px
   const idRef = useRef(0);
 
   const openMenu = useCallback((m) => {
     const W = m.width || 208, H = m.height || 380;
-    let { x = window.innerWidth / 2, y = window.innerHeight / 2 } = m;
-    // pre-flip against the scope container (e.g. the notepad panel) then the viewport
-    const r = m.scopeEl?.getBoundingClientRect?.();
-    if (r) {
-      if (x + W > r.right - 4) x = Math.max(r.left + 4, x - W + 10);
-      if (y + H > r.bottom - 4) y = Math.max(r.top + 4, y - H + 10);
-    }
-    x = Math.max(4, Math.min(x, window.innerWidth - W - 4));
-    y = Math.max(4, Math.min(y, window.innerHeight - 100));
+    const { x = window.innerWidth / 2, y = window.innerHeight / 2 } = m;
+    // pre-flip against the scope container then the viewport (shared helper)
+    const p = placeInViewport(x, y, { width: W, height: H, margin: 4, offset: 0, anchorEl: m.scopeEl });
     setStack([]);
-    setMenu({ ...m, x, y, id: ++idRef.current });
+    setMenu({ ...m, x: p.x, y: p.y, id: ++idRef.current });
   }, []);
 
   const close  = useCallback(() => { setMenu(null); setStack([]); }, []);
@@ -114,9 +99,12 @@ export function OverlayInteractionProvider({ children }) {
   useLayoutEffect(() => {
     if (!menu || !menuRef.current || isMobile) return;
     const r = menuRef.current.getBoundingClientRect();
-    const nx = Math.max(4, Math.min(menu.x, window.innerWidth - r.width - 4));
-    const ny = Math.max(4, Math.min(menu.y, window.innerHeight - r.height - 4));
-    if (nx !== menu.x || ny !== menu.y) setMenu((m) => (m ? { ...m, x: nx, y: ny } : m));
+    const p = placeInViewport(menu.x, menu.y, {
+      width: r.width, height: r.height, margin: 4, offset: 0,
+    });
+    if (p.x !== menu.x || p.y !== menu.y) {
+      setMenu((m) => (m ? { ...m, x: p.x, y: p.y } : m));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menu?.id]);
 
@@ -144,7 +132,7 @@ const OIHost = ({ menu, stack, isMobile, menuDrag, menuRef, onClose, onPatch, on
   const body = cur ? cur.items : menu.items;
 
   return (
-    <>
+    <Portal>
       {/* backdrop — click/right-click closes */}
       <div
         className="fixed inset-0 z-[80]"
@@ -154,7 +142,7 @@ const OIHost = ({ menu, stack, isMobile, menuDrag, menuRef, onClose, onPatch, on
       <AnimatePresence>
         <motion.div
           key={`oi-menu-${menu.id}`}
-          ref={menuRef}
+          ref={(el) => { menuRef.current = el; }}
           drag={!isMobile && menu.draggable !== false}
           dragControls={menuDrag}
           dragListener={false}
@@ -200,7 +188,7 @@ const OIHost = ({ menu, stack, isMobile, menuDrag, menuRef, onClose, onPatch, on
           </AnimatedScrollbar3D>
         </motion.div>
       </AnimatePresence>
-    </>
+    </Portal>
   );
 };
 

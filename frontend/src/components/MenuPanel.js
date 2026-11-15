@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
+import { Portal } from '../utils/autoPlacement';
 
 /**
  * MenuPanel — shared "new menu" shell extracted from CustomEditPanel.
@@ -34,7 +35,7 @@ const MenuPanel = ({
   children,
 }) => {
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       {isOpen && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -91,7 +92,7 @@ const MenuPanel = ({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

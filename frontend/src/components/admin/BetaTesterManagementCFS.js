@@ -9,6 +9,7 @@ import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import CustomNotification from '../CustomNotification';
 import CustomDatePicker from '../CustomDatePicker';
+import { Portal } from '../../utils/autoPlacement';
 
 const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChange }) => {
   const { notification, hideNotification, confirm, confirmDelete } = useNotification();
@@ -438,7 +439,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       </AnimatePresence>
 
       {/* Extend Access Modal */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {showExtendModal && selectedTester && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <motion.div
@@ -545,10 +546,10 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
 
       {/* Edit Tester Modal */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {showEditModal && selectedTester && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <motion.div
@@ -624,10 +625,10 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
 
       {/* Thank You Modal */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {showThankYouModal && selectedTester && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <motion.div
@@ -699,7 +700,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
       
       <CustomNotification {...notification} onClose={hideNotification} />
     </div>
@@ -874,7 +875,7 @@ const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSend
 
 const TesterDetailsModal = ({ tester, qualityScore, activityLevel, onClose }) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <Portal><div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -975,7 +976,7 @@ const TesterDetailsModal = ({ tester, qualityScore, activityLevel, onClose }) =>
           Close
         </button>
       </motion.div>
-    </div>
+    </div></Portal>
   );
 };
 

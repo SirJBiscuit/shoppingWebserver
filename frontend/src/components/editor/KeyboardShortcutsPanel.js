@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Command, Search, X } from 'lucide-react';
 import { useEditor } from '../../contexts/EditorContext';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * KeyboardShortcutsPanel - Cheat sheet for all keyboard shortcuts
@@ -112,7 +113,7 @@ const KeyboardShortcutsPanel = () => {
   if (!isEditorActive) return null;
   
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       {isOpen && (
         <>
           {/* Backdrop */}
@@ -222,7 +223,7 @@ const KeyboardShortcutsPanel = () => {
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, RefreshCw, Zap, Star, CheckCircle, Smartphone, Monitor, Tablet } from 'lucide-react';
+import { Portal } from '../utils/autoPlacement';
 
 const UpdateNotification = () => {
   const [showModal, setShowModal] = useState(false);
@@ -253,7 +254,7 @@ const UpdateNotification = () => {
   const isNative = platform.startsWith('native-') || platform === 'android' || platform === 'ios';
 
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -452,7 +453,7 @@ const UpdateNotification = () => {
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-pink-400/20 to-purple-400/20 rounded-full blur-3xl" />
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { X, Plus, Minus, Divide, Percent, Delete, GripVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Portal } from '../utils/autoPlacement';
 
 /**
  * CalculatorWidget - Compact draggable calculator for shopping budget calculations
@@ -249,7 +250,7 @@ const CalculatorWidget = ({ onClose, device = 'mobile' }) => {
 
   // Compact draggable calculator (no backdrop)
   return (
-    <motion.div
+    <Portal><motion.div
       drag
       dragMomentum={false}
       dragElastic={0.1}
@@ -329,7 +330,7 @@ const CalculatorWidget = ({ onClose, device = 'mobile' }) => {
           </div>
         </div>
       </div>
-    </motion.div>
+    </motion.div></Portal>
   );
 };
 

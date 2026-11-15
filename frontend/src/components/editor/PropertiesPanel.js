@@ -5,6 +5,7 @@ import {
   Eye, EyeOff, Sliders, ChevronDown, ChevronUp 
 } from 'lucide-react';
 import { useEditor } from '../../contexts/EditorContext';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * PropertiesPanel - Right sidebar for editing selected widget properties
@@ -210,7 +211,7 @@ const PropertiesPanel = () => {
   }
 
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       <motion.div
         initial={{ x: 320, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
@@ -338,7 +339,7 @@ const PropertiesPanel = () => {
           </button>
         </div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

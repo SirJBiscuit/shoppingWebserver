@@ -4,6 +4,7 @@ import { X, Lightbulb, Package } from 'lucide-react';
 import { expirationAPI } from '../services/api';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
 import CustomDatePicker from './CustomDatePicker';
+import { Portal } from '../utils/autoPlacement';
 
 const PantryModal = ({ isOpen, onClose, onSave, item = null, categories = [] }) => {
   const [formData, setFormData] = useState({
@@ -85,7 +86,7 @@ const PantryModal = ({ isOpen, onClose, onSave, item = null, categories = [] }) 
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -294,7 +295,7 @@ const PantryModal = ({ isOpen, onClose, onSave, item = null, categories = [] }) 
           </AnimatedScrollbar3D>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

@@ -3,6 +3,7 @@ import { X, Plus, Trash2, Upload, Image as ImageIcon, Sparkles, Link as LinkIcon
 import { imagesAPI } from '../services/api';
 import recipesAPI from '../services/recipesAPI';
 import CustomCheckbox from './ui/CustomCheckbox';
+import { Portal } from '../utils/autoPlacement';
 
 const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
   const [formData, setFormData] = useState({
@@ -274,7 +275,7 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <Portal><div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -629,7 +630,7 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
           </div>
         </form>
       </div>
-    </div>
+    </div></Portal>
   );
 };
 

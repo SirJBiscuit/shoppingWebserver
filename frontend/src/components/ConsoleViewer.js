@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Terminal, X, Trash2, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Portal } from '../utils/autoPlacement';
 
 const ConsoleViewer = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -148,7 +149,7 @@ ${'='.repeat(80)}
   }
 
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -228,7 +229,7 @@ ${'='.repeat(80)}
           </div>
         )}
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

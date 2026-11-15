@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, X, Scan, CheckCircle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Portal } from '../utils/autoPlacement';
 
 const BarcodeScanner = ({ isOpen, onClose, onScan }) => {
   const [scanning, setScanning] = useState(false);
@@ -129,7 +130,7 @@ const BarcodeScanner = ({ isOpen, onClose, onScan }) => {
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -330,7 +331,7 @@ const BarcodeScanner = ({ isOpen, onClose, onScan }) => {
           </p>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

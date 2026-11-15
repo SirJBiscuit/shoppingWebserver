@@ -17,7 +17,7 @@ router.get('/smart-suggestions', async (req, res) => {
        LEFT JOIN inventory inv ON i.id = inv.item_id AND inv.user_id = $1
        LEFT JOIN item_statistics stats ON i.id = stats.item_id AND stats.user_id = $1
        WHERE i.user_id = $1 AND i.is_recurring = true`,
-      [req.user.userId]
+      [req.user.id]
     );
 
     for (const item of recurringItems.rows) {
@@ -46,7 +46,7 @@ router.get('/smart-suggestions', async (req, res) => {
        JOIN items i ON inv.item_id = i.id
        WHERE inv.user_id = $1 AND inv.percentage_left <= 25
        ORDER BY inv.percentage_left ASC`,
-      [req.user.userId]
+      [req.user.id]
     );
 
     for (const item of lowInventory.rows) {
@@ -71,7 +71,7 @@ router.get('/smart-suggestions', async (req, res) => {
        AND stats.last_purchase_date < CURRENT_TIMESTAMP - INTERVAL '1 day' * stats.average_days_between_purchases
        ORDER BY stats.total_purchases DESC
        LIMIT 10`,
-      [req.user.userId]
+      [req.user.id]
     );
 
     for (const item of frequentItems.rows) {
@@ -121,7 +121,7 @@ router.get('/search', async (req, res) => {
        WHERE i.user_id = $1 AND LOWER(i.name) LIKE LOWER($2)
        ORDER BY LOWER(i.name), stats.total_purchases DESC NULLS LAST
        LIMIT 10`,
-      [req.user.userId, `%${q}%`]
+      [req.user.id, `%${q}%`]
     );
 
     res.json(result.rows);
@@ -131,13 +131,101 @@ router.get('/search', async (req, res) => {
   }
 });
 
+// Purchase advisor — before adding an item, check if the user already has it,
+// if it's expiring, or if they just bought it. Returns a verdict + reasons.
+router.get('/advise', async (req, res) => {
+  const { item } = req.query;
+  if (!item || item.trim().length < 2) {
+    return res.json({ verdict: 'none', reasons: [] });
+  }
+
+  try {
+    const name = item.trim();
+    const reasons = [];
+    let verdict = 'buy';
+
+    // 1. Already in home inventory?
+    const inv = await db.query(
+      `SELECT i.current_quantity, i.unit, i.percentage_left,
+              i.estimated_expiry_date,
+              EXTRACT(DAY FROM (i.estimated_expiry_date::timestamp - CURRENT_DATE::timestamp))::INTEGER AS days_until_expiry,
+              csl.name AS custom_location_name, i.storage_location
+       FROM inventory i
+       JOIN items it ON i.item_id = it.id
+       LEFT JOIN custom_storage_locations csl ON i.custom_location_id = csl.id
+       WHERE i.user_id = $1 AND LOWER(it.name) = LOWER($2) AND i.current_quantity > 0
+       ORDER BY i.estimated_expiry_date ASC NULLS LAST
+       LIMIT 1`,
+      [req.user.id, name]
+    );
+
+    if (inv.rows.length > 0) {
+      const v = inv.rows[0];
+      const loc = v.custom_location_name || v.storage_location;
+      if (v.days_until_expiry !== null && v.days_until_expiry <= 0) {
+        verdict = 'caution';
+        reasons.push(`You have one at home but it expired — buying fresh makes sense.`);
+      } else {
+        verdict = 'skip';
+        let msg = `Already have ${parseFloat(v.current_quantity)} ${v.unit || ''}`.trim();
+        if (loc) msg += ` in the ${loc.toLowerCase()}`;
+        if (v.days_until_expiry !== null) {
+          msg += v.days_until_expiry <= 3 ? `, expires in ${v.days_until_expiry}d` : '';
+          if (v.days_until_expiry <= 3) verdict = 'caution';
+        }
+        reasons.push(msg + '.');
+      }
+    }
+
+    // 2. Recently bought?
+    const recent = await db.query(
+      `SELECT purchased_at,
+              EXTRACT(DAY FROM (CURRENT_TIMESTAMP - purchased_at::timestamp))::INTEGER AS days_ago
+       FROM purchase_history
+       WHERE user_id = $1 AND LOWER(item_name) = LOWER($2)
+       ORDER BY purchased_at DESC LIMIT 1`,
+      [req.user.id, name]
+    );
+
+    if (recent.rows.length > 0 && recent.rows[0].days_ago <= 3 && verdict !== 'caution') {
+      const days = recent.rows[0].days_ago;
+      reasons.push(`Bought ${days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`}.`);
+      if (verdict === 'buy') verdict = 'caution';
+    }
+
+    // 3. Purchase cadence — "usually every N days"
+    const stats = await db.query(
+      `SELECT s.average_days_between_purchases AS avg_days, s.total_purchases,
+              EXTRACT(DAY FROM (CURRENT_TIMESTAMP - s.last_purchase_date::timestamp))::INTEGER AS days_since
+       FROM item_statistics s
+       JOIN items it ON s.item_id = it.id
+       WHERE s.user_id = $1 AND LOWER(it.name) = LOWER($2)`,
+      [req.user.id, name]
+    );
+
+    if (stats.rows.length > 0 && stats.rows[0].avg_days) {
+      const { avg_days, days_since } = stats.rows[0];
+      if (verdict === 'buy' && days_since >= avg_days) {
+        reasons.push(`Right on schedule — you buy this every ~${Math.round(avg_days)} days.`);
+      } else if (verdict === 'buy') {
+        reasons.push(`You usually buy this every ~${Math.round(avg_days)} days (last: ${days_since}d ago).`);
+      }
+    }
+
+    res.json({ verdict, reasons });
+  } catch (error) {
+    console.error('Advise error:', error);
+    res.json({ verdict: 'none', reasons: [] });
+  }
+});
+
 // Delete item from user's history
 router.delete('/:itemId', async (req, res) => {
   try {
     // Delete from items table (this will cascade to item_statistics)
     const result = await db.query(
       `DELETE FROM items WHERE id = $1 AND user_id = $2 RETURNING id`,
-      [req.params.itemId, req.user.userId]
+      [req.params.itemId, req.user.id]
     );
 
     if (result.rows.length === 0) {

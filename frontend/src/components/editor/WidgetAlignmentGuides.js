@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * WidgetAlignmentGuides - Smart alignment guides for widget positioning
@@ -181,7 +182,7 @@ const WidgetAlignmentGuides = ({
   if (!isActive) return null;
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-[999]">
+    <Portal><div className="fixed inset-0 pointer-events-none z-[999]">
       <AnimatePresence>
         {/* Alignment Guides */}
         {guides.map((guide, index) => (
@@ -312,7 +313,7 @@ const WidgetAlignmentGuides = ({
           </motion.div>
         ))}
       </AnimatePresence>
-    </div>
+    </div></Portal>
   );
 };
 

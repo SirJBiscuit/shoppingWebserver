@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Wand2, MousePointer, Settings, Grid, Maximize2, Save, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * HelpModal - AVE Editor Help Guide
@@ -10,7 +11,7 @@ const HelpModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -151,7 +152,7 @@ const HelpModal = ({ isOpen, onClose }) => {
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

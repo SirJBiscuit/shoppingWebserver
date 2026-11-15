@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, X, AlertTriangle, ShoppingCart, TrendingDown, Award, Calendar, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Portal } from '../utils/autoPlacement';
 
 const NotificationSystem = ({ notifications, onDismiss, onClearAll }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -44,7 +45,7 @@ const NotificationSystem = ({ notifications, onDismiss, onClearAll }) => {
       </button>
 
       {/* Notification Panel */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {isOpen && (
           <>
             {/* Backdrop */}
@@ -142,7 +143,7 @@ const NotificationSystem = ({ notifications, onDismiss, onClearAll }) => {
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
     </div>
   );
 };

@@ -77,6 +77,7 @@ export const itemsAPI = {
 export const suggestionsAPI = {
   getSmartSuggestions: () => api.get('/suggestions/smart-suggestions'),
   searchItems: (query) => api.get('/suggestions/search', { params: { q: query } }),
+  advise: (item) => api.get('/suggestions/advise', { params: { item } }),
 };
 
 export const inventoryAPI = {

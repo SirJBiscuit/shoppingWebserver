@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import AssetLibrary from './AssetLibrary';
 import NodeCraftEditor from './NodeCraftEditor';
+import { Portal } from '../../utils/autoPlacement';
 
 const VisualPageCreator = () => {
   const [mode, setMode] = useState('layout'); // 'layout' or 'nodecraft'
@@ -618,7 +619,7 @@ const VisualPageCreator = () => {
 
       {/* Custom Context Menu */}
       {contextMenu && (
-        <div
+        <Portal><div
           className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 py-2 z-50"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
@@ -648,7 +649,7 @@ const VisualPageCreator = () => {
               {anim.name}
             </button>
           ))}
-        </div>
+        </div></Portal>
       )}
     </div>
   );

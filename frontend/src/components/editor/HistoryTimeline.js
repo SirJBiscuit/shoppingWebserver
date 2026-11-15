@@ -13,6 +13,7 @@ import {
   X
 } from 'lucide-react';
 import { useEditor } from '../../contexts/EditorContext';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * HistoryTimeline - Visual history panel with undo/redo
@@ -95,16 +96,16 @@ const HistoryTimeline = () => {
   return (
     <>
       {/* Toggle button */}
-      <button
+      <Portal><button
         onClick={() => setIsOpen(!isOpen)}
         className="fixed right-6 bottom-24 z-40 p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-xl transition-colors"
         title="History Timeline"
       >
         <History className="w-5 h-5" />
-      </button>
+      </button></Portal>
       
       {/* Timeline panel */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {isOpen && (
           <motion.div
             initial={{ x: 400, opacity: 0 }}
@@ -274,7 +275,7 @@ const HistoryTimeline = () => {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
     </>
   );
 };

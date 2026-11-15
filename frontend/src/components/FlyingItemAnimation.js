@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCartAnimation } from '../contexts/CartAnimationContext';
+import { Portal } from '../utils/autoPlacement';
 
 const FlyingItemAnimation = () => {
   const { flyingItems, flyingCheckmarks } = useCartAnimation();
@@ -46,7 +47,7 @@ const FlyingItemAnimation = () => {
   if (isOptimizationMode) return null;
   
   return (
-    <div className="fixed inset-0 pointer-events-none z-[9999]">
+    <Portal><div className="fixed inset-0 pointer-events-none z-[9999]">
       <AnimatePresence>
         {/* Cart animations - items flying to cart */}
         {flyingItems.map((item) => (
@@ -140,7 +141,7 @@ const FlyingItemAnimation = () => {
           </motion.div>
         ))}
       </AnimatePresence>
-    </div>
+    </div></Portal>
   );
 };
 

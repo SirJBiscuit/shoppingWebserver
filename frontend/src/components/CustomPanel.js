@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Maximize2, Minimize2, GripVertical } from 'lucide-react';
+import { Portal } from '../utils/autoPlacement';
 
 /**
  * CustomPanel - A reusable, multi-mode panel component with automatic device detection
@@ -208,13 +209,13 @@ const CustomPanel = ({
         <>
           {/* Backdrop */}
           {showBackdrop && (
-            <motion.div
+            <Portal><motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={handleBackdropClick}
               className="fixed inset-0 bg-black/50 z-[200]"
-            />
+            /></Portal>
           )}
 
           {/* Panel */}

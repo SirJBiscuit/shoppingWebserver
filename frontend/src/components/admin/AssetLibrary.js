@@ -3,6 +3,7 @@ import {
   Package, Upload, Download, Trash2, Copy, Eye, 
   Image, Zap, Box, Search, Filter, Star, Plus, Code
 } from 'lucide-react';
+import { Portal } from '../../utils/autoPlacement';
 
 const AssetLibrary = ({ onSelectAsset, type = 'all' }) => {
   const [assets, setAssets] = useState({
@@ -400,7 +401,7 @@ const AssetLibrary = ({ onSelectAsset, type = 'all' }) => {
 
       {/* Preview Modal */}
       {showPreview && selectedAsset && (
-        <div 
+        <Portal><div 
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
           onClick={() => setShowPreview(false)}
         >
@@ -421,7 +422,7 @@ const AssetLibrary = ({ onSelectAsset, type = 'all' }) => {
               Close
             </button>
           </div>
-        </div>
+        </div></Portal>
       )}
     </div>
   );

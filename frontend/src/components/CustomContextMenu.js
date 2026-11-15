@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import { customTheme, getAnimation } from '../utils/customTheme';
+import { Portal, useAutoPlacement } from '../utils/autoPlacement';
 
 /**
  * CustomContextMenu - Right-click / long-press context menu
@@ -33,11 +34,18 @@ const CustomContextMenu = ({
   className = ''
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [anchor, setAnchor] = useState({ x: 0, y: 0 });
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const menuRef = useRef(null);
   const triggerRef = useRef(null);
   const longPressTimer = useRef(null);
+
+  // Auto-placement: portal-safe fixed position, re-clamped against real size.
+  // On mobile the menu renders as a bottom sheet instead of a pointer popup.
+  const { pos: position, ref: placeRef, isMobile } = useAutoPlacement(
+    anchor.x, anchor.y,
+    { width: 250, height: items.length * 44 + 24 }
+  );
 
   // Handle right-click
   const handleContextMenu = (e) => {
@@ -71,26 +79,9 @@ const CustomContextMenu = ({
     }
   };
 
-  // Open menu
+  // Open menu — anchor at pointer, auto-placement does the clamping
   const openMenu = (x, y) => {
-    // Calculate position to keep menu on screen
-    const menuWidth = 250;
-    const menuHeight = items.length * 40 + 20;
-    
-    let finalX = x;
-    let finalY = y;
-
-    // Adjust horizontal position
-    if (x + menuWidth > window.innerWidth) {
-      finalX = window.innerWidth - menuWidth - 10;
-    }
-
-    // Adjust vertical position
-    if (y + menuHeight > window.innerHeight) {
-      finalY = window.innerHeight - menuHeight - 10;
-    }
-
-    setPosition({ x: finalX, y: finalY });
+    setAnchor({ x, y });
     setIsOpen(true);
     onOpen?.();
   };
@@ -160,29 +151,33 @@ const CustomContextMenu = ({
         {children}
       </div>
 
-      {/* Context Menu */}
+      {/* Context Menu — portaled to body so `fixed` is truly viewport-fixed
+          even inside animated/transformed ancestors */}
       <AnimatePresence>
         {isOpen && (
-          <>
+          <Portal>
             {/* Backdrop */}
             <div
               className="fixed inset-0 z-[109]"
               onClick={closeMenu}
             />
 
-            {/* Menu */}
+            {/* Menu — pointer-anchored on desktop, bottom sheet on mobile */}
             <motion.div
-              ref={menuRef}
+              ref={(el) => { menuRef.current = el; placeRef.current = el; }}
               {...getAnimation('scale', 'smooth')}
-              className={`
-                fixed ${customTheme.zIndex.contextMenu}
-                bg-white dark:bg-gray-800
-                border-2 border-gray-200 dark:border-gray-700
-                rounded-xl shadow-2xl
-                py-2
-                min-w-[200px] max-w-[300px]
-              `}
-              style={{
+              className={isMobile
+                ? `fixed inset-x-0 bottom-0 ${customTheme.zIndex.contextMenu}
+                   bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl
+                   py-2 max-h-[70vh] overflow-y-auto`
+                : `fixed ${customTheme.zIndex.contextMenu}
+                   bg-white dark:bg-gray-800
+                   border-2 border-gray-200 dark:border-gray-700
+                   rounded-xl shadow-2xl
+                   py-2
+                   min-w-[200px] max-w-[300px]`
+              }
+              style={isMobile ? undefined : {
                 left: position.x,
                 top: position.y
               }}
@@ -280,7 +275,7 @@ const CustomContextMenu = ({
                 </div>
               ))}
             </motion.div>
-          </>
+          </Portal>
         )}
       </AnimatePresence>
     </>

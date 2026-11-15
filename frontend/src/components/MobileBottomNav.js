@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingCart, UtensilsCrossed, Package, BarChart3, Settings } from 'lucide-react';
 import { playSound } from '../utils/soundEffects';
+import { Portal } from '../utils/autoPlacement';
 
 const MobileBottomNav = () => {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ const MobileBottomNav = () => {
   };
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-40 safe-area-bottom">
+    <Portal><nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-40 safe-area-bottom">
       <div className="flex justify-around items-center h-16">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -55,7 +56,7 @@ const MobileBottomNav = () => {
           );
         })}
       </div>
-    </nav>
+    </nav></Portal>
   );
 };
 

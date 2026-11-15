@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Award, TrendingUp, Star, Zap, Target, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Portal } from '../utils/autoPlacement';
 
 const LevelingSystem = ({ userId }) => {
   const [level, setLevel] = useState(1);
@@ -164,7 +165,7 @@ const LevelingSystem = ({ userId }) => {
       </div>
 
       {/* Level Up Animation */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {showLevelUp && (
           <motion.div
             initial={{ opacity: 0, scale: 0.5, y: 50 }}
@@ -185,7 +186,7 @@ const LevelingSystem = ({ userId }) => {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
 
       {/* OLD XP Notifications - DISABLED (using XPNotificationContainer instead) */}
       {/* <div className="fixed bottom-4 right-4 z-40 space-y-2">

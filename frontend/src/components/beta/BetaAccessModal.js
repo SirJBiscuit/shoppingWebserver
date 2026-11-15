@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, FlaskConical, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { Portal } from '../../utils/autoPlacement';
 
 const BetaAccessModal = ({ isOpen, onClose, onSuccess }) => {
   const [mode, setMode] = useState('register'); // 'register' | 'login'
@@ -194,7 +195,7 @@ const BetaAccessModal = ({ isOpen, onClose, onSuccess }) => {
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -609,7 +610,7 @@ const BetaAccessModal = ({ isOpen, onClose, onSuccess }) => {
           </div>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

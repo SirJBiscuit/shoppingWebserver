@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, ThumbsUp, ThumbsDown, Settings, Sparkles, X } from 'lucide-react';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * TastePreferencesSetup - Initial setup wizard for taste learning
@@ -110,7 +111,7 @@ const TastePreferencesSetup = ({ onSave, onSkip, existingPreferences = null }) =
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <Portal><div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -427,7 +428,7 @@ const TastePreferencesSetup = ({ onSave, onSkip, existingPreferences = null }) =
           </div>
         </div>
       </motion.div>
-    </div>
+    </div></Portal>
   );
 };
 

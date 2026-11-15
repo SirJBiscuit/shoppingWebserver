@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Edit3, X } from 'lucide-react';
 import { useEditor } from '../../contexts/EditorContext';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * EditorToggleButton - Floating button to toggle editor mode
@@ -15,7 +16,7 @@ const EditorToggleButton = () => {
   const { isEditorActive, toggleEditor } = useEditor();
   
   return (
-    <motion.button
+    <Portal><motion.button
       onClick={toggleEditor}
       className={`fixed bottom-6 right-6 z-40 p-4 rounded-full shadow-2xl transition-all duration-300 ${
         isEditorActive
@@ -48,7 +49,7 @@ const EditorToggleButton = () => {
         {isEditorActive ? 'Exit Editor' : 'Customize Layout'}
         <div className="absolute top-full right-4 w-2 h-2 bg-gray-900 transform rotate-45 -mt-1" />
       </div>
-    </motion.button>
+    </motion.button></Portal>
   );
 };
 

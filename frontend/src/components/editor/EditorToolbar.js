@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useEditor } from '../../contexts/EditorContext';
 import HelpModal from './HelpModal';
+import { Portal } from '../../utils/autoPlacement';
 
 /**
  * EditorToolbar - Top toolbar for AVE Visual Editor
@@ -43,7 +44,7 @@ const EditorToolbar = () => {
   const { canUndo, canRedo, isDirty, isSaving } = aveManager;
   
   return (
-    <AnimatePresence>
+    <Portal><AnimatePresence>
       <motion.div
         initial={{ y: -100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -190,7 +191,7 @@ const EditorToolbar = () => {
       
       {/* Help Modal */}
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
-    </AnimatePresence>
+    </AnimatePresence></Portal>
   );
 };
 

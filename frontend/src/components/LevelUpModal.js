@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Star, Sparkles, Gift, TrendingUp } from 'lucide-react';
+import { Portal } from '../utils/autoPlacement';
 
 function LevelUpModal({ isOpen, onClose, levelData }) {
   const [showRewards, setShowRewards] = useState(false);
@@ -51,7 +52,7 @@ function LevelUpModal({ isOpen, onClose, levelData }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <Portal><div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
       <div className="relative bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden">
         {/* Animated Background */}
         <div className="absolute inset-0 opacity-20">
@@ -233,7 +234,7 @@ function LevelUpModal({ isOpen, onClose, levelData }) {
           animation: confetti linear infinite;
         }
       `}</style>
-    </div>
+    </div></Portal>
   );
 }
 

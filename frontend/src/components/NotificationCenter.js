@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Bell, X, Check, AlertCircle, Info, TrendingUp, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
+import { Portal } from '../utils/autoPlacement';
 
 const POLL_MS = 60000;
 
@@ -139,7 +140,7 @@ const NotificationCenter = () => {
       </button>
 
       {/* Notification Panel */}
-      <AnimatePresence>
+      <Portal><AnimatePresence>
         {isOpen && (
           <>
             <div
@@ -237,7 +238,7 @@ const NotificationCenter = () => {
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence></Portal>
     </div>
   );
 };
