@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Search, Package, Check, Loader2, Sparkles, ChevronUp, ChevronDown, Minus, Plus } from 'lucide-react';
+import { X, Search, Package, Check, Loader2, Sparkles, ChevronUp, ChevronDown, Minus, Plus, Send, Download, Ghost } from 'lucide-react';
 import api from '../../services/api';
 import { detectIcon } from '../../utils/categoryDetector';
 import { Portal } from '../../utils/autoPlacement';
@@ -48,6 +48,11 @@ const stapleAccessFor = (name) => {
   return null;
 };
 
+// Right-click menu choices
+const ICON_CHOICES = ['🧂','🫙','🥫','🥬','🧄','🧅','🍯','🥛','🧈','🥚','🍋','🌶️','🌿','🍇','🥕','🍞','🧊','🍫'];
+const BADGES = { seasoning: '🧂', fresh: '🥬', jarred: '🫙', canned: '🥫', frozen: '❄️', spice: '🌶️' };
+const OTHER_LABS = ['Mix Lab', 'Meal Lab', 'Smoothie Lab', 'Jam Lab', 'Dough Lab', 'Canning Lab'];
+
 const ACCENT = {
   pink:    { tile: 'border-pink-400 dark:border-pink-600 bg-pink-50 dark:bg-pink-900/20',    bar: 'from-pink-400 to-rose-500',    text: 'text-pink-600 dark:text-pink-400',    chip: 'bg-pink-500' },
   orange:  { tile: 'border-orange-400 dark:border-orange-600 bg-orange-50 dark:bg-orange-900/20', bar: 'from-orange-400 to-amber-500', text: 'text-orange-600 dark:text-orange-400', chip: 'bg-orange-500' },
@@ -85,6 +90,44 @@ const LabPantryPicker = ({
   const [newName, setNewName] = useState('');
   const [newQty, setNewQty] = useState('');
   const [newUnit, setNewUnit] = useState('');
+
+  // Per-lab hidden/ghost state + global icon & badge overrides (localStorage)
+  const hiddenKey = `labPickerHidden:${title}`;
+  const [hidden, setHidden] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(hiddenKey)) || {}; } catch { return {}; }
+  });
+  const [iconMap, setIconMap] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('labPickerIcons')) || {}; } catch { return {}; }
+  });
+  const [badgeMap, setBadgeMap] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('labPickerBadges')) || {}; } catch { return {}; }
+  });
+  const [menu, setMenu] = useState(null);        // { x, y, row } tile context menu
+  const [iconPicking, setIconPicking] = useState(null); // row whose icon grid is open
+  const [hiddenOpen, setHiddenOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sentMsg, setSentMsg] = useState('');
+
+  const setHiddenFor = (name, mode) => setHidden((p) => {
+    const next = { ...p };
+    if (mode) next[invKey(name)] = mode; else delete next[invKey(name)];
+    localStorage.setItem(hiddenKey, JSON.stringify(next));
+    return next;
+  });
+
+  const setIconFor = (name, emoji) => setIconMap((p) => {
+    const next = { ...p };
+    if (emoji) next[invKey(name)] = emoji; else delete next[invKey(name)];
+    localStorage.setItem('labPickerIcons', JSON.stringify(next));
+    return next;
+  });
+
+  const setBadgeFor = (name, badge) => setBadgeMap((p) => {
+    const next = { ...p };
+    if (badge) next[invKey(name)] = badge; else delete next[invKey(name)];
+    localStorage.setItem('labPickerBadges', JSON.stringify(next));
+    return next;
+  });
 
   const toggleAccess = (id) => setAccess((p) => {
     const next = { ...p, [id]: !p[id] };
@@ -159,17 +202,20 @@ const LabPantryPicker = ({
       : 0;
     const stapleId = stapleAccessFor(it.name);
     const stapleCovered = !!(stapleId && access[stapleId]);
-    return { ...it, inv, qty, est, estPct, owned, tracked, fillPct, stapleId, stapleCovered };
-  }), [allItems, inventory, access]);
+    const hiddenMode = hidden[invKey(it.name)] || null; // 'ghost' | 'hidden'
+    return { ...it, inv, qty, est, estPct, owned, tracked, fillPct, stapleId, stapleCovered, hiddenMode };
+  }), [allItems, inventory, access, hidden]);
 
   const isCovered = (r) => r.owned || r.stapleCovered;
-  const stocked = rows.filter(isCovered).length;
-  // Staples are utility-covered, never bulk-stocked
-  const missingRows = rows.filter((r) => !r.owned && !r.stapleId);
+  const stocked = rows.filter((r) => isCovered(r) && r.hiddenMode !== 'hidden').length;
+  // Staples are utility-covered, never bulk-stocked; hidden rows excluded
+  const missingRows = rows.filter((r) => !r.owned && !r.stapleId && !r.hiddenMode);
+  const hiddenRows = rows.filter((r) => r.hiddenMode);
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows
+      .filter((r) => r.hiddenMode !== 'hidden')
       .filter((r) => (filter === 'have' ? isCovered(r) : filter === 'missing' ? !isCovered(r) : true))
       .filter((r) => !term || r.name.toLowerCase().includes(term));
   }, [rows, search, filter]);
@@ -204,6 +250,69 @@ const LabPantryPicker = ({
     const next = extras.filter((n) => n !== name);
     setExtras(next);
     localStorage.setItem(extrasKey, JSON.stringify(next));
+  };
+
+  // Push this ingredient's name onto another lab's extras list
+  const sendToLab = (labTitle, name) => {
+    const key = `labPickerExtras:${labTitle}`;
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem(key)) || []; } catch { /* ignore */ }
+    if (!list.includes(name)) {
+      list = [...list, name];
+      localStorage.setItem(key, JSON.stringify(list));
+    }
+  };
+
+  // Pull every name another lab added to its own extras into this lab
+  const importFromLabs = () => {
+    const known = new Set(allItems.map((i) => invKey(i.name)));
+    const found = [];
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith('labPickerExtras:') && k !== extrasKey)
+      .forEach((k) => {
+        try {
+          (JSON.parse(localStorage.getItem(k)) || []).forEach((n) => {
+            if (n && !known.has(invKey(n)) && !found.some((f) => invKey(f) === invKey(n))) found.push(n);
+          });
+        } catch { /* ignore */ }
+      });
+    if (found.length) {
+      const next = [...extras, ...found];
+      setExtras(next);
+      localStorage.setItem(extrasKey, JSON.stringify(next));
+    }
+    setSentMsg(found.length ? `Imported ${found.length} ingredient${found.length > 1 ? 's' : ''}` : 'Nothing new in other labs');
+    setTimeout(() => setSentMsg(''), 3500);
+  };
+
+  // Push every unstocked (non-staple, unhidden) ingredient to this lab's list
+  const sendToLabList = async () => {
+    const targets = rows.filter((r) => !isCovered(r) && !r.hiddenMode && !r.stapleId);
+    if (!targets.length) { setSentMsg('Everything is stocked'); setTimeout(() => setSentMsg(''), 3000); return; }
+    setSending(true);
+    try {
+      const { data: lists } = await api.get('/shopping/lists');
+      let list = (lists || []).find((l) => l.list_type === 'lab' && l.name === `${title} List` && l.status !== 'completed');
+      if (!list) {
+        const { data: created } = await api.post('/shopping/lists', { name: `${title} List`, list_type: 'lab' });
+        list = created;
+      }
+      for (const r of targets) {
+        // eslint-disable-next-line no-await-in-loop
+        await api.post(`/shopping/lists/${list.id}/items`, {
+          itemName: r.name,
+          quantity: r.neededQty || 1,
+          unit: r.neededUnit || '',
+          icon: iconMap[invKey(r.name)] || r.icon || detectIcon(r.name) || defaultEmoji,
+        });
+      }
+      setSentMsg(`Sent ${targets.length} to ${list.name}`);
+    } catch {
+      setSentMsg('Could not send to list');
+    } finally {
+      setSending(false);
+      setTimeout(() => setSentMsg(''), 4000);
+    }
   };
 
   const toggle = async (row) => {
@@ -328,6 +437,13 @@ const LabPantryPicker = ({
                     </div>
                   )}
                 </div>
+                <button
+                  onClick={importFromLabs}
+                  title="Import ingredients added in other labs"
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
                 <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400">
                   <X className="w-5 h-5" />
                 </button>
@@ -391,7 +507,8 @@ const LabPantryPicker = ({
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3" style={{ perspective: 800 }}>
                     {visible.map((row, i) => {
                       const key = invKey(row.name);
-                      const icon = row.inv?.item_icon || row.icon || detectIcon(row.name) || defaultEmoji;
+                      const icon = iconMap[key] || row.inv?.item_icon || row.icon || detectIcon(row.name) || defaultEmoji;
+                      const ghosted = row.hiddenMode === 'ghost';
                       return (
                         <motion.div
                           key={row.name}
@@ -399,10 +516,23 @@ const LabPantryPicker = ({
                           initial={{ opacity: 0, y: 18, rotateX: -35 }}
                           animate={{ opacity: 1, y: 0, rotateX: 0 }}
                           transition={{ delay: Math.min(i * 0.02, 0.5), type: 'spring', stiffness: 300, damping: 22 }}
-                          whileHover={{ y: -3, rotateX: 4 }}
-                          whileTap={{ scale: 0.94 }}
-                          onClick={() => (row.stapleId ? toggleAccess(row.stapleId) : toggle(row))}
-                          className={`relative overflow-hidden rounded-xl border-2 p-3 text-left cursor-pointer select-none transition-colors ${
+                          whileHover={ghosted ? undefined : { y: -3, rotateX: 4 }}
+                          whileTap={ghosted ? undefined : { scale: 0.94 }}
+                          onClick={() => {
+                            if (ghosted) return;
+                            if (row.stapleId) toggleAccess(row.stapleId); else toggle(row);
+                          }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setMenu({ x: e.clientX, y: e.clientY, row });
+                            setIconPicking(null);
+                          }}
+                          className={`relative overflow-hidden rounded-xl border-2 p-3 text-left select-none transition-colors ${
+                            ghosted
+                              ? 'opacity-45 grayscale border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/40 cursor-default'
+                              : 'cursor-pointer'
+                          } ${
                             row.owned || row.stapleCovered
                               ? a.tile
                               : row.tracked
@@ -439,10 +569,12 @@ const LabPantryPicker = ({
                                 </button>
                               ) : null}
                             </div>
-                            <p className={`mt-2 text-xs font-semibold leading-tight ${
+                            <p className={`mt-2 text-xs font-semibold leading-tight flex items-center gap-1 ${
                               row.owned ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'
                             }`}>
-                              {row.name}
+                              <span className="truncate">{row.name}</span>
+                              {badgeMap[key] && <span title={badgeMap[key]}>{BADGES[badgeMap[key]]}</span>}
+                              {ghosted && <Ghost className="w-3 h-3 text-gray-400 shrink-0" />}
                             </p>
                             <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
                               {row.stapleId
@@ -455,7 +587,7 @@ const LabPantryPicker = ({
                             </p>
 
                             {/* Amount controls — how much do I have */}
-                            {row.owned && (
+                            {row.owned && !ghosted && (
                               <div className="mt-2 space-y-1.5" onClick={(e) => e.stopPropagation()}>
                                 {/* % remaining bar when an estimate exists */}
                                 {row.estPct !== null && (
@@ -598,6 +730,40 @@ const LabPantryPicker = ({
                 )}
               </div>
 
+              {/* Hidden & ghosted — bring back later */}
+              {hiddenRows.length > 0 && (
+                <div className="px-5 pb-2">
+                  <button
+                    onClick={() => setHiddenOpen((o) => !o)}
+                    className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  >
+                    {hiddenOpen ? '▾' : '▸'} Hidden & ghosted ({hiddenRows.length})
+                  </button>
+                  {hiddenOpen && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {hiddenRows.map((r) => (
+                        <span key={r.name} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-[10px] text-gray-600 dark:text-gray-300">
+                          {r.hiddenMode === 'ghost' ? '👻' : '🚫'} {r.name}
+                          <button
+                            onClick={() => setHiddenFor(r.name, null)}
+                            title="Bring back"
+                            className="text-gray-400 hover:text-green-500 font-bold"
+                          >
+                            ↩
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {sentMsg && (
+                <div className="px-5 pb-2">
+                  <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{sentMsg}</p>
+                </div>
+              )}
+
               {/* Footer — bulk stock */}
               {missingRows.length > 0 && (
                 <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
@@ -612,9 +778,129 @@ const LabPantryPicker = ({
                     {stockingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                     {stockingAll ? 'Stocking…' : 'Stock all'}
                   </button>
+                  <button
+                    onClick={sendToLabList}
+                    disabled={sending}
+                    title={`Send ${missingRows.length} unstocked to ${title} List`}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  >
+                    {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    {sending ? 'Sending…' : 'Send to lab list'}
+                  </button>
                 </div>
               )}
             </motion.div>
+
+            {/* Tile context menu — icon, badge, hide, send-to-lab */}
+            {menu && (
+              <>
+                <div
+                  className="fixed inset-0 z-[120]"
+                  onClick={() => { setMenu(null); setIconPicking(null); }}
+                  onContextMenu={(e) => { e.preventDefault(); setMenu(null); setIconPicking(null); }}
+                />
+                <div
+                  className="fixed z-[121] w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl py-1.5 max-h-[70vh] overflow-y-auto"
+                  style={{
+                    left: Math.min(menu.x, window.innerWidth - 240),
+                    top: Math.min(menu.y, window.innerHeight - 300),
+                  }}
+                >
+                  <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-400 truncate border-b border-gray-100 dark:border-gray-700">
+                    {menu.row.name}
+                  </p>
+                  {iconPicking ? (
+                    <div className="grid grid-cols-6 gap-0.5 p-1.5">
+                      {ICON_CHOICES.map((em) => (
+                        <button
+                          key={em}
+                          className="text-lg rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => { setIconFor(menu.row.name, em); setMenu(null); setIconPicking(null); }}
+                        >
+                          {em}
+                        </button>
+                      ))}
+                      <button
+                        className="col-span-6 text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 py-1"
+                        onClick={() => { setIconFor(menu.row.name, null); setMenu(null); setIconPicking(null); }}
+                      >
+                        Reset icon
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setIconPicking(menu.row)}
+                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                      >
+                        🎨 Change icon
+                      </button>
+                      <div className="px-3 py-1">
+                        <p className="text-[9px] uppercase tracking-wide text-gray-400 mb-1">Badge</p>
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(BADGES).map(([id, em]) => (
+                            <button
+                              key={id}
+                              onClick={() => { setBadgeFor(menu.row.name, badgeMap[invKey(menu.row.name)] === id ? null : id); setMenu(null); }}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                badgeMap[invKey(menu.row.name)] === id
+                                  ? `${a.chip} text-white`
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                              }`}
+                            >
+                              {em} {id}
+                            </button>
+                          ))}
+                          <button
+                            onClick={() => { setBadgeFor(menu.row.name, null); setMenu(null); }}
+                            className="px-1.5 py-0.5 rounded text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-400"
+                          >
+                            none
+                          </button>
+                        </div>
+                      </div>
+                      {menu.row.hiddenMode ? (
+                        <button
+                          onClick={() => { setHiddenFor(menu.row.name, null); setMenu(null); }}
+                          className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                        >
+                          ↩ Unhide / unghost
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => { setHiddenFor(menu.row.name, 'ghost'); setMenu(null); }}
+                            className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                          >
+                            👻 Ghost item (faded, stays visible)
+                          </button>
+                          <button
+                            onClick={() => { setHiddenFor(menu.row.name, 'hidden'); setMenu(null); }}
+                            className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                          >
+                            🚫 Hide completely
+                          </button>
+                        </>
+                      )}
+                      <div className="px-3 py-1 border-t border-gray-100 dark:border-gray-700 mt-1">
+                        <p className="text-[9px] uppercase tracking-wide text-gray-400 mb-1">Send to lab</p>
+                        <div className="flex flex-wrap gap-1">
+                          {OTHER_LABS.filter((t) => t !== title).map((t) => (
+                            <button
+                              key={t}
+                              onClick={() => { sendToLab(t, menu.row.name); setMenu(null); }}
+                              className="px-2 py-1 rounded-lg text-[10px] bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300"
+                            >
+                              {t.replace(' Lab', '')}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

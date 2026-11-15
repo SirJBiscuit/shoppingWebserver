@@ -17,6 +17,7 @@ import EditorToolbar from '../components/editor/EditorToolbar';
 import EditorOverlay, { EditorModeIndicator, EditableContainer } from '../components/editor/EditorOverlay';
 import PropertiesPanel from '../components/editor/PropertiesPanel';
 import ItemList from '../components/ItemList';
+import LabList from './LabList';
 import StoreUsuals from '../components/StoreUsuals';
 import SmartSuggestions from '../components/SmartSuggestions';
 import PantryQuickView from '../components/PantryQuickView';
@@ -1647,6 +1648,37 @@ const Dashboard = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-xl">Loading...</div>
       </div>
+    );
+  }
+
+  // Lab-type lists get the clean dedicated view — no dashboard widgets
+  if (activeList && activeList.list_type === 'lab') {
+    return (
+      <PageTransition>
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+          <div data-tutorial="sidebar">
+            <Sidebar onAction={(action) => {
+              if (action === 'stores') setShowStoreManager(true);
+              else if (action === 'share') setShowShare(true);
+              else if (action === 'notepad') openNotepad();
+            }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <LabList
+              list={activeList}
+              items={items}
+              onCheck={handleCheckItem}
+              onDelete={deleteItem}
+              onRefresh={() => loadListItems(activeList.id)}
+              onBack={() => {
+                const general = (lists || []).find((l) => l.list_type !== 'lab' && l.status === 'active')
+                  || (lists || []).find((l) => l.list_type !== 'lab');
+                if (general) setActiveList(general);
+              }}
+            />
+          </div>
+        </div>
+      </PageTransition>
     );
   }
 
