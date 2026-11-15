@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   FlaskConical, Flame, UtensilsCrossed, Salad, CupSoda, Pizza, ArrowRight,
+  Citrus, Wheat,
 } from 'lucide-react';
 import LabShell from '../components/lab/LabShell';
 
@@ -45,6 +46,24 @@ const LABS = [
     gradient: 'from-pink-500 to-rose-600',
     description: 'Smoothie recipes generated from your available fruit and extras.',
     path: '/lab/smoothie',
+    ready: true,
+  },
+  {
+    id: 'jam',
+    name: 'Jam Lab',
+    icon: Citrus,
+    gradient: 'from-rose-500 to-pink-600',
+    description: 'Jams, butters, and freezer preserves from the fruit you have on hand.',
+    path: '/lab/jam',
+    ready: true,
+  },
+  {
+    id: 'dough',
+    name: 'Dough Lab',
+    icon: Wheat,
+    gradient: 'from-amber-500 to-yellow-600',
+    description: 'Pizza, bread, biscuits, pretzels — doughs from pantry staples.',
+    path: '/lab/dough',
     ready: true,
   },
   {
