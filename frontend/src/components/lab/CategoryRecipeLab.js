@@ -2,12 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Check, ShoppingCart, ChevronDown, XCircle, FlaskConical, Timer, Users, BookPlus,
+  Package,
 } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { getLists, addItem } from '../../api/shopping';
 import LabShell from './LabShell';
 import MixingOverlay from './MixingOverlay';
+import LabPantryPicker from './LabPantryPicker';
 import Toast from '../Toast';
 import { useToast } from '../../hooks/useToast';
 import { playSound } from '../../utils/soundEffects';
@@ -60,6 +62,7 @@ const CategoryRecipeLab = ({
   const [mixing, setMixing] = useState(null);
   const [making, setMaking] = useState(null);
   const [savingToBook, setSavingToBook] = useState(null);
+  const [pantryOpen, setPantryOpen] = useState(false);
 
   const saveToBook = async (r) => {
     setSavingToBook(r.id);
@@ -138,6 +141,39 @@ const CategoryRecipeLab = ({
 
   const makeableCount = recipes.filter((r) => comparisons[r.id]?.canMake).length;
 
+  // Union of every ingredient this lab's recipes need — feeds the pantry picker
+  const pantryItems = useMemo(() => {
+    const map = new Map();
+    Object.values(comparisons).forEach((c) => {
+      [...(c?.matched || []), ...(c?.missing || []), ...(c?.insufficient || [])].forEach((i) => {
+        const name = i.item_name;
+        if (!name) return;
+        const key = name.trim().toLowerCase();
+        const prev = map.get(key);
+        const qty = parseFloat(i.quantity) || 1;
+        map.set(key, {
+          name,
+          neededQty: prev ? Math.max(prev.neededQty, qty) : qty,
+          neededUnit: i.unit || prev?.neededUnit || '',
+          icon: i.icon || i.item_icon || prev?.icon || null,
+        });
+      });
+    });
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [comparisons]);
+
+  const missingIngredientCount = useMemo(() => {
+    const names = new Set();
+    Object.values(comparisons).forEach((c) =>
+      (c?.missing || []).forEach((i) => i.item_name && names.add(i.item_name.trim().toLowerCase()))
+    );
+    return names.size;
+  }, [comparisons]);
+
+  const refreshAllComparisons = async () => {
+    setComparisons(await loadComparisons(recipes));
+  };
+
   const addMissingToList = async (r) => {
     const need = needList(r.id);
     if (!need.length) return;
@@ -215,6 +251,21 @@ const CategoryRecipeLab = ({
       onTabChange={setTab}
       accent={accent}
       maxWidth="max-w-5xl"
+      headerAction={
+        <button
+          onClick={() => setPantryOpen(true)}
+          className="relative flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-semibold backdrop-blur transition-colors"
+          title="What ingredients do you have?"
+        >
+          <Package className="w-4 h-4" />
+          <span className="hidden sm:inline">My Ingredients</span>
+          {missingIngredientCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow">
+              {missingIngredientCount}
+            </span>
+          )}
+        </button>
+      }
     >
       {builder && tab === 'build' ? (
         React.cloneElement(builder, { onSaved: load })
@@ -371,6 +422,16 @@ const CategoryRecipeLab = ({
           })}
         </div>
       )}
+
+      <LabPantryPicker
+        open={pantryOpen}
+        onClose={() => setPantryOpen(false)}
+        title={title}
+        accent={accent}
+        defaultEmoji={defaultEmoji}
+        items={pantryItems}
+        onChanged={refreshAllComparisons}
+      />
 
       <AnimatePresence>
         {mixing && <MixingOverlay icons={mixing.icons} text={mixingText} onDone={mixing.onDone} />}
