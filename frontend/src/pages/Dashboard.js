@@ -2094,6 +2094,7 @@ const Dashboard = () => {
                     </AnimatePresence>
                     <AutocompleteInput
                       value={newItemName}
+                      store={activeList?.store_name || ''}
                       data-tutorial="add-item-input"
                       onEnter={() => addItem({ preventDefault: () => {} })}
                       getSuggestionIcon={(name) => {

@@ -77,6 +77,84 @@ router.get('/search', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/mdl/autocomplete?q=&store=
+ * Autofill for the add-item input.
+ * Tiers: 'user' (this user's learned items, store-matched first) then
+ * 'global' (crowd registry). Opt out via
+ * mdl_user_preferences.autocomplete_enabled = false. Never errors the client —
+ * returns [] so typing is never blocked.
+ */
+router.get('/autocomplete', authenticateToken, async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim().toLowerCase();
+    const store = (req.query.store || '').trim().toLowerCase();
+    if (q.length < 2) return res.json([]);
+
+    const opt = await db.query(
+      `SELECT preference_value::text AS v FROM mdl_user_preferences
+       WHERE user_id = $1 AND preference_key = 'autocomplete_enabled'`,
+      [req.user.id]
+    );
+    if (opt.rows.length && opt.rows[0].v === 'false') return res.json([]);
+
+    const like = `%${q}%`;
+    const out = [];
+    const seen = new Set();
+
+    const displayName = (row) => {
+      const vars = Array.isArray(row.original_variations) ? row.original_variations : [];
+      return vars.find(v => String(v).toLowerCase().startsWith(q)) || vars[0] || row.normalized_name;
+    };
+    const push = (row, source, extra = {}) => {
+      if (seen.has(row.normalized_name)) return;
+      seen.add(row.normalized_name);
+      out.push({
+        name: displayName(row),
+        icon: row.predicted_icon || null,
+        category: row.predicted_category || null,
+        source,
+        ...extra
+      });
+    };
+
+    // USER tier — this user's learned items, store-matched first
+    const userRows = await db.query(
+      `SELECT n.normalized_name, n.original_variations, n.predicted_icon, n.predicted_category,
+              p.total_times_added,
+              EXISTS (
+                SELECT 1 FROM mdl_user_item_history h
+                WHERE h.user_id = p.user_id AND h.item_name_id = n.id
+                  AND $3 <> '' AND LOWER(h.store_name) = $3
+              ) AS store_match
+       FROM mdl_user_patterns p
+       JOIN mdl_item_names n ON n.id = p.item_name_id
+       WHERE p.user_id = $1 AND n.normalized_name ILIKE $2
+       ORDER BY store_match DESC, p.total_times_added DESC, p.last_added DESC NULLS LAST
+       LIMIT 8`,
+      [req.user.id, like, store]
+    );
+    userRows.rows.forEach(r => push(r, 'user', { storeMatch: r.store_match }));
+
+    // GLOBAL tier — crowd registry ranked by usage
+    const globalRows = await db.query(
+      `SELECT normalized_name, original_variations, predicted_icon, predicted_category,
+              total_uses, user_count
+       FROM mdl_item_names
+       WHERE normalized_name ILIKE $1
+       ORDER BY total_uses DESC, user_count DESC
+       LIMIT 10`,
+      [like]
+    );
+    globalRows.rows.forEach(r => push(r, 'global'));
+
+    res.json(out.slice(0, 10));
+  } catch (error) {
+    console.error('MDL autocomplete failed:', error);
+    res.json([]); // never block typing on a failed lookup
+  }
+});
+
 // Get product by ID or slug
 router.get('/product/:identifier', async (req, res) => {
   try {

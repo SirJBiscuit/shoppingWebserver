@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getAutocompleteSuggestions, getGhostText } from '../utils/autocomplete';
+import { COMMON_GROCERY_ITEMS } from '../utils/autocomplete';
+import { getAutocomplete } from '../api/mdl';
+
+// Tier rank for merged ordering — learned data beats the static list
+const TIER_RANK = { local: 0, user: 0, global: 1, common: 2 };
+const SOURCE_TAG = { user: 'yours', global: 'popular', store: 'this store' };
 
 const AutocompleteInput = ({ 
   value, 
@@ -11,17 +16,37 @@ const AutocompleteInput = ({
   onEnter,
   getSuggestionIcon,
   previousItems = [],
+  store = '',
   placeholder = "Type to search...",
   className = "",
   disableAutocomplete = false
 }) => {
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState([]); // [{ name, source, icon?, storeMatch? }]
+  const [remote, setRemote] = useState([]);           // MDL user/global suggestions
+  const remoteTimer = useRef(null);
+  const latestQuery = useRef('');
   const [ghostText, setGhostText] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const inputRef = useRef(null);
   const prevValueRef = useRef('');
+
+  // Remote MDL suggestions — debounced, stale-guarded, degrades to local-only
+  useEffect(() => {
+    const term = value.trim();
+    latestQuery.current = term;
+    clearTimeout(remoteTimer.current);
+    if (disableAutocomplete || term.length < 2) {
+      setRemote([]);
+      return;
+    }
+    remoteTimer.current = setTimeout(async () => {
+      const data = await getAutocomplete(term, store);
+      if (latestQuery.current === term) setRemote(data);
+    }, 300);
+    return () => clearTimeout(remoteTimer.current);
+  }, [value, store, disableAutocomplete]);
 
   useEffect(() => {
     if (disableAutocomplete) {
@@ -36,19 +61,48 @@ const AutocompleteInput = ({
     setIsDeleting(isCurrentlyDeleting);
     prevValueRef.current = value;
     
-    if (value && value.length >= 2) {
-      const newSuggestions = getAutocompleteSuggestions(value, previousItems);
-      setSuggestions(newSuggestions);
-      setGhostText(getGhostText(value, previousItems));
+    const term = value.trim().toLowerCase();
+    if (term.length >= 2) {
+      const seen = new Set();
+      const merged = [];
+      const push = (name, meta = {}) => {
+        const key = name.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        merged.push({ name, ...meta });
+      };
+
+      previousItems
+        .filter(n => n && n.toLowerCase().includes(term))
+        .forEach(n => push(n, { source: 'local' }));
+      remote.forEach(s => push(s.name, { source: s.source, icon: s.icon, storeMatch: s.storeMatch }));
+      COMMON_GROCERY_ITEMS
+        .filter(n => n.toLowerCase().includes(term))
+        .forEach(n => push(n, { source: 'common' }));
+
+      merged.sort((a, b) => {
+        const aP = a.name.toLowerCase().startsWith(term);
+        const bP = b.name.toLowerCase().startsWith(term);
+        if (aP !== bP) return aP ? -1 : 1;
+        if (a.storeMatch !== b.storeMatch) return a.storeMatch ? -1 : 1;
+        const tr = (TIER_RANK[a.source] ?? 3) - (TIER_RANK[b.source] ?? 3);
+        if (tr) return tr;
+        return a.name.localeCompare(b.name);
+      });
+
+      const top = merged.slice(0, 5);
+      setSuggestions(top);
+      const ghost = top.find(m => m.name.toLowerCase().startsWith(term));
+      setGhostText(ghost ? ghost.name.slice(value.trim().length) : '');
       // Only show suggestions if NOT deleting
-      setShowSuggestions(!isCurrentlyDeleting && newSuggestions.length > 0);
+      setShowSuggestions(!isCurrentlyDeleting && top.length > 0);
     } else {
       setSuggestions([]);
       setGhostText('');
       setShowSuggestions(false);
     }
     setSelectedIndex(-1);
-  }, [value, previousItems, disableAutocomplete]);
+  }, [value, previousItems, remote, disableAutocomplete]);
 
   const handleKeyDown = (e) => {
     // Enter always commits — selected suggestion if highlighted,
@@ -109,8 +163,8 @@ const AutocompleteInput = ({
   };
 
   const selectSuggestion = (suggestion) => {
-    onChange({ target: { value: suggestion } });
-    if (onSelect) onSelect(suggestion);
+    onChange({ target: { value: suggestion.name } });
+    if (onSelect) onSelect(suggestion.name);
     if (onAutoFill) onAutoFill(); // Trigger auto-fill for quantity
     setShowSuggestions(false);
     setSelectedIndex(-1);
@@ -153,13 +207,15 @@ const AutocompleteInput = ({
           transition={{ duration: 0.15 }}
           className="absolute z-30 w-full bottom-full mb-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto"
         >
-          {suggestions.slice(0, 5).map((suggestion, index) => {
-            const icon = getSuggestionIcon ? getSuggestionIcon(suggestion) : null;
-            const matchLen = Math.min(value.length, suggestion.length);
-            const matchesPrefix = suggestion.slice(0, matchLen).toLowerCase() === value.slice(0, matchLen).toLowerCase();
+          {suggestions.map((suggestion, index) => {
+            const icon = suggestion.icon || (getSuggestionIcon ? getSuggestionIcon(suggestion.name) : null);
+            const name = suggestion.name;
+            const matchLen = Math.min(value.length, name.length);
+            const matchesPrefix = name.slice(0, matchLen).toLowerCase() === value.slice(0, matchLen).toLowerCase();
+            const tag = suggestion.storeMatch ? SOURCE_TAG.store : SOURCE_TAG[suggestion.source];
             return (
               <motion.div
-                key={suggestion}
+                key={name}
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.04, duration: 0.15 }}
@@ -171,16 +227,23 @@ const AutocompleteInput = ({
                 }`}
               >
                 {icon && <span className="text-lg flex-shrink-0">{icon}</span>}
-                <span>
+                <span className="flex-1 min-w-0 truncate">
                   {matchesPrefix ? (
                     <>
                       <span className="font-semibold text-primary-600 dark:text-primary-400">
-                        {suggestion.slice(0, matchLen)}
+                        {name.slice(0, matchLen)}
                       </span>
-                      {suggestion.slice(matchLen)}
+                      {name.slice(matchLen)}
                     </>
-                  ) : suggestion}
+                  ) : name}
                 </span>
+                {tag && (
+                  <span className={`flex-shrink-0 text-[10px] uppercase tracking-wide ${
+                    suggestion.storeMatch ? 'text-purple-500' : 'text-gray-400 dark:text-gray-500'
+                  }`}>
+                    {tag}
+                  </span>
+                )}
               </motion.div>
             );
           })}

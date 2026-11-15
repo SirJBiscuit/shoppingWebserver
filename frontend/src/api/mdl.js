@@ -87,6 +87,22 @@ export const trackItem = async (data) => {
   }
 };
 
+/**
+ * Autofill suggestions for the add-item input.
+ * Returns [{ name, icon, category, source: 'user'|'global', storeMatch? }]
+ * ordered by the backend (user tier first, store-matched boosted).
+ */
+export const getAutocomplete = async (q, store = '') => {
+  try {
+    const response = await mdlAPI.get('/autocomplete', {
+      params: { q, store: store || undefined }
+    });
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    return []; // typing must never be blocked
+  }
+};
+
 /** Predicted-due items ("running low" suggestions) */
 export const getSuggestions = async () => {
   try {

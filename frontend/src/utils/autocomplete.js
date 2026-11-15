@@ -1,5 +1,5 @@
-// Common grocery items database
-const COMMON_GROCERY_ITEMS = [
+// Common grocery items database (fallback tier for autocomplete)
+export const COMMON_GROCERY_ITEMS = [
   // Produce
   'Apples', 'Bananas', 'Oranges', 'Grapes', 'Strawberries', 'Blueberries', 'Raspberries',
   'Tomatoes', 'Lettuce', 'Spinach', 'Kale', 'Broccoli', 'Cauliflower', 'Carrots', 'Celery',
