@@ -206,7 +206,7 @@ const ChangelogPanel = () => {
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
             title={view === 'list' ? 'Kanban board view' : 'List view'}
           >
-            {view === 'list' ? <Columns3 className="w-4 h-4" /> : <LayoutList className="w-4 h-4" />}
+            {view === 'list' ? <Kanban className="w-4 h-4" /> : <LayoutList className="w-4 h-4" />}
             {view === 'list' ? 'Board' : 'List'}
           </button>
           <button onClick={load} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" title="Refresh">
