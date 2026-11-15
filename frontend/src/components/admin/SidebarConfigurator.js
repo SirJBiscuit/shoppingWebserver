@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { GripVertical, Eye, EyeOff, Plus, Trash2, Save, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import ConfirmModal from '../../limbo/modals/ConfirmModal';
 
 /**
  * SidebarConfigurator - Admin interface for managing sidebar pages
@@ -19,6 +20,7 @@ const SidebarConfigurator = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   
   useEffect(() => {
     loadPages();
@@ -111,9 +113,13 @@ const SidebarConfigurator = () => {
     }
   };
   
-  const deletePage = async (pageId) => {
-    if (!confirm('Are you sure you want to delete this page?')) return;
-    
+  const deletePage = (pageId) => setConfirmDeleteId(pageId);
+
+  const doDelete = async () => {
+    const pageId = confirmDeleteId;
+    setConfirmDeleteId(null);
+    if (!pageId) return;
+
     try {
       const token = localStorage.getItem('token');
       
@@ -291,6 +297,15 @@ const SidebarConfigurator = () => {
           💡 <strong>Tip:</strong> Drag pages to reorder them. Toggle role visibility with the eye icons. System pages cannot be deleted but can be hidden.
         </p>
       </div>
+
+      <ConfirmModal
+        isOpen={confirmDeleteId !== null}
+        title="Delete Page"
+        message="Are you sure you want to delete this page?"
+        confirmText="Delete"
+        onConfirm={doDelete}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   );
 };

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import {
   Sparkles, Plus, Trash2, Rocket, RefreshCw, Eye, EyeOff, Pencil, Check, X,
-  GripVertical, Flag, ListChecks, FlaskConical, LayoutList, Columns3, ThumbsUp,
+  GripVertical, Flag, ListChecks, FlaskConical, LayoutList, Kanban, ThumbsUp,
 } from 'lucide-react';
 import api from '../../services/api';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';

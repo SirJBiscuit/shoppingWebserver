@@ -93,20 +93,22 @@ const CategoryRecipeLab = ({
     return Object.fromEntries(entries);
   };
 
+  const load = async () => {
+    try {
+      const { data } = await api.get(category ? `/recipes?category=${category}` : '/recipes');
+      const list = data || [];
+      setRecipes(list);
+      setComparisons(await loadComparisons(list));
+    } catch (err) {
+      console.error(`${title} load failed:`, err);
+      showError(`Could not load ${title.toLowerCase()} recipes`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await api.get(category ? `/recipes?category=${category}` : '/recipes');
-        const list = data || [];
-        setRecipes(list);
-        setComparisons(await loadComparisons(list));
-      } catch (err) {
-        console.error(`${title} load failed:`, err);
-        showError(`Could not load ${title.toLowerCase()} recipes`);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

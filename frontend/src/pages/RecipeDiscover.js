@@ -226,10 +226,12 @@ const RecipeDiscover = () => {
               </div>
             </div>
           ) : (
-            <RecipeDiscovery
-              pantryItems={pantryItems}
-              onAddToShoppingList={handleAddToShoppingList}
-            />
+            <div className="text-center py-12">
+              <ChefHat className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-400">
+                Recipe discovery is coming soon — {pantryItems.length} pantry items tracked.
+              </p>
+            </div>
           )}
         </main>
         </div>

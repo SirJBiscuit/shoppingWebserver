@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import ConfirmModal from '../../limbo/modals/ConfirmModal';
 import { 
   Save, Eye, Upload, Download, RotateCcw, 
   Palette, Image as ImageIcon, Type, Layout 
@@ -114,11 +115,9 @@ const LoginScreenEditor = () => {
     }
   };
   
-  const resetToDefault = () => {
-    if (confirm('Reset to default configuration?')) {
-      setConfig(DEFAULT_CONFIG);
-    }
-  };
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+
+  const resetToDefault = () => setResetConfirmOpen(true);
   
   const exportConfig = () => {
     const dataStr = JSON.stringify(config, null, 2);
@@ -513,6 +512,16 @@ const LoginScreenEditor = () => {
           </p>
         </motion.div>
       </div>
+
+      <ConfirmModal
+        isOpen={resetConfirmOpen}
+        title="Reset to Default"
+        message="Reset to default configuration?"
+        confirmText="Reset"
+        type="warning"
+        onConfirm={() => { setConfig(DEFAULT_CONFIG); setResetConfirmOpen(false); }}
+        onCancel={() => setResetConfirmOpen(false)}
+      />
     </div>
   );
 };

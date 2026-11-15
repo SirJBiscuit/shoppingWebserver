@@ -4,6 +4,7 @@ import {
   Search, Filter, UserPlus, Shield, Star, User, Ban, Check,
   Mail, Calendar, MoreVertical, Edit, Trash2, Key, Activity
 } from 'lucide-react';
+import ConfirmModal from '../../limbo/modals/ConfirmModal';
 
 /**
  * UserManagementCFS - Comprehensive user management interface
@@ -26,6 +27,7 @@ const UserManagementCFS = () => {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   
   useEffect(() => {
     loadUsers();
@@ -95,11 +97,13 @@ const UserManagementCFS = () => {
     }
   };
   
-  const deleteUser = async (userId) => {
-    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-      return;
-    }
-    
+  const deleteUser = (userId) => setConfirmDeleteId(userId);
+
+  const doDeleteUser = async () => {
+    const userId = confirmDeleteId;
+    setConfirmDeleteId(null);
+    if (!userId) return;
+
     try {
       const token = localStorage.getItem('token');
       
@@ -392,6 +396,15 @@ const UserManagementCFS = () => {
           💡 <strong>Tip:</strong> Use the search and filters to find specific users. Click role badges to change user permissions. Disabled users cannot log in.
         </p>
       </div>
+
+      <ConfirmModal
+        isOpen={confirmDeleteId !== null}
+        title="Delete User"
+        message="Are you sure you want to delete this user? This action cannot be undone."
+        confirmText="Delete"
+        onConfirm={doDeleteUser}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   );
 };

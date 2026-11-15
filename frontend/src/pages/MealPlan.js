@@ -133,10 +133,12 @@ const MealPlan = () => {
               </button>
             </div>
           ) : (
-            <MealPlanner 
-              recipes={recipes}
-              onGenerateList={handleGenerateList}
-            />
+            <div className="text-center py-12">
+              <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-400">
+                Meal planner is coming soon — {recipes.length} recipes ready.
+              </p>
+            </div>
           )}
         </main>
         </div>
