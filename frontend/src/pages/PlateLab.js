@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { Pizza, Plus, Trash2, Lightbulb, Check, ArrowRightLeft, BookPlus } from 'lucide-react';
 import api from '../services/api';
 import LabShell from '../components/lab/LabShell';
@@ -7,17 +8,68 @@ import { useToast } from '../hooks/useToast';
 import { Portal } from '../utils/autoPlacement';
 
 const GROUPS = [
-  { key: 'vegetables', label: 'Veggies', emoji: '🥦', color: 'bg-green-500' },
-  { key: 'fruits', label: 'Fruits', emoji: '🍎', color: 'bg-red-400' },
-  { key: 'protein', label: 'Protein', emoji: '🍗', color: 'bg-orange-500' },
-  { key: 'grains', label: 'Grains', emoji: '🍞', color: 'bg-amber-400' },
-  { key: 'dairy', label: 'Dairy', emoji: '🥛', color: 'bg-sky-400' },
-  { key: 'extras', label: 'Extras', emoji: '🍪', color: 'bg-fuchsia-400' },
-  { key: 'beverages', label: 'Drinks', emoji: '🥤', color: 'bg-cyan-400' },
+  { key: 'vegetables', label: 'Veggies', emoji: '🥦', color: 'bg-green-500', hex: '#22c55e' },
+  { key: 'fruits', label: 'Fruits', emoji: '🍎', color: 'bg-red-400', hex: '#f87171' },
+  { key: 'protein', label: 'Protein', emoji: '🍗', color: 'bg-orange-500', hex: '#f97316' },
+  { key: 'grains', label: 'Grains', emoji: '🍞', color: 'bg-amber-400', hex: '#fbbf24' },
+  { key: 'dairy', label: 'Dairy', emoji: '🥛', color: 'bg-sky-400', hex: '#38bdf8' },
+  { key: 'extras', label: 'Extras', emoji: '🍪', color: 'bg-fuchsia-400', hex: '#e879f9' },
+  { key: 'beverages', label: 'Drinks', emoji: '🥤', color: 'bg-cyan-400', hex: '#22d3ee' },
 ];
 
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
+const UNITS = ['serving', 'piece', 'slice', 'cup', 'bowl', 'plate', 'oz', 'g', 'ml', 'tbsp'];
 const groupMeta = (k) => GROUPS.find((g) => g.key === k) || { label: k, emoji: '🍽️', color: 'bg-gray-400' };
+
+// Animated plate — a donut whose wedges are food-group serving shares.
+// Each wedge animates its length + offset with a spring so the plate
+// rebalances smoothly whenever an entry is added or removed.
+const PLATE_R = 60;
+const PLATE_C = 2 * Math.PI * PLATE_R;
+
+const VisualPlate = ({ summary }) => {
+  const total = summary?.totalServings || 0;
+  let acc = 0;
+  const segs = GROUPS.map((g) => {
+    const s = summary?.groupServings?.[g.key] || 0;
+    const frac = total ? s / total : 0;
+    const seg = { ...g, frac, start: acc };
+    acc += frac;
+    return seg;
+  }).filter((s) => s.frac > 0);
+  const multi = segs.length > 1;
+  return (
+    <svg viewBox="0 0 160 160" className="w-36 h-36 flex-shrink-0" role="img" aria-label="Plate balance">
+      {/* plate rim */}
+      <circle cx="80" cy="80" r="77" className="fill-gray-50 dark:fill-gray-900" />
+      <circle cx="80" cy="80" r="77" fill="none" strokeWidth="2.5" className="stroke-gray-200 dark:stroke-gray-700" />
+      {segs.map((s) => {
+        const gap = multi ? 3 : 0;
+        const len = Math.max(0.5, s.frac * PLATE_C - gap);
+        return (
+          <motion.circle
+            key={s.key}
+            cx="80" cy="80" r={PLATE_R}
+            fill="none" stroke={s.hex} strokeWidth="30"
+            initial={{ strokeDasharray: `0 ${PLATE_C}`, strokeDashoffset: PLATE_C * 0.25 - s.start * PLATE_C }}
+            animate={{
+              strokeDasharray: `${len} ${PLATE_C - len}`,
+              strokeDashoffset: PLATE_C * 0.25 - s.start * PLATE_C,
+            }}
+            transition={{ type: 'spring', stiffness: 70, damping: 16 }}
+          >
+            <title>{`${s.label}: ${Math.round(s.frac * total * 10) / 10} servings`}</title>
+          </motion.circle>
+        );
+      })}
+      {/* center readout */}
+      <text x="80" y="76" textAnchor="middle" className="fill-gray-800 dark:fill-gray-100" style={{ fontSize: 22, fontWeight: 700 }}>
+        {summary?.calories || 0}
+      </text>
+      <text x="80" y="91" textAnchor="middle" className="fill-gray-400" style={{ fontSize: 9 }}>kcal today</text>
+    </svg>
+  );
+};
 
 const PlateLab = () => {
   const { success, error: showError, toasts, hideToast } = useToast();
@@ -28,7 +80,7 @@ const PlateLab = () => {
   const [summary, setSummary] = useState(null);
   const [recommend, setRecommend] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ item_name: '', meal_type: 'lunch', servings: '1' });
+  const [form, setForm] = useState({ item_name: '', meal_type: 'lunch', servings: '1', unit: 'serving', calories: '' });
   const [detected, setDetected] = useState(null);
   const [adding, setAdding] = useState(false);
 
@@ -101,10 +153,12 @@ const PlateLab = () => {
         meal_type: form.meal_type,
         item_name: form.item_name.trim(),
         servings: parseFloat(form.servings) || 1,
+        unit: form.unit,
+        calories: form.calories ? parseInt(form.calories, 10) : undefined,
         category: detected,
       });
       setEntries((p) => [...p, data]);
-      setForm({ item_name: '', meal_type: form.meal_type, servings: '1' });
+      setForm({ item_name: '', meal_type: form.meal_type, servings: '1', unit: form.unit, calories: '' });
       setDetected(null);
       await Promise.all([loadPlate(), loadRecommend()]);
       success('Added to plate');
@@ -139,7 +193,7 @@ const PlateLab = () => {
         ingredients: mealEntries.map((e) => ({
           item_name: e.item_name,
           quantity: parseFloat(e.servings) || 1,
-          unit: 'serving',
+          unit: e.unit || 'serving',
         })),
       });
       success(`"${name}" saved to Recipe Book`);
@@ -216,23 +270,15 @@ const PlateLab = () => {
           <p className="text-xs text-gray-400 py-3">Nothing logged yet — add the first item below.</p>
         ) : (
           <>
-            <div className="flex h-6 rounded-full overflow-hidden mb-2">
-              {GROUPS.map((g) => {
-                const s = summary.groupServings[g.key] || 0;
-                if (!s) return null;
-                return (
-                  <div key={g.key} title={`${g.label}: ${s} serving${s > 1 ? 's' : ''}`}
-                    className={`${g.color} transition-all`}
-                    style={{ width: `${(s / totalServings) * 100}%` }} />
-                );
-              })}
-            </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
-              {GROUPS.map((g) => {
-                const s = summary.groupServings[g.key] || 0;
-                if (!s) return null;
-                return <span key={g.key}>{g.emoji} {g.label} {Math.round(s * 10) / 10}</span>;
-              })}
+            <div className="flex items-center gap-4 mb-3">
+              <VisualPlate summary={summary} />
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+                {GROUPS.map((g) => {
+                  const s = summary.groupServings[g.key] || 0;
+                  if (!s) return null;
+                  return <span key={g.key}>{g.emoji} {g.label} {Math.round(s * 10) / 10}</span>;
+                })}
+              </div>
             </div>
             <div className="mt-3 flex items-center gap-3">
               <div className="flex-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -269,7 +315,15 @@ const PlateLab = () => {
             {MEALS.map((m) => <option key={m} value={m}>{m[0].toUpperCase() + m.slice(1)}</option>)}
           </select>
           <input value={form.servings} onChange={(e) => setForm((f) => ({ ...f, servings: e.target.value }))}
-            type="number" min="0.25" step="0.25" className="w-20 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100" />
+            type="number" min="0.25" step="0.25" title="Amount"
+            className="w-20 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100" />
+          <select value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))} title="Unit"
+            className="px-2 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100">
+            {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+          </select>
+          <input value={form.calories} onChange={(e) => setForm((f) => ({ ...f, calories: e.target.value.replace(/[^0-9]/g, '') }))}
+            type="text" inputMode="numeric" placeholder="kcal" title="Calories (optional — blank = estimate)"
+            className="w-20 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100" />
           <button type="submit" disabled={adding || !form.item_name.trim()}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-violet-500 text-white hover:bg-violet-600 disabled:opacity-40 transition-colors">
             <Plus className="w-4 h-4" /> {adding ? 'Adding…' : 'Add'}
@@ -303,7 +357,7 @@ const PlateLab = () => {
                     <div key={e.id} className="flex items-center gap-2 py-1 text-sm text-gray-800 dark:text-gray-100">
                       <span>{g.emoji}</span>
                       <span className="flex-1 truncate">{e.item_name}
-                        <span className="ml-1 text-[10px] text-gray-400">×{parseFloat(e.servings)} · {e.calories} kcal</span>
+                        <span className="ml-1 text-[10px] text-gray-400">×{parseFloat(e.servings)} {e.unit || 'serving'} · {e.calories} kcal</span>
                       </span>
                       <button onClick={() => removeEntry(e.id)} className="p-1 text-gray-300 hover:text-red-500 transition-colors">
                         <Trash2 className="w-3.5 h-3.5" />

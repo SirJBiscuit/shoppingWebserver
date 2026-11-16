@@ -115,7 +115,7 @@ router.put('/member/:id/service', authenticateToken, async (req, res) => {
 /** POST /api/plate/entry — log food onto today's plate. Group/calories/macros auto-derived. */
 router.post('/entry', authenticateToken, async (req, res) => {
   try {
-    const { member_id, meal_type, item_name, servings, calories, recipe_id, category, food_group } = req.body;
+    const { member_id, meal_type, item_name, servings, unit, calories, recipe_id, category, food_group } = req.body;
     if (!item_name || !item_name.trim()) {
       return res.status(400).json({ error: 'item_name is required' });
     }
@@ -129,14 +129,14 @@ router.post('/entry', authenticateToken, async (req, res) => {
 
     const r = await db.query(
       `INSERT INTO plate_entries
-        (user_id, member_id, meal_type, item_name, food_group, servings, calories,
+        (user_id, member_id, meal_type, item_name, food_group, servings, unit, calories,
          protein_pct, fat_pct, carb_pct, recipe_id, health_service, scores_by_service)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
        RETURNING *`,
       [
         req.user.id, member_id || null,
         MEAL_TYPES.includes(meal_type) ? meal_type : 'snack',
-        item_name.trim(), group, qty, estCal,
+        item_name.trim(), group, qty, (unit || 'serving').slice(0, 30), estCal,
         profile.p, profile.f, profile.c,
         recipe_id || null, ctx.scorer.key,
         JSON.stringify({ [ctx.scorer.key]: { v: ctx.scorer.version, cal: estCal } }),
