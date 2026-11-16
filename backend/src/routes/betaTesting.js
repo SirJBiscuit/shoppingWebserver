@@ -473,6 +473,51 @@ router.post('/admin/testers/:id/extend', authenticateToken, isAdmin, async (req,
   }
 });
 
+// Reset/set a beta tester's password (admin only). :id = user id.
+// { password? } — admin-supplied new password, or omit to generate a
+// temporary one. NEVER reads or returns the current password/hash; the
+// generated temp password is returned once so the admin can relay it.
+router.post('/admin/testers/:id/reset-password', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    // Only real beta testers can be touched — this must never double as a
+    // password-reset endpoint for admins or regular users.
+    const target = await db.query(
+      `SELECT u.id FROM users u
+       JOIN beta_testers bt ON bt.user_id = u.id
+       WHERE u.id = $1 AND u.is_beta_tester = true`,
+      [req.params.id]
+    );
+    if (target.rows.length === 0) {
+      return res.status(404).json({ error: 'Beta tester not found' });
+    }
+
+    let tempPassword = null;
+    let newPassword = req.body.password;
+    if (newPassword === undefined || newPassword === null || newPassword === '') {
+      // Generate a readable-but-random temp password (e.g. "fable-4826-quill")
+      const words = ['fable', 'quill', 'ember', 'cobalt', 'harbor', 'sable', 'mango', 'orbit'];
+      const w = () => words[Math.floor(Math.random() * words.length)];
+      const n = Math.floor(1000 + Math.random() * 9000);
+      tempPassword = `${w()}-${n}-${w()}`;
+      newPassword = tempPassword;
+    }
+
+    if (typeof newPassword !== 'string' || newPassword.length < 6 || newPassword.length > 128) {
+      return res.status(400).json({ error: 'Password must be 6–128 characters' });
+    }
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    await db.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [hash, req.params.id]);
+
+    const out = { success: true };
+    if (tempPassword) out.tempPassword = tempPassword; // shown once, never stored plaintext
+    res.json(out);
+  } catch (error) {
+    console.error('Error resetting tester password:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
 // Convert beta tester to full user (admin only)
 router.post('/admin/testers/:id/convert', authenticateToken, isAdmin, async (req, res) => {
   try {

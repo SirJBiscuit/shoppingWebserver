@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, Star, MapPin, Calendar, Activity, MessageSquare, Award,
   Send, UserCheck, UserX, Trash2, Clock, Package, Ban, TimerReset,
-  Search, Eye, Gift, AlertCircle, Edit, StickyNote
+  Search, Eye, Gift, AlertCircle, Edit, StickyNote, KeyRound, Copy
 } from 'lucide-react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
@@ -28,6 +28,13 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [savingEdit, setSavingEdit] = useState(false);
+
+  // Password reset modal — set a custom password or generate a temp one.
+  // pwResult only ever holds the NEW generated password (never the old one).
+  const [showPwModal, setShowPwModal] = useState(false);
+  const [pwValue, setPwValue] = useState('');
+  const [pwBusy, setPwBusy] = useState(false);
+  const [pwResult, setPwResult] = useState('');
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -192,6 +199,36 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       alert(error.response?.data?.error || 'Failed to update tester');
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  const openResetPassword = (tester) => {
+    setSelectedTester(tester);
+    setPwValue(''); setPwResult('');
+    setShowPwModal(true);
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedTester) return;
+    if (pwValue && pwValue.trim().length < 6) {
+      alert('Password must be at least 6 characters');
+      return;
+    }
+    setPwBusy(true);
+    try {
+      const res = await api.post(`/beta/admin/testers/${selectedTester.id}/reset-password`, {
+        password: pwValue.trim() || undefined
+      });
+      setPwResult(res.data.tempPassword || '');
+      if (!res.data.tempPassword) {
+        setShowPwModal(false);
+        setSelectedTester(null);
+        alert('Password updated.');
+      }
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to reset password');
+    } finally {
+      setPwBusy(false);
     }
   };
 
@@ -418,6 +455,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
               }}
               onSuspend={() => handleToggleSuspend(tester)}
               onEdit={() => openEditTester(tester)}
+              onResetPassword={() => openResetPassword(tester)}
             />
           ))
         )}
@@ -702,12 +740,102 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
         )}
       </AnimatePresence></Portal>
       
+      {/* Reset / Set Password Modal */}
+      <Portal><AnimatePresence>
+        {showPwModal && selectedTester && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full p-6"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <KeyRound className="w-6 h-6 text-indigo-600" />
+                  Reset Password
+                </h3>
+                <button
+                  onClick={() => { setShowPwModal(false); setSelectedTester(null); setPwValue(''); setPwResult(''); }}
+                  className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                >
+                  <AlertCircle className="w-6 h-6" />
+                </button>
+              </div>
+
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Set a new password for <strong>{selectedTester.display_name || selectedTester.beta_username}</strong>.
+                The current password is never shown or recoverable — this replaces it.
+              </p>
+
+              {pwResult ? (
+                <div className="mb-4">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Temporary password — copy it now, it won't be shown again:
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg font-mono text-sm text-gray-900 dark:text-white select-all">
+                      {pwResult}
+                    </code>
+                    <button
+                      onClick={() => { try { navigator.clipboard.writeText(pwResult); } catch { /* clipboard unavailable */ } }}
+                      className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg"
+                      title="Copy password"
+                    >
+                      <Copy className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => { setShowPwModal(false); setSelectedTester(null); setPwResult(''); }}
+                    className="w-full mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      New password <span className="text-xs text-gray-500">(empty = generate a temp one)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={pwValue}
+                      onChange={(e) => setPwValue(e.target.value)}
+                      placeholder="Leave empty to generate…"
+                      autoComplete="off"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => { setShowPwModal(false); setSelectedTester(null); setPwValue(''); }}
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      disabled={pwBusy}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleResetPassword}
+                      disabled={pwBusy || (pwValue.trim().length > 0 && pwValue.trim().length < 6)}
+                      className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
+                    >
+                      {pwBusy ? 'Working…' : pwValue.trim() ? 'Set Password' : 'Generate Temp'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence></Portal>
+
       <CustomNotification {...notification} onClose={hideNotification} />
     </div>
   );
 };
 
-const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSendThankYou, onConvert, onRemove, onExtend, onSuspend, onEdit }) => {
+const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSendThankYou, onConvert, onRemove, onExtend, onSuspend, onEdit, onResetPassword }) => {
   const stars = Math.round(qualityScore / 20);
   
   const activityColors = {
@@ -827,6 +955,13 @@ const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSend
             title="Edit name & notes"
           >
             <Edit className="w-5 h-5" />
+          </button>
+          <button
+            onClick={onResetPassword}
+            className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+            title="Reset/set password"
+          >
+            <KeyRound className="w-5 h-5" />
           </button>
           <button
             onClick={onExtend}
