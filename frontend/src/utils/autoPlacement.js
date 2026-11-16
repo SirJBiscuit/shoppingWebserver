@@ -358,4 +358,160 @@ export const useFloatSide = (fallback = 'right') =>
     () => floatSide || fallback
   );
 
+// ---------------------------------------------------------------------------
+// ScrollStrip — automatic GUI arrangement for horizontal rows.
+//
+// Drop-in replacement for `flex` rows (tab bars, filter chips, toolbars,
+// action rows) that must NEVER clip off-screen:
+//   - children fit        → looks exactly like a normal flex row
+//   - children overflow   → becomes a drag/wheel/touch scroll-strip with
+//                           edge fades, so every item stays reachable
+//
+// Handles all three input modes so it's desktop/tablet/mobile safe:
+//   mouse   → click-drag anywhere on the strip + wheel scrolls horizontally
+//   touch   → native horizontal swiping (drag logic is mouse-only so it
+//             never fights the browser's own touch scrolling)
+//
+// Props:
+//   activeIndex {number|null} scroll this child into view when it changes
+//   arrows      {bool}        show ‹ › nudge buttons on overflowing edges
+//   fade        {number}      edge fade width in px (default 20)
+//   className   applied to the outer wrapper (keep it `min-w-0` friendly —
+//               e.g. `flex-1 min-w-0` inside a flex header)
+//   innerClassName  applied to the scrolling row itself (gaps, padding)
+//
+//   <ScrollStrip className="flex-1 min-w-0" innerClassName="gap-2" arrows>
+//     {tabs.map((t) => <button … />)}
+//   </ScrollStrip>
+// ---------------------------------------------------------------------------
+export const ScrollStrip = ({
+  children, className = '', innerClassName = '',
+  activeIndex = null, arrows = false, fade = 20, style = {},
+}) => {
+  const ref = useRef(null);
+  const drag = useRef({ down: false, moved: false, x: 0, left: 0 });
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const [grabbing, setGrabbing] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const measure = () => {
+      const left = el.scrollLeft > 4;
+      const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
+      setEdges((p) => (p.left === left && p.right === right ? p : { left, right }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    [...el.children].forEach((c) => ro.observe(c));
+    el.addEventListener('scroll', measure, { passive: true });
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      el.removeEventListener('scroll', measure);
+      window.removeEventListener('resize', measure);
+    };
+  }, [children]);
+
+  // Wheel → horizontal (React's onWheel is passive; attach manually so we
+  // can preventDefault only when the strip actually consumed the scroll).
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const onWheel = (e) => {
+      if (el.scrollWidth <= el.clientWidth) return;
+      const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      const before = el.scrollLeft;
+      el.scrollLeft += d;
+      if (el.scrollLeft !== before) e.preventDefault();
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  // Keep the active item visible when it changes (e.g. switching tabs).
+  useLayoutEffect(() => {
+    if (activeIndex == null) return;
+    const child = ref.current?.children?.[activeIndex];
+    child?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }, [activeIndex]);
+
+  const mask = edges.left && edges.right
+    ? `linear-gradient(to right, transparent, black ${fade}px, black calc(100% - ${fade}px), transparent)`
+    : edges.left
+      ? `linear-gradient(to right, transparent, black ${fade}px)`
+      : edges.right
+        ? `linear-gradient(to right, black calc(100% - ${fade}px), transparent)`
+        : undefined;
+
+  const nudge = (dir) =>
+    ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.6, behavior: 'smooth' });
+
+  const chevron = (dir) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      {dir < 0 ? <path d="M15 18l-6-6 6-6" /> : <path d="M9 6l6 6-6 6" />}
+    </svg>
+  );
+
+  return (
+    <div className={`relative min-w-0 ${className}`} style={style}>
+      <div
+        ref={ref}
+        onPointerDown={(e) => {
+          if (e.pointerType !== 'mouse' || e.button !== 0) return;
+          drag.current = { down: true, moved: false, x: e.clientX, left: ref.current.scrollLeft };
+        }}
+        onPointerMove={(e) => {
+          if (!drag.current.down) return;
+          const dx = e.clientX - drag.current.x;
+          if (Math.abs(dx) > 4) drag.current.moved = true;
+          if (drag.current.moved) {
+            ref.current.scrollLeft = drag.current.left - dx;
+            if (!grabbing) setGrabbing(true);
+          }
+        }}
+        onPointerUp={() => { drag.current.down = false; setGrabbing(false); }}
+        onPointerCancel={() => { drag.current.down = false; setGrabbing(false); }}
+        onPointerLeave={() => { drag.current.down = false; setGrabbing(false); }}
+        onClickCapture={(e) => {
+          // Swallow the click that ends a drag so buttons don't fire
+          if (drag.current.moved) {
+            e.preventDefault(); e.stopPropagation();
+            drag.current.moved = false;
+          }
+        }}
+        className={`flex items-center flex-nowrap overflow-x-auto select-none [&>*]:shrink-0 [&::-webkit-scrollbar]:hidden ${innerClassName}`}
+        style={{
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          touchAction: 'pan-x pan-y',
+          cursor: grabbing ? 'grabbing' : undefined,
+          WebkitMaskImage: mask,
+          maskImage: mask,
+        }}
+      >
+        {children}
+      </div>
+      {arrows && edges.left && (
+        <button
+          type="button"
+          onClick={() => nudge(-1)}
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1 rounded-full bg-slate-800/90 border border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700 shadow"
+          aria-label="Scroll left"
+        >{chevron(-1)}</button>
+      )}
+      {arrows && edges.right && (
+        <button
+          type="button"
+          onClick={() => nudge(1)}
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-1 rounded-full bg-slate-800/90 border border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700 shadow"
+          aria-label="Scroll right"
+        >{chevron(1)}</button>
+      )}
+    </div>
+  );
+};
+
 export default Portal;

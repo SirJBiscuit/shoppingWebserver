@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import FormattedNote from '../FormattedNote';
-import { Popup, Portal, Connector, useCornerStack, usePanelShift, setPanelShift, useIsMobile, useFloatSide } from '../../utils/autoPlacement';
+import { Popup, Portal, Connector, ScrollStrip, useCornerStack, usePanelShift, setPanelShift, useIsMobile, useFloatSide } from '../../utils/autoPlacement';
 import { pinDisplayPos, usePinLayerTick } from '../../utils/pinLayer';
 import {
   MapPin, Plus, X, Eye, EyeOff, MessageSquare, ChevronRight,
@@ -1670,9 +1670,13 @@ const BetaPinLayer = () => {
       {/* Tester beta viewer — polls + messages with the admin */}
       {pollsOpen && !isAdmin && (
         <div className="fixed top-0 right-0 bottom-0 z-[9988] w-96 max-w-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400 mr-1">Beta Viewer</span>
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-800">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400 shrink-0">Beta Viewer</span>
+            <ScrollStrip
+              className="flex-1 min-w-0"
+              innerClassName="gap-1 pr-1"
+              activeIndex={[['votes'], ['messages']].findIndex(([t]) => t === testerTab)}
+            >
               {[['votes', 'Polls'], ['messages', 'Messages']].map(([t, label]) => (
                 <button
                   key={t}
@@ -1682,8 +1686,8 @@ const BetaPinLayer = () => {
                   {label}
                 </button>
               ))}
-            </div>
-            <button onClick={() => setPollsOpen(false)} className="text-slate-500 hover:text-slate-300"><X className="w-5 h-5" /></button>
+            </ScrollStrip>
+            <button onClick={() => setPollsOpen(false)} className="text-slate-500 hover:text-slate-300 shrink-0"><X className="w-5 h-5" /></button>
           </div>
 
           {testerTab === 'votes' && (
