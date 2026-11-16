@@ -3112,6 +3112,7 @@ const Dashboard = () => {
         <FloatingButtons
           showApps={widgetProperties['floating-buttons']?.showApps !== false}
           showActiveList={widgetProperties['floating-buttons']?.showActiveList !== false}
+          showRecipes={widgetProperties['floating-buttons']?.showRecipes !== false}
           position={widgetProperties['floating-buttons']?.position || 'right'}
           buttonSize={widgetProperties['floating-buttons']?.buttonSize || 'medium'}
           buttonColor={widgetProperties['floating-buttons']?.buttonColor || '#6366f1'}

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Grid, List, MoveHorizontal } from 'lucide-react';
+import { Grid, List, MoveHorizontal, BookOpen } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Portal, useIsMobile, useCornerOffset, usePanelShift, setPanelShift, useFloatSide, setFloatSide } from '../utils/autoPlacement';
 
 // Floating action buttons — same visual scheme as the beta pin layer:
@@ -19,6 +20,7 @@ const Label = ({ children }) => (
 const FloatingButtons = ({
   showApps = true,
   showActiveList = true,
+  showRecipes = true,
   // Bottom-right column by default — the beta pin stack sits at the
   // corner bottom and this column floats above it (see --bp-stack-h).
   position: positionProp = 'right',
@@ -37,6 +39,8 @@ const FloatingButtons = ({
   const position = useFloatSide(positionProp);
   const side = position === 'left' ? 'left-4 items-start' : 'right-4 items-end';
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const onRecipesPage = useLocation().pathname.startsWith('/recipes');
   const belowPx = useCornerOffset(['beta']); // beta controls live below us
   const panelShift = usePanelShift();
 
@@ -109,6 +113,22 @@ const FloatingButtons = ({
               <Grid className="w-5 h-5" />
             </motion.button>
             <Label>Apps</Label>
+          </div>
+        )}
+
+        {/* Recipe book — quick jump to Recipes (hidden while on that page) */}
+        {showRecipes && !onRecipesPage && (
+          <div className="flex flex-col w-12 items-center gap-1">
+            <motion.button
+              onClick={() => navigate('/recipes')}
+              className="w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition bg-amber-500 text-white hover:bg-amber-600"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              title="Recipe book"
+            >
+              <BookOpen className="w-5 h-5" />
+            </motion.button>
+            <Label>Recipes</Label>
           </div>
         )}
 
