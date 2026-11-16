@@ -605,13 +605,13 @@ const BetaPinLayer = () => {
   // popups/menus open or chrome appears without any scroll.
   const layerTick = usePinLayerTick(1000);
 
-  // Close context menu / fanout on any outside click
+  // Close context menus / fanout on any outside click
   useEffect(() => {
-    if (!ctx && !fanout) return;
-    const off = () => { setCtx(null); setFanout(null); };
+    if (!ctx && !fanout && !ideaCtx) return;
+    const off = () => { setCtx(null); setFanout(null); setIdeaCtx(null); };
     window.addEventListener('click', off);
     return () => window.removeEventListener('click', off);
-  }, [ctx, fanout]);
+  }, [ctx, fanout, ideaCtx]);
 
   // Resolve every pin to a viewport position. Element-anchored pins track
   // their DOM element live; others fall back to the stored document-%.
@@ -1993,8 +1993,12 @@ const BetaPinLayer = () => {
           sheetClassName="bg-slate-900 border-t border-slate-700 p-3"
         >
         <div onClick={(e) => e.stopPropagation()}>
-          <div className="px-3 py-1.5 text-xs text-slate-400 border-b border-slate-800 truncate">
-            {ctx.pin.username} · {sevOf(ctx.pin.severity).label}
+          <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 border-b border-slate-800">
+            <span className="truncate flex-1">{ctx.pin.username} · {sevOf(ctx.pin.severity).label}</span>
+            <button onClick={() => setCtx(null)} title="Close"
+              className="p-0.5 rounded hover:bg-slate-700 text-slate-500 hover:text-slate-200 shrink-0">
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
           <button className="ctx-item" onClick={() => { setDetail(ctx.pin); setCtx(null); }}>
             <ChevronRight className="w-4 h-4" /> View details
@@ -2386,8 +2390,12 @@ const BetaPinLayer = () => {
           sheetClassName="bg-slate-900 border-t border-slate-700 p-3"
         >
           <div onClick={(e) => e.stopPropagation()}>
-            <div className="px-3 py-1.5 text-xs text-slate-400 border-b border-slate-800 truncate">
-              {ideaCtx.idea.title}
+            <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 border-b border-slate-800">
+              <span className="truncate flex-1">{ideaCtx.idea.title}</span>
+              <button onClick={() => setIdeaCtx(null)} title="Close"
+                className="p-0.5 rounded hover:bg-slate-700 text-slate-500 hover:text-slate-200 shrink-0">
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
             <button className="ctx-item" onClick={() => prioritizeIdea(ideaCtx.idea.id)}>
               <Flag className="w-4 h-4 text-orange-400" />
