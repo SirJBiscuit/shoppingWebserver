@@ -9,6 +9,7 @@ import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import CustomNotification from '../CustomNotification';
 import CustomDatePicker from '../CustomDatePicker';
+import RadialActionMenu from '../RadialActionMenu';
 import { Portal } from '../../utils/autoPlacement';
 
 const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChange }) => {
@@ -1050,67 +1051,21 @@ const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSend
           )}
         </div>
 
-        <div className="flex flex-wrap gap-1 ml-4 justify-end max-w-[220px]">
-          <button
-            onClick={onViewDetails}
-            className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-            title="View Details"
-          >
-            <Eye className="w-5 h-5" />
-          </button>
-          <button
-            onClick={onEdit}
-            className="p-2 text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            title="Edit name & notes"
-          >
-            <Edit className="w-5 h-5" />
-          </button>
-          <button
-            onClick={onResetPassword}
-            className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
-            title="Reset/set password"
-          >
-            <KeyRound className="w-5 h-5" />
-          </button>
-          <button
-            onClick={onExtend}
-            className="p-2 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg transition-colors"
-            title="Extend beta access"
-          >
-            <TimerReset className="w-5 h-5" />
-          </button>
-          <button
-            onClick={onSuspend}
-            className={`p-2 rounded-lg transition-colors ${
-              tester.suspended
-                ? 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'
-                : 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20'
-            }`}
-            title={tester.suspended ? 'Unsuspend tester' : 'Suspend tester'}
-          >
-            <Ban className="w-5 h-5" />
-          </button>
-          <button
-            onClick={onSendThankYou}
-            className="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
-            title="Send Thank You"
-          >
-            <Gift className="w-5 h-5" />
-          </button>
-          <button
-            onClick={onConvert}
-            className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-            title="Convert to User"
-          >
-            <UserCheck className="w-5 h-5" />
-          </button>
-          <button
-            onClick={onRemove}
-            className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-            title="Remove"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
+        <div className="ml-4 shrink-0">
+          <RadialActionMenu
+            size="sm"
+            primaryAction={{ label: 'Tester actions', className: 'bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700' }}
+            actions={[
+              { icon: Eye, label: 'View details', onClick: onViewDetails, color: 'bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700' },
+              { icon: Edit, label: 'Edit', onClick: onEdit, color: 'bg-gradient-to-br from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700' },
+              { icon: KeyRound, label: 'Password', onClick: onResetPassword, color: 'bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700' },
+              { icon: TimerReset, label: 'Extend', onClick: onExtend, color: 'bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700' },
+              { icon: Ban, label: tester.suspended ? 'Unsuspend' : 'Suspend', onClick: onSuspend, color: tester.suspended ? 'bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700' : 'bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700' },
+              { icon: Gift, label: 'Thank you', onClick: onSendThankYou, color: 'bg-gradient-to-br from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700' },
+              { icon: UserCheck, label: 'To full user', onClick: onConvert, color: 'bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700' },
+              { icon: Trash2, label: 'Remove', onClick: onRemove, color: 'bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700' },
+            ]}
+          />
         </div>
       </div>
     </motion.div>
