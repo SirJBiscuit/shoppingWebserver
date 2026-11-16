@@ -221,6 +221,7 @@ const BetaPinLayer = () => {
   const [moving, setMoving] = useState(null);        // admin: pin being repositioned
   const dropRef = useRef(null);
   const moveRef = useRef(null);
+  const stackRef = useRef(null);              // beta floating stack (for coord)
   // Admin viewer panel
   const [panelOpen, setPanelOpen] = useState(false);
   const [tab, setTab] = useState('pins');
@@ -359,6 +360,25 @@ const BetaPinLayer = () => {
 
   // New pin opened → card snaps back next to the pin marker.
   useEffect(() => { setDetailDrag({ dx: 0, dy: 0 }); }, [detail?.id]);
+
+  // Publish the beta stack's height on --bp-stack-h so the Apps/Active List
+  // column can sit directly above it in the bottom-right corner.
+  useEffect(() => {
+    const el = stackRef.current;
+    if (!el || dropMode || moving) {
+      document.documentElement.style.setProperty('--bp-stack-h', '0px');
+      return undefined;
+    }
+    const publish = () => document.documentElement.style
+      .setProperty('--bp-stack-h', `${el.offsetHeight}px`);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [dropMode, moving, canUse, isAdmin, pins, allPins]);
+  useEffect(() => () => {
+    document.documentElement.style.setProperty('--bp-stack-h', '0px');
+  }, []);
 
   // Track document height — used for the doc-% fallback when a pin's
   // element anchor no longer resolves.
@@ -1360,7 +1380,11 @@ const BetaPinLayer = () => {
           button column (Apps / Active List / editor) and kept under their
           z-layer so the app buttons always win clicks. */}
       {!dropMode && !moving && (
-        <div className="bp-floating fixed bottom-5 right-24 z-[45] flex flex-col items-end gap-3">
+        <div
+          ref={stackRef}
+          className="bp-floating fixed bottom-5 right-4 z-[45] flex flex-col items-end gap-3 transition-transform duration-300"
+          style={{ transform: 'translateX(var(--list-panel-x, 0px))' }}
+        >
           {!isAdmin && (
             <div className="flex flex-col items-center gap-1">
               <button

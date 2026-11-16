@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Grid, List } from 'lucide-react';
-import { Portal } from '../utils/autoPlacement';
+import { Portal, useIsMobile } from '../utils/autoPlacement';
 
 // Floating action buttons — same visual scheme as the beta pin layer:
 // circular buttons in one bottom-corner stack with a small visible label
-// under each. Default corner is bottom-LEFT (pins own bottom-right) so
-// the two stacks never overlap each other or the active-list panel.
+// under each. Default corner is bottom-RIGHT, floating directly above the
+// beta pin stack (it publishes its height on --bp-stack-h). When the
+// Active List panel opens, both columns slide left via --list-panel-x so
+// the panel sits underneath without hiding the buttons.
 
 const Label = ({ children }) => (
   <span className="text-[10px] font-semibold text-slate-700 dark:text-slate-200 bg-white/85 dark:bg-slate-900/85 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap">
@@ -17,7 +19,9 @@ const Label = ({ children }) => (
 const FloatingButtons = ({
   showApps = true,
   showActiveList = true,
-  position = 'left',
+  // Bottom-right column by default — the beta pin stack sits at the
+  // corner bottom and this column floats above it (see --bp-stack-h).
+  position = 'right',
   buttonColor = '#6366f1',
   spacing = 16,
   showAppsMenu,
@@ -28,12 +32,29 @@ const FloatingButtons = ({
   items = [],
 }) => {
   const side = position === 'left' ? 'left-4 sm:left-5' : 'right-4 sm:right-5';
+  const isMobile = useIsMobile();
+
+  // The Active List panel slides in from the right at z-201 — instead of
+  // hiding this column underneath it, slide both floating columns left so
+  // the buttons stay reachable. BetaPinLayer reads the same CSS var.
+  useEffect(() => {
+    const shift = showListPanel && position === 'right' && !isMobile
+      ? '-500px' : '0px';
+    document.documentElement.style.setProperty('--list-panel-x', shift);
+    return () => document.documentElement.style.setProperty('--list-panel-x', '0px');
+  }, [showListPanel, position, isMobile]);
+
+  // On the right side, sit directly above the beta pin stack — it publishes
+  // its own height on --bp-stack-h so this column never overlaps it.
+  const bottom = position === 'right'
+    ? `calc(var(--bp-stack-h, 0px) + ${spacing}px)`
+    : `${spacing}px`;
 
   return (
     <Portal>
       <div
-        className={`fixed ${side} z-50 flex flex-col items-center gap-3`}
-        style={{ bottom: `${spacing}px` }}
+        className={`fixed ${side} z-50 flex flex-col items-center gap-3 transition-transform duration-300`}
+        style={{ bottom, transform: 'translateX(var(--list-panel-x, 0px))' }}
       >
         {/* Apps menu */}
         {showApps && (

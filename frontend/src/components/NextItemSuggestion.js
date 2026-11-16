@@ -66,6 +66,19 @@ const NextItemSuggestionContent = ({
   const [showGuide, setShowGuide] = useState(() => {
     return !localStorage.getItem('lookingForNextGuideShown');
   });
+  const [showGuideOptOut, setShowGuideOptOut] = useState(false); // "don't show again?" popup
+
+  // Guide UX: it auto-dismisses after ~5s (view-only — NOT persisted), then
+  // a delayed animated popup offers the permanent opt-out. Only clicking
+  // "Don't show again" writes the localStorage flag.
+  React.useEffect(() => {
+    if (!showGuide) return undefined;
+    const hideT = setTimeout(() => setShowGuide(false), 5000);
+    const askT = setTimeout(() => {
+      if (!localStorage.getItem('lookingForNextGuideShown')) setShowGuideOptOut(true);
+    }, 8000);
+    return () => { clearTimeout(hideT); clearTimeout(askT); };
+  }, [showGuide]);
   const [showHelp, setShowHelp] = useState(false);
   const [isChecked, setIsChecked] = useState(nextItem?.is_checked || false);
   const [quickPrice, setQuickPrice] = useState(nextItem?.price ? nextItem.price.toString() : '');
@@ -240,8 +253,15 @@ const NextItemSuggestionContent = ({
   }, [nextItem?.id, nextItem?.item_name, nextItem?.aisle, storeName]);
 
   const hideGuide = () => {
+    // Session dismiss only — permanent opt-out is an explicit choice
+    // via the popup, not a side-effect of closing the banner once.
     setShowGuide(false);
+  };
+
+  const neverShowGuide = () => {
     localStorage.setItem('lookingForNextGuideShown', 'true');
+    setShowGuide(false);
+    setShowGuideOptOut(false);
   };
 
   // Report aisle location to MDL system
@@ -426,6 +446,40 @@ const NextItemSuggestionContent = ({
           </div>
         </motion.div>
       )}
+
+      {/* Delayed opt-in popup — asks before persisting the dismissal */}
+      <Portal>
+        <AnimatePresence>
+          {showGuideOptOut && (
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 24, scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+              className="fixed bottom-24 right-4 z-[9999] w-72 bg-slate-900 border border-blue-500/40 rounded-xl shadow-2xl p-4"
+            >
+              <p className="text-sm font-semibold text-white">Seen this before?</p>
+              <p className="text-xs text-slate-300 mt-1">
+                Hide this guide permanently — you can reopen the button guide anytime with the ? button.
+              </p>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={neverShowGuide}
+                  className="flex-1 text-xs font-semibold py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition"
+                >
+                  Don't show again
+                </button>
+                <button
+                  onClick={() => setShowGuideOptOut(false)}
+                  className="flex-1 text-xs py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                >
+                  Keep showing
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Portal>
 
       {/* Main Content */}
       <div className="p-4">
