@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
+import { motion } from 'framer-motion';
 import FormattedNote from '../FormattedNote';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
 import { Popup, Portal, Connector, ScrollStrip, useCornerStack, usePanelShift, setPanelShift, useIsMobile, useFloatSide } from '../../utils/autoPlacement';
@@ -157,6 +158,44 @@ const TagBadge = ({ tag }) => {
     <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold capitalize shrink-0 ${t.chip}`}>
       <t.Icon className="w-2.5 h-2.5" />{tag}
     </span>
+  );
+};
+
+// Confetti burst + checkmark pop when an idea is marked done
+const CONFETTI_COLORS = ['#a78bfa', '#34d399', '#fbbf24', '#818cf8', '#22d3ee', '#fb7185', '#a3e635'];
+const IdeaCelebration = () => {
+  const parts = React.useMemo(() => Array.from({ length: 18 }, (_, k) => {
+    const a = Math.random() * Math.PI * 2;
+    const d = 40 + Math.random() * 90;
+    return {
+      x: Math.cos(a) * d, y: Math.sin(a) * d - 30,
+      r: (Math.random() - 0.5) * 540,
+      c: CONFETTI_COLORS[k % CONFETTI_COLORS.length],
+      s: 4 + Math.random() * 5,
+      round: Math.random() > 0.5,
+      dur: 0.7 + Math.random() * 0.5,
+    };
+  }), []);
+  return (
+    <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center">
+      {parts.map((p, k) => (
+        <motion.span key={k}
+          className="absolute"
+          style={{ width: p.s, height: p.s, background: p.c, borderRadius: p.round ? '50%' : 2 }}
+          initial={{ x: 0, y: 0, opacity: 1, rotate: 0 }}
+          animate={{ x: p.x, y: p.y, opacity: 0, rotate: p.r }}
+          transition={{ duration: p.dur, ease: 'easeOut' }}
+        />
+      ))}
+      <motion.div
+        initial={{ scale: 0, rotate: -25, opacity: 0 }}
+        animate={{ scale: [0, 1.3, 1], rotate: 0, opacity: [0, 1, 0] }}
+        transition={{ duration: 1.2, times: [0, 0.3, 0.9], ease: 'easeOut' }}
+        className="w-10 h-10 rounded-full bg-emerald-500 shadow-lg flex items-center justify-center"
+      >
+        <Check className="w-6 h-6 text-white" />
+      </motion.div>
+    </div>
   );
 };
 
@@ -340,6 +379,7 @@ const BetaPinLayer = () => {
   const [sel, setSel] = useState(new Set());
   // Admin viewer — search + filter/sort popup state
   const [ideaCtx, setIdeaCtx] = useState(null);   // {x,y,idea} right-click menu
+  const [celebrate, setCelebrate] = useState(null); // idea id mid-completion celebration
   const [pinSearch, setPinSearch] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(null); // {x,y} anchor for Popup
   const [sortMode, setSortMode] = useState('new');       // new|old|priority|page
@@ -474,7 +514,8 @@ const BetaPinLayer = () => {
 
   useEffect(() => {
     if (isAdmin && panelOpen && tab === 'ideas') loadIdeas();
-    if (isAdmin && panelOpen && tab === 'history') loadTrashedIdeas();
+    // History needs live ideas too — completed ones surface there
+    if (isAdmin && panelOpen && tab === 'history') { loadTrashedIdeas(); loadIdeas(); }
   }, [isAdmin, panelOpen, tab, loadIdeas, loadTrashedIdeas]);
 
   useEffect(() => { if (canUse) { loadPagePins(); loadPolls(); } }, [canUse, loadPagePins, loadPolls]);
@@ -775,8 +816,9 @@ const BetaPinLayer = () => {
     () => [...new Set([
       ...historyItems.map((h) => h.actor_name),
       ...deletedIdeas.map((i) => i.created_by_name),
+      ...ideas.filter((i) => i.status === 'done').map((i) => i.created_by_name),
     ].filter(Boolean))].sort(),
-    [historyItems, deletedIdeas]
+    [historyItems, deletedIdeas, ideas]
   );
   const histFilterCount = useMemo(
     () => (histKind !== 'all') + (histEvent !== 'all') + (histTime !== 'all') + (histActor !== 'all'),
@@ -818,6 +860,25 @@ const BetaPinLayer = () => {
     }
     return list;
   }, [deletedIdeas, histEvent, histActor, histTime, histSearch]);
+  const filteredCompletedIdeas = useMemo(() => {
+    if (histEvent !== 'all') return []; // completions aren't delete/restore events
+    let list = ideas.filter((i) => i.status === 'done');
+    if (histActor !== 'all') list = list.filter((i) => i.created_by_name === histActor);
+    if (histTime !== 'all') {
+      const cut = Date.now() - TIME_WINDOWS[histTime];
+      list = list.filter((i) => new Date(i.updated_at || i.created_at).getTime() >= cut);
+    }
+    const q = histSearch.trim().toLowerCase();
+    if (q) {
+      list = list.filter((i) => [i.title, i.body, i.tag, i.created_by_name]
+        .some((v) => String(v || '').toLowerCase().includes(q)));
+    }
+    return [...list].sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
+  }, [ideas, histEvent, histActor, histTime, histSearch]);
+  const histVisibleCount =
+    (histKind === 'all' || histKind === 'pins' ? filteredHistoryItems.length : 0)
+    + (histKind === 'all' || histKind === 'ideas' ? filteredDeletedIdeas.length : 0)
+    + (histKind === 'all' || histKind === 'completed' ? filteredCompletedIdeas.length : 0);
 
   const toggleSet = (set, setter, key) => setter((prev) => {
     const next = new Set(prev);
@@ -1159,6 +1220,13 @@ const BetaPinLayer = () => {
 
   // Priority queue — the first idea prioritized takes rank 1 (highest);
   // every later one ranks lower. clear=true removes it from the queue.
+  // Mark an idea done with a confetti burst, then let the board update
+  const completeIdea = async (id) => {
+    setCelebrate(id);
+    setTimeout(() => setCelebrate((c) => (c === id ? null : c)), 1400);
+    await updateIdea(id, { status: 'done' });
+  };
+
   const prioritizeIdea = async (id, clear = false) => {
     try {
       await api.post(`/beta/ideas/admin/${id}/prioritize`, { clear });
@@ -2699,9 +2767,10 @@ const BetaPinLayer = () => {
                 <div
                   key={i.id}
                   onContextMenu={(e) => { e.preventDefault(); setIdeaCtx({ x: e.clientX, y: e.clientY, idea: i }); }}
-                  className={`mx-2 my-1.5 px-3 py-2 rounded-xl border ${ts.card} ${i.status === 'archived' ? 'opacity-50' : ''} ${pri ? 'border-l-4' : ''}`}
+                  className={`relative mx-2 my-1.5 px-3 py-2 rounded-xl border ${ts.card} ${i.status === 'archived' ? 'opacity-50' : ''} ${pri ? 'border-l-4' : ''}`}
                   style={pri ? { borderLeftColor: pri.color } : undefined}
                 >
+                  {celebrate === i.id && <IdeaCelebration />}
                   <div className="flex items-center gap-1.5">
                     {i.is_pinned && <Pin className="w-3 h-3 text-amber-400 shrink-0" />}
                     {pri && (
@@ -2760,9 +2829,9 @@ const BetaPinLayer = () => {
                           <Pin className="w-3 h-3" />
                         </button>
                         {IDEA_STATUSES.filter((s) => s !== i.status).map((s) => (
-                          <button key={s} onClick={() => updateIdea(i.id, { status: s })}
-                            className="text-[10px] px-1.5 py-1 rounded bg-slate-800 text-slate-400 hover:text-slate-200 capitalize">
-                            {s === 'done' ? <Check className="w-3 h-3 inline" /> : s === 'archived' ? <Archive className="w-3 h-3 inline" /> : s.replace('_', ' ')}
+                          <button key={s} onClick={() => (s === 'done' ? completeIdea(i.id) : updateIdea(i.id, { status: s }))}
+                            className={`text-[10px] px-1.5 py-1 rounded capitalize ${s === 'done' ? 'bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50 font-semibold' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}>
+                            {s === 'done' ? <><Check className="w-3 h-3 inline" /> Complete</> : s === 'archived' ? <Archive className="w-3 h-3 inline" /> : s.replace('_', ' ')}
                           </button>
                         ))}
                         <button onClick={() => setIdeaEdit({ id: i.id, title: i.title, body: i.body || '', tag: i.tag, color: i.color || '' })} title="Edit"
@@ -2834,7 +2903,7 @@ const BetaPinLayer = () => {
                   </button>
                 </div>
                 <div className="flex items-center gap-1.5 mt-1.5">
-                  {[['all', 'All'], ['pins', 'Pins'], ['ideas', 'Ideas']].map(([k, lbl]) => (
+                  {[['all', 'All'], ['pins', 'Pins'], ['ideas', 'Ideas'], ['completed', 'Completed']].map(([k, lbl]) => (
                     <button
                       key={k}
                       onClick={() => setHistKind(k)}
@@ -2846,8 +2915,7 @@ const BetaPinLayer = () => {
                     >{lbl}</button>
                   ))}
                   <span className="text-[11px] text-slate-500 ml-auto">
-                    {(histKind !== 'ideas' ? filteredHistoryItems.length : 0)
-                      + (histKind !== 'pins' ? filteredDeletedIdeas.length : 0)} events
+                    {histVisibleCount} events
                   </span>
                 </div>
               </div>
@@ -2855,8 +2923,32 @@ const BetaPinLayer = () => {
                   lands in history (each gets its own filtered list). */}
               {[
                 {
+                  key: 'completed', title: 'Completed ideas', items: filteredCompletedIdeas,
+                  show: histKind === 'all' || histKind === 'completed',
+                  render: (i) => (
+                    <div key={`done-${i.id}`} className="px-3 py-2 border-b border-slate-800/60">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] px-1.5 rounded-full bg-emerald-500/20 text-emerald-300">completed</span>
+                        <TagBadge tag={i.tag} />
+                        <span className="text-[10px] text-slate-600 ml-auto shrink-0">{relTime(i.updated_at || i.created_at)}</span>
+                      </div>
+                      <p className="text-sm text-slate-200 mt-1 font-medium">{i.title}</p>
+                      {i.body && <p className="text-xs text-slate-400 mt-0.5 line-clamp-2 whitespace-pre-wrap">{i.body}</p>}
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        {i.created_by_name || 'admin'} · created {relTime(i.created_at)}
+                      </div>
+                      <div className="flex gap-1.5 mt-1.5">
+                        <button onClick={() => updateIdea(i.id, { status: 'open' })}
+                          className="text-[11px] px-2 py-1 rounded bg-blue-600/30 text-blue-200 hover:bg-blue-600/50 flex items-center gap-1">
+                          <RotateCcw className="w-3 h-3" /> Reopen
+                        </button>
+                      </div>
+                    </div>
+                  ),
+                },
+                {
                   key: 'ideas', title: 'Deleted ideas', items: filteredDeletedIdeas,
-                  show: histKind !== 'pins',
+                  show: histKind === 'all' || histKind === 'ideas',
                   render: (i) => (
                     <div key={`idea-${i.id}`} className="px-3 py-2 border-b border-slate-800/60">
                       <div className="flex items-center gap-2">
@@ -2882,7 +2974,7 @@ const BetaPinLayer = () => {
                 },
                 {
                   key: 'pins', title: 'Pin events', items: filteredHistoryItems,
-                  show: histKind !== 'ideas',
+                  show: histKind === 'all' || histKind === 'pins',
                   render: (h) => {
                     const s = h.snapshot || {};
                     const superseded = h.event === 'deleted' && historyItems.some(
@@ -2927,11 +3019,11 @@ const BetaPinLayer = () => {
                   )}
                 </div>
               ))}
-              {!filteredHistoryItems.length && !filteredDeletedIdeas.length && (
+              {!histVisibleCount && (
                 <p className="text-sm text-slate-500 text-center py-8">
-                  {historyItems.length || deletedIdeas.length
+                  {historyItems.length || deletedIdeas.length || filteredCompletedIdeas.length
                     ? 'No events match your filters.'
-                    : 'No history yet — deleted pins and ideas show up here.'}
+                    : 'No history yet — completed or deleted items show up here.'}
                 </p>
               )}
             </div>
