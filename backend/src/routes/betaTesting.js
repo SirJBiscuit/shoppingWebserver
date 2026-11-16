@@ -409,6 +409,80 @@ router.get('/admin/testers', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
+// Recent activity for one tester (admin only). :id = user id.
+// Unified feed of feedback, pins, MDL item additions, and aisle reports —
+// backs the clickable stat icons on the tester cards.
+router.get('/admin/testers/:id/activity', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const uid = parseInt(req.params.id, 10);
+    if (!Number.isFinite(uid)) {
+      return res.status(400).json({ error: 'Invalid user id' });
+    }
+    const tester = await db.query(`SELECT user_id FROM beta_testers WHERE user_id = $1`, [uid]);
+    if (tester.rows.length === 0) {
+      return res.status(404).json({ error: 'Beta tester not found' });
+    }
+
+    // Each source is best-effort — a missing MDL table shouldn't blank the feed
+    const [feedback, pins, items, aisles] = await Promise.all([
+      db.query(
+        `SELECT id, type, title, severity, status, created_at
+         FROM beta_feedback WHERE user_id = $1
+         ORDER BY created_at DESC LIMIT 50`, [uid]
+      ).catch(() => ({ rows: [] })),
+      db.query(
+        `SELECT id, note, severity, status, page_path, created_at
+         FROM beta_pins WHERE user_id = $1
+         ORDER BY created_at DESC LIMIT 50`, [uid]
+      ).catch(() => ({ rows: [] })),
+      db.query(
+        `SELECT h.added_at AS created_at, n.normalized_name AS name, h.store_name
+         FROM mdl_user_item_history h
+         JOIN mdl_item_names n ON n.id = h.item_name_id
+         WHERE h.user_id = $1
+         ORDER BY h.added_at DESC LIMIT 50`, [uid]
+      ).catch(() => ({ rows: [] })),
+      db.query(
+        `SELECT r.reported_at AS created_at, r.aisle_number, n.normalized_name AS name
+         FROM mdl_aisle_reports r
+         LEFT JOIN mdl_item_names n ON n.id = r.item_name_id
+         WHERE r.user_id = $1
+         ORDER BY r.reported_at DESC LIMIT 50`, [uid]
+      ).catch(() => ({ rows: [] })),
+    ]);
+
+    const feed = [
+      ...feedback.rows.map((r) => ({
+        kind: 'feedback', id: r.id,
+        label: `${r.type === 'bug' ? 'Bug' : r.type === 'feature' ? 'Feature' : 'Feedback'}: ${r.title}`,
+        status: r.status, at: r.created_at
+      })),
+      ...pins.rows.map((r) => ({
+        kind: 'pin', id: r.id,
+        label: `${r.severity} pin on ${r.page_path}: ${r.note}`,
+        status: r.status, at: r.created_at
+      })),
+      ...items.rows.map((r) => ({
+        kind: 'item', id: null,
+        label: `added "${r.name}"${r.store_name ? ` @ ${r.store_name}` : ''}`,
+        status: null, at: r.created_at
+      })),
+      ...aisles.rows.map((r) => ({
+        kind: 'aisle', id: null,
+        label: `reported aisle ${r.aisle_number}${r.name ? ` for "${r.name}"` : ''}`,
+        status: null, at: r.created_at
+      })),
+    ]
+      .sort((a, b) => new Date(b.at) - new Date(a.at))
+      .slice(0, 100);
+
+    res.json(feed);
+  } catch (error) {
+    console.error('Error fetching tester activity:', error);
+    res.status(500).json({ error: 'Failed to fetch tester activity' });
+  }
+});
+
 // Edit tester fields (admin only) — display name, admin notes, suspension
 router.patch('/admin/testers/:id', authenticateToken, isAdmin, async (req, res) => {
   try {

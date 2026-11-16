@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, Star, MapPin, Calendar, Activity, MessageSquare, Award,
   Send, UserCheck, UserX, Trash2, Clock, Package, Ban, TimerReset,
-  Search, Eye, Gift, AlertCircle, Edit, StickyNote, KeyRound, Copy
+  Search, Eye, Gift, AlertCircle, Edit, StickyNote, KeyRound, Copy, Pin
 } from 'lucide-react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
@@ -35,6 +35,12 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
   const [pwValue, setPwValue] = useState('');
   const [pwBusy, setPwBusy] = useState(false);
   const [pwResult, setPwResult] = useState('');
+
+  // Activity feed modal — opened by clicking the items/feedback stats
+  const [showActivityModal, setShowActivityModal] = useState(false);
+  const [activityItems, setActivityItems] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityFilter, setActivityFilter] = useState('all');
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -229,6 +235,22 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       alert(error.response?.data?.error || 'Failed to reset password');
     } finally {
       setPwBusy(false);
+    }
+  };
+
+  const openActivity = async (tester, kind = 'all') => {
+    setSelectedTester(tester);
+    setActivityFilter(kind);
+    setShowActivityModal(true);
+    setActivityLoading(true);
+    setActivityItems([]);
+    try {
+      const res = await api.get(`/beta/admin/testers/${tester.id}/activity`);
+      setActivityItems(res.data || []);
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to load activity');
+    } finally {
+      setActivityLoading(false);
     }
   };
 
@@ -456,6 +478,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
               onSuspend={() => handleToggleSuspend(tester)}
               onEdit={() => openEditTester(tester)}
               onResetPassword={() => openResetPassword(tester)}
+              onActivity={(kind) => openActivity(tester, kind)}
             />
           ))
         )}
@@ -830,12 +853,90 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
         )}
       </AnimatePresence></Portal>
 
+      {/* Activity Feed Modal — opened by clicking items/feedback stats */}
+      <Portal><AnimatePresence>
+        {showActivityModal && selectedTester && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Activity className="w-6 h-6 text-green-600" />
+                  {selectedTester.display_name || selectedTester.beta_username} — Activity
+                </h3>
+                <button
+                  onClick={() => { setShowActivityModal(false); setSelectedTester(null); setActivityItems([]); }}
+                  className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                >
+                  <AlertCircle className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Kind filters */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {[
+                  { key: 'all', label: 'All' },
+                  { key: 'feedback', label: 'Feedback', Icon: MessageSquare },
+                  { key: 'pin', label: 'Pins', Icon: Pin },
+                  { key: 'item', label: 'Items', Icon: Package },
+                  { key: 'aisle', label: 'Aisles', Icon: MapPin },
+                ].map(({ key, label, Icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => setActivityFilter(key)}
+                    className={`px-3 py-1 text-xs rounded-full border flex items-center gap-1 transition-colors ${
+                      activityFilter === key
+                        ? 'bg-green-600 text-white border-green-600'
+                        : 'text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {Icon && <Icon className="w-3 h-3" />}
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="max-h-80 overflow-y-auto space-y-1.5 pr-1">
+                {activityLoading && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">Loading activity…</p>
+                )}
+                {!activityLoading && activityItems.filter((e) => activityFilter === 'all' || e.kind === activityFilter).length === 0 && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">No activity yet</p>
+                )}
+                {!activityLoading && activityItems
+                  .filter((e) => activityFilter === 'all' || e.kind === activityFilter)
+                  .map((e, i) => (
+                    <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm">
+                      <span className="mt-0.5 shrink-0">
+                        {e.kind === 'feedback' && <MessageSquare className="w-4 h-4 text-blue-500" />}
+                        {e.kind === 'pin' && <Pin className="w-4 h-4 text-red-500" />}
+                        {e.kind === 'item' && <Package className="w-4 h-4 text-emerald-500" />}
+                        {e.kind === 'aisle' && <MapPin className="w-4 h-4 text-amber-500" />}
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-gray-900 dark:text-white truncate">{e.label}</span>
+                        <span className="block text-xs text-gray-500 dark:text-gray-400">
+                          {new Date(e.at).toLocaleString()}{e.status ? ` · ${e.status}` : ''}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence></Portal>
+
       <CustomNotification {...notification} onClose={hideNotification} />
     </div>
   );
 };
 
-const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSendThankYou, onConvert, onRemove, onExtend, onSuspend, onEdit, onResetPassword }) => {
+const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSendThankYou, onConvert, onRemove, onExtend, onSuspend, onEdit, onResetPassword, onActivity }) => {
   const stars = Math.round(qualityScore / 20);
   
   const activityColors = {
@@ -915,14 +1016,22 @@ const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSend
               <MapPin className="w-4 h-4" />
               <span>{tester.state}, {tester.country}</span>
             </div>
-            <div className="flex items-center gap-2">
+            <button
+              onClick={() => onActivity('item')}
+              className="flex items-center gap-2 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+              title="View items this tester added"
+            >
               <Package className="w-4 h-4" />
               <span>{tester.items_added || 0} items</span>
-            </div>
-            <div className="flex items-center gap-2">
+            </button>
+            <button
+              onClick={() => onActivity('feedback')}
+              className="flex items-center gap-2 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+              title="View this tester's feedback"
+            >
               <MessageSquare className="w-4 h-4" />
               <span>{tester.feedback_count || 0} feedback</span>
-            </div>
+            </button>
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
               <span>Joined {new Date(tester.registered_at).toLocaleDateString()}</span>
