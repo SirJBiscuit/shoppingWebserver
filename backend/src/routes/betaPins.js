@@ -5,6 +5,7 @@ const { authenticateToken, isAdmin } = require('../middleware/auth');
 
 const SEVERITIES = ['critical', 'annoying', 'minor', 'weird'];
 const STATUSES = ['open', 'in_progress', 'fixed', 'hidden', 'removed'];
+const PIN_ICONS = ['pin', 'flag', 'bug', 'idea', 'warn', 'question', 'star', 'eye'];
 
 // ---------------------------------------------------------------------------
 // TESTER SIDE — create + view pins
@@ -14,15 +15,19 @@ const STATUSES = ['open', 'in_progress', 'fixed', 'hidden', 'removed'];
  * POST /api/beta/pins
  * Drop a pin on the current page. Any authenticated user may pin; beta
  * testers are the intended authors (admins can pin for marking too).
- * { pagePath, x, y, severity, note, isPrivate?, selector?, offX?, offY? }
+ * { pagePath, x, y, severity, note, isPrivate?, selector?, offX?, offY?,
+ *   elementLabel?, viewport? }
  * isPrivate (admin only): pin is a private admin reminder — testers can't
  * see it. Admins pin problem spots for themselves with the same controls.
  * selector/offX/offY: DOM element the pin was dropped on + offset inside
  * its rect, so the pin tracks the element instead of a page percentage.
+ * elementLabel: human-readable description of that element for the export.
+ * viewport: 'WxH' screen size at drop time — helps reproduce layout bugs.
  */
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { pagePath, x, y, severity, note, isPrivate, selector, offX, offY } = req.body;
+    const { pagePath, x, y, severity, note, isPrivate, selector, offX, offY,
+      elementLabel, viewport, icon } = req.body;
     if (!pagePath || typeof pagePath !== 'string' || pagePath.length > 255) {
       return res.status(400).json({ error: 'pagePath required' });
     }
@@ -34,6 +39,7 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Note required (max 2000 chars)' });
     }
     const sev = SEVERITIES.includes(severity) ? severity : 'minor';
+    const pinIcon = PIN_ICONS.includes(icon) ? icon : 'pin';
 
     // Optional element anchor — validated loosely; it's a hint, not a key
     const sel = typeof selector === 'string' && selector.length > 0 && selector.length <= 500
@@ -41,6 +47,10 @@ router.post('/', authenticateToken, async (req, res) => {
     const ox = Number.isFinite(parseFloat(offX)) ? Math.min(1, Math.max(0, parseFloat(offX))) : null;
     const oy = Number.isFinite(parseFloat(offY)) ? Math.min(1, Math.max(0, parseFloat(offY))) : null;
     const anchor = sel && ox !== null && oy !== null;
+    const label = typeof elementLabel === 'string' && elementLabel.length <= 300
+      ? elementLabel.trim() : null;
+    const vp = typeof viewport === 'string' && /^\d{2,5}x\d{2,5}$/.test(viewport)
+      ? viewport : null;
 
     // Light flood protection: 30 open pins per user per page max
     const open = await db.query(
@@ -54,10 +64,11 @@ router.post('/', authenticateToken, async (req, res) => {
 
     const { rows } = await db.query(
       `INSERT INTO beta_pins (user_id, page_path, x_pct, y_pct, severity, note, is_private,
-        element_selector, offset_x, offset_y)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        element_selector, offset_x, offset_y, element_label, viewport, icon)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
       [req.user.id, pagePath, px, py, sev, note.trim(), req.user.isAdmin && isPrivate === true,
-       anchor ? sel : null, anchor ? ox : null, anchor ? oy : null]
+       anchor ? sel : null, anchor ? ox : null, anchor ? oy : null,
+       anchor ? label : null, vp, pinIcon]
     );
     res.status(201).json(rows[0]);
   } catch (e) {
@@ -114,7 +125,7 @@ router.get('/', authenticateToken, async (req, res) => {
  */
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
-    const { note, severity, isPrivate, adminNote } = req.body;
+    const { note, severity, isPrivate, adminNote, icon } = req.body;
     const q = await db.query('SELECT * FROM beta_pins WHERE id = $1', [req.params.id]);
     if (!q.rows.length) return res.status(404).json({ error: 'Pin not found' });
     const pin = q.rows[0];
@@ -130,13 +141,15 @@ router.patch('/:id', authenticateToken, async (req, res) => {
          severity = COALESCE($3, severity),
          is_private = CASE WHEN $4::boolean IS NULL THEN is_private ELSE $4 END,
          admin_note = COALESCE($5, admin_note),
+         icon = COALESCE($6, icon),
          updated_at = NOW()
        WHERE id = $1`,
       [req.params.id,
        note && note.trim() ? note.trim().slice(0, 2000) : null,
        SEVERITIES.includes(severity) ? severity : null,
        req.user.isAdmin && typeof isPrivate === 'boolean' ? isPrivate : null,
-       req.user.isAdmin && adminNote ? adminNote.trim().slice(0, 1000) : null]
+       req.user.isAdmin && adminNote ? adminNote.trim().slice(0, 1000) : null,
+       req.user.isAdmin && PIN_ICONS.includes(icon) ? icon : null]
     );
     res.json({ updated: true });
   } catch (e) {
@@ -194,6 +207,8 @@ router.post('/admin/:id/status', authenticateToken, isAdmin, async (req, res) =>
     if (!STATUSES.includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
+    // resolved_by is INTEGER — a non-integer token id must not 500 the update
+    const resolverId = Number.isFinite(Number(req.user.id)) ? Number(req.user.id) : null;
     const { rowCount } = await db.query(
       `UPDATE beta_pins SET status = $2,
          admin_note = COALESCE($3, admin_note),
@@ -201,7 +216,7 @@ router.post('/admin/:id/status', authenticateToken, isAdmin, async (req, res) =>
          resolved_at = CASE WHEN $2 IN ('fixed','hidden','removed') THEN NOW() ELSE resolved_at END,
          updated_at = NOW()
        WHERE id = $1`,
-      [req.params.id, status, adminNote || null, req.user.id]
+      [req.params.id, status, adminNote || null, resolverId]
     );
     if (!rowCount) return res.status(404).json({ error: 'Pin not found' });
     res.json({ updated: true });
@@ -236,12 +251,13 @@ router.post('/admin/bulk', authenticateToken, isAdmin, async (req, res) => {
     const status = map[action];
     if (!status) return res.status(400).json({ error: 'action: hide|remove|fixed|open|private|unprivate' });
 
+    const resolverId = Number.isFinite(Number(req.user.id)) ? Number(req.user.id) : null;
     const { rowCount } = await db.query(
       `UPDATE beta_pins SET status = $2, resolved_by = $3,
          resolved_at = CASE WHEN $2 <> 'open' THEN NOW() ELSE resolved_at END,
          updated_at = NOW()
        WHERE id = ANY($1)`,
-      [cleanIds, status, req.user.id]
+      [cleanIds, status, resolverId]
     );
     res.json({ updated: rowCount });
   } catch (e) {
@@ -252,12 +268,13 @@ router.post('/admin/bulk', authenticateToken, isAdmin, async (req, res) => {
 
 /**
  * POST /api/beta/pins/admin/:id/move
- * { x, y, selector?, offX?, offY? } — reposition a pin and re-anchor it to
- * the element under the drop point (same anchor semantics as create).
+ * { x, y, selector?, offX?, offY?, elementLabel? } — reposition a pin and
+ * re-anchor it to the element under the drop point (same anchor semantics
+ * as create).
  */
 router.post('/admin/:id/move', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const { x, y, selector, offX, offY } = req.body;
+    const { x, y, selector, offX, offY, elementLabel } = req.body;
     const px = parseFloat(x); const py = parseFloat(y);
     if (!(px >= 0 && px <= 100 && py >= 0 && py <= 100)) {
       return res.status(400).json({ error: 'x/y must be percentages 0-100' });
@@ -267,14 +284,18 @@ router.post('/admin/:id/move', authenticateToken, isAdmin, async (req, res) => {
     const ox = Number.isFinite(parseFloat(offX)) ? Math.min(1, Math.max(0, parseFloat(offX))) : null;
     const oy = Number.isFinite(parseFloat(offY)) ? Math.min(1, Math.max(0, parseFloat(offY))) : null;
     const anchor = sel && ox !== null && oy !== null;
+    const label = typeof elementLabel === 'string' && elementLabel.length <= 300
+      ? elementLabel.trim() : null;
 
     const { rowCount } = await db.query(
       `UPDATE beta_pins SET
          x_pct = $2, y_pct = $3,
          element_selector = $4, offset_x = $5, offset_y = $6,
+         element_label = $7,
          updated_at = NOW()
        WHERE id = $1`,
-      [req.params.id, px, py, anchor ? sel : null, anchor ? ox : null, anchor ? oy : null]
+      [req.params.id, px, py, anchor ? sel : null, anchor ? ox : null, anchor ? oy : null,
+       anchor ? label : null]
     );
     if (!rowCount) return res.status(404).json({ error: 'Pin not found' });
     res.json({ moved: true });
@@ -318,7 +339,18 @@ router.get('/admin/export', authenticateToken, isAdmin, async (req, res) => {
       md += `${n}. **[${p.severity.toUpperCase()}]** ${String(p.note).replace(/\n+/g, ' ')}${p.is_private ? ' 🔒' : ''}\n`;
       md += `   - ${p.username || 'unknown'} · ${p.status} · ${new Date(p.created_at).toISOString().slice(0, 10)}`;
       if (p.admin_note) md += ` · admin: ${String(p.admin_note).replace(/\n+/g, ' ')}`;
-      md += `\n\n`;
+      md += `\n`;
+      // Debug context — which element was pinned, where inside it, screen size
+      if (p.element_label) md += `   - element: ${String(p.element_label).replace(/\n+/g, ' ')}\n`;
+      if (p.element_selector) {
+        const ox = p.offset_x !== null ? Math.round(Number(p.offset_x) * 100) : '?';
+        const oy = p.offset_y !== null ? Math.round(Number(p.offset_y) * 100) : '?';
+        md += `   - selector: \`${p.element_selector}\` (at ${ox}%, ${oy}%)\n`;
+      } else {
+        md += `   - position: page-space ${Math.round(Number(p.x_pct))}%, ${Math.round(Number(p.y_pct))}% (no element anchor)\n`;
+      }
+      if (p.viewport) md += `   - viewport: ${p.viewport}\n`;
+      md += `\n`;
     }
     if (!rows.length) md += '_No open pins._\n';
 

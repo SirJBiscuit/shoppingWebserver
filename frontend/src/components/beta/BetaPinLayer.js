@@ -2,11 +2,12 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { Popup } from '../../utils/autoPlacement';
+import { Popup, Portal } from '../../utils/autoPlacement';
 import {
   MapPin, Plus, X, Eye, EyeOff, MessageSquare, ChevronRight,
   Check, Clock, Trash2, Layers, ExternalLink,
-  BarChart3, ThumbsUp, ThumbsDown, Lock, Pencil, Move, Download, RotateCcw
+  BarChart3, ThumbsUp, ThumbsDown, Lock, Pencil, Move, Download, RotateCcw,
+  LocateFixed, Copy, Flag, Bug, Lightbulb, AlertTriangle, HelpCircle, Star
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -44,6 +45,40 @@ const relTime = (iso) => {
 };
 
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
+
+// Selectable marker indicators — a bug report reads better as a bug than
+// as a generic pin. Key is stored in beta_pins.icon.
+const PIN_ICONS = [
+  { key: 'pin',      Icon: MapPin,        label: 'Pin' },
+  { key: 'flag',     Icon: Flag,          label: 'Flag' },
+  { key: 'bug',      Icon: Bug,           label: 'Bug' },
+  { key: 'idea',     Icon: Lightbulb,     label: 'Idea' },
+  { key: 'warn',     Icon: AlertTriangle, label: 'Warning' },
+  { key: 'question', Icon: HelpCircle,    label: 'Question' },
+  { key: 'star',     Icon: Star,          label: 'Star' },
+  { key: 'eye',      Icon: Eye,           label: 'Look' },
+];
+const pinIconOf = (key) => (PIN_ICONS.find((i) => i.key === key) || PIN_ICONS[0]).Icon;
+
+// Small icon picker row shared by the draft popup and admin edit mode.
+const IconPicker = ({ value, onChange }) => (
+  <div className="flex gap-1 mb-2">
+    {PIN_ICONS.map(({ key, Icon, label }) => (
+      <button
+        key={key}
+        onClick={() => onChange(key)}
+        title={label}
+        className={`flex-1 py-1.5 rounded-lg border flex items-center justify-center transition ${
+          value === key
+            ? 'border-red-400 bg-red-500/20 text-red-300'
+            : 'border-slate-700 text-slate-400 hover:border-slate-500'
+        }`}
+      >
+        <Icon className="w-3.5 h-3.5" />
+      </button>
+    ))}
+  </div>
+);
 
 // Tiny visible label under each floating button — same scheme the
 // dashboard floating buttons use.
@@ -86,6 +121,28 @@ const selectorFor = (el) => {
   return parts.join(' > ');
 };
 
+// Human-readable description of an element — shown while dropping (live
+// readout), on the pin card, in the admin list and in the exported bug
+// list. e.g. `button.add-item "Add item"`
+const describeElement = (el) => {
+  if (!el || !el.tagName) return '';
+  let s = el.tagName.toLowerCase();
+  if (el.id) s += `#${el.id}`;
+  else {
+    const cls = typeof el.className === 'string'
+      ? el.className.trim().split(/\s+/).filter(Boolean).slice(0, 2) : [];
+    if (cls.length) s += `.${cls.join('.')}`;
+  }
+  const role = el.getAttribute && el.getAttribute('role');
+  if (role) s += `[${role}]`;
+  const txt = (el.innerText
+    || (el.getAttribute && el.getAttribute('aria-label'))
+    || (el.getAttribute && el.getAttribute('title')) || '')
+    .trim().replace(/\s+/g, ' ').slice(0, 60);
+  if (txt) s += ` "${txt}"`;
+  return s.slice(0, 300);
+};
+
 // Element truly under a point — the capture overlay sits on top, so we hide
 // it for a sync peek at elementsFromPoint, then skip our own UI bits.
 const pickAnchor = (x, y, overlayEl) => {
@@ -124,6 +181,8 @@ const BetaPinLayer = () => {
   const [draft, setDraft] = useState(null);          // {xPct, yPct, px, py}
   const [draftSev, setDraftSev] = useState('minor');
   const [draftNote, setDraftNote] = useState('');
+  const [draftIcon, setDraftIcon] = useState('pin');
+  const [editIcon, setEditIcon] = useState('pin');
   const [saving, setSaving] = useState(false);
   const [draftPrivate, setDraftPrivate] = useState(false); // admin: private pin
   const [detail, setDetail] = useState(null);        // pin detail card
@@ -133,9 +192,11 @@ const BetaPinLayer = () => {
   const [ctx, setCtx] = useState(null);              // admin context menu {x,y,pin}
   const [fanout, setFanout] = useState(null);        // cluster fan-out {x,y,pins}
   const [error, setError] = useState('');
+  const [toast, setToast] = useState('');          // transient action errors
   const [docH, setDocH] = useState(0);               // document height for fallback positions
   const [tick, setTick] = useState(0);               // scroll/layout tick — re-resolve pins
   const [hoverRect, setHoverRect] = useState(null);  // drop/move element highlight
+  const [hoverLabel, setHoverLabel] = useState('');  // live element readout
   const [moving, setMoving] = useState(null);        // admin: pin being repositioned
   const dropRef = useRef(null);
   const moveRef = useRef(null);
@@ -232,13 +293,20 @@ const BetaPinLayer = () => {
     const esc = (e) => {
       if (e.key !== 'Escape') return;
       setDropMode(false); setDraft(null); setDetail(null);
-      setCtx(null); setFanout(null); setMoving(null); setHoverRect(null);
+      setCtx(null); setFanout(null); setMoving(null); setHoverRect(null); setHoverLabel('');
     };
     window.addEventListener('keydown', esc);
     return () => window.removeEventListener('keydown', esc);
   }, []);
 
   useEffect(() => { localStorage.setItem('betaPinsVisible', showPins ? '1' : '0'); }, [showPins]);
+
+  // Transient error toast — failed API calls tell the user instead of
+  // dying silently (the old behaviour made buttons look broken).
+  const toastErr = (msg) => {
+    setToast(msg || 'Something went wrong');
+    setTimeout(() => setToast(''), 3500);
+  };
 
   // Track document height — used for the doc-% fallback when a pin's
   // element anchor no longer resolves.
@@ -273,12 +341,20 @@ const BetaPinLayer = () => {
 
   // Resolve every pin to a viewport position. Element-anchored pins track
   // their DOM element live; others fall back to the stored document-%.
-  const resolvePin = (p) => {
+  const resolvePin = (p, elCache) => {
     if (p.element_selector) {
       try {
-        const el = document.querySelector(p.element_selector);
-        if (el) {
-          const r = el.getBoundingClientRect();
+        // Cache selector→rect per render pass — many pins can share one
+        // element, and querySelector+getBoundingClientRect per pin per
+        // scroll frame is what made big pin sets lag.
+        let cached = elCache && elCache.get(p.element_selector);
+        if (cached === undefined) {
+          const el = document.querySelector(p.element_selector);
+          cached = el ? { rect: el.getBoundingClientRect() } : null;
+          if (elCache) elCache.set(p.element_selector, cached);
+        }
+        if (cached) {
+          const r = cached.rect;
           const ox = p.offset_x !== null && p.offset_x !== undefined ? Number(p.offset_x) : 0.5;
           const oy = p.offset_y !== null && p.offset_y !== undefined ? Number(p.offset_y) : 0.5;
           return { x: r.left + ox * r.width, y: r.top + oy * r.height, anchored: true };
@@ -298,14 +374,27 @@ const BetaPinLayer = () => {
   };
 
   const positioned = useMemo(
-    () => pins.map((p) => ({ p, pos: resolvePin(p) })),
+    () => {
+      const elCache = new Map();
+      return pins.map((p) => ({ p, pos: resolvePin(p, elCache) }));
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [pins, docH, tick, page]
   );
   const clusters = useMemo(
-    () => clusterPositions(positioned.filter((it) => !it.pos.hidden)),
+    () => clusterPositions(positioned.filter((it) =>
+      !it.pos.hidden
+      // Viewport culling — offscreen markers cost DOM + click handlers
+      // for nothing. 80px margin so edge clusters still fan out.
+      && it.pos.x > -80 && it.pos.y > -80
+      && it.pos.x < window.innerWidth + 80 && it.pos.y < window.innerHeight + 80
+    )),
     [positioned]
   );
+
+  // Position of the pin being inspected — drives the connector line that
+  // shows where the marker actually is (it may sit under a toolbar).
+  const detailPos = detail ? resolvePin(detail) : null;
   const openPinCount = useMemo(
     () => allPins.filter((p) => p.status === 'open' || p.status === 'in_progress').length,
     [allPins]
@@ -343,12 +432,13 @@ const BetaPinLayer = () => {
           selector: sel,
           offX: clamp01((e.clientX - r.left) / (r.width || 1)),
           offY: clamp01((e.clientY - r.top) / (r.height || 1)),
+          elementLabel: describeElement(el),
         };
       }
     }
 
     setDraft({ xPct, yPct, px: e.clientX, py: e.clientY, ...anchor });
-    setDraftSev('minor'); setDraftNote(''); setError(''); setHoverRect(null);
+    setDraftSev('minor'); setDraftNote(''); setDraftIcon('pin'); setError(''); setHoverRect(null); setHoverLabel('');
     setDropMode(false);
   };
 
@@ -360,7 +450,10 @@ const BetaPinLayer = () => {
         pagePath: page, x: draft.xPct, y: draft.yPct,
         severity: draftSev, note: draftNote.trim(),
         isPrivate: isAdmin ? draftPrivate : undefined,
-        selector: draft.selector, offX: draft.offX, offY: draft.offY
+        selector: draft.selector, offX: draft.offX, offY: draft.offY,
+        elementLabel: draft.elementLabel,
+        viewport: `${window.innerWidth}x${window.innerHeight}`,
+        icon: draftIcon
       });
       setDraft(null); setDraftPrivate(false);
       loadPagePins(); if (isAdmin) loadAdminPins();
@@ -374,7 +467,7 @@ const BetaPinLayer = () => {
       await api.post(`/beta/pins/admin/${pin.id}/status`, { status });
       setCtx(null); setDetail(null);
       loadPagePins(); loadAdminPins();
-    } catch { /* silent */ }
+    } catch (e) { toastErr(e.response?.data?.error || 'Status update failed'); }
   };
 
   const setPrivate = async (pin, isPrivate) => {
@@ -382,11 +475,12 @@ const BetaPinLayer = () => {
       await api.patch(`/beta/pins/${pin.id}`, { isPrivate });
       setCtx(null); setDetail(null);
       loadPagePins(); loadAdminPins();
-    } catch { /* silent */ }
+    } catch (e) { toastErr(e.response?.data?.error || 'Privacy update failed'); }
   };
 
   const startEdit = (pin) => {
     setEditNote(pin.note); setEditSev(pin.severity);
+    setEditIcon(pin.icon || 'pin');
     setEditMode(true); setCtx(null);
   };
 
@@ -413,13 +507,14 @@ const BetaPinLayer = () => {
           selector: sel,
           offX: clamp01((e.clientX - r.left) / (r.width || 1)),
           offY: clamp01((e.clientY - r.top) / (r.height || 1)),
+          elementLabel: describeElement(el),
         };
       }
     }
     try {
       await api.post(`/beta/pins/admin/${moving.id}/move`, { x: xPct, y: yPct, ...anchor });
-    } catch { /* silent */ }
-    setMoving(null); setHoverRect(null);
+    } catch (e) { toastErr(e.response?.data?.error || 'Move failed'); }
+    setMoving(null); setHoverRect(null); setHoverLabel('');
     loadPagePins(); loadAdminPins();
   };
 
@@ -435,18 +530,42 @@ const BetaPinLayer = () => {
       a.download = `bug-list-${new Date().toISOString().slice(0, 10)}.md`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch { /* silent */ }
+    } catch (e) { toastErr(e.response?.data?.error || 'Export failed'); }
+  };
+
+  // Debug helpers — find the element a pin is attached to and flash it,
+  // or copy its selector for devtools / the exported list.
+  const locateElement = (p) => {
+    if (!p.element_selector) { toastErr('This pin has no element anchor'); return; }
+    let el = null;
+    try { el = document.querySelector(p.element_selector); } catch { /* stale selector */ }
+    if (!el) { toastErr('Element is not on the page right now'); return; }
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    setTimeout(() => {
+      const r = el.getBoundingClientRect();
+      const f = document.createElement('div');
+      f.style.cssText = `position:fixed;z-index:9999;pointer-events:none;border:2px solid #22d3ee;`
+        + `border-radius:6px;box-shadow:0 0 0 4px rgba(34,211,238,.3);`
+        + `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;transition:opacity .4s`;
+      document.body.appendChild(f);
+      setTimeout(() => { f.style.opacity = '0'; setTimeout(() => f.remove(), 450); }, 1000);
+    }, 400);
+  };
+
+  const copyText = async (text, okMsg) => {
+    try { await navigator.clipboard.writeText(text); toastErr(okMsg || 'Copied'); }
+    catch { toastErr('Copy failed'); }
   };
 
   const saveEdit = async () => {
     if (!editNote.trim()) return;
     try {
       await api.patch(`/beta/pins/${detail.id}`, {
-        note: editNote.trim(), severity: editSev
+        note: editNote.trim(), severity: editSev, icon: editIcon
       });
       setEditMode(false); setDetail(null);
       loadPagePins(); loadAdminPins();
-    } catch { /* silent */ }
+    } catch (e) { toastErr(e.response?.data?.error || 'Edit failed'); }
   };
 
   const votePoll = async (pollId, vote, optionIndex) => {
@@ -489,7 +608,7 @@ const BetaPinLayer = () => {
     try {
       await api.post('/beta/pins/admin/bulk', { ids: [...sel], action });
       setSel(new Set()); loadPagePins(); loadAdminPins();
-    } catch { /* silent */ }
+    } catch (e) { toastErr(e.response?.data?.error || 'Bulk action failed'); }
   };
 
   const openReplies = async (fb) => {
@@ -523,14 +642,18 @@ const BetaPinLayer = () => {
       setFbForm({ type: 'idea', title: '', description: '' });
       setFbSent(true);
       loadMyFeedback();
-    } catch { /* silent */ }
+    } catch (e) { toastErr(e.response?.data?.error || 'Failed to send'); }
     finally { setFbSending(false); }
   };
 
   if (!user || !canUse) return null;
 
   // -------------------------------------------------------------- render
+  // The WHOLE layer lives in a body portal — renders inside the React tree
+  // anywhere would leave `fixed` markers/buttons trapped under transformed
+  // or stacked ancestors (which made them unclickable).
   return (
+    <Portal>
     <>
       {/* Drop-mode capture overlay — hover highlights the element that
           would become the pin's anchor */}
@@ -544,8 +667,9 @@ const BetaPinLayer = () => {
             onMouseMove={(e) => {
               const el = pickAnchor(e.clientX, e.clientY, dropRef.current);
               setHoverRect(el ? el.getBoundingClientRect() : null);
+              setHoverLabel(el ? describeElement(el) : '');
             }}
-            onMouseLeave={() => setHoverRect(null)}
+            onMouseLeave={() => { setHoverRect(null); setHoverLabel(''); }}
           >
             <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-full shadow-lg pointer-events-none">
               Click an element to pin a note — Esc to cancel
@@ -560,7 +684,14 @@ const BetaPinLayer = () => {
                 border: '2px solid rgba(239,68,68,0.9)',
                 boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.4)'
               }}
-            />
+            >
+              {/* Live readout — which element the pin will attach to */}
+              {hoverLabel && (
+                <div className={`absolute left-0 ${hoverRect.bottom + 44 > window.innerHeight ? 'bottom-full mb-1' : 'top-full mt-1'} whitespace-nowrap bg-slate-900 text-red-300 text-[10px] font-mono px-1.5 py-0.5 rounded shadow-lg max-w-[60vw] overflow-hidden text-ellipsis`}>
+                  {hoverLabel}
+                </div>
+              )}
+            </div>
           )}
         </>
       )}
@@ -577,8 +708,9 @@ const BetaPinLayer = () => {
             onMouseMove={(e) => {
               const el = pickAnchor(e.clientX, e.clientY, moveRef.current);
               setHoverRect(el ? el.getBoundingClientRect() : null);
+              setHoverLabel(el ? describeElement(el) : '');
             }}
-            onMouseLeave={() => setHoverRect(null)}
+            onMouseLeave={() => { setHoverRect(null); setHoverLabel(''); }}
           >
             <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-sm px-4 py-2 rounded-full shadow-lg pointer-events-none">
               Moving pin #{moving.id} — click the new spot (Esc cancels)
@@ -593,7 +725,14 @@ const BetaPinLayer = () => {
                 border: '2px solid rgba(59,130,246,0.9)',
                 boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.4)'
               }}
-            />
+            >
+              {/* Live readout — which element the pin will re-attach to */}
+              {hoverLabel && (
+                <div className={`absolute left-0 ${hoverRect.bottom + 44 > window.innerHeight ? 'bottom-full mb-1' : 'top-full mt-1'} whitespace-nowrap bg-slate-900 text-blue-300 text-[10px] font-mono px-1.5 py-0.5 rounded shadow-lg max-w-[60vw] overflow-hidden text-ellipsis`}>
+                  {hoverLabel}
+                </div>
+              )}
+            </div>
           )}
         </>
       )}
@@ -622,12 +761,17 @@ const BetaPinLayer = () => {
           title={c.pins.length > 1 ? `${c.pins.length} pins here` : `${c.pins[0].note}${c.anchored ? '' : ' (approximate spot)'}`}
         >
           <span className="relative block drop-shadow-lg">
-            <MapPin
-              className="w-7 h-7"
-              style={{ color: sevOf(c.pins[0].severity).color }}
-              fill={sevOf(c.pins[0].severity).color}
-              stroke="#0f172a" strokeWidth={1}
-            />
+            {(() => {
+              const PIcon = pinIconOf(c.pins[0].icon);
+              return (
+                <PIcon
+                  className="w-7 h-7"
+                  style={{ color: sevOf(c.pins[0].severity).color }}
+                  fill={sevOf(c.pins[0].severity).color}
+                  stroke="#0f172a" strokeWidth={1}
+                />
+              );
+            })()}
             {c.pins.length > 1 && (
               <span className="absolute -top-1.5 -right-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center border border-white/40">
                 {c.pins.length}
@@ -676,6 +820,33 @@ const BetaPinLayer = () => {
         </Popup>
       )}
 
+      {/* Connector line + pulse ring — the detail card can float far from
+          the pin (or the pin marker can sit UNDER a toolbar/sidebar), so
+          draw a line from the card back to the resolved position plus a
+          ring that marks the exact spot above everything else. */}
+      {detail && detailPos && !ctx && (
+        <svg className="fixed inset-0 z-[9995] pointer-events-none" width="100%" height="100%">
+          <line
+            x1={detailPos.x} y1={detailPos.y - 14}
+            x2={detailPos.x + 16 + 20} y2={detailPos.y + 8 + 20}
+            stroke={sevOf(detail.severity).color}
+            strokeWidth="2" strokeDasharray="5 4" strokeLinecap="round"
+            opacity="0.85"
+          />
+          <circle
+            cx={detailPos.x} cy={detailPos.y - 14} r="13"
+            fill="none" stroke={sevOf(detail.severity).color} strokeWidth="2.5" opacity="0.9"
+          />
+          <circle
+            cx={detailPos.x} cy={detailPos.y - 14} r="13"
+            fill="none" stroke={sevOf(detail.severity).color} strokeWidth="2"
+          >
+            <animate attributeName="r" values="13;26" dur="1.4s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.7;0" dur="1.4s" repeatCount="indefinite" />
+          </circle>
+        </svg>
+      )}
+
       {/* Pin detail card — anchored next to the pin's live position */}
       {detail && !ctx && (
         <Popup
@@ -704,6 +875,7 @@ const BetaPinLayer = () => {
           </div>
           {editMode && isAdmin ? (
             <div className="mt-2">
+              <IconPicker value={editIcon} onChange={setEditIcon} />
               <div className="flex gap-1 mb-1.5">
                 {SEVERITIES.map((s) => (
                   <button
@@ -734,6 +906,41 @@ const BetaPinLayer = () => {
           {detail.admin_note && (
             <div className="mt-2 text-xs bg-blue-500/10 border border-blue-500/30 rounded-lg p-2 text-blue-200">
               Admin: {detail.admin_note}
+            </div>
+          )}
+          {/* Debug — which element the pin is attached to */}
+          {(detail.element_label || detail.element_selector) && (
+            <div className="mt-2 rounded-lg border border-slate-700/60 bg-slate-800/40 px-2 py-1.5">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500">
+                <LocateFixed className="w-3 h-3" /> Pinned element
+                <span className={`ml-auto normal-case font-normal ${resolvePin(detail).anchored ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {resolvePin(detail).anchored ? 'tracking live' : 'not found — approx spot'}
+                </span>
+              </div>
+              {detail.element_label && (
+                <div className="text-[11px] text-slate-300 mt-0.5 break-words">{detail.element_label}</div>
+              )}
+              {detail.element_selector && (
+                <button
+                  onClick={() => copyText(detail.element_selector, 'Selector copied')}
+                  title="Copy selector"
+                  className="mt-0.5 flex items-center gap-1 text-[10px] font-mono text-slate-500 hover:text-slate-300 w-full min-w-0 text-left"
+                >
+                  <Copy className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{detail.element_selector}</span>
+                </button>
+              )}
+              <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-500">
+                {detail.viewport && <span>viewport {detail.viewport} when pinned</span>}
+                {detail.element_selector && (
+                  <button
+                    onClick={() => locateElement(detail)}
+                    className="text-cyan-400 hover:text-cyan-300 flex items-center gap-0.5 ml-auto"
+                  >
+                    <LocateFixed className="w-3 h-3" /> Locate
+                  </button>
+                )}
+              </div>
             </div>
           )}
           {isAdmin && !editMode && (
@@ -847,6 +1054,13 @@ const BetaPinLayer = () => {
               </button>
             ))}
           </div>
+          <IconPicker value={draftIcon} onChange={setDraftIcon} />
+          {draft.selector && (
+            <div className="flex items-center gap-1.5 mb-2 text-[11px] text-slate-400">
+              <LocateFixed className="w-3 h-3 text-emerald-400 shrink-0" />
+              <span className="truncate">Pinned to: <span className="text-slate-200">{draft.elementLabel || draft.selector}</span></span>
+            </div>
+          )}
           <textarea
             autoFocus
             value={draftNote}
@@ -1058,10 +1272,11 @@ const BetaPinLayer = () => {
         </div>
       )}
 
-      {/* Floating controls (bottom-right, above content, below overlays)
-          — labeled so each action is obvious */}
+      {/* Floating controls — pushed LEFT of the app's own bottom-right
+          button column (Apps / Active List / editor) and kept under their
+          z-layer so the app buttons always win clicks. */}
       {!dropMode && !moving && (
-        <div className="bp-floating fixed bottom-5 right-5 z-[9989] flex flex-col items-end gap-3">
+        <div className="bp-floating fixed bottom-5 right-24 z-[45] flex flex-col items-end gap-3">
           {!isAdmin && (
             <div className="flex flex-col items-center gap-1">
               <button
@@ -1198,6 +1413,11 @@ const BetaPinLayer = () => {
                       <span>·</span><span>{relTime(p.created_at)}</span>
                     </span>
                     <span className="block text-sm text-slate-200 truncate">{p.note}</span>
+                    {p.element_label && (
+                      <span className="block text-[10px] text-slate-500 truncate mt-0.5">
+                        <LocateFixed className="w-2.5 h-2.5 inline -mt-0.5 mr-0.5" />{p.element_label}
+                      </span>
+                    )}
                     <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full mt-1 ${STATUS_META[p.status]?.cls}`}>
                       {STATUS_META[p.status]?.label}
                     </span>
@@ -1390,7 +1610,15 @@ const BetaPinLayer = () => {
         .ctx-item { display:flex; align-items:center; gap:8px; width:100%; padding:7px 12px;
           color:#cbd5e1; } .ctx-item:hover { background:rgba(59,130,246,0.12); }
       `}</style>
+
+      {/* Transient action error toast */}
+      {toast && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[9999] bg-slate-800 border border-slate-600 text-slate-100 text-sm px-4 py-2 rounded-lg shadow-xl">
+          {toast}
+        </div>
+      )}
     </>
+    </Portal>
   );
 };
 

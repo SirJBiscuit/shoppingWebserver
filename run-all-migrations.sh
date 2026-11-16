@@ -1,31 +1,28 @@
 #!/bin/bash
 
-# Run all database migrations in order
-echo "Running all database migrations..."
+# Run all pending database migrations.
+#
+# Delegates to the shared tracked runner inside the backend container —
+# each file in backend/migrations/ runs exactly once, recorded in the
+# schema_migrations table (the same table server.js uses at boot, so the
+# two never double-apply a file). To add a migration: drop a numbered
+# .sql file into backend/migrations/ — nothing else to wire up.
 
-cd /opt/cloudmc-shop
+cd /opt/cloudmc-shop 2>/dev/null || cd "$(dirname "$0")"
 
-# Get list of all migration files in order
-for file in $(ls -1 backend/migrations/*.sql | sort -V); do
-  filename=$(basename "$file")
-  echo "Running migration: $filename"
-  
-  # Run migration and capture errors
-  docker-compose exec -T postgres psql -U shopuser -d shopdb < "$file" 2>&1 | \
-    grep -v "already exists" | \
-    grep -v "does not exist, skipping" | \
-    grep -v "NOTICE" | \
-    grep "ERROR" || true
-done
+echo "Running pending database migrations..."
+docker exec shop_backend node src/database/runMigrations.js \
+  || echo "⚠ Migration runner reported failures — check output above"
 
+echo ""
 echo "Migrations complete!"
 echo ""
 echo "Verifying tables..."
-docker-compose exec postgres psql -U shopuser -d shopdb -c "\dt" | grep -E "shopping|users|mdl|categories|pantry|feature"
+docker exec shop_postgres psql -U shopuser -d shopdb -c "\dt" | grep -E "shopping|users|mdl|categories|pantry|feature|beta|schema_migrations" || true
 
 echo ""
 echo "Creating admin user if not exists..."
-docker-compose exec backend node -e "
+docker exec shop_backend node -e "
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });

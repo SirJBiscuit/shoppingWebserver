@@ -91,38 +91,16 @@ docker compose up -d --build
 echo -e "${YELLOW}Waiting for containers to start...${NC}"
 sleep 10
 
-# Auto-run all database migrations
+# Run pending database migrations — shared tracked runner inside the
+# backend container. Each file in backend/migrations/ runs exactly once
+# (tracked in schema_migrations), so dropping a new .sql file in and
+# pushing is all that's needed — nothing to register here.
 echo ""
 echo -e "${YELLOW}Running database migrations...${NC}"
-
-# Check if migrations directory exists
 if [ -d "backend/migrations" ]; then
-    # Count migrations
-    migration_count=$(ls -1 backend/migrations/*.sql 2>/dev/null | wc -l)
-    echo -e "${CYAN}Found ${migration_count} migration file(s)${NC}"
-    
-    # Run each migration file in order
-    for migration in backend/migrations/*.sql; do
-        if [ -f "$migration" ]; then
-            migration_name=$(basename "$migration")
-            echo -e "${CYAN}Running migration: ${migration_name}${NC}"
-            
-            # Copy migration to container and execute
-            docker cp "$migration" shop_postgres:/tmp/migration.sql
-            docker exec -i shop_postgres psql -U shopuser -d shopdb -f /tmp/migration.sql 2>&1 | while IFS= read -r line; do
-                if [[ "$line" == *"ERROR"* ]] && [[ "$line" != *"already exists"* ]]; then
-                    echo -e "${RED}  ⚠ $line${NC}"
-                elif [[ "$line" == *"already exists"* ]]; then
-                    echo -e "${YELLOW}  ℹ $line (skipping)${NC}"
-                elif [[ "$line" == *"CREATE"* ]] || [[ "$line" == *"INSERT"* ]] || [[ "$line" == *"ALTER"* ]]; then
-                    echo -e "${GREEN}  ✓ $line${NC}"
-                fi
-            done
-            
-            echo -e "${GREEN}  ✓ Migration ${migration_name} completed${NC}"
-        fi
-    done
-    echo -e "${GREEN}All migrations completed successfully!${NC}"
+    docker exec shop_backend node src/database/runMigrations.js \
+        || echo -e "${RED}⚠ Migration runner reported failures — check output above${NC}"
+    echo -e "${GREEN}Migrations finished${NC}"
 else
     echo -e "${YELLOW}No migrations directory found, skipping...${NC}"
 fi

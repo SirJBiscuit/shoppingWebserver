@@ -80,6 +80,9 @@ docker compose up -d --force-recreate
 echo -e "${CYAN}Step 9: Running database migrations...${NC}"
 sleep 5
 docker exec shop_backend npm run migrate || echo -e "${YELLOW}No migrations to run${NC}"
+# Tracked numbered migrations — each file runs once (schema_migrations)
+docker exec shop_backend node src/database/runMigrations.js \
+  || echo -e "${YELLOW}⚠ Migration runner reported failures${NC}"
 
 echo -e "${CYAN}Step 10: Creating update notification...${NC}"
 # Create system notification for update

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Bell, X, Check, AlertCircle, Info, TrendingUp, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Bell, X, Check, AlertCircle, Info, TrendingUp, Sparkles, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
-import { Portal } from '../utils/autoPlacement';
+import { Portal, Popup } from '../utils/autoPlacement';
+import ChangelogViewer from './ChangelogViewer';
 
 const POLL_MS = 60000;
 
@@ -16,6 +17,18 @@ const NotificationCenter = () => {
   const [remote, setRemote] = useState([]);   // from /api/notifications
   const [local, setLocal] = useState([]);     // localStorage alerts
   const [isOpen, setIsOpen] = useState(false);
+  const [showRead, setShowRead] = useState(false);   // read items hidden by default
+  const [showChangelog, setShowChangelog] = useState(false);
+  const [anchor, setAnchor] = useState({ x: 0, y: 0 });
+  const bellRef = useRef(null);
+
+  const toggleOpen = () => {
+    if (!isOpen) {
+      const r = bellRef.current?.getBoundingClientRect();
+      if (r) setAnchor({ x: r.right, y: r.bottom });
+    }
+    setIsOpen((o) => !o);
+  };
 
   /* ---------- remote ---------- */
   const fetchRemote = useCallback(async () => {
@@ -100,7 +113,10 @@ const NotificationCenter = () => {
     if (a.read !== b.read) return a.read ? 1 : -1;
     return new Date(b.timestamp) - new Date(a.timestamp);
   });
-  const unreadCount = items.filter((n) => !n.read).length;
+  // Read notifications leave the list — the changelog keeps the history.
+  const readCount = items.filter((n) => n.read).length;
+  const unreadCount = items.length - readCount;
+  const visibleItems = showRead ? items : items.filter((n) => !n.read);
 
   const getIcon = (type) => {
     switch (type) {
@@ -128,7 +144,8 @@ const NotificationCenter = () => {
     <div className="relative">
       {/* Bell Icon */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        ref={bellRef}
+        onClick={toggleOpen}
         className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
       >
         <Bell className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -144,14 +161,19 @@ const NotificationCenter = () => {
         {isOpen && (
           <>
             <div
-              className="fixed inset-0 z-40"
+              className="fixed inset-0 z-[9990]"
               onClick={() => setIsOpen(false)}
             />
+            <Popup
+              x={anchor.x - 384} y={anchor.y} width={384} height={480}
+              className="z-[9991] w-96 max-w-[calc(100vw-16px)] bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+              sheetClassName="bg-white dark:bg-gray-800"
+            >
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute right-0 mt-2 w-96 max-h-[80vh] bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden"
+              className="flex flex-col max-h-[70vh]"
             >
               {/* Header */}
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -166,7 +188,8 @@ const NotificationCenter = () => {
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-                {items.length > 0 && (
+                <div className="flex items-center gap-3">
+                {unreadCount > 0 && (
                   <button
                     onClick={markAllRead}
                     className="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400"
@@ -174,13 +197,23 @@ const NotificationCenter = () => {
                     Mark all read
                   </button>
                 )}
+
+                  {readCount > 0 && (
+                    <button
+                      onClick={() => setShowRead((v) => !v)}
+                      className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    >
+                      {showRead ? 'Hide read' : `Show read (${readCount})`}
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {/* Notifications List */}
-              <div className="overflow-y-auto max-h-[calc(80vh-80px)] custom-scrollbar">
-                {items.length > 0 ? (
+              {/* Notifications List — scrolls inside the clamped panel */}
+              <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
+                {visibleItems.length > 0 ? (
                   <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {items.map((n) => (
+                    {visibleItems.map((n) => (
                       <motion.div
                         key={n.id}
                         initial={{ opacity: 0, x: -20 }}
@@ -231,14 +264,36 @@ const NotificationCenter = () => {
                 ) : (
                   <div className="p-8 text-center">
                     <Bell className="w-12 h-12 mx-auto text-gray-400 mb-2" />
-                    <p className="text-gray-600 dark:text-gray-400">No notifications</p>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      {items.length > 0 ? 'All caught up!' : 'No notifications'}
+                    </p>
+                    {items.length > 0 && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        Read items are archived in the changelog
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
+
+              {/* Footer - read notifications live on in the changelog */}
+              <div className="p-2.5 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => { setIsOpen(false); setShowChangelog(true); }}
+                  className="w-full flex items-center justify-center gap-1.5 text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 py-1"
+                >
+                  <History className="w-3.5 h-3.5" />
+                  View history in the changelog
+                </button>
+              </div>
             </motion.div>
+            </Popup>
           </>
         )}
       </AnimatePresence></Portal>
+
+      {/* Changelog — where read/archived notifications can be revisited */}
+      <ChangelogViewer isOpen={showChangelog} onClose={() => setShowChangelog(false)} />
     </div>
   );
 };

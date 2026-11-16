@@ -144,6 +144,7 @@ export const Popup = ({
           ref={ref}
           className={`fixed inset-x-0 bottom-0 rounded-t-2xl shadow-2xl max-h-[72vh] overflow-y-auto ${className} ${sheetClassName}`}
           style={style}
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="mx-auto mt-2 mb-1 h-1.5 w-10 rounded-full bg-gray-300 dark:bg-gray-600" />
           {children}
@@ -153,6 +154,7 @@ export const Popup = ({
           ref={ref}
           className={`fixed ${className}`}
           style={{ left: pos.x, top: pos.y, ...style }}
+          onClick={(e) => e.stopPropagation()}
         >
           {children}
         </div>

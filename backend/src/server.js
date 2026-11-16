@@ -126,84 +126,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Run migrations on startup
-const runMigrations = async () => {
-  const fs = require('fs');
-  const path = require('path');
-  const db = require('./database/db');
-  
-  const migrations = [
-    { file: 'add_sound_system.sql', name: 'Sound System' },
-    { file: '015_ai_app_builder.sql', name: 'AI App Builder' },
-    { file: '020_feature_flags.sql', name: 'Feature Flags' },
-    { file: '035_create_mdl_system.sql', name: 'MDL Product Database' },
-    { file: '037_auto_update_system.sql', name: 'Auto Update System' },
-    { file: '039_item_training_system.sql', name: 'Item Training System' },
-    { file: '040_mdl_system.sql', name: 'MDL Learning System' },
-    { file: '041_mdl_user_preferences.sql', name: 'MDL User Preferences' },
-    { file: '043_beta_testing_system.sql', name: 'Beta Testing System' },
-    { file: '044_beta_feedback_system.sql', name: 'Beta Feedback System' },
-    { file: '041_admin_storage_system.sql', name: 'Admin Storage System' },
-    { file: '046_fix_sidebar_pages.sql', name: 'Sidebar Pages Fix' },
-    { file: '047_household_members.sql', name: 'Household Members' },
-    { file: '048_mdl_hardening.sql', name: 'MDL Hardening' },
-    { file: '049_store_unification.sql', name: 'Store Unification' },
-    { file: '050_beta_admin_extensions.sql', name: 'Beta Admin Extensions' },
-    { file: '051_changelog_notifications_review.sql', name: 'Changelog & Notifications' },
-    { file: '052_canonical_categories.sql', name: 'Canonical Categories' },
-    { file: '053_spice_system.sql', name: 'Spice System' },
-    { file: '054_spice_levels.sql', name: 'Spice Levels' },
-    { file: '055_household_eatout.sql', name: 'Household Eating Out' },
-    { file: '056_spices_sidebar_and_mdl_categories.sql', name: 'Spice Sidebar & MDL Categories' },
-    { file: '057_spice_catalog_expansion.sql', name: 'Spice Catalog Expansion' },
-    { file: '058_mdl_product_enhancements.sql', name: 'MDL Product Enhancements' },
-    { file: '059_list_budgets.sql', name: 'List Budgets' },
-    { file: '060_homemade_lab_sidebar.sql', name: 'Homemade Lab Sidebar' },
-    { file: '061_mix_lab_preset_recipes.sql', name: 'Mix Lab Preset Recipes' },
-    { file: '062_changelog_admin_enhancements.sql', name: 'Changelog Admin Enhancements' },
-    { file: '063_smoothie_lab_preset_recipes.sql', name: 'Smoothie Lab Preset Recipes' },
-    { file: '064_mdl_auto_categorization.sql', name: 'MDL Auto-Categorization' },
-    { file: '065_plate_system.sql', name: 'Plate System' },
-    { file: '066_spice_lab_sidebar_remove.sql', name: 'Spice Lab Sidebar Remove' },
-    { file: '067_changelog_voting_progress.sql', name: 'Changelog Voting + Progress' },
-    { file: '068_jam_dough_presets.sql', name: 'Jam + Dough Lab Presets' },
-    { file: '069_inventory_estimated_quantity.sql', name: 'Inventory Estimated Quantity' },
-    { file: '070_recipe_ratings.sql', name: 'Recipe Taste Ratings' },
-    { file: '071_items_preferred_storage.sql', name: 'Items Preferred Storage Location' },
-    { file: '072_mdl_quality_gate.sql', name: 'MDL Data Quality Gate' },
-    { file: '073_mdl_quality_votes.sql', name: 'MDL Quality Gate Votes' },
-    { file: '074_beta_pins.sql', name: 'Beta Pins & Feedback Replies' },
-    { file: '075_beta_polls_private_pins.sql', name: 'Beta Polls & Private Pins' },
-    { file: '076_beta_pin_element_anchor.sql', name: 'Beta Pin Element Anchors' },
-  { file: '077_feature_admin_only_and_limbo.sql', name: 'Feature Admin-Only and Limbo Flags' },
-  { file: '078_feature_display_names.sql', name: 'Feature Display Name Renames' },
-  { file: '079_beta_poll_options.sql', name: 'Beta Poll Multi-Option' }
-  ];
-
-  for (const migration of migrations) {
-    try {
-      const migrationPath = path.join(__dirname, '../migrations', migration.file);
-      
-      // Check if migration file exists
-      if (fs.existsSync(migrationPath)) {
-        console.log(`Running ${migration.name} migration...`);
-        const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
-        await db.query(migrationSQL);
-        console.log(`✅ ${migration.name} migration completed`);
-      } else {
-        console.log(`⚠️  ${migration.name} migration file not found, skipping`);
-      }
-    } catch (error) {
-      // Ignore errors if tables already exist
-      if (error.message && error.message.includes('already exists')) {
-        console.log(`${migration.name} tables already exist, skipping migration`);
-      } else {
-        console.warn(`${migration.name} migration warning:`, error.message);
-      }
-    }
-  }
-};
-
+// Run migrations on startup — shared tracked runner auto-scans
+// backend/migrations/*.sql; each file runs exactly once and is recorded in
+// schema_migrations (see src/database/runMigrations.js).
+const { runMigrations: runTrackedMigrations } = require('./database/runMigrations');
+const runMigrations = () => runTrackedMigrations();
 app.listen(PORT, '0.0.0.0', async () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
