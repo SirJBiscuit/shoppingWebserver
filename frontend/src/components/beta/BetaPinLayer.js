@@ -100,11 +100,11 @@ const IDEA_STATUSES = ['open', 'in_progress', 'done', 'archived'];
 // Priority queue display — a rank's share of the queue maps to a
 // percentage, a word, and a color so "P3" reads as "67% High".
 const PRIORITY_TIERS = [
-  { min: 90, label: 'Prime',    color: '#a3e635' },
-  { min: 70, label: 'High',     color: '#22c55e' },
-  { min: 50, label: 'Elevated', color: '#eab308' },
-  { min: 30, label: 'Moderate', color: '#38bdf8' },
-  { min: 0,  label: 'Low',      color: '#94a3b8' },
+  { min: 90, label: 'Top Pick',  color: '#a3e635' },
+  { min: 70, label: 'Important', color: '#22c55e' },
+  { min: 50, label: 'On Track',  color: '#eab308' },
+  { min: 30, label: 'Promising', color: '#38bdf8' },
+  { min: 0,  label: 'Queued',    color: '#94a3b8' },
 ];
 const priorityInfo = (rank, maxRank) => {
   if (rank == null || !maxRank) return null;
