@@ -12,12 +12,14 @@ ALTER TABLE feature_flags
 COMMENT ON COLUMN feature_flags.admin_only IS 'Only admin users see this feature';
 COMMENT ON COLUMN feature_flags.is_limbo IS 'Shelved — hidden from every user until restored';
 
--- ACH Customization: admin-only, always enabled for admins
-UPDATE feature_flags SET admin_only = TRUE, is_enabled = TRUE, min_tier = 'free'
+-- ACH Customization: admin-only gate. Never touch is_enabled here —
+-- that's an admin choice and a re-run must not resurrect a disabled toggle.
+UPDATE feature_flags SET admin_only = TRUE, min_tier = 'free'
   WHERE feature_key = 'ach_customization';
 
--- Shelve broken/outdated features into limbo
-UPDATE feature_flags SET is_limbo = TRUE, is_enabled = FALSE
+-- Shelve broken/outdated features into limbo (is_limbo alone hides them
+-- from every user — no is_enabled reset, so a re-run can't stomp toggles)
+UPDATE feature_flags SET is_limbo = TRUE
   WHERE feature_key IN ('meal_planner', 'recipe_discovery', 'activity_history', 'voice_input', 'barcode_scanner', 'meal_planning', 'barcode_scanning', 'recipe_import', 'templates');
 
 -- New flags: Homemade Lab hub + sub-labs, notepad, household
@@ -34,8 +36,9 @@ VALUES
   ('notepad',      'Notepad',      'Floating notepad tool', 'tools', 'free', true, true, true, 40),
   ('household',    'Household',    'Household members and sharing', 'core', 'free', true, true, true, 9),
   ('statistics',   'Stats',        'Shopping statistics and trends', 'analytics', 'free', true, true, true, 50)
+-- Sync descriptive fields only — is_enabled is an admin choice and must
+-- survive re-runs of this migration.
 ON CONFLICT (feature_key) DO UPDATE SET
   feature_name = EXCLUDED.feature_name,
   description  = EXCLUDED.description,
-  category     = EXCLUDED.category,
-  is_enabled   = EXCLUDED.is_enabled;
+  category     = EXCLUDED.category;

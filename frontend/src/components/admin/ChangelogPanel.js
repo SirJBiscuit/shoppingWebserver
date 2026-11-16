@@ -354,20 +354,17 @@ const ChangelogPanel = () => {
 
       {/* Released history (list view — board shows its own released column) */}
       {view === 'list' && released.length > 0 && (
-        <div>
-          <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Released</h4>
-          <div className="space-y-1">
-            {released.map((f) => (
-              <div key={f.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-sm">
-                <Rocket className="w-4 h-4 text-green-500 flex-shrink-0" />
-                <span className="flex-1 text-gray-700 dark:text-gray-300">{f.title}</span>
-                <PriorityBadge p={f.priority} />
-                <span className="text-xs text-gray-400">{new Date(f.released_at || f.updated_at).toLocaleDateString()}</span>
-                <button onClick={() => setDeleteTarget(f)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ReleasedSection
+          released={released}
+          onToggleHidden={(f) => patch(f.id, { is_hidden: !f.is_hidden })}
+          onStartEdit={startEdit}
+          editingId={editingId}
+          editFields={editFields}
+          setEditFields={setEditFields}
+          onSaveEdit={saveEdit}
+          onCancelEdit={() => setEditingId(null)}
+          onDelete={(f) => setDeleteTarget(f)}
+        />
       )}
 
       {/* Release animation — rocket launch */}
@@ -399,6 +396,191 @@ const ChangelogPanel = () => {
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+    </div>
+  );
+};
+
+/* Released history — filters + scrollable list with view/edit/hide/delete per row */
+const ReleasedSection = ({
+  released, onToggleHidden, onStartEdit, editingId, editFields, setEditFields,
+  onSaveEdit, onCancelEdit, onDelete,
+}) => {
+  const [query, setQuery] = useState('');
+  const [prioFilter, setPrioFilter] = useState('all');
+  const [showHidden, setShowHidden] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
+  const set = (key) => (e) => setEditFields((prev) => ({ ...prev, [key]: e.target.value }));
+
+  const q = query.trim().toLowerCase();
+  const rows = released
+    .filter((f) => showHidden || !f.is_hidden)
+    .filter((f) => prioFilter === 'all' || (f.priority || 'medium') === prioFilter)
+    .filter((f) => !q
+      || (f.title || '').toLowerCase().includes(q)
+      || (f.description || '').toLowerCase().includes(q));
+
+  const hiddenCount = released.filter((f) => f.is_hidden).length;
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+          Released ({rows.length}{hiddenCount > 0 && !showHidden ? ` · ${hiddenCount} hidden` : ''})
+        </h4>
+        <div className="ml-auto flex items-center gap-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search released…"
+            className="px-2.5 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-xs w-40"
+          />
+          <select
+            value={prioFilter}
+            onChange={(e) => setPrioFilter(e.target.value)}
+            className="px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-xs"
+            title="Filter by priority"
+          >
+            <option value="all">All priorities</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          {hiddenCount > 0 && (
+            <button
+              onClick={() => setShowHidden(!showHidden)}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs border transition-colors ${
+                showHidden
+                  ? 'bg-amber-100 border-amber-300 text-amber-700 dark:bg-amber-900/40 dark:border-amber-700 dark:text-amber-300'
+                  : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+              title={showHidden ? 'Hide hidden releases' : 'Show hidden releases'}
+            >
+              {showHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              {hiddenCount}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-1 max-h-80 overflow-y-auto custom-scrollbar custom-scrollbar-green pr-1">
+        {rows.length === 0 && (
+          <p className="text-xs text-gray-400 text-center py-4">No released features match these filters</p>
+        )}
+        {rows.map((f) => (
+          <div
+            key={f.id}
+            className={`rounded-lg bg-gray-50 dark:bg-gray-800/50 text-sm ${f.is_hidden ? 'opacity-50' : ''}`}
+          >
+            <div className="flex items-center gap-2 px-3 py-2">
+              <Rocket className="w-4 h-4 text-green-500 flex-shrink-0" />
+              <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-300">{f.title}</span>
+              {f.is_hidden && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400">hidden</span>
+              )}
+              <PriorityBadge p={f.priority} />
+              <span className="text-xs text-gray-400 flex-shrink-0">
+                {new Date(f.released_at || f.updated_at).toLocaleDateString()}
+              </span>
+              <button
+                onClick={() => setExpandedId(expandedId === f.id ? null : f.id)}
+                className="p-1 text-gray-400 hover:text-blue-500"
+                title={expandedId === f.id ? 'Collapse' : 'View details'}
+              >
+                <Eye className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => onStartEdit(f)} className="p-1 text-gray-400 hover:text-purple-500" title="Edit">
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => onToggleHidden(f)}
+                className="p-1 text-gray-400 hover:text-amber-500"
+                title={f.is_hidden ? 'Unhide from users' : 'Hide from users'}
+              >
+                {f.is_hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+              <button onClick={() => onDelete(f)} className="p-1 text-gray-400 hover:text-red-500" title="Delete">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Expanded details */}
+            {expandedId === f.id && editingId !== f.id && (
+              <div className="px-3 pb-3 pt-1 border-t border-gray-200/60 dark:border-gray-700/60">
+                {f.description && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{f.description}</p>
+                )}
+                <p className="text-[11px] text-gray-400">
+                  {f.beta_only ? 'beta-only' : 'all users'}
+                  {f.target_date ? ` • ETA ${new Date(f.target_date).toLocaleDateString()}` : ''}
+                  {` • added ${new Date(f.created_at).toLocaleDateString()}`}
+                  {f.released_at ? ` • released ${new Date(f.released_at).toLocaleDateString()}` : ''}
+                </p>
+              </div>
+            )}
+
+            {/* Inline edit */}
+            {editingId === f.id && (
+              <div className="px-3 pb-3 pt-2 border-t border-gray-200/60 dark:border-gray-700/60 space-y-2">
+                <input
+                  value={editFields.title || ''}
+                  onChange={set('title')}
+                  placeholder="Title"
+                  className="w-full px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm"
+                />
+                <textarea
+                  value={editFields.description || ''}
+                  onChange={set('description')}
+                  placeholder="Description (optional)"
+                  rows={2}
+                  className="w-full px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={editFields.status}
+                    onChange={set('status')}
+                    className="px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-xs"
+                    title="Status — pick planned/in_progress to un-release"
+                  >
+                    <option value="released">released</option>
+                    <option value="planned">planned</option>
+                    <option value="in_progress">in progress</option>
+                  </select>
+                  <select value={editFields.priority} onChange={set('priority')} className="px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-xs">
+                    <option value="low">low</option>
+                    <option value="medium">medium</option>
+                    <option value="high">high</option>
+                  </select>
+                  <input
+                    type="date"
+                    value={editFields.target_date || ''}
+                    onChange={set('target_date')}
+                    className="px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-xs"
+                  />
+                  <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+                    <input
+                      type="checkbox"
+                      checked={!!editFields.beta_only}
+                      onChange={(e) => setEditFields((prev) => ({ ...prev, beta_only: e.target.checked }))}
+                      className="rounded"
+                    />
+                    Beta only
+                  </label>
+                  <button
+                    onClick={onSaveEdit}
+                    disabled={!editFields.title?.trim()}
+                    className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-xs font-semibold"
+                  >
+                    <Check className="w-3.5 h-3.5" /> Save
+                  </button>
+                  <button onClick={onCancelEdit} className="p-1.5 text-gray-400 hover:text-gray-600" title="Cancel">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

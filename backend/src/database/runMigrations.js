@@ -47,20 +47,29 @@ async function runMigrations({ quiet = false } = {}) {
 
   let applied = 0; let skipped = 0; let failed = 0;
 
+  // Each file runs in its own transaction on a dedicated client: a failing
+  // migration rolls back completely instead of leaving half-applied
+  // side-effects that re-run (and re-stomp admin choices) on every boot.
   for (const file of files) {
     if (done.has(file)) { skipped += 1; continue; }
     log(`Running migration: ${file}`);
+    const client = await db.pool.connect();
     try {
       const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
-      await db.query(sql);
-      await db.query(
+      await client.query('BEGIN');
+      await client.query(sql);
+      await client.query(
         'INSERT INTO schema_migrations (file) VALUES ($1) ON CONFLICT DO NOTHING',
         [file]
       );
+      await client.query('COMMIT');
       applied += 1;
       log(`  ✓ ${file}`);
     } catch (error) {
+      try { await client.query('ROLLBACK'); } catch { /* best-effort */ }
       if (error.message && error.message.includes('already exists')) {
+        // Rolled back partial state; the file was historically applied —
+        // mark it so it doesn't re-run on every boot.
         log(`  ℹ ${file}: already applied (${error.message})`);
         try {
           await db.query(
@@ -71,8 +80,10 @@ async function runMigrations({ quiet = false } = {}) {
         } catch { /* tracking is best-effort */ }
       } else {
         failed += 1;
-        console.warn(`  ⚠ ${file} failed: ${error.message}`);
+        console.warn(`  ⚠ ${file} failed (rolled back): ${error.message}`);
       }
+    } finally {
+      client.release();
     }
   }
 

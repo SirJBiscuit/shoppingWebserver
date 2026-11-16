@@ -222,7 +222,7 @@ router.post('/admin/:id/status', authenticateToken, isAdmin, async (req, res) =>
     res.json({ updated: true });
   } catch (e) {
     console.error('Error setting pin status:', e);
-    res.status(500).json({ error: 'Failed to update pin' });
+    res.status(500).json({ error: 'Failed to update pin', detail: e.message });
   }
 });
 
@@ -262,7 +262,7 @@ router.post('/admin/bulk', authenticateToken, isAdmin, async (req, res) => {
     res.json({ updated: rowCount });
   } catch (e) {
     console.error('Error bulk-updating pins:', e);
-    res.status(500).json({ error: 'Failed to update pins' });
+    res.status(500).json({ error: 'Failed to update pins', detail: e.message });
   }
 });
 
@@ -301,7 +301,7 @@ router.post('/admin/:id/move', authenticateToken, isAdmin, async (req, res) => {
     res.json({ moved: true });
   } catch (e) {
     console.error('Error moving pin:', e);
-    res.status(500).json({ error: 'Failed to move pin' });
+    res.status(500).json({ error: 'Failed to move pin', detail: e.message });
   }
 });
 

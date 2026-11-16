@@ -17,8 +17,9 @@ ON CONFLICT (feature_key) DO UPDATE SET
   free_tier_enabled = EXCLUDED.free_tier_enabled,
   premium_tier_enabled = EXCLUDED.premium_tier_enabled;
 
--- Make sure existing features are properly configured
-UPDATE feature_flags SET is_enabled = true, free_tier_enabled = true, premium_tier_enabled = true 
+-- Make sure existing features have tier access configured. Never set
+-- is_enabled here — that's an admin choice; a re-run must not stomp it.
+UPDATE feature_flags SET free_tier_enabled = true, premium_tier_enabled = true 
 WHERE feature_key IN (
   'shopping_lists',
   'pantry',

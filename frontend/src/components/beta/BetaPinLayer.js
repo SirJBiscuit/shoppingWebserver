@@ -308,6 +308,14 @@ const BetaPinLayer = () => {
     setTimeout(() => setToast(''), 3500);
   };
 
+  // API failures: show the server's error plus its `detail` (real DB error)
+  // when present — this is how the pin-status 500 root cause gets surfaced.
+  const apiErr = (e, fallback) => {
+    const base = e.response?.data?.error || fallback;
+    const detail = e.response?.data?.detail;
+    toastErr(detail ? `${base}: ${detail}` : base);
+  };
+
   // Track document height — used for the doc-% fallback when a pin's
   // element anchor no longer resolves.
   useEffect(() => {
@@ -467,7 +475,7 @@ const BetaPinLayer = () => {
       await api.post(`/beta/pins/admin/${pin.id}/status`, { status });
       setCtx(null); setDetail(null);
       loadPagePins(); loadAdminPins();
-    } catch (e) { toastErr(e.response?.data?.error || 'Status update failed'); }
+    } catch (e) { apiErr(e, 'Status update failed'); }
   };
 
   const setPrivate = async (pin, isPrivate) => {
@@ -475,7 +483,7 @@ const BetaPinLayer = () => {
       await api.patch(`/beta/pins/${pin.id}`, { isPrivate });
       setCtx(null); setDetail(null);
       loadPagePins(); loadAdminPins();
-    } catch (e) { toastErr(e.response?.data?.error || 'Privacy update failed'); }
+    } catch (e) { apiErr(e, 'Privacy update failed'); }
   };
 
   const startEdit = (pin) => {
@@ -513,7 +521,7 @@ const BetaPinLayer = () => {
     }
     try {
       await api.post(`/beta/pins/admin/${moving.id}/move`, { x: xPct, y: yPct, ...anchor });
-    } catch (e) { toastErr(e.response?.data?.error || 'Move failed'); }
+    } catch (e) { apiErr(e, 'Move failed'); }
     setMoving(null); setHoverRect(null); setHoverLabel('');
     loadPagePins(); loadAdminPins();
   };
@@ -565,7 +573,7 @@ const BetaPinLayer = () => {
       });
       setEditMode(false); setDetail(null);
       loadPagePins(); loadAdminPins();
-    } catch (e) { toastErr(e.response?.data?.error || 'Edit failed'); }
+    } catch (e) { apiErr(e, 'Edit failed'); }
   };
 
   const votePoll = async (pollId, vote, optionIndex) => {
@@ -608,7 +616,7 @@ const BetaPinLayer = () => {
     try {
       await api.post('/beta/pins/admin/bulk', { ids: [...sel], action });
       setSel(new Set()); loadPagePins(); loadAdminPins();
-    } catch (e) { toastErr(e.response?.data?.error || 'Bulk action failed'); }
+    } catch (e) { apiErr(e, 'Bulk action failed'); }
   };
 
   const openReplies = async (fb) => {

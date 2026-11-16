@@ -40,7 +40,7 @@ AFTER_COMMIT=$(git rev-parse HEAD)
 if [ "$BEFORE_COMMIT" != "$AFTER_COMMIT" ]; then
     echo -e "${GREEN}✓ Code updated successfully!${NC}"
     echo -e "${CYAN}Recent changes:${NC}"
-    git log --oneline --no-decorate $BEFORE_COMMIT..$AFTER_COMMIT | head -5
+    git log --oneline --no-decorate "$BEFORE_COMMIT..$AFTER_COMMIT" | head -5
     echo ""
 else
     echo -e "${GREEN}✓ Already up to date${NC}"
