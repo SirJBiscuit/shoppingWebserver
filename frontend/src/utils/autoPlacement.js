@@ -298,8 +298,8 @@ export const usePanelShiftExcept = (exclude) =>
 // `from`. Use it anywhere a floating card/popup needs to point back at the
 // element it belongs to (pins, tooltips, inspectors, callouts).
 //
-//   <Connector from={{x,y}} to={{x,y}} color="#f43f5e" zIndex={9995} />
-export const Connector = ({ from, to, color = '#38bdf8', zIndex = 9995, line = true, ring = true }) => {
+//   <Connector from={{x,y}} to={{x,y}} color="#f43f5e" zIndex={56} />
+export const Connector = ({ from, to, color = '#38bdf8', zIndex = 56, line = true, ring = true }) => {
   if (!from || !to) return null;
   return (
     <svg

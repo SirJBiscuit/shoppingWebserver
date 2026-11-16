@@ -1031,7 +1031,7 @@ const BetaPinLayer = () => {
     setTimeout(() => {
       const r = el.getBoundingClientRect();
       const f = document.createElement('div');
-      f.style.cssText = `position:fixed;z-index:9999;pointer-events:none;border:2px solid #22d3ee;`
+      f.style.cssText = `position:fixed;z-index:310;pointer-events:none;border:2px solid #22d3ee;`
         + `border-radius:6px;box-shadow:0 0 0 4px rgba(34,211,238,.3);`
         + `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;transition:opacity .4s`;
       document.body.appendChild(f);
@@ -1298,6 +1298,11 @@ const BetaPinLayer = () => {
   // The WHOLE layer lives in a body portal — renders inside the React tree
   // anywhere would leave `fixed` markers/buttons trapped under transformed
   // or stacked ancestors (which made them unclickable).
+  //
+  // Z-band: markers 56–60 (above page content, which tops out at z-50),
+  // pin popups/viewers 68–70 (below every modal/panel backdrop at z-80+),
+  // capture overlays 300–320 (modal-mode screens — above panels so pins
+  // can still land on panel contents), toast 400. Keep pins under modals.
   return (
     <Portal>
     <>
@@ -1307,7 +1312,7 @@ const BetaPinLayer = () => {
         <>
           <div
             ref={dropRef}
-            className="fixed inset-0 z-[9998] cursor-crosshair"
+            className="fixed inset-0 z-[300] cursor-crosshair"
             style={{ background: 'rgba(15,23,42,0.15)', outline: '3px dashed rgba(239,68,68,0.6)', outlineOffset: -8 }}
             onClick={beginDrop}
             onMouseMove={(e) => {
@@ -1323,7 +1328,7 @@ const BetaPinLayer = () => {
           </div>
           {hoverRect && (
             <div
-              className="fixed z-[9999] pointer-events-none rounded"
+              className="fixed z-[310] pointer-events-none rounded"
               style={{
                 left: hoverRect.left, top: hoverRect.top,
                 width: hoverRect.width, height: hoverRect.height,
@@ -1348,7 +1353,7 @@ const BetaPinLayer = () => {
         <>
           <div
             ref={moveRef}
-            className="fixed inset-0 z-[9998] cursor-move"
+            className="fixed inset-0 z-[300] cursor-move"
             style={{ background: 'rgba(15,23,42,0.2)', outline: '3px dashed rgba(59,130,246,0.6)', outlineOffset: -8 }}
             onClick={finishMove}
             onMouseMove={(e) => {
@@ -1364,7 +1369,7 @@ const BetaPinLayer = () => {
           </div>
           {hoverRect && (
             <div
-              className="fixed z-[9999] pointer-events-none rounded"
+              className="fixed z-[310] pointer-events-none rounded"
               style={{
                 left: hoverRect.left, top: hoverRect.top,
                 width: hoverRect.width, height: hoverRect.height,
@@ -1396,12 +1401,12 @@ const BetaPinLayer = () => {
             from={{ x: c.x, y: c.y - 10 }}
             to={{ x: c.trueX, y: c.trueY - 6 }}
             color={sevOf(c.pins[0].severity).color}
-            zIndex={9989}
+            zIndex={56}
             ring={false}
           />
         )}
         <button
-          className={`bp-marker fixed z-[9990] -translate-x-1/2 -translate-y-full group ${c.anchored ? '' : 'opacity-70'}`}
+          className={`bp-marker fixed z-[60] -translate-x-1/2 -translate-y-full group ${c.anchored ? '' : 'opacity-70'}`}
           style={{ left: c.x, top: c.y }}
           onClick={(e) => {
             e.stopPropagation();
@@ -1455,10 +1460,10 @@ const BetaPinLayer = () => {
           opens this card with every grouping control inside. */}
       {filtersOpen && (
         <>
-          <div className="fixed inset-0 z-[9995]" onClick={() => setFiltersOpen(null)} />
+          <div className="fixed inset-0 z-[68]" onClick={() => setFiltersOpen(null)} />
           <Popup
             x={filtersOpen.x} y={filtersOpen.y} width={272}
-            className="bp-popup z-[9996] w-[272px] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl"
+            className="bp-popup z-[70] w-[272px] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl"
             sheetClassName="bg-slate-900 border-t border-slate-700 p-3"
           >
             <div onClick={(e) => e.stopPropagation()} className="max-h-[70vh] overflow-y-auto scrollbar-3d">
@@ -1709,10 +1714,10 @@ const BetaPinLayer = () => {
       {/* Ideas JSON export — pick which tags ship in the file */}
       {ideaExportOpen && (
         <>
-          <div className="fixed inset-0 z-[9995]" onClick={() => setIdeaExportOpen(null)} />
+          <div className="fixed inset-0 z-[68]" onClick={() => setIdeaExportOpen(null)} />
           <Popup
             x={ideaExportOpen.x} y={ideaExportOpen.y} width={252}
-            className="bp-popup z-[9996] w-[252px] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl"
+            className="bp-popup z-[70] w-[252px] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl"
             sheetClassName="bg-slate-900 border-t border-slate-700 p-3"
           >
             <div onClick={(e) => e.stopPropagation()}>
@@ -1753,7 +1758,7 @@ const BetaPinLayer = () => {
       {fanout && (
         <Popup
           x={fanout.x} y={fanout.y} width={288}
-          className="bp-popup z-[9999] w-72 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-2"
+          className="bp-popup z-[70] w-72 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-2"
           sheetClassName="bg-slate-900 border-t border-slate-700 p-3"
         >
         <div onClick={(e) => e.stopPropagation()}>
@@ -1791,7 +1796,7 @@ const BetaPinLayer = () => {
           from={{ x: detailPos.x, y: detailPos.y - 14 }}
           to={{ x: detailPos.x + 36 + detailDrag.dx, y: detailPos.y + 28 + detailDrag.dy }}
           color={sevOf(detail.severity).color}
-          zIndex={9995}
+          zIndex={56}
         />
       )}
 
@@ -1801,7 +1806,7 @@ const BetaPinLayer = () => {
         <>
           <div
             ref={inspectRef}
-            className="fixed inset-0 z-[9997] cursor-crosshair"
+            className="fixed inset-0 z-[300] cursor-crosshair"
             style={{ outline: '3px dashed rgba(56,189,248,0.6)', outlineOffset: -8, background: 'rgba(15,23,42,0.08)' }}
             onMouseMove={(e) => {
               const el = pickAnchor(e.clientX, e.clientY, inspectRef.current);
@@ -1822,20 +1827,20 @@ const BetaPinLayer = () => {
             }}
           />
           {hoverRect && (
-            <div className="fixed z-[9996] pointer-events-none rounded" style={{
+            <div className="fixed z-[310] pointer-events-none rounded" style={{
               left: hoverRect.left, top: hoverRect.top,
               width: hoverRect.width, height: hoverRect.height,
               border: '2px solid rgba(56,189,248,0.9)', background: 'rgba(56,189,248,0.10)',
             }} />
           )}
           {hoverLabel && (
-            <div className="fixed z-[9996] pointer-events-none bg-slate-900/95 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 max-w-[420px] truncate"
+            <div className="fixed z-[310] pointer-events-none bg-slate-900/95 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 max-w-[420px] truncate"
               style={{ left: Math.max(8, hoverRect?.left ?? 8), top: Math.max(8, (hoverRect?.top ?? 8) - 28) }}
             >{hoverLabel}</div>
           )}
           {inspectData && (
             <Popup x={inspectData.x} y={inspectData.y} width={320}
-              className="bp-popup z-[9999] w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3"
+              className="bp-popup z-[320] w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3"
               sheetClassName="bg-slate-900 border-t border-slate-700 p-4"
             >
               <div className="flex items-center justify-between mb-1.5">
@@ -1874,7 +1879,7 @@ const BetaPinLayer = () => {
           return (
             <button
               key={`g-${g.id}`}
-              className="bp-marker fixed z-[9989] -translate-x-1/2 -translate-y-full opacity-40 hover:opacity-90 transition"
+              className="bp-marker fixed z-[58] -translate-x-1/2 -translate-y-full opacity-40 hover:opacity-90 transition"
               style={{ left: pos.x, top: pos.y }}
               title={`Deleted pin — ${String(g.snapshot.note || '').slice(0, 60)}`}
               onClick={(e) => { e.stopPropagation(); setGhostDetail(g); }}
@@ -1887,7 +1892,7 @@ const BetaPinLayer = () => {
       {/* Ghost detail — read the deleted pin, restore it if it was a mistake */}
       {ghostDetail && (
         <Popup x={resolvePin(ghostDetail.snapshot).x + 16} y={resolvePin(ghostDetail.snapshot).y + 8} width={288}
-          className="bp-popup z-[9999] w-72 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3"
+          className="bp-popup z-[70] w-72 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3"
           sheetClassName="bg-slate-900 border-t border-slate-700 p-4"
         >
           <div className="flex items-center justify-between">
@@ -1913,7 +1918,7 @@ const BetaPinLayer = () => {
           y={resolvePin(detail).y + 8}
           width={320}
           style={{ transform: `translate(${detailDrag.dx}px, ${detailDrag.dy}px)` }}
-          className="bp-popup z-[9999] w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3"
+          className="bp-popup z-[70] w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3"
           sheetClassName="bg-slate-900 border-t border-slate-700 p-4"
         >
           <div
@@ -2057,7 +2062,7 @@ const BetaPinLayer = () => {
       {ctx && isAdmin && (
         <Popup
           x={ctx.x} y={ctx.y} width={208}
-          className="bp-popup z-[9999] w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1.5 text-sm"
+          className="bp-popup z-[70] w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1.5 text-sm"
           sheetClassName="bg-slate-900 border-t border-slate-700 p-3"
         >
         <div onClick={(e) => e.stopPropagation()}>
@@ -2113,7 +2118,7 @@ const BetaPinLayer = () => {
       {draft && (
         <Popup
           x={draft.px} y={draft.py} width={320}
-          className="bp-popup z-[9999] w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3"
+          className="bp-popup z-[70] w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3"
           sheetClassName="bg-slate-900 border-t border-slate-700 p-4"
         >
           <div className="flex items-center justify-between mb-2">
@@ -2187,7 +2192,7 @@ const BetaPinLayer = () => {
 
       {/* Tester beta viewer — polls + messages with the admin */}
       {pollsOpen && !isAdmin && (
-        <div className="fixed top-0 right-0 bottom-0 z-[9988] w-96 max-w-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
+        <div className="fixed top-0 right-0 bottom-0 z-[70] w-96 max-w-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-800">
             <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400 shrink-0">Beta Viewer</span>
             <ScrollStrip
@@ -2454,7 +2459,7 @@ const BetaPinLayer = () => {
       {ideaCtx && isAdmin && (
         <Popup
           x={ideaCtx.x} y={ideaCtx.y} width={216}
-          className="bp-popup z-[9999] w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1.5 text-sm"
+          className="bp-popup z-[70] w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1.5 text-sm"
           sheetClassName="bg-slate-900 border-t border-slate-700 p-3"
         >
           <div onClick={(e) => e.stopPropagation()}>
@@ -2523,7 +2528,7 @@ const BetaPinLayer = () => {
 
       {/* Admin beta viewer panel */}
       {isAdmin && panelOpen && (
-        <div className="fixed top-0 right-0 bottom-0 z-[9988] w-96 max-w-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
+        <div className="fixed top-0 right-0 bottom-0 z-[70] w-96 max-w-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-800">
             <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400 shrink-0">Admin Viewer</span>
             <ScrollStrip
@@ -3324,7 +3329,7 @@ const BetaPinLayer = () => {
       `}</style>
 
       {/* Permanent-delete confirm — a high-z wrapper keeps it above the
-          z-9988 admin panel (ConfirmModal itself is z-50) */}
+          z-70 admin viewer (ConfirmModal itself is z-50) */}
       {purgeConfirm && (
         <div className="fixed inset-0 z-[99999]">
           <ConfirmModal
@@ -3341,7 +3346,7 @@ const BetaPinLayer = () => {
 
       {/* Transient action error toast */}
       {toast && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[9999] bg-slate-800 border border-slate-600 text-slate-100 text-sm px-4 py-2 rounded-lg shadow-xl">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[400] bg-slate-800 border border-slate-600 text-slate-100 text-sm px-4 py-2 rounded-lg shadow-xl">
           {toast}
         </div>
       )}

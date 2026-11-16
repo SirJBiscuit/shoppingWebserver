@@ -28,6 +28,11 @@ import { useEffect, useState } from 'react';
 const SELF_SEL = '.bp-marker, .bp-floating, .bp-popup, [data-pin-self]';
 const TRANSIENT_SEL = '[data-ap-overlay], [role="dialog"], [role="alertdialog"]';
 
+// Pin marker z-band — above every piece of page content (app ceiling is
+// z-50), below every modal/panel backdrop (z-80+), so scrims and panels
+// physically cover markers instead of the markers floating on top.
+export const PIN_MARKER_Z = 60;
+
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 /** Transient overlay — menus/modals/sheets that should UNDERLAP pins. */
@@ -82,7 +87,20 @@ export const pinOcclusionAt = (x, y, { anchorEl = null, skipSel = '' } = {}) => 
     if (!el || !el.tagName) continue;
     if (el.closest(SELF_SEL)) continue;                    // our own markers/chrome
     if (skipSel && el.closest(skipSel)) continue;
-    if (anchorEl && (el === anchorEl || anchorEl.contains(el))) return { blocked: false };
+    if (anchorEl && (el === anchorEl || anchorEl.contains(el))) {
+      // The pin sits on its own surface — but if that surface lives inside
+      // fixed/sticky chrome that outranks the marker band (an open panel,
+      // a modal), the marker would paint underneath it: render-hidden but
+      // unreachable. Treat that as occluded until the chrome closes.
+      const anchorChrome = chromeAncestor(anchorEl);
+      if (anchorChrome) {
+        const z = parseInt(getComputedStyle(anchorChrome).zIndex, 10);
+        if (!Number.isNaN(z) && z > PIN_MARKER_Z) {
+          return { blocked: true, transient: true, el, rect: null };
+        }
+      }
+      return { blocked: false };
+    }
     if (el === document.body || el === document.documentElement) return { blocked: false };
     if (isTransient(el)) return { blocked: true, transient: true, el, rect: null };
     const chrome = chromeAncestor(el);
