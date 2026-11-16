@@ -414,8 +414,10 @@ const BetaPinLayer = () => {
       document.documentElement.style.setProperty('--bp-stack-h', '0px');
       return undefined;
     }
+    // Distance from the viewport bottom to the stack's TOP edge — includes
+    // the bottom-5 base offset so the app column never overlaps the stack.
     const publish = () => document.documentElement.style
-      .setProperty('--bp-stack-h', `${el.offsetHeight}px`);
+      .setProperty('--bp-stack-h', `${window.innerHeight - el.getBoundingClientRect().top}px`);
     publish();
     const ro = new ResizeObserver(publish);
     ro.observe(el);
@@ -951,7 +953,7 @@ const BetaPinLayer = () => {
         <svg className="fixed inset-0 z-[9995] pointer-events-none" width="100%" height="100%">
           <line
             x1={detailPos.x} y1={detailPos.y - 14}
-            x2={detailPos.x + 16 + 20} y2={detailPos.y + 8 + 20}
+            x2={detailPos.x + 16 + 20 + detailDrag.dx} y2={detailPos.y + 8 + 20 + detailDrag.dy}
             stroke={sevOf(detail.severity).color}
             strokeWidth="2" strokeDasharray="5 4" strokeLinecap="round"
             opacity="0.85"
