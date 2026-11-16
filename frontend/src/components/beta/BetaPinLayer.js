@@ -1420,7 +1420,6 @@ const BetaPinLayer = () => {
             setCtx({ x: e.clientX, y: e.clientY, pin: c.pins[0] });
             setDetail(null); setFanout(null);
           }}
-          title={c.pins.length > 1 ? `${c.pins.length} pins here` : `${c.pins[0].note}${c.anchored ? '' : ' (approximate spot)'}`}
         >
           <span className="relative block drop-shadow-lg">
             {(() => {
@@ -1451,6 +1450,28 @@ const BetaPinLayer = () => {
             {c.mode === 'nudged' && (
               <span className="absolute -inset-1 rounded-full border border-dashed border-white/60 animate-pulse pointer-events-none" />
             )}
+          </span>
+
+          {/* Hover tooltip — styled preview instead of the slow native title */}
+          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 opacity-0 group-hover:opacity-100 group-hover:delay-300 transition pointer-events-none">
+            <span className="block bg-slate-900 border border-slate-700 rounded-lg shadow-xl px-3 py-2 text-left">
+              {c.pins.length > 1 ? (
+                <>
+                  <span className="block text-xs font-semibold text-white">{c.pins.length} pins here</span>
+                  <span className="block text-[11px] text-slate-400 mt-0.5 line-clamp-2">{c.pins[0].note}</span>
+                  <span className="block text-[10px] text-slate-500 mt-1">Click to expand</span>
+                </>
+              ) : (
+                <>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: sevOf(c.pins[0].severity).color }} />
+                    <span className="text-xs font-semibold text-white truncate">{c.pins[0].username || 'unknown'}</span>
+                  </span>
+                  <span className="block text-[11px] text-slate-300 mt-1 line-clamp-3 whitespace-pre-wrap">{c.pins[0].note}</span>
+                  {!c.anchored && <span className="block text-[10px] text-amber-400/80 mt-1">Approximate spot</span>}
+                </>
+              )}
+            </span>
           </span>
         </button>
         </React.Fragment>
@@ -1879,12 +1900,17 @@ const BetaPinLayer = () => {
           return (
             <button
               key={`g-${g.id}`}
-              className="bp-marker fixed z-[58] -translate-x-1/2 -translate-y-full opacity-40 hover:opacity-90 transition"
+              className="bp-marker fixed z-[58] -translate-x-1/2 -translate-y-full opacity-40 hover:opacity-90 transition group"
               style={{ left: pos.x, top: pos.y }}
-              title={`Deleted pin — ${String(g.snapshot.note || '').slice(0, 60)}`}
               onClick={(e) => { e.stopPropagation(); setGhostDetail(g); }}
             >
               <Ghost className="w-6 h-6 text-slate-400" />
+              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-44 opacity-0 group-hover:opacity-100 group-hover:delay-300 transition pointer-events-none">
+                <span className="block bg-slate-900 border border-slate-700 rounded-lg shadow-xl px-3 py-2 text-left">
+                  <span className="block text-[10px] font-semibold text-slate-400">Deleted pin</span>
+                  <span className="block text-[11px] text-slate-300 mt-0.5 line-clamp-3 whitespace-pre-wrap">{String(g.snapshot.note || '').slice(0, 120)}</span>
+                </span>
+              </span>
             </button>
           );
         })}
