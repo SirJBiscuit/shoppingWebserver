@@ -1661,7 +1661,7 @@ const BetaPinLayer = () => {
           style={{ transform: `translateX(${-panelShift}px)` }}
         >
           {!isAdmin && (
-            <div className="flex flex-col items-center gap-1">
+            <div className="flex flex-col w-12 items-center gap-1">
               <button
                 onClick={() => setPollsOpen((o) => !o)}
                 className={`w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition relative ${pollsOpen ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
@@ -1676,7 +1676,7 @@ const BetaPinLayer = () => {
             </div>
           )}
           {isAdmin && (
-            <div className="flex flex-col items-center gap-1">
+            <div className="flex flex-col w-12 items-center gap-1">
               <button
                 onClick={() => setPanelOpen((o) => !o)}
                 className={`w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition relative ${panelOpen ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
@@ -1692,7 +1692,7 @@ const BetaPinLayer = () => {
               <FabLabel>Admin</FabLabel>
             </div>
           )}
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col w-12 items-center gap-1">
             <button
               onClick={() => setShowPins((v) => !v)}
               className={`w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition ${showPins ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'}`}
@@ -1702,7 +1702,7 @@ const BetaPinLayer = () => {
             </button>
             <FabLabel>{showPins ? 'Hide' : 'Show'}</FabLabel>
           </div>
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col w-12 items-center gap-1">
             <button
               onClick={() => setDropMode(true)}
               className="w-12 h-12 rounded-full shadow-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition"

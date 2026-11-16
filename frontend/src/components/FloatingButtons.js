@@ -31,7 +31,9 @@ const FloatingButtons = ({
   setShowListPanel,
   items = [],
 }) => {
-  const side = position === 'left' ? 'left-4 sm:left-5' : 'right-4 sm:right-5';
+  // Same geometry as the beta stack (right-4, items-end, w-12 rows) so the
+  // button centers share one vertical axis regardless of label width.
+  const side = position === 'left' ? 'left-4 items-start' : 'right-4 items-end';
   const isMobile = useIsMobile();
   const belowPx = useCornerOffset(['beta']); // beta controls live below us
   const panelShift = usePanelShift();
@@ -51,12 +53,12 @@ const FloatingButtons = ({
   return (
     <Portal>
       <div
-        className={`fixed ${side} z-50 flex flex-col items-center gap-3 transition-transform duration-300`}
+        className={`fixed ${side} z-50 flex flex-col gap-3 transition-transform duration-300`}
         style={{ bottom, transform: `translateX(${-panelShift}px)` }}
       >
         {/* Apps menu */}
         {showApps && (
-          <div className="relative flex flex-col items-center gap-1">
+          <div className="relative flex flex-col w-12 items-center gap-1">
             {showAppsMenu && (
               <motion.div
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -97,7 +99,7 @@ const FloatingButtons = ({
 
         {/* Active shopping list — toggles the slide-out panel open/closed */}
         {showActiveList && (
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col w-12 items-center gap-1">
             <motion.button
               onClick={() => setShowListPanel((v) => !v)}
               className={`relative w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition text-white ${
