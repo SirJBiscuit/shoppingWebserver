@@ -143,7 +143,7 @@ const EatOutPanel = ({ members }) => {
                 <div className="flex-1">
                   <CustomDatePicker value={form.eaten_on} onChange={(v) => setForm({ ...form, eaten_on: v })} />
                 </div>
-                <input className={`${inputCls} w-24`} type="number" step="0.01" placeholder="$ total" value={form.total_cost}
+                <input className={`${inputCls} !w-32`} type="number" step="0.01" placeholder="$ total" value={form.total_cost}
                   onChange={(e) => setForm({ ...form, total_cost: e.target.value })} />
               </div>
             </div>
@@ -151,7 +151,7 @@ const EatOutPanel = ({ members }) => {
               <div key={i} className="flex gap-2 mb-2">
                 <input className={`${inputCls} flex-1`} placeholder={`Item ${i + 1} (e.g. Crunchwrap)`} value={it.name}
                   onChange={(e) => setForm({ ...form, items: form.items.map((x, j) => j === i ? { ...x, name: e.target.value } : x) })} />
-                <input className={`${inputCls} w-20`} type="number" step="0.01" placeholder="$" value={it.price}
+                <input className={`${inputCls} !w-24`} type="number" step="0.01" placeholder="$" value={it.price}
                   onChange={(e) => setForm({ ...form, items: form.items.map((x, j) => j === i ? { ...x, price: e.target.value } : x) })} />
                 {form.items.length > 1 && (
                   <button type="button" onClick={() => setForm({ ...form, items: form.items.filter((_, j) => j !== i) })}
