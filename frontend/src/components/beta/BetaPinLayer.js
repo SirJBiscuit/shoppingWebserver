@@ -2,13 +2,13 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { Popup, Portal } from '../../utils/autoPlacement';
+import { Popup, Portal, useCornerStack, usePanelShift } from '../../utils/autoPlacement';
 import {
   MapPin, Plus, X, Eye, EyeOff, MessageSquare, ChevronRight,
   Check, Clock, Trash2, Layers, ExternalLink,
   BarChart3, ThumbsUp, ThumbsDown, Lock, Pencil, Move, Download, RotateCcw,
   LocateFixed, Copy, Flag, Bug, Lightbulb, AlertTriangle, HelpCircle, Star,
-  Crosshair, Ghost
+  Crosshair, Ghost, PanelRightClose, PanelRightOpen
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -208,6 +208,8 @@ const BetaPinLayer = () => {
   const [inspectMode, setInspectMode] = useState(false);  // admin: element inspector
   const [inspectData, setInspectData] = useState(null);   // {x,y,selector,label,rect}
   const [showGhosts, setShowGhosts] = useState(false);    // deleted-pin ghost markers
+  const [stackHidden, setStackHidden] = useState(() =>    // hide beta controls
+    localStorage.getItem('betaStackHidden') === '1');
   const [ghostDetail, setGhostDetail] = useState(null);   // clicked history entry
   const [historyItems, setHistoryItems] = useState([]);   // pin history rows
   const [saving, setSaving] = useState(false);
@@ -406,26 +408,16 @@ const BetaPinLayer = () => {
   // New pin opened → card snaps back next to the pin marker.
   useEffect(() => { setDetailDrag({ dx: 0, dy: 0 }); }, [detail?.id]);
 
-  // Publish the beta stack's height on --bp-stack-h so the Apps/Active List
-  // column can sit directly above it in the bottom-right corner.
+  // Corner-stack API: publish the beta controls' occupied height (viewport
+  // bottom → stack top) so the Apps/Active List column floats above it.
+  // Hiding the stack (stackHidden) publishes 0 and the column drops down.
+  useCornerStack('beta', stackRef,
+    !dropMode && !moving && canUse && !stackHidden,
+    [isAdmin, pins, allPins]);
+  const panelShift = usePanelShift();
   useEffect(() => {
-    const el = stackRef.current;
-    if (!el || dropMode || moving) {
-      document.documentElement.style.setProperty('--bp-stack-h', '0px');
-      return undefined;
-    }
-    // Distance from the viewport bottom to the stack's TOP edge — includes
-    // the bottom-5 base offset so the app column never overlaps the stack.
-    const publish = () => document.documentElement.style
-      .setProperty('--bp-stack-h', `${window.innerHeight - el.getBoundingClientRect().top}px`);
-    publish();
-    const ro = new ResizeObserver(publish);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [dropMode, moving, canUse, isAdmin, pins, allPins]);
-  useEffect(() => () => {
-    document.documentElement.style.setProperty('--bp-stack-h', '0px');
-  }, []);
+    localStorage.setItem('betaStackHidden', stackHidden ? '1' : '0');
+  }, [stackHidden]);
 
   // Track document height — used for the doc-% fallback when a pin's
   // element anchor no longer resolves.
@@ -1542,11 +1534,11 @@ const BetaPinLayer = () => {
       {/* Floating controls — pushed LEFT of the app's own bottom-right
           button column (Apps / Active List / editor) and kept under their
           z-layer so the app buttons always win clicks. */}
-      {!dropMode && !moving && (
+      {!dropMode && !moving && !stackHidden && (
         <div
           ref={stackRef}
           className="bp-floating fixed bottom-5 right-4 z-[45] flex flex-col items-end gap-3 transition-transform duration-300"
-          style={{ transform: 'translateX(var(--list-panel-x, 0px))' }}
+          style={{ transform: `translateX(${-panelShift}px)` }}
         >
           {!isAdmin && (
             <div className="flex flex-col items-center gap-1">
@@ -1603,6 +1595,17 @@ const BetaPinLayer = () => {
         </div>
       )}
 
+      {/* Restore tab — visible when the beta controls stack is hidden */}
+      {canUse && stackHidden && !dropMode && !moving && (
+        <button
+          onClick={() => setStackHidden(false)}
+          className="fixed right-0 bottom-16 z-[46] bg-slate-900/90 border border-r-0 border-slate-700 rounded-l-lg px-1 py-3 text-slate-400 hover:text-slate-200 shadow-xl"
+          title="Show beta controls"
+        >
+          <PanelRightOpen className="w-4 h-4" />
+        </button>
+      )}
+
       {/* Admin sidebar — thin desktop-only tool column on the right edge.
           Hidden on mobile/tablet (lg+): inspect, ghosts, viewer. */}
       {isAdmin && canUse && !dropMode && !moving && (
@@ -1622,6 +1625,12 @@ const BetaPinLayer = () => {
             className={`p-2 rounded-lg transition ${panelOpen ? 'bg-blue-600/30 text-blue-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
             title="Admin Viewer — pins, messages, polls & history"
           ><MessageSquare className="w-4 h-4" /></button>
+          <div className="w-6 h-px bg-slate-700 my-0.5" />
+          <button
+            onClick={() => setStackHidden((v) => !v)}
+            className={`p-2 rounded-lg transition ${stackHidden ? 'bg-amber-600/30 text-amber-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+            title={stackHidden ? 'Show beta controls (viewer / pins / pin button)' : 'Hide beta controls — apps buttons drop into place'}
+          >{stackHidden ? <PanelRightOpen className="w-4 h-4" /> : <PanelRightClose className="w-4 h-4" />}</button>
         </div>
       )}
 

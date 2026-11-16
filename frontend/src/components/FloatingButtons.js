@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Grid, List } from 'lucide-react';
-import { Portal, useIsMobile } from '../utils/autoPlacement';
+import { Portal, useIsMobile, useCornerOffset, usePanelShift, setPanelShift } from '../utils/autoPlacement';
 
 // Floating action buttons — same visual scheme as the beta pin layer:
 // circular buttons in one bottom-corner stack with a small visible label
@@ -33,28 +33,26 @@ const FloatingButtons = ({
 }) => {
   const side = position === 'left' ? 'left-4 sm:left-5' : 'right-4 sm:right-5';
   const isMobile = useIsMobile();
+  const belowPx = useCornerOffset(['beta']); // beta controls live below us
+  const panelShift = usePanelShift();
 
   // The Active List panel slides in from the right at z-201 — instead of
-  // hiding this column underneath it, slide both floating columns left so
-  // the buttons stay reachable. BetaPinLayer reads the same CSS var.
+  // hiding this column underneath it, shift every corner column left so
+  // the buttons stay reachable (BetaPinLayer reads the same offset).
   useEffect(() => {
-    const shift = showListPanel && position === 'right' && !isMobile
-      ? '-500px' : '0px';
-    document.documentElement.style.setProperty('--list-panel-x', shift);
-    return () => document.documentElement.style.setProperty('--list-panel-x', '0px');
+    setPanelShift(showListPanel && position === 'right' && !isMobile ? 500 : 0);
+    return () => setPanelShift(0);
   }, [showListPanel, position, isMobile]);
 
-  // On the right side, sit directly above the beta pin stack — it publishes
-  // its own height on --bp-stack-h so this column never overlaps it.
-  const bottom = position === 'right'
-    ? `calc(var(--bp-stack-h, 0px) + ${spacing}px)`
-    : `${spacing}px`;
+  // Right column sits directly above whatever the beta stack currently
+  // occupies — hidden beta controls publish 0 and the column drops down.
+  const bottom = position === 'right' ? belowPx + spacing : spacing;
 
   return (
     <Portal>
       <div
         className={`fixed ${side} z-50 flex flex-col items-center gap-3 transition-transform duration-300`}
-        style={{ bottom, transform: 'translateX(var(--list-panel-x, 0px))' }}
+        style={{ bottom, transform: `translateX(${-panelShift}px)` }}
       >
         {/* Apps menu */}
         {showApps && (

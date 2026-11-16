@@ -192,4 +192,78 @@ export const ModalPortal = ({
   );
 };
 
+// ---------------------------------------------------------------------------
+// Corner stacks — custom placement API for fixed button columns
+// ---------------------------------------------------------------------------
+// Named stacks publish how much vertical space they occupy measured from the
+// viewport bottom to the stack's TOP edge. Columns sitting above read the
+// cumulative height of the stacks below them, so buttons never overlap no
+// matter how many controls each stack shows or hides.
+//
+//   useCornerStack('beta', ref, visible)   — a stack publishes its height
+//   useCornerOffset(['beta'])              — a column reads what's below it
+//   setPanelShift(px) / usePanelShift()    — shared horizontal shift so every
+//                                            column slides together when a
+//                                            side panel opens
+
+const stackHeights = new Map(); // name → px occupied from viewport bottom
+const stackSubs = new Set();
+let panelShiftPx = 0;
+
+const notifyStacks = () => { stackSubs.forEach((cb) => cb()); };
+
+const belowHeight = (below) =>
+  below.reduce((n, name) => n + (stackHeights.get(name) || 0), 0);
+
+export const setCornerStack = (name, px) => {
+  const v = Math.max(0, Math.round(px));
+  if (stackHeights.get(name) === v) return;
+  stackHeights.set(name, v);
+  notifyStacks();
+};
+
+export const clearCornerStack = (name) => setCornerStack(name, 0);
+
+/** Sum of the heights published by the named stacks below this column. */
+export const useCornerOffset = (below) =>
+  useSyncExternalStore(
+    (cb) => { stackSubs.add(cb); return () => stackSubs.delete(cb); },
+    () => belowHeight(below)
+  );
+
+/**
+ * Measure a stack element and publish its occupied height while `active`.
+ * When inactive/unmounted it publishes 0 so columns above drop back down.
+ */
+export const useCornerStack = (name, ref, active, deps = []) => {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || !active) { clearCornerStack(name); return undefined; }
+    const publish = () =>
+      setCornerStack(name, window.innerHeight - el.getBoundingClientRect().top);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    window.addEventListener('resize', publish);
+    return () => { ro.disconnect(); window.removeEventListener('resize', publish); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, active, ...deps]);
+  useLayoutEffect(() => () => clearCornerStack(name), [name]);
+};
+
+/** Shared horizontal shift (px) applied to every corner column — set by the
+ *  side panel so stacks slide out from underneath it. */
+export const setPanelShift = (px) => {
+  const v = Math.round(px);
+  if (panelShiftPx === v) return;
+  panelShiftPx = v;
+  notifyStacks();
+};
+
+export const usePanelShift = () =>
+  useSyncExternalStore(
+    (cb) => { stackSubs.add(cb); return () => stackSubs.delete(cb); },
+    () => panelShiftPx
+  );
+
 export default Portal;
