@@ -154,7 +154,14 @@ const BetaPinLayer = () => {
   const [pollsOpen, setPollsOpen] = useState(false); // tester popover
   const [adminPolls, setAdminPolls] = useState([]);  // admin view + tallies
   const [pollNotes, setPollNotes] = useState([]);    // voter notes
-  const [newPoll, setNewPoll] = useState({ title: '', description: '' });
+  const [newPoll, setNewPoll] = useState({ title: '', description: '', options: [] });
+  const [optDraft, setOptDraft] = useState('');       // admin: option being typed
+  // Tester panel — own feedback threads + compose
+  const [testerTab, setTesterTab] = useState('votes');
+  const [myFeedback, setMyFeedback] = useState([]);
+  const [fbForm, setFbForm] = useState({ type: 'idea', title: '', description: '' });
+  const [fbSending, setFbSending] = useState(false);
+  const [fbSent, setFbSent] = useState(false);
 
   // -------------------------------------------------------------- data
   const loadPagePins = useCallback(async () => {
@@ -183,6 +190,15 @@ const BetaPinLayer = () => {
     } catch { /* silent */ }
   }, [isAdmin]);
 
+  // Tester's own feedback threads
+  const loadMyFeedback = useCallback(async () => {
+    if (isAdmin) return;
+    try {
+      const { data } = await api.get('/beta/feedback/my');
+      setMyFeedback(data || []);
+    } catch { /* silent */ }
+  }, [isAdmin]);
+
   const loadPolls = useCallback(async () => {
     try {
       const { data } = await api.get('/beta/polls');
@@ -200,7 +216,7 @@ const BetaPinLayer = () => {
   }, [isAdmin]);
 
   useEffect(() => { if (canUse) { loadPagePins(); loadPolls(); } }, [canUse, loadPagePins, loadPolls]);
-  useEffect(() => { if (pollsOpen) loadPolls(); }, [pollsOpen, loadPolls]);
+  useEffect(() => { if (pollsOpen) { loadPolls(); loadMyFeedback(); } }, [pollsOpen, loadPolls, loadMyFeedback]);
   useEffect(() => { if (isAdmin) loadAdminPins(); }, [isAdmin, loadAdminPins]);
   useEffect(() => { if (panelOpen) { loadAdminPins(); loadFeedback(); loadAdminPolls(); } },
     [panelOpen, loadAdminPins, loadFeedback, loadAdminPolls]);
@@ -433,20 +449,30 @@ const BetaPinLayer = () => {
     } catch { /* silent */ }
   };
 
-  const votePoll = async (pollId, vote) => {
+  const votePoll = async (pollId, vote, optionIndex) => {
     try {
-      await api.post(`/beta/polls/${pollId}/vote`, { vote });
+      await api.post(`/beta/polls/${pollId}/vote`, { vote, optionIndex });
       loadPolls();
     } catch { /* silent */ }
+  };
+
+  const addOption = () => {
+    const o = optDraft.trim();
+    if (!o || newPoll.options.length >= 6 || newPoll.options.includes(o)) return;
+    setNewPoll((n) => ({ ...n, options: [...n.options, o] }));
+    setOptDraft('');
   };
 
   const createPoll = async () => {
     if (!newPoll.title.trim()) return;
     try {
       await api.post('/beta/polls/admin', {
-        title: newPoll.title.trim(), description: newPoll.description.trim() || null
+        title: newPoll.title.trim(),
+        description: newPoll.description.trim() || null,
+        options: newPoll.options.length >= 2 ? newPoll.options : undefined
       });
-      setNewPoll({ title: '', description: '' });
+      setNewPoll({ title: '', description: '', options: [] });
+      setOptDraft('');
       loadAdminPolls();
     } catch { /* silent */ }
   };
@@ -482,6 +508,23 @@ const BetaPinLayer = () => {
       setReplies((r) => [...r, { ...data, username: user.username }]);
       setReplyBody('');
     } catch { /* silent */ }
+  };
+
+  // Tester → admin: send an idea/bug/feature request
+  const submitFeedback = async () => {
+    if (!fbForm.title.trim() || !fbForm.description.trim()) return;
+    setFbSending(true);
+    try {
+      await api.post('/beta/feedback', {
+        type: fbForm.type,
+        title: fbForm.title.trim(),
+        description: fbForm.description.trim()
+      });
+      setFbForm({ type: 'idea', title: '', description: '' });
+      setFbSent(true);
+      loadMyFeedback();
+    } catch { /* silent */ }
+    finally { setFbSending(false); }
   };
 
   if (!user || !canUse) return null;
@@ -834,50 +877,184 @@ const BetaPinLayer = () => {
         </Popup>
       )}
 
-      {/* Tester polls popover — vote on admin feature ideas */}
+      {/* Tester beta viewer — polls + messages with the admin */}
       {pollsOpen && !isAdmin && (
-        <div className="fixed bottom-24 right-5 z-[9989] w-80 max-h-[60vh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl">
-          <div className="sticky top-0 bg-slate-900 flex items-center justify-between px-3 py-2.5 border-b border-slate-800">
-            <span className="text-sm font-semibold text-slate-100 flex items-center gap-1.5">
-              <BarChart3 className="w-4 h-4 text-blue-400" /> Vote on features
-            </span>
-            <button onClick={() => setPollsOpen(false)} className="text-slate-500 hover:text-slate-300"><X className="w-4 h-4" /></button>
+        <div className="fixed top-0 right-0 bottom-0 z-[9988] w-96 max-w-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400 mr-1">Beta Viewer</span>
+              {[['votes', 'Polls'], ['messages', 'Messages']].map(([t, label]) => (
+                <button
+                  key={t}
+                  onClick={() => setTesterTab(t)}
+                  className={`text-sm px-3 py-1.5 rounded-lg ${testerTab === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setPollsOpen(false)} className="text-slate-500 hover:text-slate-300"><X className="w-5 h-5" /></button>
           </div>
-          {polls.map((p) => (
-            <div key={p.id} className="px-3 py-2.5 border-b border-slate-800/60">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-slate-100">{p.title}</div>
-                  {p.description && <div className="text-xs text-slate-400 mt-0.5">{p.description}</div>}
+
+          {testerTab === 'votes' && (
+            <div className="flex-1 overflow-y-auto scrollbar-3d">
+              {polls.map((p) => {
+                const hasOptions = Array.isArray(p.options) && p.options.length >= 2;
+                const pct = p.total_votes ? Math.round((p.yes_votes / p.total_votes) * 100) : 0;
+                return (
+                  <div key={p.id} className="px-3 py-2.5 border-b border-slate-800/60">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-slate-100">{p.title}</div>
+                        {p.description && <div className="text-xs text-slate-400 mt-0.5 max-h-16 overflow-y-auto scrollbar-3d pr-1">{p.description}</div>}
+                      </div>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${p.status === 'open' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-blue-500/20 text-blue-300'}`}>
+                        {p.status}
+                      </span>
+                    </div>
+                    {hasOptions ? (
+                      <div className="flex flex-col gap-1 mt-2">
+                        {p.options.map((opt, i) => {
+                          const v = p.option_tally?.[i] || 0;
+                          const opct = p.total_votes ? Math.round((v / p.total_votes) * 100) : 0;
+                          return (
+                            <button
+                              key={i}
+                              onClick={() => p.status === 'open' && votePoll(p.id, null, i)}
+                              disabled={p.status !== 'open'}
+                              className={`relative text-left text-xs px-2.5 py-1.5 rounded-lg overflow-hidden transition disabled:opacity-60 ${p.my_option === i ? 'bg-blue-600/40 text-blue-100 ring-1 ring-blue-500' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                            >
+                              <span className="absolute inset-y-0 left-0 bg-blue-500/20" style={{ width: `${opct}%` }} />
+                              <span className="relative flex justify-between gap-2">
+                                <span className="truncate">{opt}</span>
+                                <span className="shrink-0">{v}</span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                        <span className="text-[10px] text-slate-500">
+                          {p.total_votes} votes{p.my_option !== null && p.my_option !== undefined ? ' · tap a choice to change your vote' : ''}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => p.status === 'open' && votePoll(p.id, 'yes')}
+                          disabled={p.status !== 'open'}
+                          className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg transition ${p.my_vote === 'yes' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} disabled:opacity-50`}
+                        >
+                          <ThumbsUp className="w-3.5 h-3.5" /> {p.yes_votes}
+                        </button>
+                        <button
+                          onClick={() => p.status === 'open' && votePoll(p.id, 'no')}
+                          disabled={p.status !== 'open'}
+                          className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg transition ${p.my_vote === 'no' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} disabled:opacity-50`}
+                        >
+                          <ThumbsDown className="w-3.5 h-3.5" /> {p.no_votes}
+                        </button>
+                        {p.total_votes > 0 && (
+                          <span className="text-[10px] text-slate-500 ml-auto">{pct}% want it</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {!polls.length && <p className="text-sm text-slate-500 text-center py-8">No open polls</p>}
+            </div>
+          )}
+
+          {testerTab === 'messages' && (
+            <div className="flex-1 overflow-y-auto scrollbar-3d">
+              {/* New message to the admin */}
+              <div className="px-3 py-2.5 border-b border-slate-800 bg-slate-800/30">
+                <div className="flex gap-1.5 mb-1.5">
+                  {[['idea', 'Idea'], ['feature', 'Feature'], ['bug', 'Bug'], ['general', 'Other']].map(([t, label]) => (
+                    <button
+                      key={t}
+                      onClick={() => setFbForm((f) => ({ ...f, type: t }))}
+                      className={`text-[11px] px-2 py-1 rounded-lg ${fbForm.type === t ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${p.status === 'open' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-blue-500/20 text-blue-300'}`}>
-                  {p.status}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
+                <input
+                  value={fbForm.title}
+                  onChange={(e) => setFbForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="Title…"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                />
+                <textarea
+                  value={fbForm.description}
+                  onChange={(e) => setFbForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="Tell the admin what's on your mind…"
+                  rows={3}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 mt-1.5 resize-y scrollbar-3d focus:outline-none focus:border-blue-500"
+                />
                 <button
-                  onClick={() => p.status === 'open' && votePoll(p.id, 'yes')}
-                  disabled={p.status !== 'open'}
-                  className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg transition ${p.my_vote === 'yes' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} disabled:opacity-50`}
+                  onClick={submitFeedback}
+                  disabled={fbSending || !fbForm.title.trim() || !fbForm.description.trim()}
+                  className="w-full mt-1.5 text-xs py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-medium"
                 >
-                  <ThumbsUp className="w-3.5 h-3.5" /> {p.yes_votes}
+                  {fbSending ? 'Sending…' : 'Send to admin'}
                 </button>
-                <button
-                  onClick={() => p.status === 'open' && votePoll(p.id, 'no')}
-                  disabled={p.status !== 'open'}
-                  className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg transition ${p.my_vote === 'no' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} disabled:opacity-50`}
-                >
-                  <ThumbsDown className="w-3.5 h-3.5" /> {p.no_votes}
-                </button>
-                {p.total_votes > 0 && (
-                  <span className="text-[10px] text-slate-500 ml-auto">
-                    {Math.round((p.yes_votes / p.total_votes) * 100)}% want it
-                  </span>
+                <p className="text-[10px] text-slate-500 mt-1.5 flex items-center gap-1">
+                  <Clock className="w-3 h-3 shrink-0" />
+                  The admin reads everything, but replies may take a little while — thanks for hanging tight!
+                </p>
+                {fbSent && (
+                  <p className="text-[11px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-2 py-1 mt-1.5">
+                    Sent! The admin will get back to you right here when they can.
+                  </p>
                 )}
               </div>
+
+              {/* My threads */}
+              {myFeedback.map((f) => (
+                <div key={f.id} className="border-b border-slate-800/60">
+                  <button className="w-full text-left px-3 py-2.5 hover:bg-slate-800/40" onClick={() => openReplies(f)}>
+                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                      <span className="capitalize px-1.5 py-0.5 rounded bg-slate-800">{f.type}</span>
+                      <span className={`px-1.5 py-0.5 rounded ${STATUS_META[f.status]?.cls || 'bg-slate-800 text-slate-300'}`}>{(f.status || 'new').replace(/_/g, ' ')}</span>
+                      <span className="ml-auto">{relTime(f.created_at)}</span>
+                    </div>
+                    <div className="text-sm text-slate-100 font-medium mt-1 truncate">{f.title}</div>
+                  </button>
+                  {openThread === f.id && (
+                    <div className="px-3 pb-3">
+                      <div className="text-xs text-slate-400 max-h-16 overflow-y-auto scrollbar-3d pr-1 mb-2">{f.description}</div>
+                      {f.admin_response && (
+                        <div className="text-xs bg-blue-500/10 border border-blue-500/30 rounded-lg p-2 text-blue-200 mb-2">
+                          Admin: {f.admin_response}
+                        </div>
+                      )}
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto scrollbar-3d">
+                        {replies.map((r) => (
+                          <div key={r.id} className={`text-xs p-2 rounded-lg ${r.is_admin ? 'bg-blue-600/20 text-blue-100 ml-4' : 'bg-slate-800 text-slate-200 mr-4'}`}>
+                            <span className="text-[10px] text-slate-400 block">{r.is_admin ? 'Admin' : 'You'} · {relTime(r.created_at)}</span>
+                            {r.body}
+                          </div>
+                        ))}
+                        {!replies.length && <p className="text-xs text-slate-500">No replies yet — the admin will get back to you.</p>}
+                      </div>
+                      <div className="flex gap-1.5 mt-2">
+                        <input
+                          value={replyBody}
+                          onChange={(e) => setReplyBody(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && sendReply(f.id)}
+                          placeholder="Add a reply…"
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
+                        />
+                        <button onClick={() => sendReply(f.id)} className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white">Send</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {!myFeedback.length && <p className="text-sm text-slate-500 text-center py-8">No messages yet — send one above!</p>}
             </div>
-          ))}
-          {!polls.length && <p className="text-sm text-slate-500 text-center py-6">No open polls</p>}
+          )}
         </div>
       )}
 
@@ -890,14 +1067,14 @@ const BetaPinLayer = () => {
               <button
                 onClick={() => setPollsOpen((o) => !o)}
                 className={`w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition relative ${pollsOpen ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
-                title="Vote on upcoming features"
+                title="Beta Viewer — polls & messages"
               >
                 <BarChart3 className="w-5 h-5" />
-                {polls.some((p) => p.status === 'open' && !p.my_vote) && (
+                {polls.some((p) => p.status === 'open' && !p.my_vote && p.my_option === null) && (
                   <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-slate-900" />
                 )}
               </button>
-              <FabLabel>Vote</FabLabel>
+              <FabLabel>Beta</FabLabel>
             </div>
           )}
           {isAdmin && (
@@ -905,7 +1082,7 @@ const BetaPinLayer = () => {
               <button
                 onClick={() => setPanelOpen((o) => !o)}
                 className={`w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition relative ${panelOpen ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
-                title="Beta viewer"
+                title="Admin Viewer — pins, messages & polls"
               >
                 <MessageSquare className="w-5 h-5" />
                 {openPinCount > 0 && (
@@ -914,7 +1091,7 @@ const BetaPinLayer = () => {
                   </span>
                 )}
               </button>
-              <FabLabel>Beta</FabLabel>
+              <FabLabel>Admin</FabLabel>
             </div>
           )}
           <div className="flex flex-col items-center gap-1">
@@ -944,7 +1121,8 @@ const BetaPinLayer = () => {
       {isAdmin && panelOpen && (
         <div className="fixed top-0 right-0 bottom-0 z-[9988] w-96 bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400 mr-1">Admin Viewer</span>
               {['pins', 'messages', 'polls'].map((t) => (
                 <button
                   key={t}
@@ -959,7 +1137,7 @@ const BetaPinLayer = () => {
           </div>
 
           {tab === 'pins' && (
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto scrollbar-3d">
               {/* Bulk action bar */}
               <div className="sticky top-0 bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center gap-1.5 z-10">
                 <span className="text-xs text-slate-400 mr-auto">{sel.size} selected</span>
@@ -1031,7 +1209,7 @@ const BetaPinLayer = () => {
           )}
 
           {tab === 'messages' && (
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto scrollbar-3d">
               {feedback.map((f) => (
                 <div key={f.id} className="border-b border-slate-800/60">
                   <button className="w-full text-left px-3 py-2.5 hover:bg-slate-800/40" onClick={() => openReplies(f)}>
@@ -1044,8 +1222,8 @@ const BetaPinLayer = () => {
                   </button>
                   {openThread === f.id && (
                     <div className="px-3 pb-3">
-                      <p className="text-xs text-slate-300 mb-2">{f.description}</p>
-                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                      <div className="text-xs text-slate-300 max-h-16 overflow-y-auto scrollbar-3d pr-1 mb-2">{f.description}</div>
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto scrollbar-3d">
                         {replies.map((r) => (
                           <div key={r.id} className={`text-xs p-2 rounded-lg ${r.is_admin ? 'bg-blue-600/20 text-blue-100 ml-4' : 'bg-slate-800 text-slate-200 mr-4'}`}>
                             <span className="text-[10px] text-slate-400 block">{r.is_admin ? 'Admin' : r.username} · {relTime(r.created_at)}</span>
@@ -1073,7 +1251,7 @@ const BetaPinLayer = () => {
           )}
 
           {tab === 'polls' && (
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto scrollbar-3d">
               {/* Create poll */}
               <div className="px-3 py-2.5 border-b border-slate-800 bg-slate-800/30">
                 <input
@@ -1082,18 +1260,54 @@ const BetaPinLayer = () => {
                   placeholder="New feature idea…"
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
                 />
-                <input
+                <textarea
                   value={newPoll.description}
                   onChange={(e) => setNewPoll((n) => ({ ...n, description: e.target.value }))}
                   placeholder="Description (optional)"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 mt-1.5 focus:outline-none focus:border-blue-500"
+                  rows={2}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 mt-1.5 resize-y scrollbar-3d focus:outline-none focus:border-blue-500"
                 />
+                {/* Multi-choice options — 2+ turns it into a pick-one poll */}
+                <div className="flex gap-1.5 mt-1.5">
+                  <input
+                    value={optDraft}
+                    onChange={(e) => setOptDraft(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addOption()}
+                    placeholder="Add a choice… (2+ = testers pick one)"
+                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    onClick={addOption}
+                    disabled={!optDraft.trim() || newPoll.options.length >= 6}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 disabled:opacity-40"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                {newPoll.options.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {newPoll.options.map((o, i) => (
+                      <span key={i} className="text-[11px] bg-slate-800 text-slate-300 rounded-full px-2 py-0.5 flex items-center gap-1">
+                        {o}
+                        <button
+                          onClick={() => setNewPoll((n) => ({ ...n, options: n.options.filter((_, x) => x !== i) }))}
+                          className="text-slate-500 hover:text-red-400"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    {newPoll.options.length === 1 && (
+                      <span className="text-[10px] text-amber-400">need 2+ for multi-choice</span>
+                    )}
+                  </div>
+                )}
                 <button
                   onClick={createPoll}
                   disabled={!newPoll.title.trim()}
                   className="w-full mt-1.5 text-xs py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-medium"
                 >
-                  Post poll to beta testers
+                  {newPoll.options.length >= 2 ? 'Post multi-choice poll to beta testers' : 'Post poll to beta testers'}
                 </button>
               </div>
 
@@ -1103,25 +1317,45 @@ const BetaPinLayer = () => {
                 return (
                   <div key={p.id} className="px-3 py-2.5 border-b border-slate-800/60">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-slate-100">{p.title}</div>
-                        {p.description && <div className="text-xs text-slate-400 mt-0.5">{p.description}</div>}
+                        {p.description && <div className="text-xs text-slate-400 mt-0.5 max-h-16 overflow-y-auto scrollbar-3d pr-1">{p.description}</div>}
                       </div>
                       <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_META[p.status]?.cls || 'bg-slate-800 text-slate-300'}`}>
                         {p.status}
                       </span>
                     </div>
-                    {/* Tally bar */}
-                    <div className="mt-2">
-                      <div className="flex justify-between text-[10px] text-slate-400 mb-0.5">
-                        <span><ThumbsUp className="w-3 h-3 inline text-emerald-400" /> {p.yes_votes}</span>
-                        <span>{p.total_votes} votes · {pct}% yes</span>
-                        <span>{p.no_votes} <ThumbsDown className="w-3 h-3 inline text-red-400" /></span>
+                    {Array.isArray(p.options) && p.options.length >= 2 ? (
+                      <div className="mt-2 space-y-1">
+                        {p.options.map((opt, i) => {
+                          const v = p.option_tally?.[i] || 0;
+                          const opct = p.total_votes ? Math.round((v / p.total_votes) * 100) : 0;
+                          return (
+                            <div key={i}>
+                              <div className="flex justify-between text-[10px] text-slate-400 mb-0.5">
+                                <span className="truncate pr-2">{opt}</span>
+                                <span>{v} · {opct}%</span>
+                              </div>
+                              <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                                <div className="h-full bg-blue-500 rounded-full" style={{ width: `${opct}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div className="text-[10px] text-slate-500">{p.total_votes} votes</div>
                       </div>
-                      <div className="h-1.5 bg-red-500/40 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
+                    ) : (
+                      <div className="mt-2">
+                        <div className="flex justify-between text-[10px] text-slate-400 mb-0.5">
+                          <span><ThumbsUp className="w-3 h-3 inline text-emerald-400" /> {p.yes_votes}</span>
+                          <span>{p.total_votes} votes · {pct}% yes</span>
+                          <span>{p.no_votes} <ThumbsDown className="w-3 h-3 inline text-red-400" /></span>
+                        </div>
+                        <div className="h-1.5 bg-red-500/40 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
                       </div>
-                    </div>
+                    )}
                     {notes.length > 0 && (
                       <div className="mt-1.5 space-y-1">
                         {notes.slice(0, 3).map((n, i) => (

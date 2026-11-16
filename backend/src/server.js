@@ -176,7 +176,8 @@ const runMigrations = async () => {
     { file: '075_beta_polls_private_pins.sql', name: 'Beta Polls & Private Pins' },
     { file: '076_beta_pin_element_anchor.sql', name: 'Beta Pin Element Anchors' },
   { file: '077_feature_admin_only_and_limbo.sql', name: 'Feature Admin-Only and Limbo Flags' },
-  { file: '078_feature_display_names.sql', name: 'Feature Display Name Renames' }
+  { file: '078_feature_display_names.sql', name: 'Feature Display Name Renames' },
+  { file: '079_beta_poll_options.sql', name: 'Beta Poll Multi-Option' }
   ];
 
   for (const migration of migrations) {

@@ -4,6 +4,7 @@ import './index.css';
 import './styles/mobile.css';
 import './styles/optimization.css';
 import './styles/tutorial.css';
+import './styles/scrollbar.css';
 import App from './App';
 import { installSessionGuard } from './services/sessionGuard';
 
