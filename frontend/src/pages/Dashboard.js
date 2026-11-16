@@ -1863,8 +1863,10 @@ const Dashboard = () => {
                 {/* Title and Dropdown Row */}
                 {(dashboardProps.showListSelector !== false) && (
                 <div className={`flex items-center justify-between ${dashboardProps.compactMode ? 'mb-2' : 'mb-4'}`}>
-                  <div className="flex items-center space-x-3 flex-1">
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Shopping List</h2>
+                  {/* Wraps on phones/tablets — the selector drops to a full-width row
+                      instead of overflowing the card edge */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 flex-1 min-w-0">
+                    <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white shrink-0">Shopping List</h2>
                     {lists.length > 0 && (
                       <CustomDropdownList
                         items={lists}
@@ -1881,7 +1883,7 @@ const Dashboard = () => {
                         )}
                         searchable={lists.length > 5}
                         searchPlaceholder="Search lists..."
-                        className="flex-1 max-w-xs"
+                        className="min-w-0 flex-1 basis-48 sm:max-w-xs"
                       />
                     )}
                   </div>

@@ -164,7 +164,7 @@ const CustomDropdownList = ({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={`
-          w-full px-4 py-2.5 
+          w-full px-4 py-2.5 touch-manipulation
           bg-white dark:bg-gray-800 
           border-2 border-gray-300 dark:border-gray-600
           rounded-lg
