@@ -219,14 +219,18 @@ router.post('/admin/:id/status', authenticateToken, isAdmin, async (req, res) =>
     }
     // resolved_by is INTEGER — a non-integer token id must not 500 the update
     const resolverId = Number.isFinite(Number(req.user.id)) ? Number(req.user.id) : null;
+    // Resolved-state passed as a boolean: comparing $2 against string
+    // literals inside the CASE would deduce $2 as text and conflict with
+    // the column's own type (status is an enum on some DBs).
+    const isResolved = ['fixed', 'hidden', 'removed'].includes(status);
     const { rowCount } = await db.query(
       `UPDATE beta_pins SET status = $2,
          admin_note = COALESCE($3, admin_note),
          resolved_by = $4,
-         resolved_at = CASE WHEN $2 IN ('fixed','hidden','removed') THEN NOW() ELSE resolved_at END,
+         resolved_at = CASE WHEN $5::boolean THEN NOW() ELSE resolved_at END,
          updated_at = NOW()
        WHERE id = $1`,
-      [req.params.id, status, adminNote || null, resolverId]
+      [req.params.id, status, adminNote || null, resolverId, isResolved]
     );
     if (!rowCount) return res.status(404).json({ error: 'Pin not found' });
     res.json({ updated: true });
