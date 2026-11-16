@@ -319,6 +319,120 @@ router.post('/admin/:id/move', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
+// Snapshot a pin row into beta_pin_history before destructive actions.
+// Best-effort: a history write failure must not block the delete itself.
+const snapshotPin = async (pin, event, actorId) => {
+  try {
+    await db.query(
+      `INSERT INTO beta_pin_history (pin_id, event, actor_id, snapshot)
+       VALUES ($1, $2, $3, $4)`,
+      [pin.id, event, actorId, JSON.stringify(pin)]
+    );
+  } catch (e) {
+    console.error('Pin history snapshot failed:', e.message);
+  }
+};
+
+/**
+ * DELETE /api/beta/pins/admin/:id — really delete a pin (admin).
+ * 'Remove' means gone from beta_pins; the row survives as a history
+ * snapshot for the pin-history viewer.
+ */
+router.delete('/admin/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const q = await db.query('SELECT * FROM beta_pins WHERE id = $1', [req.params.id]);
+    if (!q.rows.length) return res.status(404).json({ error: 'Pin not found' });
+    await snapshotPin(q.rows[0], 'deleted', req.user.id);
+    await db.query('DELETE FROM beta_pins WHERE id = $1', [req.params.id]);
+    res.json({ deleted: true });
+  } catch (e) {
+    console.error('Error deleting pin:', e);
+    res.status(500).json({ error: 'Failed to delete pin', detail: e.message });
+  }
+});
+
+/**
+ * POST /api/beta/pins/admin/bulk-delete
+ * { ids: number[] } — snapshot then hard-delete each pin.
+ */
+router.post('/admin/bulk-delete', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || !ids.length || ids.length > 500) {
+      return res.status(400).json({ error: 'ids array required (max 500)' });
+    }
+    const cleanIds = ids.map(Number).filter(Number.isFinite);
+    const { rows } = await db.query(
+      'SELECT * FROM beta_pins WHERE id = ANY($1)', [cleanIds]
+    );
+    for (const pin of rows) await snapshotPin(pin, 'deleted', req.user.id);
+    const { rowCount } = await db.query(
+      'DELETE FROM beta_pins WHERE id = ANY($1)', [cleanIds]
+    );
+    res.json({ deleted: rowCount });
+  } catch (e) {
+    console.error('Error bulk-deleting pins:', e);
+    res.status(500).json({ error: 'Failed to delete pins', detail: e.message });
+  }
+});
+
+/**
+ * GET /api/beta/pins/admin/history
+ * Deleted/restored pin snapshots for the history viewer (newest first).
+ */
+router.get('/admin/history', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT h.*, u.username AS actor_name
+       FROM beta_pin_history h LEFT JOIN users u ON u.id = h.actor_id
+       ORDER BY h.created_at DESC LIMIT 300`
+    );
+    res.json({ history: rows });
+  } catch (e) {
+    console.error('Error fetching pin history:', e);
+    res.status(500).json({ error: 'Failed to fetch history', detail: e.message });
+  }
+});
+
+/**
+ * POST /api/beta/pins/admin/history/:id/restore
+ * Re-create a pin from its deleted snapshot (status 'open', new id).
+ */
+router.post('/admin/history/:id/restore', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const q = await db.query('SELECT * FROM beta_pin_history WHERE id = $1', [req.params.id]);
+    if (!q.rows.length) return res.status(404).json({ error: 'History entry not found' });
+    const snap = q.rows[0].snapshot;
+    const { rows } = await db.query(
+      `INSERT INTO beta_pins
+         (user_id, page_path, x_pct, y_pct, severity, note, is_private,
+          element_selector, offset_x, offset_y, element_label, viewport,
+          icon, kind, status, admin_note)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'open',$15)
+       RETURNING *`,
+      [snap.user_id, snap.page_path, snap.x_pct, snap.y_pct,
+       SEVERITIES.includes(snap.severity) ? snap.severity : 'minor',
+       snap.note, snap.is_private === true,
+       snap.element_selector || null, snap.offset_x ?? null, snap.offset_y ?? null,
+       snap.element_label || null, snap.viewport || null,
+       PIN_ICONS.includes(snap.icon) ? snap.icon : 'pin',
+       PIN_KINDS.includes(snap.kind) ? snap.kind : 'bug',
+       snap.admin_note || null]
+    );
+    // Record against the ORIGINAL pin_id so the history viewer can tell a
+    // deleted pin was restored (new row id is inside the snapshot).
+    await db.query(
+      `INSERT INTO beta_pin_history (pin_id, event, actor_id, snapshot)
+       VALUES ($1, 'restored', $2, $3)`,
+      [snap.id, req.user.id, JSON.stringify(rows[0])]
+    );
+    res.json({ pin: rows[0] });
+  } catch (e) {
+    console.error('Error restoring pin:', e);
+    res.status(500).json({ error: 'Failed to restore pin', detail: e.message });
+  }
+});
+
 /**
  * GET /api/beta/pins/admin/export
  * Ordered markdown bug list of live pins (open + in_progress).

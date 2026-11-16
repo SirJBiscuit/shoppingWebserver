@@ -7,7 +7,8 @@ import {
   MapPin, Plus, X, Eye, EyeOff, MessageSquare, ChevronRight,
   Check, Clock, Trash2, Layers, ExternalLink,
   BarChart3, ThumbsUp, ThumbsDown, Lock, Pencil, Move, Download, RotateCcw,
-  LocateFixed, Copy, Flag, Bug, Lightbulb, AlertTriangle, HelpCircle, Star
+  LocateFixed, Copy, Flag, Bug, Lightbulb, AlertTriangle, HelpCircle, Star,
+  Crosshair, Ghost
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -204,6 +205,11 @@ const BetaPinLayer = () => {
   const [draftKind, setDraftKind] = useState('bug');
   const [editKind, setEditKind] = useState('bug');
   const [detailDrag, setDetailDrag] = useState({ dx: 0, dy: 0 }); // drag offset
+  const [inspectMode, setInspectMode] = useState(false);  // admin: element inspector
+  const [inspectData, setInspectData] = useState(null);   // {x,y,selector,label,rect}
+  const [showGhosts, setShowGhosts] = useState(false);    // deleted-pin ghost markers
+  const [ghostDetail, setGhostDetail] = useState(null);   // clicked history entry
+  const [historyItems, setHistoryItems] = useState([]);   // pin history rows
   const [saving, setSaving] = useState(false);
   const [draftPrivate, setDraftPrivate] = useState(false); // admin: private pin
   const [detail, setDetail] = useState(null);        // pin detail card
@@ -222,6 +228,7 @@ const BetaPinLayer = () => {
   const dropRef = useRef(null);
   const moveRef = useRef(null);
   const stackRef = useRef(null);              // beta floating stack (for coord)
+  const inspectRef = useRef(null);            // inspector overlay (pickAnchor skip)
   // Admin viewer panel
   const [panelOpen, setPanelOpen] = useState(false);
   const [tab, setTab] = useState('pins');
@@ -298,6 +305,19 @@ const BetaPinLayer = () => {
     } catch { /* silent */ }
   }, [isAdmin]);
 
+  // Pin history — deleted/restored snapshots for the history viewer + ghosts
+  const loadHistory = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const { data } = await api.get('/beta/pins/admin/history');
+      setHistoryItems(data.history || []);
+    } catch { /* silent */ }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (isAdmin && (showGhosts || (panelOpen && tab === 'history'))) loadHistory();
+  }, [isAdmin, showGhosts, panelOpen, tab, loadHistory]);
+
   useEffect(() => { if (canUse) { loadPagePins(); loadPolls(); } }, [canUse, loadPagePins, loadPolls]);
   useEffect(() => { if (pollsOpen) { loadPolls(); loadMyFeedback(); } }, [pollsOpen, loadPolls, loadMyFeedback]);
   useEffect(() => { if (isAdmin) loadAdminPins(); }, [isAdmin, loadAdminPins]);
@@ -316,6 +336,7 @@ const BetaPinLayer = () => {
       if (e.key !== 'Escape') return;
       setDropMode(false); setDraft(null); setDetail(null);
       setCtx(null); setFanout(null); setMoving(null); setHoverRect(null); setHoverLabel('');
+      setInspectMode(false); setInspectData(null); setGhostDetail(null);
     };
     window.addEventListener('keydown', esc);
     return () => window.removeEventListener('keydown', esc);
@@ -337,6 +358,30 @@ const BetaPinLayer = () => {
     const detail = e.response?.data?.detail;
     toastErr(detail ? `${base}: ${detail}` : base);
   };
+
+  // 'Remove' = real delete now — the row survives as a history snapshot.
+  const deletePin = async (pin) => {
+    try {
+      await api.delete(`/beta/pins/admin/${pin.id}`);
+      setCtx(null); setDetail(null); setGhostDetail(null);
+      loadPagePins(); loadAdminPins(); if (showGhosts) loadHistory();
+    } catch (e) { apiErr(e, 'Delete failed'); }
+  };
+
+  const restorePin = async (h) => {
+    try {
+      await api.post(`/beta/pins/admin/history/${h.id}/restore`);
+      setGhostDetail(null);
+      loadPagePins(); loadAdminPins(); loadHistory();
+      toastErr('Pin restored as open');
+    } catch (e) { apiErr(e, 'Restore failed'); }
+  };
+
+  // Deleted pins that haven't been restored — the ghost set.
+  const ghostList = historyItems.filter((h) =>
+    h.event === 'deleted' &&
+    !historyItems.some((r) => r.event === 'restored' && r.pin_id === h.pin_id)
+  );
 
   // Draggable detail card — pointer-down on the header drags the popup via
   // a translate offset on top of Popup's clamped position. Buttons and
@@ -679,8 +724,13 @@ const BetaPinLayer = () => {
   const bulk = async (action) => {
     if (!sel.size) return;
     try {
-      await api.post('/beta/pins/admin/bulk', { ids: [...sel], action });
+      if (action === 'remove') {
+        await api.post('/beta/pins/admin/bulk-delete', { ids: [...sel] });
+      } else {
+        await api.post('/beta/pins/admin/bulk', { ids: [...sel], action });
+      }
       setSel(new Set()); loadPagePins(); loadAdminPins();
+      if (showGhosts || tab === 'history') loadHistory();
     } catch (e) { apiErr(e, 'Bulk action failed'); }
   };
 
@@ -920,6 +970,117 @@ const BetaPinLayer = () => {
         </svg>
       )}
 
+      {/* Pinless element inspector — hover highlights, click freezes info.
+          Admin debugging tool: reads element positions without dropping a pin. */}
+      {inspectMode && isAdmin && (
+        <>
+          <div
+            ref={inspectRef}
+            className="fixed inset-0 z-[9997] cursor-crosshair"
+            style={{ outline: '3px dashed rgba(56,189,248,0.6)', outlineOffset: -8, background: 'rgba(15,23,42,0.08)' }}
+            onMouseMove={(e) => {
+              const el = pickAnchor(e.clientX, e.clientY, inspectRef.current);
+              setHoverRect(el ? el.getBoundingClientRect() : null);
+              setHoverLabel(el ? describeElement(el) : '');
+            }}
+            onMouseLeave={() => { setHoverRect(null); setHoverLabel(''); }}
+            onClick={(e) => {
+              const el = pickAnchor(e.clientX, e.clientY, inspectRef.current);
+              if (!el) { setInspectData(null); return; }
+              const r = el.getBoundingClientRect();
+              setInspectData({
+                x: e.clientX, y: e.clientY,
+                selector: selectorFor(el),
+                label: describeElement(el),
+                rect: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) },
+              });
+            }}
+          />
+          {hoverRect && (
+            <div className="fixed z-[9996] pointer-events-none rounded" style={{
+              left: hoverRect.left, top: hoverRect.top,
+              width: hoverRect.width, height: hoverRect.height,
+              border: '2px solid rgba(56,189,248,0.9)', background: 'rgba(56,189,248,0.10)',
+            }} />
+          )}
+          {hoverLabel && (
+            <div className="fixed z-[9996] pointer-events-none bg-slate-900/95 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 max-w-[420px] truncate"
+              style={{ left: Math.max(8, hoverRect?.left ?? 8), top: Math.max(8, (hoverRect?.top ?? 8) - 28) }}
+            >{hoverLabel}</div>
+          )}
+          {inspectData && (
+            <Popup x={inspectData.x} y={inspectData.y} width={320}
+              className="bp-popup z-[9999] w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3"
+              sheetClassName="bg-slate-900 border-t border-slate-700 p-4"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-semibold text-slate-100 flex items-center gap-1.5">
+                  <Crosshair className="w-4 h-4 text-cyan-400" /> Element info
+                </span>
+                <button onClick={() => setInspectData(null)} className="text-slate-500 hover:text-slate-300"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="text-[11px] text-slate-300 break-words">{inspectData.label}</div>
+              {inspectData.selector && (
+                <button onClick={() => copyText(inspectData.selector, 'Selector copied')}
+                  className="mt-1 flex items-center gap-1 text-[10px] font-mono text-slate-500 hover:text-slate-300 w-full min-w-0 text-left"
+                ><Copy className="w-3 h-3 shrink-0" /><span className="truncate">{inspectData.selector}</span></button>
+              )}
+              <div className="mt-2 grid grid-cols-2 gap-1 text-[11px] text-slate-400">
+                <span>size {inspectData.rect.w}×{inspectData.rect.h}px</span>
+                <span>at {inspectData.rect.x}, {inspectData.rect.y}px</span>
+                <span className="col-span-2">viewport {(inspectData.rect.x / window.innerWidth * 100).toFixed(1)}%, {(inspectData.rect.y / window.innerHeight * 100).toFixed(1)}%</span>
+              </div>
+              <div className="flex gap-1.5 mt-2.5">
+                <button onClick={() => copyText(JSON.stringify({ selector: inspectData.selector, rect: inspectData.rect }, null, 2), 'JSON copied')}
+                  className="text-[11px] px-2 py-1 rounded bg-slate-700/70 text-slate-200 hover:bg-slate-600">Copy JSON</button>
+                <button onClick={() => { setInspectMode(false); setInspectData(null); setHoverRect(null); setHoverLabel(''); }}
+                  className="text-[11px] px-2 py-1 rounded bg-cyan-700/60 text-cyan-100 hover:bg-cyan-600">Exit inspector</button>
+              </div>
+            </Popup>
+          )}
+        </>
+      )}
+
+      {/* Ghost markers — where deleted pins used to be (admin toggle) */}
+      {showGhosts && isAdmin && ghostList
+        .filter((g) => g.snapshot?.page_path === page)
+        .map((g) => {
+          const pos = resolvePin(g.snapshot);
+          return (
+            <button
+              key={`g-${g.id}`}
+              className="bp-marker fixed z-[9989] -translate-x-1/2 -translate-y-full opacity-40 hover:opacity-90 transition"
+              style={{ left: pos.x, top: pos.y }}
+              title={`Deleted pin — ${String(g.snapshot.note || '').slice(0, 60)}`}
+              onClick={(e) => { e.stopPropagation(); setGhostDetail(g); }}
+            >
+              <Ghost className="w-6 h-6 text-slate-400" />
+            </button>
+          );
+        })}
+
+      {/* Ghost detail — read the deleted pin, restore it if it was a mistake */}
+      {ghostDetail && (
+        <Popup x={resolvePin(ghostDetail.snapshot).x + 16} y={resolvePin(ghostDetail.snapshot).y + 8} width={288}
+          className="bp-popup z-[9999] w-72 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3"
+          sheetClassName="bg-slate-900 border-t border-slate-700 p-4"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-slate-100 flex items-center gap-1.5">
+              <Ghost className="w-4 h-4 text-slate-400" /> Deleted pin
+            </span>
+            <button onClick={() => setGhostDetail(null)} className="text-slate-500 hover:text-slate-300"><X className="w-4 h-4" /></button>
+          </div>
+          <p className="text-sm text-slate-200 mt-2 whitespace-pre-wrap">{ghostDetail.snapshot.note}</p>
+          <div className="text-[11px] text-slate-500 mt-2">
+            {ghostDetail.snapshot.username || 'unknown'} · deleted by {ghostDetail.actor_name || 'admin'} · {relTime(ghostDetail.created_at)}
+          </div>
+          <button onClick={() => restorePin(ghostDetail)}
+            className="mt-2.5 text-xs px-2.5 py-1.5 rounded bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50 flex items-center gap-1"
+          ><RotateCcw className="w-3 h-3" /> Restore pin</button>
+        </Popup>
+      )}
+
       {/* Pin detail card — anchored next to the pin's live position */}
       {detail && !ctx && (
         <Popup
@@ -1043,7 +1204,7 @@ const BetaPinLayer = () => {
                 <>
                   <button onClick={() => setStatus(detail, 'fixed')} className="text-xs px-2 py-1 rounded bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50">Fixed</button>
                   <button onClick={() => setStatus(detail, 'hidden')} className="text-xs px-2 py-1 rounded bg-zinc-600/30 text-zinc-300 hover:bg-zinc-600/50">Hide</button>
-                  <button onClick={() => setStatus(detail, 'removed')} className="text-xs px-2 py-1 rounded bg-red-600/30 text-red-200 hover:bg-red-600/50 flex items-center gap-1">
+                  <button onClick={() => deletePin(detail)} title="Actually deletes the pin — recoverable in History" className="text-xs px-2 py-1 rounded bg-red-600/30 text-red-200 hover:bg-red-600/50 flex items-center gap-1">
                     <Trash2 className="w-3 h-3" /> Remove
                   </button>
                 </>
@@ -1110,7 +1271,7 @@ const BetaPinLayer = () => {
               <button className="ctx-item" onClick={() => setStatus(ctx.pin, 'hidden')}>
                 <EyeOff className="w-4 h-4 text-zinc-400" /> Hide pin
               </button>
-              <button className="ctx-item text-red-300 hover:bg-red-500/10" onClick={() => setStatus(ctx.pin, 'removed')}>
+              <button className="ctx-item text-red-300 hover:bg-red-500/10" onClick={() => deletePin(ctx.pin)}>
                 <Trash2 className="w-4 h-4" /> Remove
               </button>
             </>
@@ -1440,13 +1601,35 @@ const BetaPinLayer = () => {
         </div>
       )}
 
+      {/* Admin sidebar — thin desktop-only tool column on the right edge.
+          Hidden on mobile/tablet (lg+): inspect, ghosts, viewer. */}
+      {isAdmin && canUse && !dropMode && !moving && (
+        <div className="hidden lg:flex fixed right-0 top-1/3 z-[46] flex-col items-center gap-1 bg-slate-900/90 border border-r-0 border-slate-700 rounded-l-xl py-2 px-1.5 shadow-xl">
+          <button
+            onClick={() => { setInspectMode((v) => !v); setInspectData(null); }}
+            className={`p-2 rounded-lg transition ${inspectMode ? 'bg-cyan-600/30 text-cyan-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+            title="Inspect elements — hover highlights, click for position info (no pin dropped)"
+          ><Crosshair className="w-4 h-4" /></button>
+          <button
+            onClick={() => setShowGhosts((v) => !v)}
+            className={`p-2 rounded-lg transition ${showGhosts ? 'bg-violet-600/30 text-violet-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+            title="Ghost pins — show where deleted pins were"
+          ><Ghost className="w-4 h-4" /></button>
+          <button
+            onClick={() => setPanelOpen((v) => !v)}
+            className={`p-2 rounded-lg transition ${panelOpen ? 'bg-blue-600/30 text-blue-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+            title="Admin Viewer — pins, messages, polls & history"
+          ><MessageSquare className="w-4 h-4" /></button>
+        </div>
+      )}
+
       {/* Admin beta viewer panel */}
       {isAdmin && panelOpen && (
         <div className="fixed top-0 right-0 bottom-0 z-[9988] w-96 bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400 mr-1">Admin Viewer</span>
-              {['pins', 'messages', 'polls'].map((t) => (
+              {['pins', 'messages', 'polls', 'history'].map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -1533,6 +1716,50 @@ const BetaPinLayer = () => {
                 </label>
               ))}
               {!allPins.length && <p className="text-sm text-slate-500 text-center py-8">No pins yet</p>}
+            </div>
+          )}
+
+          {tab === 'history' && (
+            <div className="flex-1 overflow-y-auto scrollbar-3d">
+              <div className="px-3 py-2 border-b border-slate-800 text-[11px] text-slate-500">
+                Deleted/restored pins — restore brings one back as open; the
+                ghost toggle shows where deleted pins used to be.
+              </div>
+              {historyItems.map((h) => {
+                const s = h.snapshot || {};
+                const superseded = h.event === 'deleted' && historyItems.some(
+                  (r) => r.event === 'restored' && r.pin_id === h.pin_id
+                );
+                return (
+                  <div key={h.id} className="px-3 py-2 border-b border-slate-800/60">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: sevOf(s.severity).color }} />
+                      <span className={`text-[10px] px-1.5 rounded-full ${h.event === 'deleted' ? 'bg-red-500/20 text-red-300' : 'bg-emerald-500/20 text-emerald-300'}`}>{h.event}</span>
+                      <span className="text-[10px] text-slate-500 truncate">{s.page_path}</span>
+                      <span className="text-[10px] text-slate-600 ml-auto shrink-0">{relTime(h.created_at)}</span>
+                    </div>
+                    <p className="text-sm text-slate-200 mt-1 whitespace-pre-wrap">{s.note}</p>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      {s.username || 'unknown'} → {h.actor_name || 'admin'}{superseded ? ' · already restored' : ''}
+                    </div>
+                    <div className="flex gap-1.5 mt-1.5">
+                      {h.event === 'deleted' && !superseded && (
+                        <button onClick={() => restorePin(h)}
+                          className="text-[11px] px-2 py-1 rounded bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50 flex items-center gap-1"
+                        ><RotateCcw className="w-3 h-3" /> Restore</button>
+                      )}
+                      {s.page_path && s.page_path !== page && (
+                        <button onClick={() => { setPanelOpen(false); navigate(s.page_path); }}
+                          className="text-[11px] px-2 py-1 rounded bg-slate-700/60 text-slate-200 hover:bg-slate-600 flex items-center gap-1"
+                        ><ExternalLink className="w-3 h-3" /> Go to page</button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {!historyItems.length && (
+                <p className="text-sm text-slate-500 text-center py-8">No pin history yet — deleted pins show up here.</p>
+              )}
             </div>
           )}
 
