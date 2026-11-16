@@ -1848,23 +1848,25 @@ const Dashboard = () => {
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2 flex-1 min-w-0">
                     <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white shrink-0">Shopping List</h2>
                     {lists.length > 0 && (
-                      <CustomDropdownList
-                        items={lists}
-                        value={activeList}
-                        onChange={(list) => setActiveList(list)}
-                        renderValue={(list) => `${list.name} (${list.item_count || 0} items)`}
-                        renderItem={(list) => (
-                          <div className="flex flex-col">
-                            <span className="font-medium">{list.name}</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              {list.item_count || 0} items
-                            </span>
-                          </div>
-                        )}
-                        searchable={lists.length > 5}
-                        searchPlaceholder="Search lists..."
-                        className="min-w-0 flex-1 basis-48 sm:max-w-xs"
-                      />
+                      <div data-tutorial="list-dropdown" className="min-w-0 flex-1 basis-48 sm:max-w-xs">
+                        <CustomDropdownList
+                          items={lists}
+                          value={activeList}
+                          onChange={(list) => setActiveList(list)}
+                          renderValue={(list) => `${list.name} (${list.item_count || 0} items)`}
+                          renderItem={(list) => (
+                            <div className="flex flex-col">
+                              <span className="font-medium">{list.name}</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {list.item_count || 0} items
+                              </span>
+                            </div>
+                          )}
+                          searchable={lists.length > 5}
+                          searchPlaceholder="Search lists..."
+                          className="w-full"
+                        />
+                      </div>
                     )}
                   </div>
                 </div>
@@ -2573,16 +2575,18 @@ const Dashboard = () => {
             />
 
             {/* Budget Tracker */}
-            <BudgetTracker 
-              items={items}
-              totalCost={totalCost}
-              listId={activeList?.id}
-            />
+            <div data-tutorial="budget-tracker">
+              <BudgetTracker
+                items={items}
+                totalCost={totalCost}
+                listId={activeList?.id}
+              />
+            </div>
 
             {/* Leveling System */}
             <LevelingSystem userId={user?.id || user?.username} />
 
-            <div className="card">
+            <div className="card" data-tutorial="suggestions">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold flex items-center">
                   <Lightbulb className="w-5 h-5 mr-2 text-yellow-500" />

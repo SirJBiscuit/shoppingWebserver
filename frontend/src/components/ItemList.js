@@ -210,7 +210,7 @@ const ItemListContent = (props) => {
 
   return (
     <>
-    <div className={`space-y-${Math.floor(itemSpacing / 4)} shopping-list-scroll custom-scrollbar max-h-[calc(100vh-400px)] pr-2 ${fontSizeClass}`}>
+    <div data-tutorial="item-row" className={`space-y-${Math.floor(itemSpacing / 4)} shopping-list-scroll custom-scrollbar max-h-[calc(100vh-400px)] pr-2 ${fontSizeClass}`}>
       {/* Button-label toggle — a pill with a mini switch so the control
           reads as a setting, not a stray text link. Labels show by
           default; the choice persists in localStorage. */}

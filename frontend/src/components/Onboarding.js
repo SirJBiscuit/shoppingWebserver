@@ -8,6 +8,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
   const [tutorialMode, setTutorialMode] = useState(null); // 'quick' or 'full'
   const [currentStep, setCurrentStep] = useState(0);
   const [showSkipMessage, setShowSkipMessage] = useState(false);
+  const [targetRect, setTargetRect] = useState(null); // spotlight: focused element bounds
   const modalRef = useRef(null);
   const nextButtonRef = useRef(null);
 
@@ -399,15 +400,58 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
     if (step.focusElement) {
       const element = document.querySelector(step.focusElement);
       if (element) {
-        element.classList.add('tutorial-highlight');
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
   }, [currentStep, tutorialMode, steps]);
 
+  // Spotlight: after the highlight effect scrolls the target into view, keep
+  // its rect measured so the dim cutout + tooltip card track scroll/resize.
+  useEffect(() => {
+    if (!tutorialMode || !steps[currentStep]) { setTargetRect(null); return; }
+    const sel = steps[currentStep].focusElement;
+    if (!sel) { setTargetRect(null); return; }
+
+    const measure = () => {
+      const el = document.querySelector(sel);
+      if (el) {
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 || r.height > 0) {
+          setTargetRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+          return;
+        }
+      }
+      setTargetRect(null);
+    };
+
+    const t = setTimeout(measure, 350); // wait for the smooth scroll to land
+    measure();
+    window.addEventListener('scroll', measure, true); // capture: nested scroll areas
+    window.addEventListener('resize', measure);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('scroll', measure, true);
+      window.removeEventListener('resize', measure);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, tutorialMode]);
+
   if (!isOpen) return null;
 
   const step = steps[currentStep];
+
+  // Spotlight geometry: padded cutout rect + where to anchor the card.
+  const CARD_W = 384, CARD_H = 420, M = 12, P = 8;
+  const spotlighting = tutorialMode && !showSkipMessage && !!targetRect;
+  const spot = spotlighting
+    ? { x: targetRect.left - P, y: targetRect.top - P, w: targetRect.width + P * 2, h: targetRect.height + P * 2 }
+    : null;
+  const cardStyle = !spot ? {} : (() => {
+    const below = window.innerHeight - (spot.y + spot.h) > CARD_H;
+    const top = below ? spot.y + spot.h + M : Math.max(M, spot.y - CARD_H - M);
+    const left = Math.min(Math.max(spot.x + spot.w / 2 - CARD_W / 2, M), Math.max(M, window.innerWidth - CARD_W - M));
+    return { position: 'fixed', top, left, width: 'min(24rem, calc(100vw - 24px))', maxHeight: '75vh' };
+  })();
 
   return (
     <Portal><AnimatePresence>
@@ -415,7 +459,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-[70] p-2 sm:p-4"
+        className={`fixed inset-0 flex items-center justify-center z-[70] p-2 sm:p-4${spot && tutorialMode && !showSkipMessage ? '' : ' bg-black bg-opacity-60 backdrop-blur-sm'}`}
         onClick={(e) => {
           // Close on backdrop click
           if (e.target === e.currentTarget) {
@@ -427,13 +471,25 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
         aria-labelledby="onboarding-title"
         aria-describedby="onboarding-description"
       >
+        {/* Spotlight cutout — a padded ring whose box-shadow dims the page
+            except over the focused element. Springs between step targets. */}
+        {spot && (
+          <motion.div
+            className="fixed top-0 left-0 rounded-xl pointer-events-none"
+            initial={false}
+            animate={{ x: spot.x, y: spot.y, width: spot.w, height: spot.h }}
+            transition={{ type: 'spring', stiffness: 180, damping: 26 }}
+            style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.6), 0 0 0 3px rgb(59 130 246), 0 0 30px rgba(59,130,246,0.45)' }}
+          />
+        )}
         <motion.div
           ref={modalRef}
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="card max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+          className={`card ${spot ? '' : 'max-w-2xl w-full'} max-h-[90vh] overflow-y-auto shadow-2xl`}
+          style={cardStyle}
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
