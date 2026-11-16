@@ -9,7 +9,7 @@ import CustomKeypad from './CustomKeypad';
 import CustomRadialMenu from './CustomRadialMenu';
 import { useEditor } from '../contexts/EditorContext';
 import { EditableContainer } from './editor/EditorOverlay';
-import { Portal } from '../utils/autoPlacement';
+import { Portal, Popup } from '../utils/autoPlacement';
 import ItemIcon from './ItemIcon';
 
 const NextItemSuggestion = (props) => {
@@ -79,7 +79,8 @@ const NextItemSuggestionContent = ({
     }, 8000);
     return () => { clearTimeout(hideT); clearTimeout(askT); };
   }, [showGuide]);
-  const [showHelp, setShowHelp] = useState(false);
+  const [helpPos, setHelpPos] = useState(null);    // help tooltip anchor {x,y}
+  const [ctxMenu, setCtxMenu] = useState(null);    // right-click menu {x,y}
   const [isChecked, setIsChecked] = useState(nextItem?.is_checked || false);
   const [quickPrice, setQuickPrice] = useState(nextItem?.price ? nextItem.price.toString() : '');
   const [showPriceInput, setShowPriceInput] = useState(false);
@@ -101,29 +102,19 @@ const NextItemSuggestionContent = ({
     const detectDevice = () => {
       const width = window.innerWidth;
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      
-      console.log('🔍 Device Detection:', {
-        width,
-        isTouchDevice,
-        maxTouchPoints: navigator.maxTouchPoints,
-        userAgent: navigator.userAgent
-      });
-      
+
       // Device detection based on screen width AND touch capability
       // Mobile: < 500px with touch
       // Tablet: 500-1023px with touch
       // Desktop: >= 1024px (regardless of touch)
-      
+
       if (width < 500 && isTouchDevice) {
-        console.log('📱 Detected: MOBILE (< 500px with touch)');
         setDeviceType('mobile');
       }
       else if (width >= 500 && width < 1024 && isTouchDevice) {
-        console.log('📱 Detected: TABLET (500-1023px with touch)');
         setDeviceType('tablet');
       }
       else {
-        console.log('🖥️ Detected: DESKTOP (>= 1024px or no touch)');
         setDeviceType('desktop');
       }
     };
@@ -419,6 +410,7 @@ const NextItemSuggestionContent = ({
   };
 
   return (
+    <>
     <motion.div
       data-looking-for-next
       initial={{ opacity: 0, y: -10 }}
@@ -495,15 +487,20 @@ const NextItemSuggestionContent = ({
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowHelp(!showHelp)}
+              onClick={(e) => {
+                if (helpPos) { setHelpPos(null); return; }
+                const r = e.currentTarget.getBoundingClientRect();
+                setHelpPos({ x: r.left, y: r.bottom + 8 });
+              }}
               className={`p-3 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center ${
-                showHelp 
-                  ? 'bg-blue-500 text-white' 
+                helpPos
+                  ? 'bg-blue-500 text-white'
                   : 'hover:bg-green-200 dark:hover:bg-green-800'
               }`}
               aria-label="Show help guide"
+              title="Button guide"
             >
-              <HelpCircle className={`w-5 h-5 ${showHelp ? 'text-white' : 'text-green-700 dark:text-green-300'}`} />
+              <HelpCircle className={`w-5 h-5 ${helpPos ? 'text-white' : 'text-green-700 dark:text-green-300'}`} />
             </button>
             <button
               onClick={onHide}
@@ -515,25 +512,15 @@ const NextItemSuggestionContent = ({
           </div>
         </div>
 
-        {/* Store Name */}
-        {storeName && (
-          <div className="mb-3 flex items-center gap-2 text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Shopping at:</span>
-            <span className="font-semibold text-blue-600 dark:text-blue-400">🏪 {storeName}</span>
-          </div>
-        )}
-
-        {/* Help Guide Panel */}
-        <AnimatePresence>
-          {showHelp && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="mb-4 overflow-hidden"
-            >
-              <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg p-4">
+        {/* Button Guide — tooltip popup anchored to the ? button */}
+        <Portal><AnimatePresence>
+          {helpPos && (
+            <>
+              <div className="fixed inset-0 z-[100]" onClick={() => setHelpPos(null)} />
+              <Popup x={helpPos.x} y={helpPos.y} width={300}
+                className="z-[101] w-[300px] bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-300 dark:border-blue-700 rounded-xl shadow-2xl p-4"
+                sheetClassName="bg-blue-50 dark:bg-blue-900/30 border-t-2 border-blue-300 dark:border-blue-700 p-4"
+              >
                 <h4 className="font-bold text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
                   <HelpCircle className="w-5 h-5" />
                   Button Guide
@@ -613,13 +600,20 @@ const NextItemSuggestionContent = ({
                     </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
+              </Popup>
+            </>
           )}
-        </AnimatePresence>
+        </AnimatePresence></Portal>
 
-        {/* Item Info Row - Mobile Responsive */}
-        <div className="flex items-start gap-3 sm:gap-4 mb-3">
+        {/* Item Info Row - Mobile Responsive (right-click opens actions) */}
+        <div
+          className="flex items-start gap-3 sm:gap-4 mb-3"
+          onContextMenu={(e) => {
+            if (!moreActions.length) return;
+            e.preventDefault();
+            setCtxMenu({ x: e.clientX, y: e.clientY });
+          }}
+        >
           {/* Large Icon */}
           <span className="text-5xl sm:text-6xl flex-shrink-0"><ItemIcon icon={nextItem.item_icon} emojiClass="text-5xl sm:text-6xl" imgClass="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover" /></span>
           
@@ -714,14 +708,15 @@ const NextItemSuggestionContent = ({
               {storeName && (
                 <div className="flex items-center gap-2 bg-blue-500 px-4 py-2 rounded-xl shadow-md">
                   <Store className="w-5 h-5 text-white" />
-                  <span className="text-base font-bold text-white">
-                    {storeName}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-100 leading-none">Shopping at</span>
+                    <span className="text-base font-bold text-white leading-tight">{storeName}</span>
+                  </div>
                 </div>
               )}
               
               {/* Category - Always show if available */}
-              {(nextItem.category_name || nextItem.category) && (
+              {showCategory && (nextItem.category_name || nextItem.category) && (
                 <div className="flex items-center gap-2 bg-orange-500 px-4 py-2 rounded-xl shadow-md">
                   <span className="text-base font-bold text-white">
                     📍 {nextItem.category_name || nextItem.category}
@@ -730,7 +725,7 @@ const NextItemSuggestionContent = ({
               )}
               
               {/* Default Price */}
-              {nextItem.price && (
+              {showPrice && nextItem.price && (
                 <div className="flex items-center gap-2 bg-green-500 px-4 py-2 rounded-xl shadow-md">
                   <DollarSign className="w-5 h-5 text-white" />
                   <div className="flex flex-col">
@@ -744,12 +739,12 @@ const NextItemSuggestionContent = ({
                 </div>
               )}
               
-              {/* Confirmed Aisle */}
-              {nextItem.aisle && (
-                <div className="flex items-center gap-2 bg-purple-500 px-4 py-2 rounded-xl shadow-md">
+              {/* Confirmed Aisle — blue/white badge */}
+              {showAisle && nextItem.aisle && (
+                <div className="flex items-center gap-2 bg-blue-600 px-4 py-2 rounded-xl shadow-md">
                   <MapPin className="w-5 h-5 text-white" />
                   <div className="flex flex-col">
-                    <span className="text-xs text-purple-100 leading-none">Aisle</span>
+                    <span className="text-xs text-blue-100 leading-none">Aisle</span>
                     <span className="text-lg font-bold text-white leading-tight">
                       {nextItem.aisle}
                     </span>
@@ -758,7 +753,7 @@ const NextItemSuggestionContent = ({
               )}
               
               {/* Most Likely Aisle - Only show when we have a predicted aisle number from MDL */}
-              {!nextItem.aisle && predictedAisle && (
+              {showAisle && !nextItem.aisle && predictedAisle && (
                 <div className="flex items-center gap-2 bg-amber-500 px-4 py-2 rounded-xl shadow-md">
                   <MapPin className="w-5 h-5 text-white" />
                   <div className="flex flex-col">
@@ -823,6 +818,9 @@ const NextItemSuggestionContent = ({
           </div>
         </div>
 
+        {/* Section separator */}
+        <div className="border-t-2 border-dashed border-green-300/70 dark:border-green-700/60 mb-3" />
+
         {/* Up Next Preview - Moved here */}
         {peekNextItem && (
           <div className="mb-3 p-3 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border-2 border-green-300 dark:border-green-700 rounded-lg">
@@ -884,7 +882,6 @@ const NextItemSuggestionContent = ({
                     {/* Mobile: Bottom sheet (no backdrop) */}
                     {deviceType === 'mobile' && (
                       <Portal><div className="fixed bottom-0 left-0 right-0 z-[101]">
-                        {console.log('🟢 Rendering MOBILE number pad')}
                         <CustomNumberPad
                           value={quickPrice}
                           onChange={setQuickPrice}
@@ -916,7 +913,6 @@ const NextItemSuggestionContent = ({
                     {/* Tablet: Centered widget - uses CustomNumberPad with device="tablet" */}
                     {deviceType === 'tablet' && (
                       <Portal><div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101]">
-                        {console.log('🔵 Rendering TABLET number pad with device="tablet"')}
                         <CustomNumberPad
                           value={quickPrice}
                           onChange={setQuickPrice}
@@ -948,7 +944,6 @@ const NextItemSuggestionContent = ({
                     {/* Desktop: Draggable widget */}
                     {deviceType === 'desktop' && (
                       <Portal><div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101]">
-                        {console.log('🟣 Rendering DESKTOP number pad')}
                         <CustomNumberPad
                           value={quickPrice}
                           onChange={setQuickPrice}
@@ -1062,6 +1057,9 @@ const NextItemSuggestionContent = ({
             </div>
           )}
           
+          {/* Section separator */}
+          <div className="border-t-2 border-dashed border-green-300/70 dark:border-green-700/60" />
+
           {/* Quick Actions - Clean Layout */}
           <div className="flex items-center justify-center gap-3">
             {/* Skip Button */}
@@ -1219,6 +1217,38 @@ const NextItemSuggestionContent = ({
         )}
       </div>
 
+      {/* Right-click menu — same actions as the More button */}
+      <Portal><AnimatePresence>
+        {ctxMenu && (
+          <>
+            <div
+              className="fixed inset-0 z-[100]"
+              onClick={() => setCtxMenu(null)}
+              onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null); }}
+            />
+            <Popup x={ctxMenu.x} y={ctxMenu.y} width={208}
+              className="z-[101] w-52 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl py-1.5 text-sm"
+              sheetClassName="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3"
+            >
+              <div onClick={(e) => e.stopPropagation()}>
+                {moreActions.map((a, i) => {
+                  const Icon = a.icon;
+                  return (
+                    <button key={i}
+                      onClick={() => { setCtxMenu(null); if (a.onClick) a.onClick(); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                    >
+                      <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      {a.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </Popup>
+          </>
+        )}
+      </AnimatePresence></Portal>
+
       {/* Mobile More Actions - bottom sheet (mobile only) */}
       <Portal><AnimatePresence>
         {showMoreActions && (
@@ -1267,6 +1297,10 @@ const NextItemSuggestionContent = ({
         )}
       </AnimatePresence></Portal>
     </motion.div>
+
+      {/* Spacing bar — visual break between the suggestion card and the list */}
+      <div className="mx-auto -mt-4 mb-6 h-1.5 w-28 rounded-full bg-gradient-to-r from-transparent via-green-400/70 to-transparent dark:via-green-600/70" />
+    </>
   );
 };
 
