@@ -173,7 +173,8 @@ const runMigrations = async () => {
     { file: '072_mdl_quality_gate.sql', name: 'MDL Data Quality Gate' },
     { file: '073_mdl_quality_votes.sql', name: 'MDL Quality Gate Votes' },
     { file: '074_beta_pins.sql', name: 'Beta Pins & Feedback Replies' },
-    { file: '075_beta_polls_private_pins.sql', name: 'Beta Polls & Private Pins' }
+    { file: '075_beta_polls_private_pins.sql', name: 'Beta Polls & Private Pins' },
+    { file: '076_beta_pin_element_anchor.sql', name: 'Beta Pin Element Anchors' }
   ];
 
   for (const migration of migrations) {

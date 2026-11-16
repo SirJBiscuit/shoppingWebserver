@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
+import { Popup } from '../../utils/autoPlacement';
 import {
   MapPin, Plus, X, Eye, EyeOff, MessageSquare, ChevronRight,
   Check, Clock, Trash2, Layers, ExternalLink,
@@ -42,16 +43,67 @@ const relTime = (iso) => {
   return `${Math.floor(s / 86400)}d ago`;
 };
 
-// Cluster pins that overlap within ~2.5% of the viewport on both axes.
-// Returns [{ x, y, pins: [...] }] so overlapping markers collapse into one
-// fan-out badge — the layering system for stacked pins.
-const clusterPins = (pins) => {
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
+
+// Tiny visible label under each floating button — same scheme the
+// dashboard floating buttons use.
+const FabLabel = ({ children }) => (
+  <span className="text-[9px] font-semibold text-slate-200 bg-slate-900/85 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap pointer-events-none">
+    {children}
+  </span>
+);
+
+// ---------------------------------------------------------------------------
+// Element anchoring — a pin grabs the DOM element under the click and rides
+// it (live getBoundingClientRect) so it survives scrolling, reflow and
+// responsive layout changes. Stored: a generated CSS path + click offset
+// inside the element rect. x_pct/y_pct stay as the fallback when the
+// selector no longer resolves.
+// ---------------------------------------------------------------------------
+
+// Best-effort CSS path for an element. Prefers ids, otherwise builds
+// tag.class:nth-of-type segments (max depth 6) so the path survives small
+// DOM changes. Returns null for body/document.
+const selectorFor = (el) => {
+  if (!el || el === document.body || el === document.documentElement) return null;
+  const parts = [];
+  let cur = el;
+  while (cur && cur !== document.body && cur !== document.documentElement) {
+    if (cur.id) { parts.unshift(`#${CSS.escape(cur.id)}`); break; }
+    let part = cur.tagName.toLowerCase();
+    const cls = typeof cur.className === 'string'
+      ? cur.className.trim().split(/\s+/).filter((c) => c && !c.includes(':')).slice(0, 2)
+      : [];
+    if (cls.length) part += cls.map((c) => `.${CSS.escape(c)}`).join('');
+    if (cur.parentElement) {
+      const sibs = [...cur.parentElement.children].filter((c) => c.tagName === cur.tagName);
+      if (sibs.length > 1) part += `:nth-of-type(${sibs.indexOf(cur) + 1})`;
+    }
+    parts.unshift(part);
+    cur = cur.parentElement;
+    if (parts.length >= 6) break;
+  }
+  return parts.join(' > ');
+};
+
+// Element truly under a point — the capture overlay sits on top, so we hide
+// it for a sync peek at elementsFromPoint, then skip our own UI bits.
+const pickAnchor = (x, y, overlayEl) => {
+  if (overlayEl) overlayEl.style.display = 'none';
+  const stack = document.elementsFromPoint
+    ? document.elementsFromPoint(x, y)
+    : [document.elementFromPoint(x, y)];
+  if (overlayEl) overlayEl.style.display = '';
+  return stack.find((el) => el && !el.closest('.bp-marker, .bp-floating, .bp-popup')) || null;
+};
+
+// Cluster resolved marker positions (viewport px) within ~42px of each other.
+const clusterPositions = (items) => {
   const clusters = [];
-  for (const p of pins) {
-    const hit = clusters.find((c) =>
-      Math.abs(c.x - p.x_pct) < 2.5 && Math.abs(c.y - p.y_pct) < 2.5);
-    if (hit) hit.pins.push(p);
-    else clusters.push({ x: Number(p.x_pct), y: Number(p.y_pct), pins: [p] });
+  for (const it of items) {
+    const hit = clusters.find((c) => Math.abs(c.x - it.pos.x) < 42 && Math.abs(c.y - it.pos.y) < 42);
+    if (hit) hit.pins.push(it.p);
+    else clusters.push({ x: it.pos.x, y: it.pos.y, anchored: it.pos.anchored, pins: [it.p] });
   }
   return clusters;
 };
@@ -81,7 +133,10 @@ const BetaPinLayer = () => {
   const [ctx, setCtx] = useState(null);              // admin context menu {x,y,pin}
   const [fanout, setFanout] = useState(null);        // cluster fan-out {x,y,pins}
   const [error, setError] = useState('');
-
+  const [docH, setDocH] = useState(0);               // document height for fallback positions
+  const [tick, setTick] = useState(0);               // scroll/layout tick — re-resolve pins
+  const [hoverRect, setHoverRect] = useState(null);  // drop-mode element highlight
+  const dropRef = useRef(null);
   // Admin viewer panel
   const [panelOpen, setPanelOpen] = useState(false);
   const [tab, setTab] = useState('pins');
@@ -98,7 +153,6 @@ const BetaPinLayer = () => {
   const [adminPolls, setAdminPolls] = useState([]);  // admin view + tallies
   const [pollNotes, setPollNotes] = useState([]);    // voter notes
   const [newPoll, setNewPoll] = useState({ title: '', description: '' });
-  const ctxRef = useRef(null);
 
   // -------------------------------------------------------------- data
   const loadPagePins = useCallback(async () => {
@@ -145,9 +199,16 @@ const BetaPinLayer = () => {
 
   useEffect(() => { if (canUse) { loadPagePins(); loadPolls(); } }, [canUse, loadPagePins, loadPolls]);
   useEffect(() => { if (pollsOpen) loadPolls(); }, [pollsOpen, loadPolls]);
+  useEffect(() => { if (isAdmin) loadAdminPins(); }, [isAdmin, loadAdminPins]);
   useEffect(() => { if (panelOpen) { loadAdminPins(); loadFeedback(); loadAdminPolls(); } },
     [panelOpen, loadAdminPins, loadFeedback, loadAdminPolls]);
-  useEffect(() => { setDetail(null); setFanout(null); setCtx(null); }, [page]);
+  useEffect(() => {
+    setDetail(null); setFanout(null); setCtx(null);
+    if (pendingDetail.current) {
+      setDetail(pendingDetail.current);
+      pendingDetail.current = null;
+    }
+  }, [page]);
 
   useEffect(() => {
     const esc = (e) => {
@@ -161,6 +222,29 @@ const BetaPinLayer = () => {
 
   useEffect(() => { localStorage.setItem('betaPinsVisible', showPins ? '1' : '0'); }, [showPins]);
 
+  // Track document height — used for the doc-% fallback when a pin's
+  // element anchor no longer resolves.
+  useEffect(() => {
+    const measure = () => setDocH(document.documentElement.scrollHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(document.body);
+    window.addEventListener('resize', measure);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+  }, [page]);
+
+  // Element-anchored pins re-resolve from live rects — bump a tick on
+  // scroll (rAF-throttled) so fixed markers track their elements.
+  useEffect(() => {
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setTick((t) => t + 1));
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { window.removeEventListener('scroll', onScroll); cancelAnimationFrame(raf); };
+  }, []);
+
   // Close context menu / fanout on any outside click
   useEffect(() => {
     if (!ctx && !fanout) return;
@@ -169,14 +253,84 @@ const BetaPinLayer = () => {
     return () => window.removeEventListener('click', off);
   }, [ctx, fanout]);
 
-  const clusters = useMemo(() => clusterPins(pins), [pins]);
+  // Resolve every pin to a viewport position. Element-anchored pins track
+  // their DOM element live; others fall back to the stored document-%.
+  const resolvePin = (p) => {
+    if (p.element_selector) {
+      try {
+        const el = document.querySelector(p.element_selector);
+        if (el) {
+          const r = el.getBoundingClientRect();
+          const ox = p.offset_x !== null && p.offset_x !== undefined ? Number(p.offset_x) : 0.5;
+          const oy = p.offset_y !== null && p.offset_y !== undefined ? Number(p.offset_y) : 0.5;
+          return { x: r.left + ox * r.width, y: r.top + oy * r.height, anchored: true };
+        }
+      } catch { /* stale/invalid selector — fall through */ }
+    }
+    const docW = document.documentElement.clientWidth || window.innerWidth;
+    const dh = docH || window.innerHeight;
+    return {
+      x: (Number(p.x_pct) / 100) * docW,
+      y: (Number(p.y_pct) / 100) * dh - window.scrollY,
+      anchored: false,
+      // Selector existed but its element isn't mounted right now (closed
+      // modal/panel/etc.) — hide the marker until it exists again.
+      hidden: !!p.element_selector,
+    };
+  };
+
+  const positioned = useMemo(
+    () => pins.map((p) => ({ p, pos: resolvePin(p) })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pins, docH, tick, page]
+  );
+  const clusters = useMemo(
+    () => clusterPositions(positioned.filter((it) => !it.pos.hidden)),
+    [positioned]
+  );
+  const openPinCount = useMemo(
+    () => allPins.filter((p) => p.status === 'open' || p.status === 'in_progress').length,
+    [allPins]
+  );
+
+  // Admin: jump from the pins list to a pin — navigate if it's on another
+  // page, then reopen the detail card once the page renders.
+  const pendingDetail = useRef(null);
+  const goToPin = (p) => {
+    setPanelOpen(false);
+    if (p.page_path !== page) {
+      pendingDetail.current = p;
+      navigate(p.page_path);
+    } else {
+      setDetail(p);
+    }
+  };
 
   // -------------------------------------------------------------- actions
   const beginDrop = (e) => {
-    const xPct = (e.clientX / window.innerWidth) * 100;
-    const yPct = (e.clientY / window.innerHeight) * 100;
-    setDraft({ xPct, yPct, px: e.clientX, py: e.clientY });
-    setDraftSev('minor'); setDraftNote(''); setError('');
+    // Fallback coords: x as % of document width, y as % of scroll height.
+    const docW = document.documentElement.clientWidth || window.innerWidth;
+    const docHNow = document.documentElement.scrollHeight || window.innerHeight;
+    const xPct = Math.min(100, Math.max(0, (e.clientX / docW) * 100));
+    const yPct = Math.min(100, Math.max(0, ((e.clientY + window.scrollY) / docHNow) * 100));
+
+    // Primary anchor: the element actually under the click.
+    const el = pickAnchor(e.clientX, e.clientY, dropRef.current);
+    let anchor = {};
+    if (el) {
+      const sel = selectorFor(el);
+      if (sel) {
+        const r = el.getBoundingClientRect();
+        anchor = {
+          selector: sel,
+          offX: clamp01((e.clientX - r.left) / (r.width || 1)),
+          offY: clamp01((e.clientY - r.top) / (r.height || 1)),
+        };
+      }
+    }
+
+    setDraft({ xPct, yPct, px: e.clientX, py: e.clientY, ...anchor });
+    setDraftSev('minor'); setDraftNote(''); setError(''); setHoverRect(null);
     setDropMode(false);
   };
 
@@ -187,7 +341,8 @@ const BetaPinLayer = () => {
       await api.post('/beta/pins', {
         pagePath: page, x: draft.xPct, y: draft.yPct,
         severity: draftSev, note: draftNote.trim(),
-        isPrivate: isAdmin ? draftPrivate : undefined
+        isPrivate: isAdmin ? draftPrivate : undefined,
+        selector: draft.selector, offX: draft.offX, offY: draft.offY
       });
       setDraft(null); setDraftPrivate(false);
       loadPagePins(); if (isAdmin) loadAdminPins();
@@ -284,25 +439,48 @@ const BetaPinLayer = () => {
   // -------------------------------------------------------------- render
   return (
     <>
-      {/* Drop-mode capture overlay */}
+      {/* Drop-mode capture overlay — hover highlights the element that
+          would become the pin's anchor */}
       {dropMode && (
-        <div
-          className="fixed inset-0 z-[9998] cursor-crosshair"
-          style={{ background: 'rgba(15,23,42,0.15)', outline: '3px dashed rgba(239,68,68,0.6)', outlineOffset: -8 }}
-          onClick={beginDrop}
-        >
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-full shadow-lg pointer-events-none">
-            Click anywhere to pin a note — Esc to cancel
+        <>
+          <div
+            ref={dropRef}
+            className="fixed inset-0 z-[9998] cursor-crosshair"
+            style={{ background: 'rgba(15,23,42,0.15)', outline: '3px dashed rgba(239,68,68,0.6)', outlineOffset: -8 }}
+            onClick={beginDrop}
+            onMouseMove={(e) => {
+              const el = pickAnchor(e.clientX, e.clientY, dropRef.current);
+              setHoverRect(el ? el.getBoundingClientRect() : null);
+            }}
+            onMouseLeave={() => setHoverRect(null)}
+          >
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-full shadow-lg pointer-events-none">
+              Click an element to pin a note — Esc to cancel
+            </div>
           </div>
-        </div>
+          {hoverRect && (
+            <div
+              className="fixed z-[9999] pointer-events-none rounded"
+              style={{
+                left: hoverRect.left, top: hoverRect.top,
+                width: hoverRect.width, height: hoverRect.height,
+                border: '2px solid rgba(239,68,68,0.9)',
+                boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.4)'
+              }}
+            />
+          )}
+        </>
       )}
 
-      {/* Pin markers — only when visible and not mid-drop */}
-      {showPins && !dropMode && clusters.map((c, i) => (
+      {/* Pin markers — fixed at live-resolved positions. Element-anchored
+          pins track their element every render; fallback pins (selector
+          dead, or pre-anchor legacy) sit at their stored doc-% spot and
+          render dimmed. */}
+      {showPins && !dropMode && clusters.map((c) => (
         <button
           key={`c-${c.pins.map((p) => p.id).join('-')}`}
-          className="fixed z-[9990] -translate-x-1/2 -translate-y-full group"
-          style={{ left: `${c.x}%`, top: `${c.y}%` }}
+          className={`bp-marker fixed z-[9990] -translate-x-1/2 -translate-y-full group ${c.anchored ? '' : 'opacity-70'}`}
+          style={{ left: c.x, top: c.y }}
           onClick={(e) => {
             e.stopPropagation();
             if (c.pins.length === 1) { setDetail(c.pins[0]); setFanout(null); }
@@ -315,7 +493,7 @@ const BetaPinLayer = () => {
             setCtx({ x: e.clientX, y: e.clientY, pin: c.pins[0] });
             setDetail(null); setFanout(null);
           }}
-          title={c.pins.length > 1 ? `${c.pins.length} pins here` : c.pins[0].note}
+          title={c.pins.length > 1 ? `${c.pins.length} pins here` : `${c.pins[0].note}${c.anchored ? '' : ' (approximate spot)'}`}
         >
           <span className="relative block drop-shadow-lg">
             <MapPin
@@ -341,11 +519,12 @@ const BetaPinLayer = () => {
 
       {/* Cluster fan-out — pick which stacked pin to inspect */}
       {fanout && (
-        <div
-          className="fixed z-[9999] w-72 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-2"
-          style={{ left: Math.min(fanout.x, window.innerWidth - 300), top: Math.min(fanout.y, window.innerHeight - 260) }}
-          onClick={(e) => e.stopPropagation()}
+        <Popup
+          x={fanout.x} y={fanout.y} width={288}
+          className="bp-popup z-[9999] w-72 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-2"
+          sheetClassName="bg-slate-900 border-t border-slate-700 p-3"
         >
+        <div onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1.5 text-xs text-slate-400 px-2 py-1">
             <Layers className="w-3.5 h-3.5" /> {fanout.pins.length} stacked pins
           </div>
@@ -368,16 +547,17 @@ const BetaPinLayer = () => {
             </button>
           ))}
         </div>
+        </Popup>
       )}
 
-      {/* Pin detail card */}
+      {/* Pin detail card — anchored next to the pin's live position */}
       {detail && !ctx && (
-        <div
-          className="fixed z-[9999] w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3"
-          style={{
-            left: Math.min((detail.x_pct / 100) * window.innerWidth + 16, window.innerWidth - 336),
-            top: Math.min((detail.y_pct / 100) * window.innerHeight + 8, window.innerHeight - 240),
-          }}
+        <Popup
+          x={resolvePin(detail).x + 16}
+          y={resolvePin(detail).y + 8}
+          width={320}
+          className="bp-popup z-[9999] w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3"
+          sheetClassName="bg-slate-900 border-t border-slate-700 p-4"
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -443,17 +623,17 @@ const BetaPinLayer = () => {
               </button>
             </div>
           )}
-        </div>
+        </Popup>
       )}
 
       {/* Admin right-click context menu */}
       {ctx && isAdmin && (
-        <div
-          ref={ctxRef}
-          className="fixed z-[9999] w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1.5 text-sm"
-          style={{ left: Math.min(ctx.x, window.innerWidth - 216), top: Math.min(ctx.y, window.innerHeight - 220) }}
-          onClick={(e) => e.stopPropagation()}
+        <Popup
+          x={ctx.x} y={ctx.y} width={208}
+          className="bp-popup z-[9999] w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1.5 text-sm"
+          sheetClassName="bg-slate-900 border-t border-slate-700 p-3"
         >
+        <div onClick={(e) => e.stopPropagation()}>
           <div className="px-3 py-1.5 text-xs text-slate-400 border-b border-slate-800 truncate">
             {ctx.pin.username} · {sevOf(ctx.pin.severity).label}
           </div>
@@ -479,13 +659,15 @@ const BetaPinLayer = () => {
             <Trash2 className="w-4 h-4" /> Remove
           </button>
         </div>
+        </Popup>
       )}
 
       {/* New-pin draft popup */}
       {draft && (
-        <div
-          className="fixed z-[9999] w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3"
-          style={{ left: Math.min(draft.px, window.innerWidth - 336), top: Math.min(draft.py, window.innerHeight - 300) }}
+        <Popup
+          x={draft.px} y={draft.py} width={320}
+          className="bp-popup z-[9999] w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3"
+          sheetClassName="bg-slate-900 border-t border-slate-700 p-4"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold text-slate-100 flex items-center gap-1.5">
@@ -533,7 +715,7 @@ const BetaPinLayer = () => {
           >
             {saving ? 'Pinning…' : 'Drop pin'}
           </button>
-        </div>
+        </Popup>
       )}
 
       {/* Tester polls popover — vote on admin feature ideas */}
@@ -583,44 +765,62 @@ const BetaPinLayer = () => {
         </div>
       )}
 
-      {/* Floating controls (bottom-right, above content, below overlays) */}
+      {/* Floating controls (bottom-right, above content, below overlays)
+          — labeled so each action is obvious */}
       {!dropMode && (
-        <div className="fixed bottom-5 right-5 z-[9989] flex flex-col items-end gap-2">
+        <div className="bp-floating fixed bottom-5 right-5 z-[9989] flex flex-col items-end gap-3">
           {!isAdmin && (
-            <button
-              onClick={() => setPollsOpen((o) => !o)}
-              className={`w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition relative ${pollsOpen ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
-              title="Vote on upcoming features"
-            >
-              <BarChart3 className="w-5 h-5" />
-              {polls.some((p) => p.status === 'open' && !p.my_vote) && (
-                <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-slate-900" />
-              )}
-            </button>
+            <div className="flex flex-col items-center gap-1">
+              <button
+                onClick={() => setPollsOpen((o) => !o)}
+                className={`w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition relative ${pollsOpen ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                title="Vote on upcoming features"
+              >
+                <BarChart3 className="w-5 h-5" />
+                {polls.some((p) => p.status === 'open' && !p.my_vote) && (
+                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-slate-900" />
+                )}
+              </button>
+              <FabLabel>Vote</FabLabel>
+            </div>
           )}
           {isAdmin && (
-            <button
-              onClick={() => setPanelOpen((o) => !o)}
-              className={`w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition ${panelOpen ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
-              title="Beta viewer"
-            >
-              <MessageSquare className="w-5 h-5" />
-            </button>
+            <div className="flex flex-col items-center gap-1">
+              <button
+                onClick={() => setPanelOpen((o) => !o)}
+                className={`w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition relative ${panelOpen ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                title="Beta viewer"
+              >
+                <MessageSquare className="w-5 h-5" />
+                {openPinCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center border-2 border-slate-900">
+                    {openPinCount}
+                  </span>
+                )}
+              </button>
+              <FabLabel>Beta</FabLabel>
+            </div>
           )}
-          <button
-            onClick={() => setShowPins((v) => !v)}
-            className="w-11 h-11 rounded-full shadow-xl bg-slate-800 text-slate-300 hover:bg-slate-700 flex items-center justify-center transition"
-            title={showPins ? 'Hide pins' : 'Show pins'}
-          >
-            {showPins ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
-          </button>
-          <button
-            onClick={() => setDropMode(true)}
-            className="w-12 h-12 rounded-full shadow-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition"
-            title="Pin feedback on this page"
-          >
-            <Plus className="w-6 h-6" />
-          </button>
+          <div className="flex flex-col items-center gap-1">
+            <button
+              onClick={() => setShowPins((v) => !v)}
+              className={`w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition ${showPins ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'}`}
+              title={showPins ? 'Hide pins' : 'Show pins'}
+            >
+              {showPins ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+            </button>
+            <FabLabel>{showPins ? 'Hide' : 'Show'}</FabLabel>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <button
+              onClick={() => setDropMode(true)}
+              className="w-12 h-12 rounded-full shadow-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition"
+              title="Pin feedback on this page"
+            >
+              <Plus className="w-6 h-6" />
+            </button>
+            <FabLabel>Pin</FabLabel>
+          </div>
         </div>
       )}
 
@@ -690,7 +890,7 @@ const BetaPinLayer = () => {
                     className="mt-1 accent-blue-500"
                   />
                   <span className="w-2.5 h-2.5 rounded-full mt-1.5 shrink-0" style={{ background: sevOf(p.severity).color }} />
-                  <span className="min-w-0 flex-1" onClick={(e) => { e.preventDefault(); setDetail(p); }}>
+                  <span className="min-w-0 flex-1" onClick={(e) => { e.preventDefault(); goToPin(p); }}>
                     <span className="flex items-center gap-1.5 text-xs text-slate-400">
                       <span className="truncate">{p.username}</span>
                       <span>·</span><span className="truncate">{p.page_path}</span>

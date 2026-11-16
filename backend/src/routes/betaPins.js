@@ -14,13 +14,15 @@ const STATUSES = ['open', 'in_progress', 'fixed', 'hidden', 'removed'];
  * POST /api/beta/pins
  * Drop a pin on the current page. Any authenticated user may pin; beta
  * testers are the intended authors (admins can pin for marking too).
- * { pagePath, x, y, severity, note, isPrivate? }
+ * { pagePath, x, y, severity, note, isPrivate?, selector?, offX?, offY? }
  * isPrivate (admin only): pin is a private admin reminder — testers can't
  * see it. Admins pin problem spots for themselves with the same controls.
+ * selector/offX/offY: DOM element the pin was dropped on + offset inside
+ * its rect, so the pin tracks the element instead of a page percentage.
  */
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { pagePath, x, y, severity, note, isPrivate } = req.body;
+    const { pagePath, x, y, severity, note, isPrivate, selector, offX, offY } = req.body;
     if (!pagePath || typeof pagePath !== 'string' || pagePath.length > 255) {
       return res.status(400).json({ error: 'pagePath required' });
     }
@@ -33,6 +35,13 @@ router.post('/', authenticateToken, async (req, res) => {
     }
     const sev = SEVERITIES.includes(severity) ? severity : 'minor';
 
+    // Optional element anchor — validated loosely; it's a hint, not a key
+    const sel = typeof selector === 'string' && selector.length > 0 && selector.length <= 500
+      ? selector : null;
+    const ox = Number.isFinite(parseFloat(offX)) ? Math.min(1, Math.max(0, parseFloat(offX))) : null;
+    const oy = Number.isFinite(parseFloat(offY)) ? Math.min(1, Math.max(0, parseFloat(offY))) : null;
+    const anchor = sel && ox !== null && oy !== null;
+
     // Light flood protection: 30 open pins per user per page max
     const open = await db.query(
       `SELECT COUNT(*)::int AS c FROM beta_pins
@@ -44,9 +53,11 @@ router.post('/', authenticateToken, async (req, res) => {
     }
 
     const { rows } = await db.query(
-      `INSERT INTO beta_pins (user_id, page_path, x_pct, y_pct, severity, note, is_private)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [req.user.id, pagePath, px, py, sev, note.trim(), req.user.isAdmin && isPrivate === true]
+      `INSERT INTO beta_pins (user_id, page_path, x_pct, y_pct, severity, note, is_private,
+        element_selector, offset_x, offset_y)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [req.user.id, pagePath, px, py, sev, note.trim(), req.user.isAdmin && isPrivate === true,
+       anchor ? sel : null, anchor ? ox : null, anchor ? oy : null]
     );
     res.status(201).json(rows[0]);
   } catch (e) {

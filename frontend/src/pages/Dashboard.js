@@ -3116,13 +3116,14 @@ const Dashboard = () => {
         <FloatingButtons
           showApps={widgetProperties['floating-buttons']?.showApps !== false}
           showActiveList={widgetProperties['floating-buttons']?.showActiveList !== false}
-          position={widgetProperties['floating-buttons']?.position || 'right'}
+          position={widgetProperties['floating-buttons']?.position || 'left'}
           buttonSize={widgetProperties['floating-buttons']?.buttonSize || 'medium'}
           buttonColor={widgetProperties['floating-buttons']?.buttonColor || '#6366f1'}
           spacing={widgetProperties['floating-buttons']?.spacing || 16}
           showAppsMenu={showAppsMenu}
           setShowAppsMenu={setShowAppsMenu}
           setShowCalculator={setShowCalculator}
+          showListPanel={showListPanel}
           setShowListPanel={setShowListPanel}
           items={items}
           activeList={activeList}
