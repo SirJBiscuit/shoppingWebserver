@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Calendar, GitCommit, User, Tag, TrendingUp, 
   Sparkles, Zap, Bug, Settings, FileText, Package,
-  ChevronDown, ChevronUp, Filter, Search, Download, Shield, Users, RefreshCw, Flag, ThumbsUp
+  ChevronDown, ChevronUp, Filter, Search, Download, Shield, Users, RefreshCw, Flag, ThumbsUp,
+  CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Portal } from '../utils/autoPlacement';
@@ -14,6 +15,7 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const [changelog, setChangelog] = useState([]);
   const [upcoming, setUpcoming] = useState([]);
+  const [released, setReleased] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, feat, fix, perf, docs
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,6 +85,7 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
         const data = await response.json();
         setChangelog(data.commits || []);
         setUpcoming(data.upcoming || []);
+        setReleased(data.entries || []);
       }
     } catch (error) {
       console.error('Error loading changelog:', error);
@@ -432,6 +435,47 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+          {/* Recently Released — features the admin marked as shipped */}
+          {released.length > 0 && (
+            <div className="mb-6 rounded-xl border-2 border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <h3 className="text-lg font-bold text-green-900 dark:text-green-200">Recently Released</h3>
+              </div>
+              <div className="space-y-2">
+                {[...released]
+                  .sort((a, b) => new Date(b.released_at || b.created_at) - new Date(a.released_at || a.created_at))
+                  .map((f) => (
+                    <div key={f.id} className="flex items-start gap-3 p-3 rounded-lg bg-white/70 dark:bg-gray-800/60">
+                      <Sparkles className="w-4 h-4 mt-0.5 text-green-500 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">{f.title}</p>
+                          {f.category && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 capitalize">
+                              {f.category}
+                            </span>
+                          )}
+                          {f.beta_only && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+                              Beta
+                            </span>
+                          )}
+                        </div>
+                        {f.description && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{f.description}</p>
+                        )}
+                        {f.released_at && (
+                          <p className="text-[10px] text-green-600 dark:text-green-400 mt-0.5">
+                            Released {new Date(f.released_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
               </div>
             </div>
           )}
