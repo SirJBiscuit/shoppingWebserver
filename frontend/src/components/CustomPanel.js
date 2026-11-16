@@ -224,8 +224,11 @@ const CustomPanel = ({
             /></Portal>
           )}
 
-          {/* Panel */}
-          <motion.div
+          {/* Panel — portaled so `fixed` always tracks the viewport; an
+              unportaled fixed element inside a transformed page wrapper
+              resolves against the document instead (mobile bottom-sheet
+              ended up at the bottom of the page, not the screen) */}
+          <Portal><motion.div
             variants={variants[actualMode]}
             initial="hidden"
             animate="visible"
@@ -377,7 +380,7 @@ const CustomPanel = ({
                 })}
               </div>
             )}
-          </motion.div>
+          </motion.div></Portal>
         </>
       )}
     </AnimatePresence>

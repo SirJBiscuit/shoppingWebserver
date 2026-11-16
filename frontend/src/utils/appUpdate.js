@@ -7,6 +7,9 @@
 // page load pulls fresh assets.
 
 const AUTH_KEYS = ['token', 'user'];
+// Also survives a logout purge: the version stamp tells UpdateNotification
+// it already applied the update, otherwise the modal re-fires post-reload.
+const PRESERVE_KEYS = [...AUTH_KEYS, 'app_version'];
 
 /**
  * Ask the backend to pull latest code and rebuild.
@@ -70,12 +73,15 @@ export async function purgeCachesAndReload({ logout = true, delayMs = 1200 } = {
   // Storage — wipe everything, or everything except auth
   try {
     if (logout) {
+      const kept = {};
+      for (const k of PRESERVE_KEYS) kept[k] = localStorage.getItem(k);
       localStorage.clear();
+      for (const k of PRESERVE_KEYS) if (kept[k] != null) localStorage.setItem(k, kept[k]);
     } else {
       const kept = {};
-      for (const k of AUTH_KEYS) kept[k] = localStorage.getItem(k);
+      for (const k of PRESERVE_KEYS) kept[k] = localStorage.getItem(k);
       localStorage.clear();
-      for (const k of AUTH_KEYS) if (kept[k] != null) localStorage.setItem(k, kept[k]);
+      for (const k of PRESERVE_KEYS) if (kept[k] != null) localStorage.setItem(k, kept[k]);
     }
     sessionStorage.clear();
   } catch { /* non-fatal */ }

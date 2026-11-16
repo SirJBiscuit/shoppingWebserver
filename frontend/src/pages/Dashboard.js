@@ -50,7 +50,6 @@ import CustomNumberPad from '../components/CustomNumberPad';
 import CustomNotification from '../components/CustomNotification';
 import CacheRefreshButton from '../components/CacheRefreshButton';
 import { useNotification } from '../hooks/useNotification';
-import { runServerUpdateFlow, purgeCachesAndReload } from '../utils/appUpdate';
 import { useShoppingItems } from '../hooks/useShoppingList';
 import Toast from '../components/Toast';
 import { XPNotificationContainer, showXPNotification } from '../components/XPNotification';
@@ -138,25 +137,8 @@ const Dashboard = () => {
   const { toasts, hideToast, success, error, warning, info } = useToast();
   const { notification, hideNotification, success: notifySuccess, error: notifyError, ask, confirm, confirmDelete } = useNotification();
 
-  // Admin-only: request a server update. Writes the .update-requested flag
-  // that the host watcher (trigger-update.sh → update-server.sh) consumes,
-  // then purges caches, logs out, and reloads so fresh assets are served.
-  const handleRequestUpdate = () => {
-    confirm(
-      'Update the server now? The app will pull the latest code, rebuild, clear your cache and log you out.',
-      async () => {
-        const result = await runServerUpdateFlow();
-        if (result.ok) {
-          success(result.message || 'Update requested — you\'ll be logged out while the server updates.');
-          purgeCachesAndReload({ logout: true, delayMs: 1500 });
-        } else {
-          error(result.error || result.details || 'Failed to request update.');
-        }
-      },
-      undefined,
-      'Update Server'
-    );
-  };
+  // Server updates are requested from inside the changelog viewer (admin
+  // "Update Now" button) — the header badge opens the changelog.
   
   // Disable scroll sounds (too annoying)
   useScrollSound(false);
@@ -1722,7 +1704,7 @@ const Dashboard = () => {
             <button
               onClick={() => setShowChangelog(true)}
               className="flex items-center space-x-2 text-xs sm:text-sm hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-colors"
-              title="View Changelog & Features"
+              title={versionInfo.updateAvailable ? 'Update available — open the changelog to apply it' : 'View Changelog & Features'}
             >
               {versionInfo.updateAvailable ? (
                 <div className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 animate-pulse">
@@ -1743,18 +1725,8 @@ const Dashboard = () => {
             </button>
             )}
 
-            {/* Update Now — admin only, requests the host update via flag file */}
-            {hasFeature('changelog') && versionInfo.updateAvailable && user?.isAdmin && (
-              <button
-                onClick={handleRequestUpdate}
-                className="flex items-center space-x-1 px-2 sm:px-3 py-1.5 rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white text-xs sm:text-sm font-medium transition-colors shadow-sm"
-                title="Pull latest code and rebuild the server"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Update Now</span>
-                <span className="sm:hidden">Update</span>
-              </button>
-            )}
+            {/* Update action lives inside the changelog viewer — this badge
+                is the single entry point (admin-only Update Now is in there) */}
 
             {/* AVE (Admin Visual Editor) Toggle - Admin Only */}
             {user?.isAdmin && (

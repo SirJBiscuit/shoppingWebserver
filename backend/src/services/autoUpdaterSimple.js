@@ -53,13 +53,17 @@ class SimpleAutoUpdater {
         return;
       }
       
-      // Compare
-      if (currentVersion !== latestCommit.sha) {
+      // Compare on short-sha prefix — the DB stores 7 chars while the
+      // GitHub sha is 40, so a strict !== would report "update available"
+      // forever (and leave the Update Now button stuck on).
+      const cur = (currentVersion || '').substring(0, 7);
+      const lat = latestCommit.sha.substring(0, 7);
+      if (cur !== lat) {
         console.log('🆕 Update available!');
-        console.log(`   Current: ${currentVersion ? currentVersion.substring(0, 7) : 'unknown'}`);
-        console.log(`   Latest:  ${latestCommit.sha.substring(0, 7)}`);
+        console.log(`   Current: ${cur || 'unknown'}`);
+        console.log(`   Latest:  ${lat}`);
         console.log(`   Message: ${latestCommit.message}`);
-        
+
         // Request update by creating flag file (once per commit per boot)
         if (this.requestedCommit !== latestCommit.sha) {
           await this.requestUpdate(latestCommit);
@@ -67,6 +71,11 @@ class SimpleAutoUpdater {
       } else {
         console.log('✅ Up to date');
         this.requestedCommit = null;
+        // Clear any stale flag — host-side pulls never write back, so
+        // update_available could otherwise stay true after updating.
+        await db.query(
+          'UPDATE system_status SET update_available = false WHERE id = 1 AND update_available = true'
+        ).catch(() => {});
       }
       
     } catch (error) {
@@ -77,6 +86,18 @@ class SimpleAutoUpdater {
   }
 
   async getCurrentVersion() {
+    // Prefer real git HEAD — a host-side update pulls the repo but only the
+    // container's own perform path writes current_version back, so the DB row
+    // can go permanently stale after an update.
+    try {
+      const { execSync } = require('child_process');
+      const sha = execSync('git rev-parse HEAD', { timeout: 5000 }).toString().trim();
+      if (sha) {
+        // Keep the row in sync so /api/system/status reports the same value
+        db.query('UPDATE system_status SET current_version = $1 WHERE id = 1', [sha]).catch(() => {});
+        return sha;
+      }
+    } catch { /* git unavailable inside this container — fall back to DB */ }
     try {
       const result = await db.query('SELECT current_version FROM system_status WHERE id = 1');
       return result?.rows?.[0]?.current_version || null;

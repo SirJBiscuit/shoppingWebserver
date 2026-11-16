@@ -64,9 +64,15 @@ const UpdateNotification = () => {
         if (updateNotification) {
           const localVersion = localStorage.getItem('app_version');
           const serverVersion = updateNotification.data?.version || updateNotification.data?.newCommit;
-          
+
+          // Compare short-sha prefixes — the stored value is 7 chars while
+          // the notification carries the full sha, so strict !== would
+          // keep re-showing the modal after a successful update.
+          const localShort = localVersion?.substring(0, 7);
+          const serverShort = serverVersion?.substring(0, 7);
+
           // If versions don't match, show mandatory update notification
-          if (!localVersion || localVersion !== serverVersion) {
+          if (serverShort && localShort !== serverShort) {
             console.log('🔔 New update detected from server:', {
               current: serverVersion,
               previous: localVersion,
