@@ -6,7 +6,7 @@ import { Popup } from '../../utils/autoPlacement';
 import {
   MapPin, Plus, X, Eye, EyeOff, MessageSquare, ChevronRight,
   Check, Clock, Trash2, Layers, ExternalLink,
-  BarChart3, ThumbsUp, ThumbsDown, Lock, Pencil
+  BarChart3, ThumbsUp, ThumbsDown, Lock, Pencil, Move, Download, RotateCcw
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -135,8 +135,10 @@ const BetaPinLayer = () => {
   const [error, setError] = useState('');
   const [docH, setDocH] = useState(0);               // document height for fallback positions
   const [tick, setTick] = useState(0);               // scroll/layout tick — re-resolve pins
-  const [hoverRect, setHoverRect] = useState(null);  // drop-mode element highlight
+  const [hoverRect, setHoverRect] = useState(null);  // drop/move element highlight
+  const [moving, setMoving] = useState(null);        // admin: pin being repositioned
   const dropRef = useRef(null);
+  const moveRef = useRef(null);
   // Admin viewer panel
   const [panelOpen, setPanelOpen] = useState(false);
   const [tab, setTab] = useState('pins');
@@ -214,7 +216,7 @@ const BetaPinLayer = () => {
     const esc = (e) => {
       if (e.key !== 'Escape') return;
       setDropMode(false); setDraft(null); setDetail(null);
-      setCtx(null); setFanout(null);
+      setCtx(null); setFanout(null); setMoving(null); setHoverRect(null);
     };
     window.addEventListener('keydown', esc);
     return () => window.removeEventListener('keydown', esc);
@@ -372,6 +374,54 @@ const BetaPinLayer = () => {
     setEditMode(true); setCtx(null);
   };
 
+  // Move mode: admin picks a new spot — re-anchors the pin to whatever
+  // element is under the drop point (or falls back to doc-%).
+  const startMove = (pin) => {
+    setMoving(pin); setCtx(null); setDetail(null); setFanout(null); setHoverRect(null);
+  };
+
+  const finishMove = async (e) => {
+    if (!moving) return;
+    const docW = document.documentElement.clientWidth || window.innerWidth;
+    const docHNow = document.documentElement.scrollHeight || window.innerHeight;
+    const xPct = Math.min(100, Math.max(0, (e.clientX / docW) * 100));
+    const yPct = Math.min(100, Math.max(0, ((e.clientY + window.scrollY) / docHNow) * 100));
+
+    let anchor = {};
+    const el = pickAnchor(e.clientX, e.clientY, moveRef.current);
+    if (el) {
+      const sel = selectorFor(el);
+      if (sel) {
+        const r = el.getBoundingClientRect();
+        anchor = {
+          selector: sel,
+          offX: clamp01((e.clientX - r.left) / (r.width || 1)),
+          offY: clamp01((e.clientY - r.top) / (r.height || 1)),
+        };
+      }
+    }
+    try {
+      await api.post(`/beta/pins/admin/${moving.id}/move`, { x: xPct, y: yPct, ...anchor });
+    } catch { /* silent */ }
+    setMoving(null); setHoverRect(null);
+    loadPagePins(); loadAdminPins();
+  };
+
+  // Ordered bug-list export — downloads the markdown the backend builds
+  // (severity first: critical → weird, grouped by page, private pins kept).
+  const exportPins = async () => {
+    try {
+      const { data } = await api.get('/beta/pins/admin/export');
+      const blob = new Blob([data.markdown], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bug-list-${new Date().toISOString().slice(0, 10)}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* silent */ }
+  };
+
   const saveEdit = async () => {
     if (!editNote.trim()) return;
     try {
@@ -465,6 +515,39 @@ const BetaPinLayer = () => {
                 left: hoverRect.left, top: hoverRect.top,
                 width: hoverRect.width, height: hoverRect.height,
                 border: '2px solid rgba(239,68,68,0.9)',
+                boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.4)'
+              }}
+            />
+          )}
+        </>
+      )}
+
+      {/* Move mode — admin picks a new spot; pin re-anchors to the element
+          under the drop point. Esc cancels. */}
+      {moving && (
+        <>
+          <div
+            ref={moveRef}
+            className="fixed inset-0 z-[9998] cursor-move"
+            style={{ background: 'rgba(15,23,42,0.2)', outline: '3px dashed rgba(59,130,246,0.6)', outlineOffset: -8 }}
+            onClick={finishMove}
+            onMouseMove={(e) => {
+              const el = pickAnchor(e.clientX, e.clientY, moveRef.current);
+              setHoverRect(el ? el.getBoundingClientRect() : null);
+            }}
+            onMouseLeave={() => setHoverRect(null)}
+          >
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-sm px-4 py-2 rounded-full shadow-lg pointer-events-none">
+              Moving pin #{moving.id} — click the new spot (Esc cancels)
+            </div>
+          </div>
+          {hoverRect && (
+            <div
+              className="fixed z-[9999] pointer-events-none rounded"
+              style={{
+                left: hoverRect.left, top: hoverRect.top,
+                width: hoverRect.width, height: hoverRect.height,
+                border: '2px solid rgba(59,130,246,0.9)',
                 boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.4)'
               }}
             />
@@ -612,9 +695,26 @@ const BetaPinLayer = () => {
           )}
           {isAdmin && !editMode && (
             <div className="flex gap-1.5 mt-3 flex-wrap">
-              <button onClick={() => setStatus(detail, 'in_progress')} className="text-xs px-2 py-1 rounded bg-blue-600/30 text-blue-200 hover:bg-blue-600/50">In progress</button>
-              <button onClick={() => setStatus(detail, 'fixed')} className="text-xs px-2 py-1 rounded bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50">Fixed</button>
-              <button onClick={() => setStatus(detail, 'hidden')} className="text-xs px-2 py-1 rounded bg-zinc-600/30 text-zinc-300 hover:bg-zinc-600/50">Hide</button>
+              {detail.status === 'open' && (
+                <button onClick={() => setStatus(detail, 'in_progress')} className="text-xs px-2 py-1 rounded bg-blue-600/30 text-blue-200 hover:bg-blue-600/50">In progress</button>
+              )}
+              {(detail.status === 'open' || detail.status === 'in_progress') && (
+                <>
+                  <button onClick={() => setStatus(detail, 'fixed')} className="text-xs px-2 py-1 rounded bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50">Fixed</button>
+                  <button onClick={() => setStatus(detail, 'hidden')} className="text-xs px-2 py-1 rounded bg-zinc-600/30 text-zinc-300 hover:bg-zinc-600/50">Hide</button>
+                  <button onClick={() => setStatus(detail, 'removed')} className="text-xs px-2 py-1 rounded bg-red-600/30 text-red-200 hover:bg-red-600/50 flex items-center gap-1">
+                    <Trash2 className="w-3 h-3" /> Remove
+                  </button>
+                </>
+              )}
+              {(detail.status === 'hidden' || detail.status === 'fixed' || detail.status === 'removed') && (
+                <button onClick={() => setStatus(detail, 'open')} className="text-xs px-2 py-1 rounded bg-blue-600/30 text-blue-200 hover:bg-blue-600/50 flex items-center gap-1">
+                  <RotateCcw className="w-3 h-3" /> Reopen
+                </button>
+              )}
+              <button onClick={() => startMove(detail)} className="text-xs px-2 py-1 rounded bg-violet-600/30 text-violet-200 hover:bg-violet-600/50 flex items-center gap-1">
+                <Move className="w-3 h-3" /> Move
+              </button>
               <button onClick={() => startEdit(detail)} className="text-xs px-2 py-1 rounded bg-slate-600/40 text-slate-200 hover:bg-slate-600/70 flex items-center gap-1">
                 <Pencil className="w-3 h-3" /> Edit
               </button>
@@ -643,21 +743,37 @@ const BetaPinLayer = () => {
           <button className="ctx-item" onClick={() => { setDetail(ctx.pin); startEdit(ctx.pin); }}>
             <Pencil className="w-4 h-4 text-slate-400" /> Edit note
           </button>
+          <button className="ctx-item" onClick={() => startMove(ctx.pin)}>
+            <Move className="w-4 h-4 text-violet-400" /> Move pin
+          </button>
           <button className="ctx-item" onClick={() => setPrivate(ctx.pin, !ctx.pin.is_private)}>
             <Lock className="w-4 h-4 text-amber-400" /> {ctx.pin.is_private ? 'Make public' : 'Make private'}
           </button>
-          <button className="ctx-item" onClick={() => setStatus(ctx.pin, 'in_progress')}>
-            <Clock className="w-4 h-4 text-blue-400" /> Mark in progress
-          </button>
-          <button className="ctx-item" onClick={() => setStatus(ctx.pin, 'fixed')}>
-            <Check className="w-4 h-4 text-emerald-400" /> Mark fixed
-          </button>
-          <button className="ctx-item" onClick={() => setStatus(ctx.pin, 'hidden')}>
-            <EyeOff className="w-4 h-4 text-zinc-400" /> Hide pin
-          </button>
-          <button className="ctx-item text-red-300 hover:bg-red-500/10" onClick={() => setStatus(ctx.pin, 'removed')}>
-            <Trash2 className="w-4 h-4" /> Remove
-          </button>
+          {(ctx.pin.status === 'open') && (
+            <button className="ctx-item" onClick={() => setStatus(ctx.pin, 'in_progress')}>
+              <Clock className="w-4 h-4 text-blue-400" /> Mark in progress
+            </button>
+          )}
+          {(ctx.pin.status === 'open' || ctx.pin.status === 'in_progress') && (
+            <button className="ctx-item" onClick={() => setStatus(ctx.pin, 'fixed')}>
+              <Check className="w-4 h-4 text-emerald-400" /> Mark fixed
+            </button>
+          )}
+          {(ctx.pin.status !== 'open' && ctx.pin.status !== 'in_progress') && (
+            <button className="ctx-item" onClick={() => setStatus(ctx.pin, 'open')}>
+              <RotateCcw className="w-4 h-4 text-blue-400" /> Reopen
+            </button>
+          )}
+          {(ctx.pin.status === 'open' || ctx.pin.status === 'in_progress') && (
+            <>
+              <button className="ctx-item" onClick={() => setStatus(ctx.pin, 'hidden')}>
+                <EyeOff className="w-4 h-4 text-zinc-400" /> Hide pin
+              </button>
+              <button className="ctx-item text-red-300 hover:bg-red-500/10" onClick={() => setStatus(ctx.pin, 'removed')}>
+                <Trash2 className="w-4 h-4" /> Remove
+              </button>
+            </>
+          )}
         </div>
         </Popup>
       )}
@@ -767,7 +883,7 @@ const BetaPinLayer = () => {
 
       {/* Floating controls (bottom-right, above content, below overlays)
           — labeled so each action is obvious */}
-      {!dropMode && (
+      {!dropMode && !moving && (
         <div className="bp-floating fixed bottom-5 right-5 z-[9989] flex flex-col items-end gap-3">
           {!isAdmin && (
             <div className="flex flex-col items-center gap-1">
@@ -847,16 +963,23 @@ const BetaPinLayer = () => {
               {/* Bulk action bar */}
               <div className="sticky top-0 bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center gap-1.5 z-10">
                 <span className="text-xs text-slate-400 mr-auto">{sel.size} selected</span>
-                {['fixed', 'open', 'hide', 'remove'].map((a) => (
+                {['fixed', 'in_progress', 'open', 'hide', 'remove'].map((a) => (
                   <button
                     key={a}
                     onClick={() => bulk(a)}
                     disabled={!sel.size}
                     className="text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 capitalize"
                   >
-                    {a}
+                    {a === 'in_progress' ? 'working' : a}
                   </button>
                 ))}
+                <button
+                  onClick={exportPins}
+                  title="Download the ordered bug list (.md) — critical first, grouped by page"
+                  className="text-[11px] px-2 py-1 rounded bg-blue-700/60 text-blue-100 hover:bg-blue-600 flex items-center gap-1"
+                >
+                  <Download className="w-3 h-3" /> Export
+                </button>
               </div>
 
               {/* Page groups */}

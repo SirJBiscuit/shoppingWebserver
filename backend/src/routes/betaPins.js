@@ -221,7 +221,7 @@ router.post('/admin/bulk', authenticateToken, isAdmin, async (req, res) => {
     if (!Array.isArray(ids) || !ids.length || ids.length > 500) {
       return res.status(400).json({ error: 'ids array required (max 500)' });
     }
-    const map = { hide: 'hidden', remove: 'removed', fixed: 'fixed', open: 'open' };
+    const map = { hide: 'hidden', remove: 'removed', fixed: 'fixed', open: 'open', in_progress: 'in_progress' };
     const cleanIds = ids.map(Number).filter(Number.isFinite);
 
     // 'private'/'unprivate' flip is_private instead of status
@@ -247,6 +247,85 @@ router.post('/admin/bulk', authenticateToken, isAdmin, async (req, res) => {
   } catch (e) {
     console.error('Error bulk-updating pins:', e);
     res.status(500).json({ error: 'Failed to update pins' });
+  }
+});
+
+/**
+ * POST /api/beta/pins/admin/:id/move
+ * { x, y, selector?, offX?, offY? } — reposition a pin and re-anchor it to
+ * the element under the drop point (same anchor semantics as create).
+ */
+router.post('/admin/:id/move', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { x, y, selector, offX, offY } = req.body;
+    const px = parseFloat(x); const py = parseFloat(y);
+    if (!(px >= 0 && px <= 100 && py >= 0 && py <= 100)) {
+      return res.status(400).json({ error: 'x/y must be percentages 0-100' });
+    }
+    const sel = typeof selector === 'string' && selector.length > 0 && selector.length <= 500
+      ? selector : null;
+    const ox = Number.isFinite(parseFloat(offX)) ? Math.min(1, Math.max(0, parseFloat(offX))) : null;
+    const oy = Number.isFinite(parseFloat(offY)) ? Math.min(1, Math.max(0, parseFloat(offY))) : null;
+    const anchor = sel && ox !== null && oy !== null;
+
+    const { rowCount } = await db.query(
+      `UPDATE beta_pins SET
+         x_pct = $2, y_pct = $3,
+         element_selector = $4, offset_x = $5, offset_y = $6,
+         updated_at = NOW()
+       WHERE id = $1`,
+      [req.params.id, px, py, anchor ? sel : null, anchor ? ox : null, anchor ? oy : null]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Pin not found' });
+    res.json({ moved: true });
+  } catch (e) {
+    console.error('Error moving pin:', e);
+    res.status(500).json({ error: 'Failed to move pin' });
+  }
+});
+
+/**
+ * GET /api/beta/pins/admin/export
+ * Ordered markdown bug list of live pins (open + in_progress).
+ * Order: critical → annoying → minor → weird, grouped by page.
+ * Private admin pins are included and flagged.
+ */
+router.get('/admin/export', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT p.*, u.username
+       FROM beta_pins p LEFT JOIN users u ON u.id = p.user_id
+       WHERE p.status IN ('open','in_progress')`
+    );
+
+    const sevOrder = { critical: 0, annoying: 1, minor: 2, weird: 3 };
+    rows.sort((a, b) =>
+      (sevOrder[a.severity] ?? 9) - (sevOrder[b.severity] ?? 9)
+      || String(a.page_path).localeCompare(String(b.page_path))
+      || new Date(a.created_at) - new Date(b.created_at)
+    );
+
+    let md = `# Bug List — ${new Date().toISOString().slice(0, 10)}\n\n`;
+    md += `Ordered: critical → annoying → minor → weird. Work top-down per page.\n\n`;
+    let page = null;
+    let n = 0;
+    for (const p of rows) {
+      if (p.page_path !== page) {
+        page = p.page_path;
+        md += `\n## ${page === '/' ? 'Dashboard (/)' : page}\n\n`;
+      }
+      n++;
+      md += `${n}. **[${p.severity.toUpperCase()}]** ${String(p.note).replace(/\n+/g, ' ')}${p.is_private ? ' 🔒' : ''}\n`;
+      md += `   - ${p.username || 'unknown'} · ${p.status} · ${new Date(p.created_at).toISOString().slice(0, 10)}`;
+      if (p.admin_note) md += ` · admin: ${String(p.admin_note).replace(/\n+/g, ' ')}`;
+      md += `\n\n`;
+    }
+    if (!rows.length) md += '_No open pins._\n';
+
+    res.json({ markdown: md, count: rows.length });
+  } catch (e) {
+    console.error('Error exporting pins:', e);
+    res.status(500).json({ error: 'Failed to export pins' });
   }
 });
 
