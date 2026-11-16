@@ -34,10 +34,11 @@ const EditorSettingsPanel = ({ isOpen, onClose }) => {
     showGuides,
     setShowGuides,
     snapToGrid,
-    setSnapToGrid
+    setSnapToGrid,
+    gridSize,
+    setGridSize
   } = useEditor();
   
-  const [gridSize, setGridSize] = useState(20);
   const [autoSaveInterval, setAutoSaveInterval] = useState(5);
   const [showSnapDistance, setShowSnapDistance] = useState(true);
   const [highlightOnHover, setHighlightOnHover] = useState(true);

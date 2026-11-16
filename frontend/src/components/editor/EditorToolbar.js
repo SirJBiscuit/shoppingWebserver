@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useEditor } from '../../contexts/EditorContext';
 import HelpModal from './HelpModal';
+import EditorSettingsPanel from './EditorSettingsPanel';
 import { Portal } from '../../utils/autoPlacement';
 
 /**
@@ -33,7 +34,8 @@ const EditorToolbar = () => {
     snapToGrid,
     setSnapToGrid,
     performanceMode,
-    setPerformanceMode
+    setPerformanceMode,
+    gridSize
   } = useEditor();
   
   const [showHelp, setShowHelp] = useState(false);
@@ -189,8 +191,24 @@ const EditorToolbar = () => {
         </div>
       </motion.div>
       
+      {/* Page grid overlay -- makes the grid toggle visible. */}
+      {showGrid && (
+        <div
+          className="fixed inset-0 z-30 pointer-events-none"
+          style={{
+            backgroundImage:
+              'linear-gradient(to right, rgba(99,102,241,0.12) 1px, transparent 1px),' +
+              'linear-gradient(to bottom, rgba(99,102,241,0.12) 1px, transparent 1px)',
+            backgroundSize: gridSize + 'px ' + gridSize + 'px'
+          }}
+        />
+      )}
+
       {/* Help Modal */}
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+
+      {/* Settings Panel */}
+      <EditorSettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </AnimatePresence></Portal>
   );
 };

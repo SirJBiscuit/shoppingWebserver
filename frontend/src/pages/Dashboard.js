@@ -1827,8 +1827,8 @@ const Dashboard = () => {
             <EditableContainer
               isEditorActive={isEditorActive}
               componentName="Dashboard"
-              onSelect={() => selectWidget('dashboard')}
-              isSelected={selectedWidget === 'dashboard'}
+              onSelect={() => selectWidget('dashboard', 'dashboard')}
+              isSelected={selectedWidget?.id === 'dashboard'}
             >
               <div 
                 className="card"
@@ -3110,8 +3110,8 @@ const Dashboard = () => {
       <EditableContainer
         isEditorActive={isEditorActive}
         componentName="Floating Action Buttons"
-        onSelect={() => selectWidget('floating-buttons')}
-        isSelected={selectedWidget === 'floating-buttons'}
+        onSelect={() => selectWidget('floating-buttons', 'dashboard')}
+        isSelected={selectedWidget?.id === 'floating-buttons'}
       >
         <FloatingButtons
           showApps={widgetProperties['floating-buttons']?.showApps !== false}

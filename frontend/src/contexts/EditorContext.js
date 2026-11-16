@@ -61,10 +61,14 @@ export const EditorProvider = ({ children, userId }) => {
     }
   }, [isEditorActive]);
   
-  // Select widget
+  // Select widget (pass null to deselect)
   const selectWidget = useCallback((widgetId, section) => {
+    if (widgetId == null) {
+      setSelectedWidget(null);
+      return;
+    }
     if (!isEditorActive) return;
-    
+
     setSelectedWidget({
       id: widgetId,
       section: section // 'dashboard' or 'sidebar'
@@ -273,6 +277,8 @@ export const EditorProvider = ({ children, userId }) => {
     setShowGuides,
     snapToGrid,
     setSnapToGrid,
+    gridSize,
+    setGridSize,
     
     // AVE Manager
     aveManager

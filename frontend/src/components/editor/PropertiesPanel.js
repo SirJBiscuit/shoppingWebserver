@@ -16,7 +16,7 @@ const PropertiesPanel = () => {
     widgetProperties, 
     updateWidgetProperty, 
     saveLayout,
-    selectWidget,
+    deselectWidget,
     getWidgetSchema 
   } = useEditor();
 
@@ -29,8 +29,8 @@ const PropertiesPanel = () => {
 
   // Load properties when widget changes
   useEffect(() => {
-    if (selectedWidget && widgetProperties[selectedWidget]) {
-      setLocalProperties(widgetProperties[selectedWidget]);
+    if (selectedWidget && widgetProperties[selectedWidget.id]) {
+      setLocalProperties(widgetProperties[selectedWidget.id]);
     } else {
       setLocalProperties({});
     }
@@ -38,12 +38,12 @@ const PropertiesPanel = () => {
 
   if (!selectedWidget) return null;
 
-  const schema = getWidgetSchema(selectedWidget);
+  const schema = getWidgetSchema(selectedWidget.id);
   if (!schema) return null;
 
   const handlePropertyChange = (key, value) => {
     setLocalProperties(prev => ({ ...prev, [key]: value }));
-    updateWidgetProperty(selectedWidget, key, value);
+    updateWidgetProperty(selectedWidget.id, key, value);
   };
 
   const handleSave = () => {
@@ -58,7 +58,7 @@ const PropertiesPanel = () => {
       });
       setLocalProperties(defaults);
       Object.entries(defaults).forEach(([key, value]) => {
-        updateWidgetProperty(selectedWidget, key, value);
+        updateWidgetProperty(selectedWidget.id, key, value);
       });
     }
   };
@@ -224,7 +224,7 @@ const PropertiesPanel = () => {
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Properties</h3>
             <button
-              onClick={() => selectWidget(null)}
+              onClick={deselectWidget}
               className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
               <X className="w-5 h-5 text-gray-500" />
@@ -232,7 +232,7 @@ const PropertiesPanel = () => {
           </div>
           <div className="flex items-center gap-2">
             <div className="px-2 py-1 bg-primary-100 dark:bg-primary-900 rounded text-xs font-medium text-primary-700 dark:text-primary-300">
-              {schema.name || selectedWidget}
+              {schema.name || selectedWidget.id}
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400">
               {schema.category || 'Widget'}
