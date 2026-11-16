@@ -12,7 +12,7 @@ import {
   BarChart3, ThumbsUp, ThumbsDown, Lock, Pencil, Move, Download, RotateCcw,
   LocateFixed, Copy, Flag, Bug, Lightbulb, AlertTriangle, HelpCircle, Star,
   Crosshair, Ghost, PanelRightClose, PanelRightOpen, Pin, Archive,
-  Search, SlidersHorizontal
+  Search, SlidersHorizontal, ListChecks, StickyNote, MapPinned
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -96,6 +96,69 @@ const PIN_KINDS = [
 // Private admin ideas board tags/statuses (beta_admin_ideas)
 const IDEA_TAGS = ['idea', 'task', 'note', 'plan', 'investigate', 'risk'];
 const IDEA_STATUSES = ['open', 'in_progress', 'done', 'archived'];
+
+// Per-tag card personality — each tag gets its own tint, chip, icon, and
+// title font so the board reads at a glance. Add a tag → add one entry.
+const TAG_STYLE = {
+  idea: {
+    Icon: Lightbulb, hex: '#a78bfa',
+    card: 'bg-violet-500/[0.07] border-violet-500/40',
+    chip: 'bg-violet-500/20 text-violet-300',
+    titleCls: 'tracking-wide',
+    bodyCls: '',
+  },
+  task: {
+    Icon: ListChecks, hex: '#34d399',
+    card: 'bg-emerald-500/[0.07] border-emerald-500/40',
+    chip: 'bg-emerald-500/20 text-emerald-300',
+    titleCls: 'font-mono tracking-tight',
+    bodyCls: 'font-mono',
+  },
+  note: {
+    Icon: StickyNote, hex: '#fbbf24',
+    card: 'bg-amber-500/[0.08] border-amber-500/40',
+    chip: 'bg-amber-500/20 text-amber-300',
+    titleCls: 'font-serif italic',
+    bodyCls: 'font-serif italic',
+  },
+  plan: {
+    Icon: MapPinned, hex: '#818cf8',
+    card: 'bg-indigo-500/[0.07] border-indigo-500/40',
+    chip: 'bg-indigo-500/20 text-indigo-300',
+    titleCls: 'font-semibold tracking-widest',
+    bodyCls: '',
+  },
+  investigate: {
+    Icon: Search, hex: '#22d3ee',
+    card: 'bg-cyan-500/[0.07] border-cyan-500/40',
+    chip: 'bg-cyan-500/20 text-cyan-300',
+    titleCls: 'underline decoration-dotted decoration-cyan-400/50 underline-offset-4',
+    bodyCls: '',
+  },
+  risk: {
+    Icon: AlertTriangle, hex: '#fb7185',
+    card: 'bg-rose-500/[0.07] border-rose-500/40',
+    chip: 'bg-rose-500/20 text-rose-300',
+    titleCls: 'font-bold tracking-wide',
+    bodyCls: '',
+  },
+};
+const TAG_STYLE_FALLBACK = {
+  Icon: HelpCircle, hex: '#94a3b8',
+  card: 'bg-slate-800/40 border-slate-700',
+  chip: 'bg-slate-800 text-slate-400',
+  titleCls: '',
+  bodyCls: '',
+};
+const tagStyle = (tag) => TAG_STYLE[tag] || TAG_STYLE_FALLBACK;
+const TagBadge = ({ tag }) => {
+  const t = tagStyle(tag);
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold capitalize shrink-0 ${t.chip}`}>
+      <t.Icon className="w-2.5 h-2.5" />{tag}
+    </span>
+  );
+};
 
 // Priority queue display — a rank's share of the queue maps to a
 // percentage, a word, and a color so "P3" reads as "67% High".
@@ -2624,11 +2687,11 @@ const BetaPinLayer = () => {
                   </span>
                 </div>
               </div>
-              {filteredIdeas.map((i) => { const pri = priorityInfo(i.priority_rank, maxIdeaRank); return (
+              {filteredIdeas.map((i) => { const pri = priorityInfo(i.priority_rank, maxIdeaRank); const ts = tagStyle(i.tag); return (
                 <div
                   key={i.id}
                   onContextMenu={(e) => { e.preventDefault(); setIdeaCtx({ x: e.clientX, y: e.clientY, idea: i }); }}
-                  className={`px-3 py-2 border-b border-slate-800/60 ${i.status === 'archived' ? 'opacity-50' : ''} ${pri ? 'border-l-2' : ''}`}
+                  className={`mx-2 my-1.5 px-3 py-2 rounded-xl border ${ts.card} ${i.status === 'archived' ? 'opacity-50' : ''} ${pri ? 'border-l-4' : ''}`}
                   style={pri ? { borderLeftColor: pri.color } : undefined}
                 >
                   <div className="flex items-center gap-1.5">
@@ -2642,7 +2705,7 @@ const BetaPinLayer = () => {
                         {pri.pct}% {pri.label}
                       </span>
                     )}
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 capitalize shrink-0">{i.tag}</span>
+                    <TagBadge tag={i.tag} />
                     <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${STATUS_META[i.status]?.cls || 'bg-slate-800 text-slate-300'}`}>{i.status.replace('_', ' ')}</span>
                     <span className="text-[10px] text-slate-600 ml-auto shrink-0">{relTime(i.created_at)}</span>
                   </div>
@@ -2679,10 +2742,10 @@ const BetaPinLayer = () => {
                     </div>
                   ) : (
                     <>
-                      <div className={`text-sm font-medium mt-0.5 ${i.status === 'done' ? 'line-through text-slate-500' : 'text-slate-100'}`} style={{ color: i.status === 'done' ? undefined : (i.color || undefined) }}>
+                      <div className={`text-sm font-medium mt-0.5 ${ts.titleCls} ${i.status === 'done' ? 'line-through text-slate-500' : 'text-slate-100'}`} style={{ color: i.status === 'done' ? undefined : (i.color || undefined) }}>
                         {i.title}
                       </div>
-                      {i.body && <div className="text-xs text-slate-400 mt-0.5 max-h-20 overflow-y-auto scrollbar-3d"><FormattedNote text={i.body} /></div>}
+                      {i.body && <div className={`text-xs text-slate-400 mt-0.5 max-h-20 overflow-y-auto scrollbar-3d ${ts.bodyCls}`}><FormattedNote text={i.body} /></div>}
                       <div className="flex gap-1 mt-1.5 flex-wrap">
                         <button onClick={() => updateIdea(i.id, { is_pinned: !i.is_pinned })} title={i.is_pinned ? 'Unpin' : 'Pin to top'}
                           className={`text-[11px] px-1.5 py-1 rounded ${i.is_pinned ? 'bg-amber-600/30 text-amber-300' : 'bg-slate-800 text-slate-500 hover:text-slate-300'}`}>
@@ -2790,7 +2853,7 @@ const BetaPinLayer = () => {
                     <div key={`idea-${i.id}`} className="px-3 py-2 border-b border-slate-800/60">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] px-1.5 rounded-full bg-red-500/20 text-red-300">idea deleted</span>
-                        <span className="text-[10px] text-slate-500 capitalize">{i.tag}</span>
+                        <TagBadge tag={i.tag} />
                         <span className="text-[10px] text-slate-600 ml-auto shrink-0">{relTime(i.deleted_at)}</span>
                       </div>
                       <p className="text-sm text-slate-200 mt-1 font-medium">{i.title}</p>
