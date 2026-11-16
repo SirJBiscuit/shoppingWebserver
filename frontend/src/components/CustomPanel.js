@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Maximize2, Minimize2, GripVertical } from 'lucide-react';
-import { Portal } from '../utils/autoPlacement';
+import { Portal, usePanelShiftExcept } from '../utils/autoPlacement';
 
 /**
  * CustomPanel - A reusable, multi-mode panel component with automatic device detection
@@ -38,6 +38,8 @@ import { Portal } from '../utils/autoPlacement';
  * @param {boolean} props.scrollable - Enable scrolling (default: true)
  * @param {boolean} props.draggable - Enable dragging (default: false, auto-disabled on mobile)
  * @param {boolean} props.resizable - Enable resizing (default: false, auto-disabled on mobile)
+ * @param {string} props.shiftSource - Corner-API shift source this panel owns; the panel
+ *   slides left of OTHER panels' shifts (see autoPlacement panelShifts)
  * @param {boolean} props.showBackdrop - Show backdrop (default: true)
  * @param {boolean} props.closeOnBackdrop - Close on backdrop click (default: true)
  * @param {string} props.className - Additional CSS classes
@@ -59,9 +61,13 @@ const CustomPanel = ({
   closeOnBackdrop = true,
   className = '',
   actions = [],
-  device: deviceOverride
+  device: deviceOverride,
+  shiftSource = null
 }) => {
   const [isMaximized, setIsMaximized] = useState(false);
+  // Corner-stack API: slide this panel left when OTHER right-edge panels
+  // (e.g. the admin beta viewer) are open. Own shift source is excluded.
+  const edgeShift = usePanelShiftExcept(shiftSource);
   const [panelWidth, setPanelWidth] = useState(width);
   const [panelHeight, setPanelHeight] = useState(height);
   
@@ -266,7 +272,12 @@ const CustomPanel = ({
               width: actualMode === 'slide-left' || actualMode === 'slide-right' || actualMode === 'overlay' ? getWidth() : undefined,
               height: actualMode === 'slide-up' || actualMode === 'slide-down' || actualMode === 'overlay' ? getHeight() : undefined,
               maxWidth: actualMode === 'overlay' ? '90vw' : undefined,
-              maxHeight: actualMode === 'overlay' ? '90vh' : undefined
+              maxHeight: actualMode === 'overlay' ? '90vh' : undefined,
+              // Right-edge modes slide left of any other open side panel
+              right: actualMode === 'slide-right' ? edgeShift
+                : actualMode === 'corner' && edgeShift ? edgeShift + 16
+                : undefined,
+              transition: 'right 0.3s ease'
             }}
           >
             {/* Mobile Swipe Indicator */}

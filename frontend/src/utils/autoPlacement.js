@@ -276,4 +276,17 @@ export const usePanelShift = () =>
     maxPanelShift
   );
 
+/** Max shift across active sources EXCLUDING `exclude` — a side panel uses
+ *  this to slide left of OTHER open panels without reacting to its own
+ *  registered shift source. */
+export const usePanelShiftExcept = (exclude) =>
+  useSyncExternalStore(
+    (cb) => { stackSubs.add(cb); return () => stackSubs.delete(cb); },
+    () => {
+      let m = 0;
+      panelShifts.forEach((v, k) => { if (k !== exclude && v > m) m = v; });
+      return m;
+    }
+  );
+
 export default Portal;

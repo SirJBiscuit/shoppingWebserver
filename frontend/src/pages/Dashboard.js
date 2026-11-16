@@ -3134,6 +3134,7 @@ const Dashboard = () => {
       <CustomPanel
         isOpen={showListPanel}
         onClose={() => setShowListPanel(false)}
+        shiftSource="list"
         title={`Active Shopping List: ${activeList?.name || 'My List'}`}
         scrollable={true}
         showBackdrop={false}
