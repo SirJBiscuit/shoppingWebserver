@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import FormattedNote from '../FormattedNote';
-import { Popup, Portal, useCornerStack, usePanelShift, setPanelShift, useIsMobile } from '../../utils/autoPlacement';
+import { Popup, Portal, Connector, useCornerStack, usePanelShift, setPanelShift, useIsMobile, useFloatSide } from '../../utils/autoPlacement';
 import {
   MapPin, Plus, X, Eye, EyeOff, MessageSquare, ChevronRight,
   Check, Clock, Trash2, Layers, ExternalLink,
@@ -445,14 +445,17 @@ const BetaPinLayer = () => {
     [isAdmin, pins, allPins]);
   const panelShift = usePanelShift();
   const isMobile = useIsMobile();
+  // Shared side — the whole corner assembly (apps stack, beta stack, admin
+  // sidebar) moves between left/right together.
+  const floatSide = useFloatSide('right');
 
   // Admin viewer is a 384px right-edge panel — shift every corner column
   // left while it's open so the beta stack + Active List buttons stay
-  // reachable beside it (shared 'viewer' shift source).
+  // reachable beside it (only when the columns live on the right).
   useEffect(() => {
-    setPanelShift('viewer', panelOpen && !isMobile ? 400 : 0);
+    setPanelShift('viewer', panelOpen && !isMobile && floatSide === 'right' ? 400 : 0);
     return () => setPanelShift('viewer', 0);
-  }, [panelOpen, isMobile]);
+  }, [panelOpen, isMobile, floatSide]);
   useEffect(() => {
     localStorage.setItem('betaStackHidden', stackHidden ? '1' : '0');
   }, [stackHidden]);
@@ -1058,26 +1061,12 @@ const BetaPinLayer = () => {
           draw a line from the card back to the resolved position plus a
           ring that marks the exact spot above everything else. */}
       {detail && detailPos && !ctx && (
-        <svg className="fixed inset-0 z-[9995] pointer-events-none" width="100%" height="100%">
-          <line
-            x1={detailPos.x} y1={detailPos.y - 14}
-            x2={detailPos.x + 16 + 20 + detailDrag.dx} y2={detailPos.y + 8 + 20 + detailDrag.dy}
-            stroke={sevOf(detail.severity).color}
-            strokeWidth="2" strokeDasharray="5 4" strokeLinecap="round"
-            opacity="0.85"
-          />
-          <circle
-            cx={detailPos.x} cy={detailPos.y - 14} r="13"
-            fill="none" stroke={sevOf(detail.severity).color} strokeWidth="2.5" opacity="0.9"
-          />
-          <circle
-            cx={detailPos.x} cy={detailPos.y - 14} r="13"
-            fill="none" stroke={sevOf(detail.severity).color} strokeWidth="2"
-          >
-            <animate attributeName="r" values="13;26" dur="1.4s" repeatCount="indefinite" />
-            <animate attributeName="opacity" values="0.7;0" dur="1.4s" repeatCount="indefinite" />
-          </circle>
-        </svg>
+        <Connector
+          from={{ x: detailPos.x, y: detailPos.y - 14 }}
+          to={{ x: detailPos.x + 36 + detailDrag.dx, y: detailPos.y + 28 + detailDrag.dy }}
+          color={sevOf(detail.severity).color}
+          zIndex={9995}
+        />
       )}
 
       {/* Pinless element inspector — hover highlights, click freezes info.
@@ -1657,7 +1646,7 @@ const BetaPinLayer = () => {
       {!dropMode && !moving && !stackHidden && (
         <div
           ref={stackRef}
-          className="bp-floating fixed bottom-5 right-4 z-[45] flex flex-col items-end gap-3 transition-transform duration-300"
+          className={`bp-floating fixed bottom-5 ${floatSide === 'left' ? 'left-4 items-start' : 'right-4 items-end'} z-[45] flex flex-col gap-3 transition-transform duration-300`}
           style={{ transform: `translateX(${-panelShift}px)` }}
         >
           {!isAdmin && (
@@ -1719,7 +1708,7 @@ const BetaPinLayer = () => {
       {canUse && stackHidden && !dropMode && !moving && (
         <button
           onClick={() => setStackHidden(false)}
-          className="fixed right-0 bottom-16 z-[46] bg-slate-900/90 border border-r-0 border-slate-700 rounded-l-lg px-1 py-3 text-slate-400 hover:text-slate-200 shadow-xl"
+          className={`fixed ${floatSide === 'left' ? 'left-0 rounded-r-lg border-l-0' : 'right-0 rounded-l-lg border-r-0'} bottom-16 z-[46] bg-slate-900/90 border border-slate-700 px-1 py-3 text-slate-400 hover:text-slate-200 shadow-xl`}
           title="Show beta controls"
         >
           <PanelRightOpen className="w-4 h-4" />
@@ -1729,7 +1718,7 @@ const BetaPinLayer = () => {
       {/* Admin sidebar — thin desktop-only tool column on the right edge.
           Hidden on mobile/tablet (lg+): inspect, ghosts, viewer. */}
       {isAdmin && canUse && !dropMode && !moving && (
-        <div className="hidden lg:flex fixed right-0 top-1/3 z-[46] flex-col items-center gap-1 bg-slate-900/90 border border-r-0 border-slate-700 rounded-l-xl py-2 px-1.5 shadow-xl">
+        <div className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-0 rounded-r-xl border-l-0' : 'right-0 rounded-l-xl border-r-0'} top-1/3 z-[46] flex-col items-center gap-1 bg-slate-900/90 border border-slate-700 py-2 px-1.5 shadow-xl`}>
           <button
             onClick={() => { setInspectMode((v) => !v); setInspectData(null); }}
             className={`p-2 rounded-lg transition ${inspectMode ? 'bg-cyan-600/30 text-cyan-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}

@@ -35,7 +35,7 @@ import Onboarding from '../components/Onboarding';
 import HelpButton from '../components/HelpButton';
 import Sidebar from '../components/Sidebar';
 import AutocompleteInput from '../components/AutocompleteInput';
-import TemplatesModal from '../components/TemplatesModal';
+import ItemShortcut from '../components/ItemShortcut';
 import NewListModal from '../components/NewListModal';
 import PriceLearningModal from '../components/PriceLearningModal';
 import UpdateNotification from '../components/UpdateNotification';
@@ -201,7 +201,7 @@ const Dashboard = () => {
   const [showRecovery, setShowRecovery] = useState(false);
   const [completedLists, setCompletedLists] = useState([]);
   const [hideCategories, setHideCategories] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
+  const [showItemShortcuts, setShowItemShortcuts] = useState(false);
   const [showNewListModal, setShowNewListModal] = useState(false);
   const [showPriceLearning, setShowPriceLearning] = useState(false);
   const [editingListName, setEditingListName] = useState(false);
@@ -393,6 +393,19 @@ const Dashboard = () => {
       console.error('Active list has no ID:', activeList);
     }
   }, [activeList]);
+
+  // '/' opens Item Shortcuts from anywhere — ignored while typing in fields
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = e.target;
+      if (el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable) return;
+      e.preventDefault();
+      setShowItemShortcuts(true);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   useEffect(() => {
     if (searchQuery.length >= 2) {
@@ -2016,12 +2029,12 @@ const Dashboard = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowTemplates(true)}
-                    className="btn-secondary text-sm flex items-center bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30"
-                    title="Add common items from templates"
+                    onClick={() => setShowItemShortcuts(true)}
+                    className="btn-secondary text-sm flex items-center bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/30"
+                    title="Item Shortcuts — learned & unlearned items, press / anywhere"
                   >
-                    <Package className="w-4 h-4 mr-1" />
-                    Templates
+                    <Zap className="w-4 h-4 mr-1" />
+                    Shortcuts
                   </button>
                   {hasFeature('price_learning') && (
                   <button
@@ -2704,11 +2717,12 @@ const Dashboard = () => {
         }}
       />
 
-      {/* Templates Modal */}
-      <TemplatesModal
-        isOpen={showTemplates}
-        onClose={() => setShowTemplates(false)}
+      {/* Item Shortcuts — MDL-powered picker (replaces the old templates modal) */}
+      <ItemShortcut
+        isOpen={showItemShortcuts}
+        onClose={() => setShowItemShortcuts(false)}
         onAddItems={addTemplateItems}
+        activeItemNames={(items || []).map((i) => i.item_name)}
       />
 
       {/* New List Modal */}
@@ -3150,6 +3164,12 @@ const Dashboard = () => {
               }, 300);
             },
             color: 'bg-green-500 hover:bg-green-600'
+          },
+          {
+            label: 'Shortcuts',
+            icon: Zap,
+            onClick: () => setShowItemShortcuts(true),
+            color: 'bg-indigo-500 hover:bg-indigo-600'
           },
           {
             label: 'Clear Checked',

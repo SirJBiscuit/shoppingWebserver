@@ -289,4 +289,70 @@ export const usePanelShiftExcept = (exclude) =>
     }
   );
 
+// ---------------------------------------------------------------------------
+// Connector — the pin-layer line API, generalized.
+// Draws a dashed tether between two viewport points plus a pulsing ring on
+// `from`. Use it anywhere a floating card/popup needs to point back at the
+// element it belongs to (pins, tooltips, inspectors, callouts).
+//
+//   <Connector from={{x,y}} to={{x,y}} color="#f43f5e" zIndex={9995} />
+export const Connector = ({ from, to, color = '#38bdf8', zIndex = 9995, line = true, ring = true }) => {
+  if (!from || !to) return null;
+  return (
+    <svg
+      className="fixed inset-0 pointer-events-none"
+      style={{ zIndex }}
+      width="100%" height="100%"
+    >
+      {line && (
+        <line
+          x1={from.x} y1={from.y} x2={to.x} y2={to.y}
+          stroke={color} strokeWidth="2" strokeDasharray="5 4"
+          strokeLinecap="round" opacity="0.85"
+        />
+      )}
+      {ring && (
+        <>
+          <circle
+            cx={from.x} cy={from.y} r="13"
+            fill="none" stroke={color} strokeWidth="2.5" opacity="0.9"
+          />
+          <circle
+            cx={from.x} cy={from.y} r="13"
+            fill="none" stroke={color} strokeWidth="2"
+          >
+            <animate attributeName="r" values="13;26" dur="1.4s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.7;0" dur="1.4s" repeatCount="indefinite" />
+          </circle>
+        </>
+      )}
+    </svg>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Shared floating-column side — ONE switch moves every corner column
+// (apps/active-list stack, beta stack, admin sidebar) between the left and
+// right edge together. Persisted; `fallback` wins until the user picks a side.
+const FLOAT_SIDE_KEY = 'floatSide';
+let floatSide = null;
+try { floatSide = localStorage.getItem(FLOAT_SIDE_KEY) || null; } catch { /* ignore */ }
+
+export const setFloatSide = (side) => {
+  const v = side === 'left' || side === 'right' ? side : null;
+  if (floatSide === v) return;
+  floatSide = v;
+  try {
+    if (v) localStorage.setItem(FLOAT_SIDE_KEY, v);
+    else localStorage.removeItem(FLOAT_SIDE_KEY);
+  } catch { /* ignore */ }
+  notifyStacks();
+};
+
+export const useFloatSide = (fallback = 'right') =>
+  useSyncExternalStore(
+    (cb) => { stackSubs.add(cb); return () => stackSubs.delete(cb); },
+    () => floatSide || fallback
+  );
+
 export default Portal;

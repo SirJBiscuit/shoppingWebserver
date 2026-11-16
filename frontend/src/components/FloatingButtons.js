@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Grid, List } from 'lucide-react';
-import { Portal, useIsMobile, useCornerOffset, usePanelShift, setPanelShift } from '../utils/autoPlacement';
+import { Grid, List, MoveHorizontal } from 'lucide-react';
+import { Portal, useIsMobile, useCornerOffset, usePanelShift, setPanelShift, useFloatSide, setFloatSide } from '../utils/autoPlacement';
 
 // Floating action buttons — same visual scheme as the beta pin layer:
 // circular buttons in one bottom-corner stack with a small visible label
@@ -21,7 +21,7 @@ const FloatingButtons = ({
   showActiveList = true,
   // Bottom-right column by default — the beta pin stack sits at the
   // corner bottom and this column floats above it (see --bp-stack-h).
-  position = 'right',
+  position: positionProp = 'right',
   buttonColor = '#6366f1',
   spacing = 16,
   showAppsMenu,
@@ -31,8 +31,10 @@ const FloatingButtons = ({
   setShowListPanel,
   items = [],
 }) => {
-  // Same geometry as the beta stack (right-4, items-end, w-12 rows) so the
-  // button centers share one vertical axis regardless of label width.
+  // Shared side store — one switch moves EVERY corner column together
+  // (apps/active-list + beta stack + admin sidebar). The `position` prop is
+  // only the fallback until the user picks a side.
+  const position = useFloatSide(positionProp);
   const side = position === 'left' ? 'left-4 items-start' : 'right-4 items-end';
   const isMobile = useIsMobile();
   const belowPx = useCornerOffset(['beta']); // beta controls live below us
@@ -46,9 +48,10 @@ const FloatingButtons = ({
     return () => setPanelShift('list', 0);
   }, [showListPanel, position, isMobile]);
 
-  // Right column sits directly above whatever the beta stack currently
-  // occupies — hidden beta controls publish 0 and the column drops down.
-  const bottom = position === 'right' ? belowPx + spacing : spacing;
+  // The column sits directly above whatever the beta stack currently
+  // occupies on the shared side — hidden beta controls publish 0 and the
+  // column drops to the corner.
+  const bottom = belowPx + spacing;
 
   return (
     <Portal>
@@ -75,6 +78,18 @@ const FloatingButtons = ({
                 >
                   <span className="text-xl">🧮</span>
                   <span className="font-medium text-gray-900 dark:text-white">Calculator</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setFloatSide(position === 'left' ? 'right' : 'left');
+                    setShowAppsMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600 transition-colors text-left touch-manipulation border-t border-gray-100 dark:border-gray-700"
+                >
+                  <MoveHorizontal className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    Move buttons {position === 'left' ? 'right' : 'left'}
+                  </span>
                 </button>
                 {/* Add more apps here later */}
               </motion.div>
