@@ -9,7 +9,7 @@ import {
   Check, Clock, Trash2, Layers, ExternalLink,
   BarChart3, ThumbsUp, ThumbsDown, Lock, Pencil, Move, Download, RotateCcw,
   LocateFixed, Copy, Flag, Bug, Lightbulb, AlertTriangle, HelpCircle, Star,
-  Crosshair, Ghost, PanelRightClose, PanelRightOpen
+  Crosshair, Ghost, PanelRightClose, PanelRightOpen, Pin, Archive
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -79,6 +79,10 @@ const PIN_KINDS = [
   { key: 'note', label: 'Note' },
   { key: 'idea', label: 'Idea' },
 ];
+
+// Private admin ideas board tags/statuses (beta_admin_ideas)
+const IDEA_TAGS = ['idea', 'task', 'note', 'plan', 'investigate', 'risk'];
+const IDEA_STATUSES = ['open', 'in_progress', 'done', 'archived'];
 const KIND_META = {
   bug:  { label: 'Bug',  cls: 'bg-red-500/20 text-red-300' },
   note: { label: 'Note', cls: 'bg-amber-500/20 text-amber-300' },
@@ -252,10 +256,14 @@ const BetaPinLayer = () => {
   const [pollsOpen, setPollsOpen] = useState(false); // tester popover
   const [adminPolls, setAdminPolls] = useState([]);  // admin view + tallies
   const [pollNotes, setPollNotes] = useState([]);    // voter notes
-  const [newPoll, setNewPoll] = useState({ title: '', description: '', options: [], color: '' });
+  const [newPoll, setNewPoll] = useState({ title: '', description: '', options: [], color: '', icon: '' });
   const [optDraft, setOptDraft] = useState('');       // admin: option being typed
   const [editPoll, setEditPoll] = useState(null);     // admin: poll being edited
   const [editOptDraft, setEditOptDraft] = useState('');
+  // Private admin ideas board
+  const [ideas, setIdeas] = useState([]);
+  const [ideaDraft, setIdeaDraft] = useState({ title: '', body: '', tag: 'idea', color: '' });
+  const [ideaEdit, setIdeaEdit] = useState(null);     // {id,title,body,tag,color}
   // Tester panel — own feedback threads + compose
   const [testerTab, setTesterTab] = useState('votes');
   const [myFeedback, setMyFeedback] = useState([]);
@@ -327,6 +335,19 @@ const BetaPinLayer = () => {
   useEffect(() => {
     if (isAdmin && (showGhosts || (panelOpen && tab === 'history'))) loadHistory();
   }, [isAdmin, showGhosts, panelOpen, tab, loadHistory]);
+
+  // Private admin ideas board
+  const loadIdeas = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const { data } = await api.get('/beta/ideas/admin');
+      setIdeas(data.ideas || []);
+    } catch { /* silent */ }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (isAdmin && panelOpen && tab === 'ideas') loadIdeas();
+  }, [isAdmin, panelOpen, tab, loadIdeas]);
 
   useEffect(() => { if (canUse) { loadPagePins(); loadPolls(); } }, [canUse, loadPagePins, loadPolls]);
   useEffect(() => { if (pollsOpen) { loadPolls(); loadMyFeedback(); } }, [pollsOpen, loadPolls, loadMyFeedback]);
@@ -709,9 +730,10 @@ const BetaPinLayer = () => {
         title: newPoll.title.trim(),
         description: newPoll.description.trim() || null,
         options: newPoll.options.length >= 2 ? newPoll.options : undefined,
-        textColor: newPoll.color || undefined
+        textColor: newPoll.color || undefined,
+        icon: newPoll.icon || undefined
       });
-      setNewPoll({ title: '', description: '', options: [], color: '' });
+      setNewPoll({ title: '', description: '', options: [], color: '', icon: '' });
       setOptDraft('');
       loadAdminPolls();
     } catch { /* silent */ }
@@ -723,7 +745,7 @@ const BetaPinLayer = () => {
     setEditPoll({
       id: p.id, title: p.title, description: p.description || '',
       options: Array.isArray(p.options) ? [...p.options] : [],
-      color: p.text_color || ''
+      color: p.text_color || '', icon: p.icon || ''
     });
     setEditOptDraft('');
   };
@@ -742,7 +764,8 @@ const BetaPinLayer = () => {
         title: editPoll.title.trim(),
         description: editPoll.description.trim() || null,
         options: editPoll.options,
-        textColor: editPoll.color || null
+        textColor: editPoll.color || null,
+        icon: editPoll.icon || null
       });
       setEditPoll(null); setEditOptDraft('');
       loadAdminPolls();
@@ -754,6 +777,46 @@ const BetaPinLayer = () => {
       await api.post(`/beta/polls/admin/${id}/status`, { status });
       loadAdminPolls();
     } catch { /* silent */ }
+  };
+
+  const deletePoll = async (id) => {
+    try {
+      await api.delete(`/beta/polls/admin/${id}`);
+      loadAdminPolls();
+    } catch (e) { apiErr(e, 'Delete failed'); }
+  };
+
+  // Private ideas board CRUD
+  const createIdea = async () => {
+    if (!ideaDraft.title.trim()) return;
+    try {
+      await api.post('/beta/ideas/admin', ideaDraft);
+      setIdeaDraft({ title: '', body: '', tag: 'idea', color: '' });
+      loadIdeas();
+    } catch (e) { apiErr(e, 'Create failed'); }
+  };
+
+  const updateIdea = async (id, fields) => {
+    try {
+      await api.patch(`/beta/ideas/admin/${id}`, fields);
+      loadIdeas();
+    } catch (e) { apiErr(e, 'Update failed'); }
+  };
+
+  const deleteIdea = async (id) => {
+    try {
+      await api.delete(`/beta/ideas/admin/${id}`);
+      loadIdeas();
+    } catch (e) { apiErr(e, 'Delete failed'); }
+  };
+
+  const saveIdeaEdit = async () => {
+    if (!ideaEdit?.title.trim()) return;
+    await updateIdea(ideaEdit.id, {
+      title: ideaEdit.title.trim(), body: ideaEdit.body,
+      tag: ideaEdit.tag, color: ideaEdit.color || null
+    });
+    setIdeaEdit(null);
   };
 
   const bulk = async (action) => {
@@ -940,6 +1003,9 @@ const BetaPinLayer = () => {
             )}
             {c.pins[0].status === 'fixed' && (
               <Check className="absolute -bottom-1 -right-1 w-3.5 h-3.5 text-emerald-400 bg-slate-900 rounded-full" />
+            )}
+            {c.pins[0].status === 'hidden' && (
+              <EyeOff className="absolute -bottom-1 -left-1 w-3 h-3 text-zinc-400 bg-slate-900 rounded-full" />
             )}
           </span>
         </button>
@@ -1415,11 +1481,13 @@ const BetaPinLayer = () => {
               {polls.map((p) => {
                 const hasOptions = Array.isArray(p.options) && p.options.length >= 2;
                 const pct = p.total_votes ? Math.round((p.yes_votes / p.total_votes) * 100) : 0;
+                const PollIc = p.icon ? pinIconOf(p.icon) : null;
                 return (
                   <div key={p.id} className="px-3 py-2.5 border-b border-slate-800/60">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-slate-100" style={{ color: p.text_color || undefined }}>
+                          {PollIc && <PollIc className="w-4 h-4 inline-block mr-1.5" style={{ color: p.text_color || undefined }} />}
                           <FormattedNote text={p.title} />
                         </div>
                         {p.description && <div className="text-xs text-slate-400 mt-0.5 max-h-16 overflow-y-auto scrollbar-3d pr-1"><FormattedNote text={p.description} /></div>}
@@ -1683,7 +1751,7 @@ const BetaPinLayer = () => {
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400 mr-1">Admin Viewer</span>
-              {['pins', 'messages', 'polls', 'history'].map((t) => (
+              {['pins', 'messages', 'polls', 'ideas', 'history'].map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -1770,6 +1838,118 @@ const BetaPinLayer = () => {
                 </label>
               ))}
               {!allPins.length && <p className="text-sm text-slate-500 text-center py-8">No pins yet</p>}
+            </div>
+          )}
+
+          {tab === 'ideas' && (
+            <div className="flex-1 overflow-y-auto scrollbar-3d">
+              {/* Private admin ideas board — only visible to admins */}
+              <div className="px-3 py-2.5 border-b border-slate-800 bg-slate-800/30">
+                <input
+                  value={ideaDraft.title}
+                  onChange={(e) => setIdeaDraft((n) => ({ ...n, title: e.target.value }))}
+                  placeholder="Private idea / task / note…"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                />
+                <textarea
+                  value={ideaDraft.body}
+                  onChange={(e) => setIdeaDraft((n) => ({ ...n, body: e.target.value }))}
+                  placeholder="Details — **bold** *italic* supported"
+                  rows={2}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 mt-1.5 resize-y scrollbar-3d focus:outline-none focus:border-blue-500"
+                />
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <select
+                    value={ideaDraft.tag}
+                    onChange={(e) => setIdeaDraft((n) => ({ ...n, tag: e.target.value }))}
+                    className="bg-slate-800 border border-slate-700 rounded-lg px-1.5 py-1 text-[11px] text-slate-300"
+                  >
+                    {IDEA_TAGS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <input
+                    type="color"
+                    value={ideaDraft.color || '#f1f5f9'}
+                    onChange={(e) => setIdeaDraft((n) => ({ ...n, color: e.target.value }))}
+                    className="w-6 h-6 rounded bg-slate-800 border border-slate-700 cursor-pointer p-0.5"
+                    title="Title color"
+                  />
+                  <button
+                    onClick={createIdea}
+                    disabled={!ideaDraft.title.trim()}
+                    className="ml-auto text-[11px] px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40"
+                  >Add</button>
+                </div>
+              </div>
+              {ideas.map((i) => (
+                <div key={i.id} className={`px-3 py-2 border-b border-slate-800/60 ${i.status === 'archived' ? 'opacity-50' : ''}`}>
+                  <div className="flex items-center gap-1.5">
+                    {i.is_pinned && <Pin className="w-3 h-3 text-amber-400 shrink-0" />}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 capitalize shrink-0">{i.tag}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${STATUS_META[i.status]?.cls || 'bg-slate-800 text-slate-300'}`}>{i.status.replace('_', ' ')}</span>
+                    <span className="text-[10px] text-slate-600 ml-auto shrink-0">{relTime(i.created_at)}</span>
+                  </div>
+                  {ideaEdit?.id === i.id ? (
+                    <div className="mt-1.5 space-y-1.5">
+                      <input
+                        value={ideaEdit.title}
+                        onChange={(e) => setIdeaEdit((n) => ({ ...n, title: e.target.value }))}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                      />
+                      <textarea
+                        value={ideaEdit.body || ''}
+                        onChange={(e) => setIdeaEdit((n) => ({ ...n, body: e.target.value }))}
+                        rows={3}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 resize-y scrollbar-3d focus:outline-none focus:border-blue-500"
+                      />
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={ideaEdit.tag}
+                          onChange={(e) => setIdeaEdit((n) => ({ ...n, tag: e.target.value }))}
+                          className="bg-slate-800 border border-slate-700 rounded-lg px-1.5 py-1 text-[11px] text-slate-300"
+                        >
+                          {IDEA_TAGS.map((t) => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <input
+                          type="color"
+                          value={ideaEdit.color || '#f1f5f9'}
+                          onChange={(e) => setIdeaEdit((n) => ({ ...n, color: e.target.value }))}
+                          className="w-6 h-6 rounded bg-slate-800 border border-slate-700 cursor-pointer p-0.5"
+                        />
+                        <button onClick={saveIdeaEdit} disabled={!ideaEdit.title.trim()} className="ml-auto text-[11px] px-2 py-1 rounded bg-blue-600 text-white disabled:opacity-40">Save</button>
+                        <button onClick={() => setIdeaEdit(null)} className="text-[11px] px-2 py-1 rounded bg-slate-700 text-slate-300">Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className={`text-sm font-medium mt-0.5 ${i.status === 'done' ? 'line-through text-slate-500' : 'text-slate-100'}`} style={{ color: i.status === 'done' ? undefined : (i.color || undefined) }}>
+                        {i.title}
+                      </div>
+                      {i.body && <div className="text-xs text-slate-400 mt-0.5 max-h-20 overflow-y-auto scrollbar-3d"><FormattedNote text={i.body} /></div>}
+                      <div className="flex gap-1 mt-1.5 flex-wrap">
+                        <button onClick={() => updateIdea(i.id, { is_pinned: !i.is_pinned })} title={i.is_pinned ? 'Unpin' : 'Pin to top'}
+                          className={`text-[11px] px-1.5 py-1 rounded ${i.is_pinned ? 'bg-amber-600/30 text-amber-300' : 'bg-slate-800 text-slate-500 hover:text-slate-300'}`}>
+                          <Pin className="w-3 h-3" />
+                        </button>
+                        {IDEA_STATUSES.filter((s) => s !== i.status).map((s) => (
+                          <button key={s} onClick={() => updateIdea(i.id, { status: s })}
+                            className="text-[10px] px-1.5 py-1 rounded bg-slate-800 text-slate-400 hover:text-slate-200 capitalize">
+                            {s === 'done' ? <Check className="w-3 h-3 inline" /> : s === 'archived' ? <Archive className="w-3 h-3 inline" /> : s.replace('_', ' ')}
+                          </button>
+                        ))}
+                        <button onClick={() => setIdeaEdit({ id: i.id, title: i.title, body: i.body || '', tag: i.tag, color: i.color || '' })} title="Edit"
+                          className="text-[11px] px-1.5 py-1 rounded bg-slate-800 text-slate-400 hover:text-slate-200">
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        <button onClick={() => deleteIdea(i.id)} title="Delete"
+                          className="text-[11px] px-1.5 py-1 rounded bg-slate-800 text-slate-500 hover:text-red-400">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+              {!ideas.length && <p className="text-sm text-slate-500 text-center py-8">No ideas yet — keep private dev notes here.</p>}
             </div>
           )}
 
@@ -1921,6 +2101,19 @@ const BetaPinLayer = () => {
                   />
                   <span className="text-[10px] text-slate-500">title color · **bold** *italic* supported</span>
                 </div>
+                {/* Poll icon picker — same lucide set as pins */}
+                <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                  <span className="text-[10px] text-slate-500 mr-1">icon:</span>
+                  {PIN_ICONS.map((ic) => {
+                    const Ic = ic.Icon;
+                    return (
+                      <button key={ic.key} title={ic.label}
+                        onClick={() => setNewPoll((n) => ({ ...n, icon: n.icon === ic.key ? '' : ic.key }))}
+                        className={`p-1 rounded ${newPoll.icon === ic.key ? 'bg-blue-600/40 text-blue-200' : 'text-slate-500 hover:text-slate-300'}`}
+                      ><Ic className="w-3.5 h-3.5" /></button>
+                    );
+                  })}
+                </div>
                 <button
                   onClick={createPoll}
                   disabled={!newPoll.title.trim()}
@@ -1932,12 +2125,14 @@ const BetaPinLayer = () => {
 
               {adminPolls.map((p) => {
                 const pct = p.total_votes ? Math.round((p.yes_votes / p.total_votes) * 100) : 0;
+                const PollIc = p.icon ? pinIconOf(p.icon) : null;
                 const notes = pollNotes.filter((n) => n.poll_id === p.id);
                 return (
                   <div key={p.id} className="px-3 py-2.5 border-b border-slate-800/60">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-slate-100" style={{ color: p.text_color || undefined }}>
+                          {PollIc && <PollIc className="w-4 h-4 inline-block mr-1.5" style={{ color: p.text_color || undefined }} />}
                           <FormattedNote text={p.title} />
                         </div>
                         {p.description && <div className="text-xs text-slate-400 mt-0.5 max-h-16 overflow-y-auto scrollbar-3d pr-1"><FormattedNote text={p.description} /></div>}
@@ -2001,9 +2196,15 @@ const BetaPinLayer = () => {
                       {editPoll?.id === p.id ? (
                         <button onClick={() => setEditPoll(null)} className="text-[11px] px-2 py-1 rounded bg-slate-700 text-slate-300 hover:bg-slate-600 ml-auto">Cancel</button>
                       ) : (
-                        <button onClick={() => startEditPoll(p)} className="text-[11px] px-2 py-1 rounded bg-slate-700/60 text-slate-200 hover:bg-slate-600 flex items-center gap-1 ml-auto">
-                          <Pencil className="w-3 h-3" /> Edit
-                        </button>
+                        <>
+                          <button onClick={() => deletePoll(p.id)} title="Delete poll + votes"
+                            className="text-[11px] px-1.5 py-1 rounded bg-red-600/20 text-red-300 hover:bg-red-600/40 ml-auto">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => startEditPoll(p)} className="text-[11px] px-2 py-1 rounded bg-slate-700/60 text-slate-200 hover:bg-slate-600 flex items-center gap-1">
+                            <Pencil className="w-3 h-3" /> Edit
+                          </button>
+                        </>
                       )}
                     </div>
                     {/* Inline poll editor — title/description formatting, color, options */}
@@ -2031,6 +2232,18 @@ const BetaPinLayer = () => {
                             title="Title text color"
                           />
                           <span className="text-[10px] text-slate-500">title color · **bold** *italic*</span>
+                        </div>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="text-[10px] text-slate-500 mr-1">icon:</span>
+                          {PIN_ICONS.map((ic) => {
+                            const Ic = ic.Icon;
+                            return (
+                              <button key={ic.key} title={ic.label}
+                                onClick={() => setEditPoll((n) => ({ ...n, icon: n.icon === ic.key ? '' : ic.key }))}
+                                className={`p-1 rounded ${editPoll.icon === ic.key ? 'bg-blue-600/40 text-blue-200' : 'text-slate-500 hover:text-slate-300'}`}
+                              ><Ic className="w-3.5 h-3.5" /></button>
+                            );
+                          })}
                         </div>
                         <div className="flex gap-1.5">
                           <input

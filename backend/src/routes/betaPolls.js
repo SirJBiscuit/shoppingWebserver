@@ -46,7 +46,7 @@ const cleanOptions = (opts) => {
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { rows } = await db.query(
-      `SELECT p.id, p.title, p.description, p.status, p.created_at, p.options, p.text_color,
+      `SELECT p.id, p.title, p.description, p.status, p.created_at, p.options, p.text_color, p.icon,
               ${TALLY}, ${OPTION_TALLY},
               mv.vote AS my_vote, mv.note AS my_note, mv.option_index AS my_option
        FROM beta_feature_polls p
@@ -139,16 +139,17 @@ router.get('/admin/all', authenticateToken, isAdmin, async (req, res) => {
  */
 router.post('/admin', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const { title, description, options, textColor } = req.body;
+    const { title, description, options, textColor, icon } = req.body;
     if (!title || !title.trim() || title.length > 255) {
       return res.status(400).json({ error: 'Title required (max 255 chars)' });
     }
     const opts = cleanOptions(options);
     const { rows } = await db.query(
-      `INSERT INTO beta_feature_polls (title, description, options, text_color, created_by)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      `INSERT INTO beta_feature_polls (title, description, options, text_color, icon, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
       [title.trim(), description?.trim() || null, opts ? JSON.stringify(opts) : null,
-       textColor?.trim()?.slice(0, 20) || null, req.user.id]
+       textColor?.trim()?.slice(0, 20) || null,
+       icon?.trim()?.slice(0, 30) || null, req.user.id]
     );
     res.status(201).json(rows[0]);
   } catch (e) {
@@ -164,7 +165,7 @@ router.post('/admin', authenticateToken, isAdmin, async (req, res) => {
  */
 router.patch('/admin/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const { title, description, options, textColor } = req.body;
+    const { title, description, options, textColor, icon } = req.body;
     if (title !== undefined && (!title.trim() || title.length > 255)) {
       return res.status(400).json({ error: 'Title required (max 255 chars)' });
     }
@@ -180,14 +181,17 @@ router.patch('/admin/:id', authenticateToken, isAdmin, async (req, res) => {
          title      = COALESCE($2, title),
          description = COALESCE($3, description),
          text_color = COALESCE($4, text_color),
-         options    = CASE WHEN $5::boolean THEN $6 ELSE options END
+         options    = CASE WHEN $5::boolean THEN $6 ELSE options END,
+         icon       = CASE WHEN $7::boolean THEN $8 ELSE icon END
        WHERE id = $1`,
       [req.params.id,
        title?.trim() || null,
        description === undefined ? null : (description?.trim() || null),
        textColor?.trim()?.slice(0, 20) || null,
        hasOptions,
-       hasOptions ? JSON.stringify(opts) : null]
+       hasOptions ? JSON.stringify(opts) : null,
+       icon !== undefined,
+       icon === undefined ? null : (icon?.trim()?.slice(0, 30) || null)]
     );
     if (!rowCount) return res.status(404).json({ error: 'Poll not found' });
     res.json({ updated: true });
