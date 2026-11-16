@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye, MoreVertical, Tag, Minus, Plus, Heart } from 'lucide-react';
+import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye, MoreVertical, Tag, Minus, Plus, Heart, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import CustomEditPanel from './CustomEditPanel';
 import CustomContextMenu from './CustomContextMenu';
@@ -211,13 +211,28 @@ const ItemListContent = (props) => {
   return (
     <>
     <div className={`space-y-${Math.floor(itemSpacing / 4)} shopping-list-scroll custom-scrollbar max-h-[calc(100vh-400px)] pr-2 ${fontSizeClass}`}>
-      {/* Button-label toggle — lets users learn or hide the action captions */}
-      <div className="flex justify-end">
+      {/* Button-label toggle — a pill with a mini switch so the control
+          reads as a setting, not a stray text link. Labels show by
+          default; the choice persists in localStorage. */}
+      <div className="flex justify-end mb-1">
         <button
           onClick={toggleButtonLabels}
-          className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          title={showButtonLabels ? 'Hide the captions under the item action buttons' : 'Show the captions under the item action buttons'}
+          className={`inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full border text-xs font-semibold transition-colors ${
+            showButtonLabels
+              ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-300 dark:border-primary-700 text-primary-700 dark:text-primary-300'
+              : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400'
+          }`}
         >
-          {showButtonLabels ? 'Hide button labels' : 'Show button labels'}
+          <Tag className="w-3 h-3" />
+          Labels
+          <span className={`w-6 h-3.5 rounded-full relative transition-colors ${
+            showButtonLabels ? 'bg-primary-500' : 'bg-gray-300 dark:bg-gray-600'
+          }`}>
+            <span className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white shadow transition-all ${
+              showButtonLabels ? 'left-3' : 'left-0.5'
+            }`} />
+          </span>
         </button>
       </div>
       {(hideCategories || !showCategories) ? (
@@ -674,7 +689,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                 ref={itemRef}
                 id={`item-${item.ids ? item.ids[0] : item.id}`}
                 key={item.id}
-                className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                className={`relative flex items-center justify-between p-3 rounded-lg border transition-all ${
                   item.is_checked
                     ? 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                     : isNextItem
@@ -682,11 +697,22 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                     : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-primary-300 dark:hover:border-primary-500'
                 }`}
               >
+                {/* Quick remove — corner X. Full delete also lives in the
+                    action row and the right-click / long-press menu. */}
+                <button
+                  onClick={() => (item.ids || [item.id]).forEach(id => onDelete(id))}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center text-gray-300 dark:text-gray-600 hover:text-white hover:bg-red-500 transition-colors"
+                  title="Remove item"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+
                 <div className="flex items-center flex-1">
                   <motion.button
                     key={checkAnimKey}
                     data-item-checkbox={item.id}
                     onClick={handleCheck}
+                    title={item.is_checked ? 'Uncheck item' : 'Check off'}
                     whileTap={{ scale: 0.85 }}
                     animate={item.is_checked ? { 
                       scale: [1, 1.3, 0.95, 1.05, 1],
@@ -865,8 +891,9 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   </div>
                 </div>
                 
-                {/* Desktop: full action row */}
-                <div className="hidden sm:flex items-start space-x-2">
+                {/* Desktop: full action row — centered so the corner X
+                    and the row don't collide */}
+                <div className="hidden sm:flex items-center space-x-2">
                   <ActionButton
                     onClick={() => {
                       onOpenEdit(item);
