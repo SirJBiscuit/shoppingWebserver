@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, ChefHat, Clock, Users, Trash2, ShoppingCart, Star, Package, LogOut, Settings, Edit2, Sparkles, GraduationCap, Layers, Library } from 'lucide-react';
+import { Plus, ChefHat, Clock, Users, Trash2, ShoppingCart, Star, Edit2, GraduationCap, Layers, Library, List, Search } from 'lucide-react';
 import { recipesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
@@ -14,7 +13,6 @@ import QuickRecipeTemplates from '../components/recipes/QuickRecipeTemplates';
 import ConfirmModal from '../limbo/modals/ConfirmModal';
 
 const Recipes = () => {
-  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [recipes, setRecipes] = useState([]);
   const [canMake, setCanMake] = useState({ can_make: [], can_make_with_few_items: [] });
@@ -23,8 +21,24 @@ const Recipes = () => {
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [showQuickTemplates, setShowQuickTemplates] = useState(false);
   const [showTeach, setShowTeach] = useState(false);
-  const [deckView, setDeckView] = useState('rolodex'); // 'rolodex' | 'slider'
+  // Deck view persists across visits — rolodex | slider | list
+  const [deckView, setDeckViewState] = useState(
+    () => localStorage.getItem('recipesDeckView') || 'rolodex'
+  );
+  const setDeckView = (v) => { setDeckViewState(v); localStorage.setItem('recipesDeckView', v); };
+  const [searchQuery, setSearchQuery] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+
+  // Last-viewed recipe persists: leaving the page mid-view picks back
+  // up in the same modal. Cleared when the modal is closed.
+  const openRecipe = (r) => {
+    setSelectedRecipe(r);
+    localStorage.setItem('recipesLastRecipeId', String(r.id));
+  };
+  const closeRecipe = () => {
+    setSelectedRecipe(null);
+    localStorage.removeItem('recipesLastRecipeId');
+  };
 
   useEffect(() => {
     fetchRecipes();
@@ -35,6 +49,13 @@ const Recipes = () => {
     try {
       const response = await recipesAPI.getRecipes();
       setRecipes(response.data);
+      // Reopen the recipe that was being viewed, if it's still there
+      const lastId = localStorage.getItem('recipesLastRecipeId');
+      if (lastId) {
+        const r = response.data.find((x) => String(x.id) === lastId);
+        if (r) setSelectedRecipe(r);
+        else localStorage.removeItem('recipesLastRecipeId');
+      }
     } catch (error) {
       console.error('Failed to fetch recipes:', error);
     } finally {
@@ -70,6 +91,15 @@ const Recipes = () => {
     }
   };
 
+  /* ---- search + shelves ---- */
+  const q = searchQuery.trim().toLowerCase();
+  const matchesSearch = (r) =>
+    !q || [r.name, r.description, r.category, ...(r.tags || [])]
+      .filter(Boolean).join(' ').toLowerCase().includes(q);
+  const filteredRecipes = recipes.filter(matchesSearch);
+  const filteredCanMake = canMake.can_make.filter(matchesSearch);
+  const filteredFew = canMake.can_make_with_few_items.filter(matchesSearch);
+
   /* ---- auto shelves ---- */
   const totalMin = (r) => (r.total_time || (r.prep_time || 0) + (r.cook_time || 0));
   const isSmoothie = (r) =>
@@ -79,15 +109,15 @@ const Recipes = () => {
 
   const shelves = [
     { id: 'love', label: 'Recipes We Love', emoji: '💛',
-      items: recipes.filter((r) => r.is_favorite) },
+      items: filteredRecipes.filter((r) => r.is_favorite) },
     { id: 'canmake', label: 'Recipes We Can Make', emoji: '✅',
-      items: canMake.can_make },
+      items: filteredCanMake },
     { id: 'smoothie', label: 'Smoothie Recipes', emoji: '🥤',
-      items: recipes.filter(isSmoothie) },
+      items: filteredRecipes.filter(isSmoothie) },
     { id: 'easy', label: 'Easy Meals', emoji: '⚡',
-      items: recipes.filter((r) => r.difficulty === 'easy' || totalMin(r) <= 30) },
+      items: filteredRecipes.filter((r) => r.difficulty === 'easy' || totalMin(r) <= 30) },
     { id: 'favmeals', label: 'Favorite Meals', emoji: '⭐',
-      items: recipes.filter((r) => (r.rating || 0) >= 4 && !isSmoothie(r)) },
+      items: filteredRecipes.filter((r) => (r.rating || 0) >= 4 && !isSmoothie(r)) },
   ];
 
   const handleDeleteRecipe = (id) => setDeleteTarget(id);
@@ -122,7 +152,7 @@ const Recipes = () => {
       await recipesAPI.updateRecipe(selectedRecipe.id, recipeData);
       fetchRecipes();
       checkCanMake();
-      setSelectedRecipe(null);
+      closeRecipe();
     } catch (error) {
       console.error('Failed to update recipe:', error);
       alert('Failed to update recipe');
@@ -167,13 +197,6 @@ const Recipes = () => {
                   Quick Add
                 </button>
                 <button
-                  onClick={() => navigate('/discover')}
-                  className="btn-secondary flex items-center"
-                >
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  AI Generator
-                </button>
-                <button
                   onClick={() => setShowCreateModal(true)}
                   className="btn-primary flex items-center"
                 >
@@ -190,37 +213,63 @@ const Recipes = () => {
                   <ChefHat className="w-6 h-6 text-primary-600" />
                   Recipe Collection
                 </h2>
-                <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <button
-                    onClick={() => setDeckView('rolodex')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${deckView === 'rolodex' ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                    title="Flip-book rolodex"
-                  >
-                    <Library className="w-3.5 h-3.5" /> Rolodex
-                  </button>
-                  <button
-                    onClick={() => setDeckView('slider')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${deckView === 'slider' ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                    title="Horizontal card slider"
-                  >
-                    <Layers className="w-3.5 h-3.5" /> Slider
-                  </button>
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search recipes…"
+                      className="pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white w-40 sm:w-56 focus:outline-none focus:border-primary-500"
+                    />
+                  </div>
+                  <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <button
+                      onClick={() => setDeckView('rolodex')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${deckView === 'rolodex' ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                      title="Flip-book rolodex"
+                    >
+                      <Library className="w-3.5 h-3.5" /> Rolodex
+                    </button>
+                    <button
+                      onClick={() => setDeckView('slider')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${deckView === 'slider' ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                      title="Horizontal card slider"
+                    >
+                      <Layers className="w-3.5 h-3.5" /> Slider
+                    </button>
+                    <button
+                      onClick={() => setDeckView('list')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${deckView === 'list' ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                      title="Searchable list"
+                    >
+                      <List className="w-3.5 h-3.5" /> List
+                    </button>
+                  </div>
                 </div>
               </div>
               {deckView === 'rolodex' ? (
                 <RecipeRolodex
-                  recipes={recipes}
+                  recipes={filteredRecipes}
                   onAddRecipe={() => setShowCreateModal(true)}
                   onDeleteRecipe={handleDeleteRecipe}
                   onToggleFavorite={handleToggleFavorite}
                   onAddToList={handleAddToShoppingList}
                 />
-              ) : (
+              ) : deckView === 'slider' ? (
                 <RecipeCardSlider
-                  recipes={recipes}
+                  recipes={filteredRecipes}
                   onAddRecipe={() => setShowCreateModal(true)}
                   onDeleteRecipe={handleDeleteRecipe}
                   onToggleFavorite={handleToggleFavorite}
+                />
+              ) : (
+                <RecipeListView
+                  recipes={filteredRecipes}
+                  onOpen={openRecipe}
+                  onToggleFavorite={handleToggleFavorite}
+                  onAddToList={handleAddToShoppingList}
+                  onDelete={handleDeleteRecipe}
                 />
               )}
             </div>
@@ -238,7 +287,7 @@ const Recipes = () => {
                     <ShelfCard
                       key={recipe.id}
                       recipe={recipe}
-                      onOpen={setSelectedRecipe}
+                      onOpen={openRecipe}
                       onToggleFavorite={handleToggleFavorite}
                       onAddToList={handleAddToShoppingList}
                     />
@@ -248,13 +297,13 @@ const Recipes = () => {
             ))}
 
             {/* Almost There Section */}
-            {canMake.can_make_with_few_items.length > 0 && (
+            {filteredFew.length > 0 && (
               <div className="mb-8 p-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                 <h2 className="text-xl font-semibold text-yellow-900 dark:text-yellow-100 mb-4">
                   🛒 Just a few items away
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {canMake.can_make_with_few_items.map((recipe) => (
+                  {filteredFew.map((recipe) => (
                     <RecipeCard
                       key={recipe.id}
                       recipe={recipe}
@@ -279,14 +328,14 @@ const Recipes = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {recipes.map((recipe) => (
+                  {filteredRecipes.map((recipe) => (
                     <RecipeCard
                       key={recipe.id}
                       recipe={recipe}
                       onAddToList={handleAddToShoppingList}
                       onToggleFavorite={handleToggleFavorite}
                       onDelete={handleDeleteRecipe}
-                      onEdit={setSelectedRecipe}
+                      onEdit={openRecipe}
                     />
                   ))}
                 </div>
@@ -302,7 +351,7 @@ const Recipes = () => {
             
             <RecipeModal
               isOpen={!!selectedRecipe}
-              onClose={() => setSelectedRecipe(null)}
+              onClose={closeRecipe}
               onSave={handleEditRecipe}
               recipe={selectedRecipe}
             />
@@ -337,6 +386,42 @@ const Recipes = () => {
     </PageTransition>
   );
 };
+
+/** Searchable list view — one row per recipe, opens the editor on click. */
+const RecipeListView = ({ recipes, onOpen, onToggleFavorite, onAddToList, onDelete }) => (
+  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden">
+    {recipes.length === 0 && (
+      <p className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">No recipes match.</p>
+    )}
+    {recipes.map((r) => {
+      const mins = r.total_time || (r.prep_time || 0) + (r.cook_time || 0);
+      return (
+        <div key={r.id} onClick={() => onOpen(r)}
+          className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/40 cursor-pointer">
+          <span className="text-xl w-8 text-center flex-shrink-0">
+            {r.image_url?.startsWith('emoji:') ? r.image_url.slice(6) : '🍽️'}
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{r.name}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+              {[r.category, mins > 0 && `${mins} min`, r.servings && `${r.servings} servings`]
+                .filter(Boolean).join(' · ')}
+            </p>
+          </div>
+          <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(r); }} className="p-1.5" title="Toggle favorite">
+            <Star className={`w-4 h-4 ${r.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); onAddToList(r.id); }} className="p-1.5 text-primary-600 dark:text-primary-400" title="Add ingredients to shopping list">
+            <ShoppingCart className="w-4 h-4" />
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); onDelete(r.id); }} className="p-1.5 text-red-500" title="Delete recipe">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      );
+    })}
+  </div>
+);
 
 /** Compact shelf card — click opens the recipe editor, ⭐ toggles favorite, 🛒 adds to list. */
 const ShelfCard = ({ recipe, onOpen, onToggleFavorite, onAddToList }) => {
