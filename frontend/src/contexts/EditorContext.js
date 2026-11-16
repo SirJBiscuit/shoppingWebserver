@@ -39,6 +39,7 @@ export const EditorProvider = ({ children, userId }) => {
   const [showGrid, setShowGrid] = useState(false);
   const [showGuides, setShowGuides] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
+  const [gridSize, setGridSize] = useState(20);
   
   // AVE Manager
   const aveManager = useAVEManager(userId);
