@@ -43,7 +43,11 @@ const PantryNewV2 = () => {
   // UI State
   const [activeLocation, setActiveLocation] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState('grid');
+  // View mode persists across visits (grid | list | category | map)
+  const [viewMode, setViewModeState] = useState(
+    () => localStorage.getItem('pantryViewMode') || 'grid'
+  );
+  const setViewMode = (v) => { setViewModeState(v); localStorage.setItem('pantryViewMode', v); };
   const [activeFilter, setActiveFilter] = useState('all');
   const [activeCategory, setActiveCategory] = useState('all');
   const [showStats, setShowStats] = useState(false);

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Edit2, Trash2, Star, AlertCircle, CheckCircle, Package, GripVertical } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
+import { detectIcon } from '../../utils/categoryDetector';
 
 /**
  * DraggableGridView - Grid view with drag & drop reordering
@@ -60,7 +61,7 @@ const DraggableGridView = ({
       orange: { bg: 'bg-orange-500', text: 'text-white', label: 'Use Soon', icon: '🟠' },
       yellow: { bg: 'bg-yellow-500', text: 'text-gray-900', label: 'Warning', icon: '🟡' },
       green: { bg: 'bg-green-500', text: 'text-white', label: 'Fresh', icon: '🟢' },
-      gray: { bg: 'bg-gray-400', text: 'text-white', label: 'Unknown', icon: '⚪' },
+      gray: { bg: 'bg-gray-400', text: 'text-white', label: 'No expiry', icon: '⚪' },
     };
     
     return badges[color] || badges.gray;
@@ -139,7 +140,7 @@ const DraggableGridView = ({
                 />
               ) : (
                 <div className="w-24 h-24 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg mb-3">
-                  <span className="text-5xl">{getCategoryIcon(item.item_category)}</span>
+                  <span className="text-5xl">{item.item_icon || detectIcon(item.item_name) || getCategoryIcon(item.item_category)}</span>
                 </div>
               )}
 

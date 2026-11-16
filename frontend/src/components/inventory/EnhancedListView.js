@@ -44,7 +44,7 @@ const EnhancedListView = ({
       orange: { bg: 'bg-orange-500', text: 'text-white', label: 'Use Soon', icon: '🟠' },
       yellow: { bg: 'bg-yellow-500', text: 'text-gray-900', label: 'Warning', icon: '🟡' },
       green: { bg: 'bg-green-500', text: 'text-white', label: 'Fresh', icon: '🟢' },
-      gray: { bg: 'bg-gray-400', text: 'text-white', label: 'Unknown', icon: '⚪' },
+      gray: { bg: 'bg-gray-400', text: 'text-white', label: 'No expiry', icon: '⚪' },
     };
     
     return badges[color] || badges.gray;
@@ -126,6 +126,7 @@ const EnhancedListView = ({
                     className={`w-4 h-4 ${item.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} 
                   />
                 </button>
+                <span className="text-lg flex-shrink-0">{item.item_icon || '📦'}</span>
                 <span className="font-medium text-gray-900 dark:text-white truncate">
                   {item.item_name}
                 </span>
