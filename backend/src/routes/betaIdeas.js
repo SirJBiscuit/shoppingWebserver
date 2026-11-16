@@ -89,6 +89,34 @@ router.patch('/admin/:id', authenticateToken, isAdmin, async (req, res) => {
 });
 
 /**
+ * POST /api/beta/ideas/admin/:id/prioritize
+ * Appends the idea to the priority queue — each call takes
+ * MAX(priority_rank)+1 so the first idea prioritized is rank 1 (highest)
+ * and every later one is lower. Re-prioritizing bumps it to the end.
+ * Body { clear: true } removes it from the queue instead.
+ */
+router.post('/admin/:id/prioritize', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { clear } = req.body;
+    const { rows } = await db.query(
+      `UPDATE beta_admin_ideas SET
+         priority_rank = CASE WHEN $2::boolean THEN NULL
+                              ELSE (SELECT COALESCE(MAX(priority_rank), 0) + 1
+                                    FROM beta_admin_ideas) END,
+         updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, priority_rank`,
+      [req.params.id, !!clear]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Idea not found' });
+    res.json({ id: rows[0].id, priority_rank: rows[0].priority_rank });
+  } catch (e) {
+    console.error('Error prioritizing idea:', e);
+    res.status(500).json({ error: 'Failed to prioritize idea' });
+  }
+});
+
+/**
  * DELETE /api/beta/ideas/admin/:id
  */
 router.delete('/admin/:id', authenticateToken, isAdmin, async (req, res) => {

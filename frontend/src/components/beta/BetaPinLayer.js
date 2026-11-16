@@ -260,6 +260,7 @@ const BetaPinLayer = () => {
   const [byPage, setByPage] = useState([]);
   const [sel, setSel] = useState(new Set());
   // Admin viewer — search + filter/sort popup state
+  const [ideaCtx, setIdeaCtx] = useState(null);   // {x,y,idea} right-click menu
   const [pinSearch, setPinSearch] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(null); // {x,y} anchor for Popup
   const [sortMode, setSortMode] = useState('new');       // new|old|priority|page
@@ -896,6 +897,16 @@ const BetaPinLayer = () => {
       await api.delete(`/beta/ideas/admin/${id}`);
       loadIdeas();
     } catch (e) { apiErr(e, 'Delete failed'); }
+  };
+
+  // Priority queue — the first idea prioritized takes rank 1 (highest);
+  // every later one ranks lower. clear=true removes it from the queue.
+  const prioritizeIdea = async (id, clear = false) => {
+    try {
+      await api.post(`/beta/ideas/admin/${id}/prioritize`, { clear });
+      setIdeaCtx(null);
+      loadIdeas();
+    } catch (e) { apiErr(e, 'Prioritize failed'); }
   };
 
   const saveIdeaEdit = async () => {
@@ -1931,6 +1942,45 @@ const BetaPinLayer = () => {
         </button>
       )}
 
+      {/* Idea right-click context menu — priority queue controls.
+          First "Prioritize" gets P1 (highest); each later one ranks lower. */}
+      {ideaCtx && isAdmin && (
+        <Popup
+          x={ideaCtx.x} y={ideaCtx.y} width={216}
+          className="bp-popup z-[9999] w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1.5 text-sm"
+          sheetClassName="bg-slate-900 border-t border-slate-700 p-3"
+        >
+          <div onClick={(e) => e.stopPropagation()}>
+            <div className="px-3 py-1.5 text-xs text-slate-400 border-b border-slate-800 truncate">
+              {ideaCtx.idea.title}
+            </div>
+            <button className="ctx-item" onClick={() => prioritizeIdea(ideaCtx.idea.id)}>
+              <Flag className="w-4 h-4 text-orange-400" />
+              {ideaCtx.idea.priority_rank
+                ? `Prioritize again (P${ideaCtx.idea.priority_rank} → end of queue)`
+                : 'Prioritize (next in queue)'}
+            </button>
+            {ideaCtx.idea.priority_rank != null && (
+              <button className="ctx-item" onClick={() => prioritizeIdea(ideaCtx.idea.id, true)}>
+                <X className="w-4 h-4 text-slate-400" /> Remove priority
+              </button>
+            )}
+            <button className="ctx-item" onClick={() => {
+              setIdeaEdit({ id: ideaCtx.idea.id, title: ideaCtx.idea.title, body: ideaCtx.idea.body || '', tag: ideaCtx.idea.tag, color: ideaCtx.idea.color || '' });
+              setIdeaCtx(null);
+            }}>
+              <Pencil className="w-4 h-4 text-slate-400" /> Edit idea
+            </button>
+            <button className="ctx-item" onClick={() => { updateIdea(ideaCtx.idea.id, { is_pinned: !ideaCtx.idea.is_pinned }); setIdeaCtx(null); }}>
+              <Pin className="w-4 h-4 text-amber-400" /> {ideaCtx.idea.is_pinned ? 'Unpin' : 'Pin to top'}
+            </button>
+            <button className="ctx-item text-red-300 hover:bg-red-500/10" onClick={() => { deleteIdea(ideaCtx.idea.id); setIdeaCtx(null); }}>
+              <Trash2 className="w-4 h-4" /> Delete
+            </button>
+          </div>
+        </Popup>
+      )}
+
       {/* Admin sidebar — thin desktop-only tool column on the right edge.
           Hidden on mobile/tablet (lg+): inspect, ghosts, viewer. */}
       {isAdmin && canUse && !dropMode && !moving && (
@@ -1961,10 +2011,14 @@ const BetaPinLayer = () => {
 
       {/* Admin beta viewer panel */}
       {isAdmin && panelOpen && (
-        <div className="fixed top-0 right-0 bottom-0 z-[9988] w-96 bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400 mr-1">Admin Viewer</span>
+        <div className="fixed top-0 right-0 bottom-0 z-[9988] w-96 max-w-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-800">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400 shrink-0">Admin Viewer</span>
+            <ScrollStrip
+              className="flex-1 min-w-0"
+              innerClassName="gap-1 pr-1"
+              activeIndex={['pins', 'messages', 'polls', 'ideas', 'history'].indexOf(tab)}
+            >
               {['pins', 'messages', 'polls', 'ideas', 'history'].map((t) => (
                 <button
                   key={t}
@@ -1974,8 +2028,8 @@ const BetaPinLayer = () => {
                   {t}
                 </button>
               ))}
-            </div>
-            <button onClick={() => setPanelOpen(false)} className="text-slate-500 hover:text-slate-300"><X className="w-5 h-5" /></button>
+            </ScrollStrip>
+            <button onClick={() => setPanelOpen(false)} className="text-slate-500 hover:text-slate-300 shrink-0"><X className="w-5 h-5" /></button>
           </div>
 
           {tab === 'pins' && (
@@ -2140,9 +2194,18 @@ const BetaPinLayer = () => {
                 </div>
               </div>
               {ideas.map((i) => (
-                <div key={i.id} className={`px-3 py-2 border-b border-slate-800/60 ${i.status === 'archived' ? 'opacity-50' : ''}`}>
+                <div
+                  key={i.id}
+                  onContextMenu={(e) => { e.preventDefault(); setIdeaCtx({ x: e.clientX, y: e.clientY, idea: i }); }}
+                  className={`px-3 py-2 border-b border-slate-800/60 ${i.status === 'archived' ? 'opacity-50' : ''} ${i.priority_rank ? 'border-l-2 border-l-orange-500/70' : ''}`}
+                >
                   <div className="flex items-center gap-1.5">
                     {i.is_pinned && <Pin className="w-3 h-3 text-amber-400 shrink-0" />}
+                    {i.priority_rank != null && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold shrink-0" title="Priority rank — right-click to change">
+                        P{i.priority_rank}
+                      </span>
+                    )}
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 capitalize shrink-0">{i.tag}</span>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${STATUS_META[i.status]?.cls || 'bg-slate-800 text-slate-300'}`}>{i.status.replace('_', ' ')}</span>
                     <span className="text-[10px] text-slate-600 ml-auto shrink-0">{relTime(i.created_at)}</span>
