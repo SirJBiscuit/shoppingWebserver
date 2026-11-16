@@ -9,7 +9,7 @@ router.get('/flags', auth, async (req, res) => {
   try {
     // Get user's tier and features
     const userResult = await db.query(
-      'SELECT subscription_tier, subscription_status, is_guest, is_beta_tester FROM users WHERE id = $1',
+      'SELECT subscription_tier, subscription_status, is_guest, is_beta_tester, is_admin FROM users WHERE id = $1',
       [req.user.id]
     );
     
@@ -17,19 +17,25 @@ router.get('/flags', auth, async (req, res) => {
     const userTier = user?.is_guest ? 'guest' : (user?.subscription_tier || 'free');
     const userTierLevel = TIER_HIERARCHY[userTier] || 0;
     const isBetaTester = user?.is_beta_tester === true;
+    const isAdminUser = user?.is_admin === true;
 
-    // Get all enabled features (hide_from_beta gates beta testers per-flag)
+    // Return ALL flags with computed availability — absent rows would
+    // otherwise fall through to the client's allow-by-default, leaking
+    // disabled/limbo features back into the UI.
     const result = await db.query(
-      `SELECT feature_key, feature_name, description, category, min_tier, is_enabled, hide_from_beta
-       FROM feature_flags 
-       WHERE is_enabled = TRUE
+      `SELECT feature_key, feature_name, description, category, min_tier, is_enabled, hide_from_beta, admin_only, is_limbo
+       FROM feature_flags
        ORDER BY category, feature_name`
     );
 
-    // Filter features based on user's tier + beta flag
+    // Filter features based on user's tier + beta flag + admin gate + limbo
     const features = result.rows.map(feature => {
       const minTierLevel = TIER_HIERARCHY[feature.min_tier] || 0;
-      const isAvailable = (userTierLevel >= minTierLevel) && !(isBetaTester && feature.hide_from_beta);
+      const isAvailable = feature.is_enabled === true
+        && feature.is_limbo !== true
+        && !(feature.admin_only && !isAdminUser)
+        && !(isBetaTester && feature.hide_from_beta)
+        && userTierLevel >= minTierLevel;
 
       return {
         key: feature.feature_key,
@@ -86,7 +92,7 @@ router.get('/check/:featureKey', auth, async (req, res) => {
                       userResult.rows[0]?.subscription_status === 'trialing';
 
     const featureResult = await db.query(
-      `SELECT free_tier_enabled, premium_tier_enabled, requires_premium, is_enabled, hide_from_beta
+      `SELECT free_tier_enabled, premium_tier_enabled, requires_premium, is_enabled, hide_from_beta, admin_only, is_limbo
        FROM feature_flags WHERE feature_key = $1`,
       [featureKey]
     );
@@ -95,11 +101,14 @@ router.get('/check/:featureKey', auth, async (req, res) => {
       return res.status(404).json({ error: 'Feature not found' });
     }
 
-    const userRow = await db.query('SELECT is_beta_tester FROM users WHERE id = $1', [req.user.id]);
+    const userRow = await db.query('SELECT is_beta_tester, is_admin FROM users WHERE id = $1', [req.user.id]);
     const isBetaTester = userRow.rows[0]?.is_beta_tester === true;
+    const isAdminUser = userRow.rows[0]?.is_admin === true;
 
     const feature = featureResult.rows[0];
-    const isAvailable = feature.is_enabled && (isPremium 
+    const isAvailable = feature.is_enabled && !feature.is_limbo
+      && !(feature.admin_only && !isAdminUser)
+      && (isPremium 
       ? feature.premium_tier_enabled 
       : feature.free_tier_enabled) && !(isBetaTester && feature.hide_from_beta);
 
@@ -135,7 +144,7 @@ router.get('/admin/all', auth, isAdmin, async (req, res) => {
 router.put('/admin/feature/:id', auth, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { feature_name, description, is_enabled, min_tier, display_order, hide_from_beta } = req.body;
+    const { feature_name, description, is_enabled, min_tier, display_order, hide_from_beta, admin_only, is_limbo } = req.body;
 
     const updates = [];
     const values = [];
@@ -164,6 +173,14 @@ router.put('/admin/feature/:id', auth, isAdmin, async (req, res) => {
     if (hide_from_beta !== undefined) {
       updates.push(`hide_from_beta = $${paramCount++}`);
       values.push(hide_from_beta);
+    }
+    if (admin_only !== undefined) {
+      updates.push(`admin_only = $${paramCount++}`);
+      values.push(admin_only);
+    }
+    if (is_limbo !== undefined) {
+      updates.push(`is_limbo = $${paramCount++}`);
+      values.push(is_limbo);
     }
 
     if (updates.length === 0) {

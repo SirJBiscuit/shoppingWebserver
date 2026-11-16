@@ -14,7 +14,7 @@ const hasFeatureAccess = async (userId, featureKey) => {
   try {
     // Get user's tier
     const userResult = await db.query(
-      'SELECT subscription_tier, is_guest, is_beta_tester FROM users WHERE id = $1',
+      'SELECT subscription_tier, is_guest, is_beta_tester, is_admin FROM users WHERE id = $1',
       [userId]
     );
 
@@ -25,10 +25,11 @@ const hasFeatureAccess = async (userId, featureKey) => {
     const user = userResult.rows[0];
     const userTier = user.is_guest ? 'guest' : (user.subscription_tier || 'free');
     const isBetaTester = user.is_beta_tester === true;
+    const isAdminUser = user.is_admin === true;
 
     // Get feature requirements
     const featureResult = await db.query(
-      'SELECT is_enabled, min_tier, hide_from_beta FROM feature_flags WHERE feature_key = $1',
+      'SELECT is_enabled, min_tier, hide_from_beta, admin_only, is_limbo FROM feature_flags WHERE feature_key = $1',
       [featureKey]
     );
 
@@ -41,6 +42,16 @@ const hasFeatureAccess = async (userId, featureKey) => {
 
     // Check if feature is enabled globally
     if (!feature.is_enabled) {
+      return false;
+    }
+
+    // Limbo features are shelved — hidden from everyone
+    if (feature.is_limbo) {
+      return false;
+    }
+
+    // Admin-only features require an admin account
+    if (feature.admin_only && !isAdminUser) {
       return false;
     }
 
@@ -78,16 +89,19 @@ const getUserFeatures = async (userId) => {
     const userTier = user.is_guest ? 'guest' : (user.subscription_tier || 'free');
     const userTierLevel = TIER_HIERARCHY[userTier] || 0;
     const isBetaTester = user.is_beta_tester === true;
+    const isAdminUser = user.is_admin === true;
 
     // Get all enabled features that user has access to
     const featuresResult = await db.query(
-      `SELECT feature_key, feature_name, description, category, min_tier, hide_from_beta
+      `SELECT feature_key, feature_name, description, category, min_tier, hide_from_beta, admin_only, is_limbo
        FROM feature_flags
        WHERE is_enabled = true`
     );
 
-    // Filter by tier access + beta hiding
+    // Filter by tier access + beta hiding + admin-only + limbo
     const accessibleFeatures = featuresResult.rows.filter(feature => {
+      if (feature.is_limbo) return false;
+      if (feature.admin_only && !isAdminUser) return false;
       if (isBetaTester && feature.hide_from_beta) return false;
       const minTierLevel = TIER_HIERARCHY[feature.min_tier] || 0;
       return userTierLevel >= minTierLevel;

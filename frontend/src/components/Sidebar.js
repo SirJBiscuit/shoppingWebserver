@@ -189,7 +189,7 @@ const Sidebar = ({ onAction }) => {
     { path: '/staging', icon: Package, label: 'Unpack', color: 'text-yellow-600', feature: 'pantry', badge: '🛒' },
     { path: '/pantry-new-v2', icon: Store, label: 'Home Inventory', color: 'text-green-600', feature: 'pantry' },
     { path: '/recipes', icon: ChefHat, label: 'Recipe Book', color: 'text-orange-600', feature: 'recipes' },
-    { path: '/lab', icon: FlaskConical, label: 'Homemade Lab', color: 'text-violet-600' },
+    { path: '/lab', icon: FlaskConical, label: 'Homemade Lab', color: 'text-violet-600', feature: 'homemade_lab' },
     { path: '/household', icon: Users, label: 'Household', color: 'text-pink-600', feature: 'household' },
     // { path: '/meal-plan', icon: Calendar, label: 'Meal Planner', color: 'text-purple-600', feature: 'meal_planner' }, // Disabled
     // { path: '/stats', icon: BarChart3, label: 'Statistics', color: 'text-pink-600', feature: 'statistics' }, // Disabled
@@ -199,12 +199,13 @@ const Sidebar = ({ onAction }) => {
 
   const toolItems = [
     { action: 'share', icon: Share2, label: 'Share List', color: 'text-cyan-600', feature: 'sharing' },
-    { action: 'notepad', icon: StickyNote, label: 'Notepad', color: 'text-amber-600' },
+    { action: 'notepad', icon: StickyNote, label: 'Notepad', color: 'text-amber-600', feature: 'notepad' },
   ];
 
   // Build settings items dynamically
   const settingsItems = [
     { action: 'stores', icon: Store, label: 'Manage Stores', color: 'text-blue-600', feature: 'store_management' },
+    { path: '/stats', icon: BarChart3, label: 'Stats', color: 'text-pink-600', feature: 'statistics' },
     { path: '/admin/customize', icon: Sparkles, label: 'ACH Customization', color: 'text-purple-600', special: true, feature: 'ach_customization' },
     { path: '/settings', icon: Settings, label: 'Settings', color: 'text-gray-600' },
   ];

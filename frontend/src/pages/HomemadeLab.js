@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import LabShell from '../components/lab/LabShell';
 import CustomContextMenu from '../components/CustomContextMenu';
+import { useFeatureFlags } from '../context/FeatureFlagContext';
 
 /**
  * HomemadeLab - hub for the "make it at home" labs.
@@ -80,6 +81,7 @@ const LABS = [
 
 const HomemadeLab = () => {
   const navigate = useNavigate();
+  const { hasFeature } = useFeatureFlags();
 
   return (
     <LabShell
@@ -89,7 +91,7 @@ const HomemadeLab = () => {
       subtitle="Make it at home — blends, meals, smoothies, and balanced plates"
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {LABS.map((lab, i) => {
+        {LABS.filter((lab) => hasFeature(`lab_${lab.id}`)).map((lab, i) => {
           const Icon = lab.icon;
           const menuItems = [
             { label: `Open ${lab.name}`, icon: lab.icon, onClick: () => navigate(lab.path) },
