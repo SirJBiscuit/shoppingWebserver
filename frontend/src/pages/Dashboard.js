@@ -1658,7 +1658,15 @@ const Dashboard = () => {
               list={activeList}
               items={items}
               labLists={(lists || []).filter((l) => l.list_type === 'lab')}
-              onSelectList={(l) => { setActiveList(l); if (l?.id) loadListItems(l.id); }}
+              onSelectList={(l) => {
+                setActiveList(l);
+                if (l?.id === activeList?.id) {
+                  // Same list (e.g. rename) — merge into the switcher, don't refetch items
+                  setLists((prev) => prev.map((x) => (x.id === l.id ? { ...x, ...l } : x)));
+                } else if (l?.id) {
+                  loadListItems(l.id);
+                }
+              }}
               onCheck={handleCheckItem}
               onDelete={deleteItem}
               onRefresh={() => loadListItems(activeList.id)}
