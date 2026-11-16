@@ -8,6 +8,23 @@ const TAGS = ['idea', 'task', 'note', 'plan', 'investigate', 'risk'];
 const STATUSES = ['open', 'in_progress', 'done', 'archived'];
 
 /**
+ * Renumbers the live priority queue 1..N in rank order — closes the gap
+ * when a ranked idea is deleted or pulled from the queue, so the next
+ * ranked idea automatically becomes the new top priority.
+ */
+const rebalancePriorities = () => db.query(
+  `WITH ranked AS (
+     SELECT id, ROW_NUMBER() OVER (ORDER BY priority_rank) AS rn
+     FROM beta_admin_ideas
+     WHERE deleted_at IS NULL AND priority_rank IS NOT NULL
+   )
+   UPDATE beta_admin_ideas i
+   SET priority_rank = r.rn
+   FROM ranked r
+   WHERE i.id = r.id AND i.priority_rank IS DISTINCT FROM r.rn`
+);
+
+/**
  * GET /api/beta/ideas/admin — all ideas, pinned first, newest first.
  */
 router.get('/admin', authenticateToken, isAdmin, async (req, res) => {
@@ -20,7 +37,7 @@ router.get('/admin', authenticateToken, isAdmin, async (req, res) => {
        WHERE i.deleted_at IS ${trashed ? 'NOT ' : ''}NULL
        ORDER BY ${trashed
          ? 'i.deleted_at DESC'
-         : 'i.is_pinned DESC, i.created_at DESC'} LIMIT 300`
+         : 'i.priority_rank ASC NULLS LAST, i.is_pinned DESC, i.created_at DESC'} LIMIT 300`
     );
     res.json({ ideas: rows });
   } catch (e) {
@@ -115,6 +132,7 @@ router.post('/admin/:id/prioritize', authenticateToken, isAdmin, async (req, res
       [req.params.id, !!clear]
     );
     if (!rows.length) return res.status(404).json({ error: 'Idea not found' });
+    if (clear) await rebalancePriorities();
     res.json({ id: rows[0].id, priority_rank: rows[0].priority_rank });
   } catch (e) {
     console.error('Error prioritizing idea:', e);
@@ -136,10 +154,30 @@ router.delete('/admin/:id', authenticateToken, isAdmin, async (req, res) => {
       [req.params.id]
     );
     if (!rowCount) return res.status(404).json({ error: 'Idea not found' });
+    await rebalancePriorities();
     res.json({ deleted: true });
   } catch (e) {
     console.error('Error deleting idea:', e);
     res.status(500).json({ error: 'Failed to delete idea' });
+  }
+});
+
+/**
+ * DELETE /api/beta/ideas/admin/:id/permanent — hard delete.
+ * Only works on ideas already in the trash (deleted_at set); live ideas
+ * must go through the soft-delete route first.
+ */
+router.delete('/admin/:id/permanent', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { rowCount } = await db.query(
+      `DELETE FROM beta_admin_ideas WHERE id = $1 AND deleted_at IS NOT NULL`,
+      [req.params.id]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Idea not found in trash' });
+    res.json({ purged: true });
+  } catch (e) {
+    console.error('Error purging idea:', e);
+    res.status(500).json({ error: 'Failed to permanently delete idea' });
   }
 });
 

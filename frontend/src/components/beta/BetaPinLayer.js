@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import FormattedNote from '../FormattedNote';
+import ConfirmModal from '../../limbo/modals/ConfirmModal';
 import { Popup, Portal, Connector, ScrollStrip, useCornerStack, usePanelShift, setPanelShift, useIsMobile, useFloatSide } from '../../utils/autoPlacement';
 import { pinDisplayPos, usePinLayerTick } from '../../utils/pinLayer';
 import {
@@ -95,6 +96,21 @@ const PIN_KINDS = [
 // Private admin ideas board tags/statuses (beta_admin_ideas)
 const IDEA_TAGS = ['idea', 'task', 'note', 'plan', 'investigate', 'risk'];
 const IDEA_STATUSES = ['open', 'in_progress', 'done', 'archived'];
+
+// Priority queue display — a rank's share of the queue maps to a
+// percentage, a word, and a color so "P3" reads as "67% High".
+const PRIORITY_TIERS = [
+  { min: 90, label: 'Critical', color: '#ef4444' },
+  { min: 70, label: 'High',     color: '#f97316' },
+  { min: 50, label: 'Elevated', color: '#eab308' },
+  { min: 30, label: 'Moderate', color: '#38bdf8' },
+  { min: 0,  label: 'Low',      color: '#94a3b8' },
+];
+const priorityInfo = (rank, maxRank) => {
+  if (rank == null || !maxRank) return null;
+  const pct = Math.max(1, Math.round(((maxRank - rank + 1) / maxRank) * 100));
+  return { pct, ...PRIORITY_TIERS.find((t) => pct >= t.min) };
+};
 const KIND_META = {
   bug:  { label: 'Bug',  cls: 'bg-red-500/20 text-red-300' },
   note: { label: 'Note', cls: 'bg-amber-500/20 text-amber-300' },
@@ -287,6 +303,22 @@ const BetaPinLayer = () => {
   const [deletedIdeas, setDeletedIdeas] = useState([]); // soft-deleted → history tab
   const [ideaDraft, setIdeaDraft] = useState({ title: '', body: '', tag: 'idea', color: '' });
   const [ideaEdit, setIdeaEdit] = useState(null);     // {id,title,body,tag,color}
+  // Ideas tab — search + filter/sort + export
+  const [ideaSearch, setIdeaSearch] = useState('');
+  const [ideaSort, setIdeaSort] = useState('board');     // board|new|old|priority|tag
+  const [ideaTimeFilter, setIdeaTimeFilter] = useState('all');
+  const [ideaTagFilter, setIdeaTagFilter] = useState(new Set());
+  const [ideaStatusFilter, setIdeaStatusFilter] = useState(new Set());
+  const [ideaPriFilter, setIdeaPriFilter] = useState('all'); // all|ranked|unranked
+  const [ideaExportOpen, setIdeaExportOpen] = useState(null); // {x,y}
+  const [exportTags, setExportTags] = useState(() => new Set(IDEA_TAGS));
+  const [purgeConfirm, setPurgeConfirm] = useState(null);    // trashed idea to hard-delete
+  // History tab — kind picker + search + filters
+  const [histKind, setHistKind] = useState('all');         // all|pins|ideas
+  const [histSearch, setHistSearch] = useState('');
+  const [histEvent, setHistEvent] = useState('all');       // all|deleted|restored
+  const [histTime, setHistTime] = useState('all');
+  const [histActor, setHistActor] = useState('all');
   // Tester panel — own feedback threads + compose
   const [testerTab, setTesterTab] = useState('votes');
   const [myFeedback, setMyFeedback] = useState([]);
@@ -634,6 +666,96 @@ const BetaPinLayer = () => {
     });
   }, [allPins, pinSearch, timeFilter, authorFilter, roleFilter, sevFilter, statusFilter, sortMode]);
 
+  // ---- Ideas tab: queue meta + search/filter/sort pipeline ----
+  const maxIdeaRank = useMemo(
+    () => ideas.reduce((m, i) => Math.max(m, i.priority_rank || 0), 0),
+    [ideas]
+  );
+  const ideaFilterCount = useMemo(
+    () => (ideaTimeFilter !== 'all') + (ideaPriFilter !== 'all')
+      + ideaTagFilter.size + ideaStatusFilter.size + (ideaSort !== 'board'),
+    [ideaTimeFilter, ideaPriFilter, ideaTagFilter, ideaStatusFilter, ideaSort]
+  );
+  const clearIdeaFilters = () => {
+    setIdeaTimeFilter('all'); setIdeaPriFilter('all');
+    setIdeaTagFilter(new Set()); setIdeaStatusFilter(new Set()); setIdeaSort('board');
+  };
+  const filteredIdeas = useMemo(() => {
+    let list = ideas;
+    if (ideaTagFilter.size) list = list.filter((i) => ideaTagFilter.has(i.tag));
+    if (ideaStatusFilter.size) list = list.filter((i) => ideaStatusFilter.has(i.status));
+    if (ideaPriFilter === 'ranked') list = list.filter((i) => i.priority_rank != null);
+    if (ideaPriFilter === 'unranked') list = list.filter((i) => i.priority_rank == null);
+    if (ideaTimeFilter !== 'all') {
+      const cut = Date.now() - TIME_WINDOWS[ideaTimeFilter];
+      list = list.filter((i) => new Date(i.created_at).getTime() >= cut);
+    }
+    const q = ideaSearch.trim().toLowerCase();
+    if (q) {
+      list = list.filter((i) => [i.title, i.body, i.tag, i.created_by_name]
+        .some((v) => String(v || '').toLowerCase().includes(q)));
+    }
+    if (ideaSort === 'board') return list; // server order: queue, pinned, newest
+    const t = (i) => new Date(i.created_at).getTime();
+    return [...list].sort((a, b) => {
+      if (ideaSort === 'old') return t(a) - t(b);
+      if (ideaSort === 'priority')
+        return (a.priority_rank ?? 9999) - (b.priority_rank ?? 9999) || t(b) - t(a);
+      if (ideaSort === 'tag')
+        return String(a.tag).localeCompare(String(b.tag)) || t(b) - t(a);
+      return t(b) - t(a);
+    });
+  }, [ideas, ideaSearch, ideaSort, ideaTimeFilter, ideaTagFilter, ideaStatusFilter, ideaPriFilter]);
+
+  // ---- History tab: kind picker + search/filter pipeline ----
+  const histActors = useMemo(
+    () => [...new Set([
+      ...historyItems.map((h) => h.actor_name),
+      ...deletedIdeas.map((i) => i.created_by_name),
+    ].filter(Boolean))].sort(),
+    [historyItems, deletedIdeas]
+  );
+  const histFilterCount = useMemo(
+    () => (histKind !== 'all') + (histEvent !== 'all') + (histTime !== 'all') + (histActor !== 'all'),
+    [histKind, histEvent, histTime, histActor]
+  );
+  const clearHistFilters = () => {
+    setHistKind('all'); setHistEvent('all'); setHistTime('all'); setHistActor('all');
+  };
+  const filteredHistoryItems = useMemo(() => {
+    let list = historyItems;
+    if (histEvent !== 'all') list = list.filter((h) => h.event === histEvent);
+    if (histActor !== 'all') list = list.filter((h) => h.actor_name === histActor);
+    if (histTime !== 'all') {
+      const cut = Date.now() - TIME_WINDOWS[histTime];
+      list = list.filter((h) => new Date(h.created_at).getTime() >= cut);
+    }
+    const q = histSearch.trim().toLowerCase();
+    if (q) {
+      list = list.filter((h) => {
+        const s = h.snapshot || {};
+        return [s.note, s.username, s.page_path, h.actor_name, h.event]
+          .some((v) => String(v || '').toLowerCase().includes(q));
+      });
+    }
+    return list;
+  }, [historyItems, histEvent, histActor, histTime, histSearch]);
+  const filteredDeletedIdeas = useMemo(() => {
+    if (histEvent === 'restored') return []; // ideas only record the deletion
+    let list = deletedIdeas;
+    if (histActor !== 'all') list = list.filter((i) => i.created_by_name === histActor);
+    if (histTime !== 'all') {
+      const cut = Date.now() - TIME_WINDOWS[histTime];
+      list = list.filter((i) => new Date(i.deleted_at).getTime() >= cut);
+    }
+    const q = histSearch.trim().toLowerCase();
+    if (q) {
+      list = list.filter((i) => [i.title, i.body, i.tag, i.created_by_name]
+        .some((v) => String(v || '').toLowerCase().includes(q)));
+    }
+    return list;
+  }, [deletedIdeas, histEvent, histActor, histTime, histSearch]);
+
   const toggleSet = (set, setter, key) => setter((prev) => {
     const next = new Set(prev);
     next.has(key) ? next.delete(key) : next.add(key);
@@ -919,6 +1041,59 @@ const BetaPinLayer = () => {
     } catch (e) { apiErr(e, 'Restore failed'); }
   };
 
+  // Hard delete from the history tab — ConfirmModal gates this call.
+  const purgeIdea = async (id) => {
+    try {
+      await api.delete(`/beta/ideas/admin/${id}/permanent`);
+      setPurgeConfirm(null);
+      loadTrashedIdeas();
+      toastErr('Idea permanently deleted');
+    } catch (e) { apiErr(e, 'Permanent delete failed'); }
+  };
+
+  // Organized JSON export — priority queue first, then pinned, then the
+  // backlog; tag selection comes from the export popup (ideas/tasks/… only).
+  const exportIdeasJson = () => {
+    const items = ideas.filter((i) => exportTags.has(i.tag));
+    const row = (i) => {
+      const pri = priorityInfo(i.priority_rank, maxIdeaRank);
+      return {
+        id: i.id,
+        title: i.title,
+        body: i.body || null,
+        tag: i.tag,
+        status: i.status,
+        is_pinned: !!i.is_pinned,
+        priority: pri ? { rank: i.priority_rank, percent: pri.pct, label: pri.label } : null,
+        color: i.color || null,
+        created_by: i.created_by_name || null,
+        created_at: i.created_at,
+        updated_at: i.updated_at,
+      };
+    };
+    const payload = {
+      exported_at: new Date().toISOString(),
+      filter: { tags: [...exportTags].sort() },
+      counts: {
+        total: items.length,
+        prioritized: items.filter((i) => i.priority_rank != null).length,
+        pinned: items.filter((i) => i.is_pinned && i.priority_rank == null).length,
+      },
+      priority_queue: items.filter((i) => i.priority_rank != null)
+        .sort((a, b) => a.priority_rank - b.priority_rank).map(row),
+      pinned: items.filter((i) => i.is_pinned && i.priority_rank == null).map(row),
+      backlog: items.filter((i) => !i.is_pinned && i.priority_rank == null).map(row),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ideas-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setIdeaExportOpen(null);
+  };
+
   // Priority queue — the first idea prioritized takes rank 1 (highest);
   // every later one ranks lower. clear=true removes it from the queue.
   const prioritizeIdea = async (id, clear = false) => {
@@ -1156,6 +1331,7 @@ const BetaPinLayer = () => {
             sheetClassName="bg-slate-900 border-t border-slate-700 p-3"
           >
             <div onClick={(e) => e.stopPropagation()} className="max-h-[70vh] overflow-y-auto scrollbar-3d">
+              {filtersOpen.kind === 'pins' && (<>
               {/* Sort */}
               <div className="px-3 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Sort by</div>
               <div className="flex flex-wrap gap-1 px-3 pb-2">
@@ -1249,17 +1425,193 @@ const BetaPinLayer = () => {
                 ))}
               </div>
 
+              </>)}
+
+              {filtersOpen.kind === 'ideas' && (<>
+                {/* Sort */}
+                <div className="px-3 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Sort by</div>
+                <div className="flex flex-wrap gap-1 px-3 pb-2">
+                  {[['board','Queue order'],['new','Newest'],['old','Oldest'],['priority','Priority'],['tag','Tag']].map(([k, lbl]) => (
+                    <button
+                      key={k}
+                      onClick={() => setIdeaSort(k)}
+                      className={`text-[11px] px-2 py-1 rounded-full border transition ${
+                        ideaSort === k
+                          ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                          : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                      }`}
+                    >{lbl}</button>
+                  ))}
+                </div>
+
+                {/* Priority queue */}
+                <div className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border-t border-slate-800">Queue</div>
+                <div className="flex flex-wrap gap-1 px-3 pb-2">
+                  {[['all','All'],['ranked','Prioritized'],['unranked','Unranked']].map(([k, lbl]) => (
+                    <button
+                      key={k}
+                      onClick={() => setIdeaPriFilter(k)}
+                      className={`text-[11px] px-2 py-1 rounded-full border transition ${
+                        ideaPriFilter === k
+                          ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                          : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                      }`}
+                    >{lbl}</button>
+                  ))}
+                </div>
+
+                {/* When */}
+                <div className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border-t border-slate-800">When</div>
+                <div className="flex flex-wrap gap-1 px-3 pb-2">
+                  {[['all', 'Any time'], ['24h', 'Last 24h'], ['7d', 'Last 7d'], ['30d', 'Last 30d']].map(([k, lbl]) => (
+                    <button
+                      key={k}
+                      onClick={() => setIdeaTimeFilter(k)}
+                      className={`text-[11px] px-2 py-1 rounded-full border transition ${
+                        ideaTimeFilter === k
+                          ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                          : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                      }`}
+                    >{lbl}</button>
+                  ))}
+                </div>
+
+                {/* Tags */}
+                <div className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border-t border-slate-800">Tags</div>
+                <div className="flex flex-wrap gap-1 px-3 pb-2">
+                  {IDEA_TAGS.map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => toggleSet(ideaTagFilter, setIdeaTagFilter, t)}
+                      className={`text-[11px] px-2 py-1 rounded-full border transition capitalize ${
+                        ideaTagFilter.has(t)
+                          ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                          : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                      }`}
+                    >{t}</button>
+                  ))}
+                </div>
+
+                {/* Status */}
+                <div className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border-t border-slate-800">Status</div>
+                <div className="flex flex-wrap gap-1 px-3 pb-2">
+                  {IDEA_STATUSES.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => toggleSet(ideaStatusFilter, setIdeaStatusFilter, s)}
+                      className={`text-[11px] px-2 py-1 rounded-full border transition capitalize ${
+                        ideaStatusFilter.has(s)
+                          ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                          : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                      }`}
+                    >{s.replace('_', ' ')}</button>
+                  ))}
+                </div>
+              </>)}
+
+              {filtersOpen.kind === 'history' && (<>
+                {/* Event */}
+                <div className="px-3 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Event</div>
+                <div className="flex flex-wrap gap-1 px-3 pb-2">
+                  {[['all','All events'],['deleted','Deleted'],['restored','Restored']].map(([k, lbl]) => (
+                    <button
+                      key={k}
+                      onClick={() => setHistEvent(k)}
+                      className={`text-[11px] px-2 py-1 rounded-full border transition ${
+                        histEvent === k
+                          ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                          : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                      }`}
+                    >{lbl}</button>
+                  ))}
+                </div>
+
+                {/* When */}
+                <div className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border-t border-slate-800">When</div>
+                <div className="flex flex-wrap gap-1 px-3 pb-2">
+                  {[['all', 'Any time'], ['24h', 'Last 24h'], ['7d', 'Last 7d'], ['30d', 'Last 30d']].map(([k, lbl]) => (
+                    <button
+                      key={k}
+                      onClick={() => setHistTime(k)}
+                      className={`text-[11px] px-2 py-1 rounded-full border transition ${
+                        histTime === k
+                          ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                          : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                      }`}
+                    >{lbl}</button>
+                  ))}
+                </div>
+
+                {/* Actor */}
+                <div className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border-t border-slate-800">Who</div>
+                <div className="px-3 pb-2">
+                  <select
+                    value={histActor}
+                    onChange={(e) => setHistActor(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="all">Everyone</option>
+                    {histActors.map((u) => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+              </>)}
+
               {/* Footer */}
               <div className="flex items-center gap-2 px-3 py-2 border-t border-slate-800 sticky bottom-0 bg-slate-900">
                 <button
-                  onClick={clearFilters}
-                  disabled={!activeFilterCount}
+                  onClick={filtersOpen.kind === 'pins' ? clearFilters
+                    : filtersOpen.kind === 'ideas' ? clearIdeaFilters : clearHistFilters}
+                  disabled={!(filtersOpen.kind === 'pins' ? activeFilterCount
+                    : filtersOpen.kind === 'ideas' ? ideaFilterCount : histFilterCount)}
                   className="text-[11px] px-2 py-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 disabled:opacity-40"
                 >Reset all</button>
                 <button
                   onClick={() => setFiltersOpen(null)}
                   className="ml-auto text-[11px] px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white"
                 >Done</button>
+              </div>
+            </div>
+          </Popup>
+        </>
+      )}
+
+      {/* Ideas JSON export — pick which tags ship in the file */}
+      {ideaExportOpen && (
+        <>
+          <div className="fixed inset-0 z-[9995]" onClick={() => setIdeaExportOpen(null)} />
+          <Popup
+            x={ideaExportOpen.x} y={ideaExportOpen.y} width={252}
+            className="bp-popup z-[9996] w-[252px] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl"
+            sheetClassName="bg-slate-900 border-t border-slate-700 p-3"
+          >
+            <div onClick={(e) => e.stopPropagation()}>
+              <div className="px-3 pt-2.5 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Export ideas (.json)</div>
+              <p className="px-3 pb-1.5 text-[11px] text-slate-500">
+                Priority queue first, then pinned, then backlog.
+              </p>
+              <div className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border-t border-slate-800">Include tags</div>
+              <div className="flex flex-wrap gap-1 px-3 pb-2">
+                {IDEA_TAGS.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => toggleSet(exportTags, setExportTags, t)}
+                    className={`text-[11px] px-2 py-1 rounded-full border transition capitalize ${
+                      exportTags.has(t)
+                        ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                        : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                    }`}
+                  >{t}</button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2 border-t border-slate-800">
+                <span className="text-[11px] text-slate-500">
+                  {ideas.filter((i) => exportTags.has(i.tag)).length} of {ideas.length} ideas
+                </span>
+                <button
+                  onClick={exportIdeasJson}
+                  disabled={!exportTags.size}
+                  className="ml-auto text-[11px] px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40 flex items-center gap-1"
+                ><Download className="w-3 h-3" /> Download</button>
               </div>
             </div>
           </Popup>
@@ -1977,7 +2329,7 @@ const BetaPinLayer = () => {
             <button className="ctx-item" onClick={() => prioritizeIdea(ideaCtx.idea.id)}>
               <Flag className="w-4 h-4 text-orange-400" />
               {ideaCtx.idea.priority_rank
-                ? `Prioritize again (P${ideaCtx.idea.priority_rank} → end of queue)`
+                ? `Re-queue to end (now ${priorityInfo(ideaCtx.idea.priority_rank, maxIdeaRank)?.pct}% ${priorityInfo(ideaCtx.idea.priority_rank, maxIdeaRank)?.label})`
                 : 'Prioritize (next in queue)'}
             </button>
             {ideaCtx.idea.priority_rank != null && (
@@ -2079,7 +2431,7 @@ const BetaPinLayer = () => {
                     onClick={(e) => {
                       e.stopPropagation();
                       const r = e.currentTarget.getBoundingClientRect();
-                      setFiltersOpen(filtersOpen ? null : { x: r.right, y: r.bottom + 4 });
+                      setFiltersOpen(filtersOpen ? null : { x: r.right, y: r.bottom + 4, kind: 'pins' });
                     }}
                     className={`relative p-1.5 rounded-lg border transition shrink-0 ${
                       filtersOpen || activeFilterCount
@@ -2214,17 +2566,80 @@ const BetaPinLayer = () => {
                   >Add</button>
                 </div>
               </div>
-              {ideas.map((i) => (
+              {/* Search + filter row + export — same funnel pattern as the pins tab */}
+              <div className="sticky top-0 bg-slate-900 px-3 pt-2 pb-1.5 border-b border-slate-800 z-10">
+                <div className="flex items-center gap-1.5">
+                  <div className="relative flex-1 min-w-0">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+                    <input
+                      value={ideaSearch}
+                      onChange={(e) => setIdeaSearch(e.target.value)}
+                      placeholder="Search ideas — title, details, tag, author…"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-7 pr-7 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                    />
+                    {ideaSearch && (
+                      <button
+                        onClick={() => setIdeaSearch('')}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                        title="Clear search"
+                      ><X className="w-3.5 h-3.5" /></button>
+                    )}
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setFiltersOpen(filtersOpen ? null : { x: r.right, y: r.bottom + 4, kind: 'ideas' });
+                    }}
+                    className={`relative p-1.5 rounded-lg border transition shrink-0 ${
+                      (filtersOpen?.kind === 'ideas') || ideaFilterCount
+                        ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                        : 'border-slate-700 bg-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Sort & filter ideas"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    {ideaFilterCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-blue-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                        {ideaFilterCount}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setIdeaExportOpen(ideaExportOpen ? null : { x: r.right, y: r.bottom + 4 });
+                    }}
+                    title="Export ideas to a priority-ordered .json file"
+                    className="text-[11px] px-2 py-1.5 rounded-lg bg-blue-700/60 text-blue-100 hover:bg-blue-600 flex items-center gap-1 shrink-0"
+                  >
+                    <Download className="w-3 h-3" /> Export
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <span className="text-[11px] text-slate-500 mr-auto">
+                    {filteredIdeas.length} of {ideas.length}
+                    {maxIdeaRank > 0 && <span className="text-orange-300/80"> · {maxIdeaRank} prioritized</span>}
+                  </span>
+                </div>
+              </div>
+              {filteredIdeas.map((i) => { const pri = priorityInfo(i.priority_rank, maxIdeaRank); return (
                 <div
                   key={i.id}
                   onContextMenu={(e) => { e.preventDefault(); setIdeaCtx({ x: e.clientX, y: e.clientY, idea: i }); }}
-                  className={`px-3 py-2 border-b border-slate-800/60 ${i.status === 'archived' ? 'opacity-50' : ''} ${i.priority_rank ? 'border-l-2 border-l-orange-500/70' : ''}`}
+                  className={`px-3 py-2 border-b border-slate-800/60 ${i.status === 'archived' ? 'opacity-50' : ''} ${pri ? 'border-l-2' : ''}`}
+                  style={pri ? { borderLeftColor: pri.color } : undefined}
                 >
                   <div className="flex items-center gap-1.5">
                     {i.is_pinned && <Pin className="w-3 h-3 text-amber-400 shrink-0" />}
-                    {i.priority_rank != null && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold shrink-0" title="Priority rank — right-click to change">
-                        P{i.priority_rank}
+                    {pri && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0"
+                        style={{ background: `${pri.color}26`, color: pri.color }}
+                        title={`Priority ${i.priority_rank} of ${maxIdeaRank} in the queue — right-click to change`}
+                      >
+                        {pri.pct}% {pri.label}
                       </span>
                     )}
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 capitalize shrink-0">{i.tag}</span>
@@ -2291,73 +2706,162 @@ const BetaPinLayer = () => {
                     </>
                   )}
                 </div>
-              ))}
+              );})}
+              {ideas.length > 0 && !filteredIdeas.length && (
+                <div className="text-center py-8">
+                  <p className="text-sm text-slate-500">No ideas match your filters.</p>
+                  <button onClick={() => { setIdeaSearch(''); clearIdeaFilters(); }}
+                    className="mt-2 text-[11px] px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700">
+                    Clear search & filters
+                  </button>
+                </div>
+              )}
               {!ideas.length && <p className="text-sm text-slate-500 text-center py-8">No ideas yet — keep private dev notes here.</p>}
             </div>
           )}
 
           {tab === 'history' && (
             <div className="flex-1 overflow-y-auto scrollbar-3d">
-              <div className="px-3 py-2 border-b border-slate-800 text-[11px] text-slate-500">
-                Deleted/restored pins and ideas — restore brings one back; the
-                ghost toggle shows where deleted pins used to be.
-              </div>
-              {deletedIdeas.length > 0 && (
-                <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">Deleted ideas</div>
-              )}
-              {deletedIdeas.map((i) => (
-                <div key={`idea-${i.id}`} className="px-3 py-2 border-b border-slate-800/60">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] px-1.5 rounded-full bg-red-500/20 text-red-300">idea deleted</span>
-                    <span className="text-[10px] text-slate-500 capitalize">{i.tag}</span>
-                    <span className="text-[10px] text-slate-600 ml-auto shrink-0">{relTime(i.deleted_at)}</span>
+              {/* Search + filter row + kind picker — same funnel pattern */}
+              <div className="sticky top-0 bg-slate-900 px-3 pt-2 pb-1.5 border-b border-slate-800 z-10">
+                <div className="flex items-center gap-1.5">
+                  <div className="relative flex-1 min-w-0">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+                    <input
+                      value={histSearch}
+                      onChange={(e) => setHistSearch(e.target.value)}
+                      placeholder="Search history — note, user, page, idea…"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-7 pr-7 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                    />
+                    {histSearch && (
+                      <button
+                        onClick={() => setHistSearch('')}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                        title="Clear search"
+                      ><X className="w-3.5 h-3.5" /></button>
+                    )}
                   </div>
-                  <p className="text-sm text-slate-200 mt-1 font-medium">{i.title}</p>
-                  {i.body && <p className="text-xs text-slate-400 mt-0.5 line-clamp-2 whitespace-pre-wrap">{i.body}</p>}
-                  <div className="text-[10px] text-slate-500 mt-0.5">
-                    {i.created_by_name || 'admin'} · created {relTime(i.created_at)}
-                  </div>
-                  <div className="flex gap-1.5 mt-1.5">
-                    <button onClick={() => restoreIdea(i.id)}
-                      className="text-[11px] px-2 py-1 rounded bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50 flex items-center gap-1"
-                    ><RotateCcw className="w-3 h-3" /> Restore</button>
-                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setFiltersOpen(filtersOpen ? null : { x: r.right, y: r.bottom + 4, kind: 'history' });
+                    }}
+                    className={`relative p-1.5 rounded-lg border transition shrink-0 ${
+                      (filtersOpen?.kind === 'history') || histFilterCount
+                        ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                        : 'border-slate-700 bg-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Filter history"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    {histFilterCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-blue-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                        {histFilterCount}
+                      </span>
+                    )}
+                  </button>
                 </div>
-              ))}
-              {historyItems.map((h) => {
-                const s = h.snapshot || {};
-                const superseded = h.event === 'deleted' && historyItems.some(
-                  (r) => r.event === 'restored' && r.pin_id === h.pin_id
-                );
-                return (
-                  <div key={h.id} className="px-3 py-2 border-b border-slate-800/60">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: sevOf(s.severity).color }} />
-                      <span className={`text-[10px] px-1.5 rounded-full ${h.event === 'deleted' ? 'bg-red-500/20 text-red-300' : 'bg-emerald-500/20 text-emerald-300'}`}>{h.event}</span>
-                      <span className="text-[10px] text-slate-500 truncate">{s.page_path}</span>
-                      <span className="text-[10px] text-slate-600 ml-auto shrink-0">{relTime(h.created_at)}</span>
-                    </div>
-                    <p className="text-sm text-slate-200 mt-1 whitespace-pre-wrap">{s.note}</p>
-                    <div className="text-[10px] text-slate-500 mt-0.5">
-                      {s.username || 'unknown'} → {h.actor_name || 'admin'}{superseded ? ' · already restored' : ''}
-                    </div>
-                    <div className="flex gap-1.5 mt-1.5">
-                      {h.event === 'deleted' && !superseded && (
-                        <button onClick={() => restorePin(h)}
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  {[['all', 'All'], ['pins', 'Pins'], ['ideas', 'Ideas']].map(([k, lbl]) => (
+                    <button
+                      key={k}
+                      onClick={() => setHistKind(k)}
+                      className={`text-[11px] px-2 py-0.5 rounded-full border transition ${
+                        histKind === k
+                          ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                          : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                      }`}
+                    >{lbl}</button>
+                  ))}
+                  <span className="text-[11px] text-slate-500 ml-auto">
+                    {(histKind !== 'ideas' ? filteredHistoryItems.length : 0)
+                      + (histKind !== 'pins' ? filteredDeletedIdeas.length : 0)} events
+                  </span>
+                </div>
+              </div>
+              {/* Sections — add a new entry here when another kind of item
+                  lands in history (each gets its own filtered list). */}
+              {[
+                {
+                  key: 'ideas', title: 'Deleted ideas', items: filteredDeletedIdeas,
+                  show: histKind !== 'pins',
+                  render: (i) => (
+                    <div key={`idea-${i.id}`} className="px-3 py-2 border-b border-slate-800/60">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] px-1.5 rounded-full bg-red-500/20 text-red-300">idea deleted</span>
+                        <span className="text-[10px] text-slate-500 capitalize">{i.tag}</span>
+                        <span className="text-[10px] text-slate-600 ml-auto shrink-0">{relTime(i.deleted_at)}</span>
+                      </div>
+                      <p className="text-sm text-slate-200 mt-1 font-medium">{i.title}</p>
+                      {i.body && <p className="text-xs text-slate-400 mt-0.5 line-clamp-2 whitespace-pre-wrap">{i.body}</p>}
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        {i.created_by_name || 'admin'} · created {relTime(i.created_at)}
+                      </div>
+                      <div className="flex gap-1.5 mt-1.5">
+                        <button onClick={() => restoreIdea(i.id)}
                           className="text-[11px] px-2 py-1 rounded bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50 flex items-center gap-1"
                         ><RotateCcw className="w-3 h-3" /> Restore</button>
-                      )}
-                      {s.page_path && s.page_path !== page && (
-                        <button onClick={() => { setPanelOpen(false); navigate(s.page_path); }}
-                          className="text-[11px] px-2 py-1 rounded bg-slate-700/60 text-slate-200 hover:bg-slate-600 flex items-center gap-1"
-                        ><ExternalLink className="w-3 h-3" /> Go to page</button>
-                      )}
+                        <button onClick={() => setPurgeConfirm(i)} title="Permanently delete — can't be undone"
+                          className="text-[11px] px-2 py-1 rounded bg-red-600/20 text-red-300 hover:bg-red-600/40 flex items-center gap-1"
+                        ><Trash2 className="w-3 h-3" /> Delete forever</button>
+                      </div>
                     </div>
+                  ),
+                },
+                {
+                  key: 'pins', title: 'Pin events', items: filteredHistoryItems,
+                  show: histKind !== 'ideas',
+                  render: (h) => {
+                    const s = h.snapshot || {};
+                    const superseded = h.event === 'deleted' && historyItems.some(
+                      (r) => r.event === 'restored' && r.pin_id === h.pin_id
+                    );
+                    return (
+                      <div key={h.id} className="px-3 py-2 border-b border-slate-800/60">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: sevOf(s.severity).color }} />
+                          <span className={`text-[10px] px-1.5 rounded-full ${h.event === 'deleted' ? 'bg-red-500/20 text-red-300' : 'bg-emerald-500/20 text-emerald-300'}`}>{h.event}</span>
+                          <span className="text-[10px] text-slate-500 truncate">{s.page_path}</span>
+                          <span className="text-[10px] text-slate-600 ml-auto shrink-0">{relTime(h.created_at)}</span>
+                        </div>
+                        <p className="text-sm text-slate-200 mt-1 whitespace-pre-wrap">{s.note}</p>
+                        <div className="text-[10px] text-slate-500 mt-0.5">
+                          {s.username || 'unknown'} → {h.actor_name || 'admin'}{superseded ? ' · already restored' : ''}
+                        </div>
+                        <div className="flex gap-1.5 mt-1.5">
+                          {h.event === 'deleted' && !superseded && (
+                            <button onClick={() => restorePin(h)}
+                              className="text-[11px] px-2 py-1 rounded bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50 flex items-center gap-1"
+                            ><RotateCcw className="w-3 h-3" /> Restore</button>
+                          )}
+                          {s.page_path && s.page_path !== page && (
+                            <button onClick={() => { setPanelOpen(false); navigate(s.page_path); }}
+                              className="text-[11px] px-2 py-1 rounded bg-slate-700/60 text-slate-200 hover:bg-slate-600 flex items-center gap-1"
+                            ><ExternalLink className="w-3 h-3" /> Go to page</button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  },
+                },
+              ].filter((sec) => sec.show).map((sec) => (
+                <div key={sec.key}>
+                  <div className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    {sec.title} <span className="text-slate-600 font-normal">({sec.items.length})</span>
                   </div>
-                );
-              })}
-              {!historyItems.length && !deletedIdeas.length && (
-                <p className="text-sm text-slate-500 text-center py-8">No history yet — deleted pins and ideas show up here.</p>
+                  {sec.items.map(sec.render)}
+                  {!sec.items.length && (
+                    <p className="text-xs text-slate-600 px-3 py-2">Nothing here.</p>
+                  )}
+                </div>
+              ))}
+              {!filteredHistoryItems.length && !filteredDeletedIdeas.length && (
+                <p className="text-sm text-slate-500 text-center py-8">
+                  {historyItems.length || deletedIdeas.length
+                    ? 'No events match your filters.'
+                    : 'No history yet — deleted pins and ideas show up here.'}
+                </p>
               )}
             </div>
           )}
@@ -2655,6 +3159,22 @@ const BetaPinLayer = () => {
         .ctx-item { display:flex; align-items:center; gap:8px; width:100%; padding:7px 12px;
           color:#cbd5e1; } .ctx-item:hover { background:rgba(59,130,246,0.12); }
       `}</style>
+
+      {/* Permanent-delete confirm — a high-z wrapper keeps it above the
+          z-9988 admin panel (ConfirmModal itself is z-50) */}
+      {purgeConfirm && (
+        <div className="fixed inset-0 z-[99999]">
+          <ConfirmModal
+            isOpen
+            type="danger"
+            title="Delete idea forever?"
+            message={`"${purgeConfirm.title}" will be permanently deleted — this can't be undone.`}
+            confirmText="Delete forever"
+            onConfirm={() => purgeIdea(purgeConfirm.id)}
+            onCancel={() => setPurgeConfirm(null)}
+          />
+        </div>
+      )}
 
       {/* Transient action error toast */}
       {toast && (
