@@ -40,8 +40,8 @@ const FloatingButtons = ({
   // hiding this column underneath it, shift every corner column left so
   // the buttons stay reachable (BetaPinLayer reads the same offset).
   useEffect(() => {
-    setPanelShift(showListPanel && position === 'right' && !isMobile ? 500 : 0);
-    return () => setPanelShift(0);
+    setPanelShift('list', showListPanel && position === 'right' && !isMobile ? 500 : 0);
+    return () => setPanelShift('list', 0);
   }, [showListPanel, position, isMobile]);
 
   // Right column sits directly above whatever the beta stack currently

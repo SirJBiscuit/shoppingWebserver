@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import FormattedNote from '../FormattedNote';
-import { Popup, Portal, useCornerStack, usePanelShift } from '../../utils/autoPlacement';
+import { Popup, Portal, useCornerStack, usePanelShift, setPanelShift, useIsMobile } from '../../utils/autoPlacement';
 import {
   MapPin, Plus, X, Eye, EyeOff, MessageSquare, ChevronRight,
   Check, Clock, Trash2, Layers, ExternalLink,
@@ -444,6 +444,15 @@ const BetaPinLayer = () => {
     !dropMode && !moving && canUse && !stackHidden,
     [isAdmin, pins, allPins]);
   const panelShift = usePanelShift();
+  const isMobile = useIsMobile();
+
+  // Admin viewer is a 384px right-edge panel — shift every corner column
+  // left while it's open so the beta stack + Active List buttons stay
+  // reachable beside it (shared 'viewer' shift source).
+  useEffect(() => {
+    setPanelShift('viewer', panelOpen && !isMobile ? 400 : 0);
+    return () => setPanelShift('viewer', 0);
+  }, [panelOpen, isMobile]);
   useEffect(() => {
     localStorage.setItem('betaStackHidden', stackHidden ? '1' : '0');
   }, [stackHidden]);

@@ -208,7 +208,9 @@ export const ModalPortal = ({
 
 const stackHeights = new Map(); // name → px occupied from viewport bottom
 const stackSubs = new Set();
-let panelShiftPx = 0;
+// Named shift sources — a side panel slides every corner column left while
+// it's open. Multiple panels can coexist; columns move by the largest shift.
+const panelShifts = new Map(); // source → px
 
 const notifyStacks = () => { stackSubs.forEach((cb) => cb()); };
 
@@ -251,19 +253,27 @@ export const useCornerStack = (name, ref, active, deps = []) => {
   useLayoutEffect(() => () => clearCornerStack(name), [name]);
 };
 
-/** Shared horizontal shift (px) applied to every corner column — set by the
- *  side panel so stacks slide out from underneath it. */
-export const setPanelShift = (px) => {
-  const v = Math.round(px);
-  if (panelShiftPx === v) return;
-  panelShiftPx = v;
+/** Shared horizontal shift (px) applied to every corner column — set by a
+ *  side panel (identified by `source`) so stacks slide out from underneath
+ *  it. The effective shift is the MAX across active sources. */
+export const setPanelShift = (source, px) => {
+  const v = Math.max(0, Math.round(px));
+  const prev = panelShifts.get(source) || 0;
+  if (prev === v) return;
+  if (v) panelShifts.set(source, v); else panelShifts.delete(source);
   notifyStacks();
+};
+
+const maxPanelShift = () => {
+  let m = 0;
+  panelShifts.forEach((v) => { if (v > m) m = v; });
+  return m;
 };
 
 export const usePanelShift = () =>
   useSyncExternalStore(
     (cb) => { stackSubs.add(cb); return () => stackSubs.delete(cb); },
-    () => panelShiftPx
+    maxPanelShift
   );
 
 export default Portal;
