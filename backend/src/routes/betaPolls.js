@@ -4,7 +4,10 @@ const db = require('../database/db');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 
 const VOTES = ['yes', 'no'];
-const STATUSES = ['open', 'planned', 'released', 'declined'];
+// Progress-style lifecycle: open (voting) → thinking → in_progress →
+// working → shipped, or dropped. shipped/dropped are terminal.
+const STATUSES = ['open', 'thinking', 'in_progress', 'working', 'shipped', 'dropped'];
+const TERMINAL = ['shipped', 'dropped'];
 
 const TALLY = `
   (SELECT COUNT(*)::int FROM beta_feature_poll_votes v
@@ -43,13 +46,13 @@ const cleanOptions = (opts) => {
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { rows } = await db.query(
-      `SELECT p.id, p.title, p.description, p.status, p.created_at, p.options,
+      `SELECT p.id, p.title, p.description, p.status, p.created_at, p.options, p.text_color,
               ${TALLY}, ${OPTION_TALLY},
               mv.vote AS my_vote, mv.note AS my_note, mv.option_index AS my_option
        FROM beta_feature_polls p
        LEFT JOIN beta_feature_poll_votes mv
          ON mv.poll_id = p.id AND mv.user_id = $1
-       WHERE p.status IN ('open','planned')
+       WHERE p.status IN ('open','thinking','in_progress','working')
           OR p.resolved_at > NOW() - INTERVAL '14 days'
        ORDER BY (p.status = 'open') DESC, p.created_at DESC
        LIMIT 50`,
@@ -136,15 +139,16 @@ router.get('/admin/all', authenticateToken, isAdmin, async (req, res) => {
  */
 router.post('/admin', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const { title, description, options } = req.body;
+    const { title, description, options, textColor } = req.body;
     if (!title || !title.trim() || title.length > 255) {
       return res.status(400).json({ error: 'Title required (max 255 chars)' });
     }
     const opts = cleanOptions(options);
     const { rows } = await db.query(
-      `INSERT INTO beta_feature_polls (title, description, options, created_by)
-       VALUES ($1,$2,$3,$4) RETURNING *`,
-      [title.trim(), description?.trim() || null, opts ? JSON.stringify(opts) : null, req.user.id]
+      `INSERT INTO beta_feature_polls (title, description, options, text_color, created_by)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [title.trim(), description?.trim() || null, opts ? JSON.stringify(opts) : null,
+       textColor?.trim()?.slice(0, 20) || null, req.user.id]
     );
     res.status(201).json(rows[0]);
   } catch (e) {
@@ -154,8 +158,49 @@ router.post('/admin', authenticateToken, isAdmin, async (req, res) => {
 });
 
 /**
+ * PATCH /api/beta/polls/admin/:id — edit title / description / options /
+ * text_color. Omitting a field leaves it unchanged; options: [] clears
+ * the multi-choice list back to a yes/no poll.
+ */
+router.patch('/admin/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { title, description, options, textColor } = req.body;
+    if (title !== undefined && (!title.trim() || title.length > 255)) {
+      return res.status(400).json({ error: 'Title required (max 255 chars)' });
+    }
+    const hasOptions = options !== undefined;
+    const opts = hasOptions && Array.isArray(options) && options.length
+      ? cleanOptions(options)
+      : null;
+    if (hasOptions && Array.isArray(options) && options.length > 0 && !opts) {
+      return res.status(400).json({ error: 'Options must be 2–6 choices' });
+    }
+    const { rowCount } = await db.query(
+      `UPDATE beta_feature_polls SET
+         title      = COALESCE($2, title),
+         description = COALESCE($3, description),
+         text_color = COALESCE($4, text_color),
+         options    = CASE WHEN $5::boolean THEN $6 ELSE options END
+       WHERE id = $1`,
+      [req.params.id,
+       title?.trim() || null,
+       description === undefined ? null : (description?.trim() || null),
+       textColor?.trim()?.slice(0, 20) || null,
+       hasOptions,
+       hasOptions ? JSON.stringify(opts) : null]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Poll not found' });
+    res.json({ updated: true });
+  } catch (e) {
+    console.error('Error editing poll:', e);
+    res.status(500).json({ error: 'Failed to edit poll', detail: e.message });
+  }
+});
+
+/**
  * POST /api/beta/polls/admin/:id/status  { status }
- * open → planned → released, or declined. Closing stops new votes.
+ * Progress lifecycle: open → thinking → in_progress → working → shipped,
+ * or dropped. shipped/dropped mark resolved_at; 'open' keeps voting live.
  */
 router.post('/admin/:id/status', authenticateToken, isAdmin, async (req, res) => {
   try {
@@ -163,17 +208,20 @@ router.post('/admin/:id/status', authenticateToken, isAdmin, async (req, res) =>
     if (!STATUSES.includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
+    // Boolean param — comparing $2 to literals inside the CASE would deduce
+    // it as text and conflict with the column's own type (same $2 bug as pins).
+    const terminal = TERMINAL.includes(status);
     const { rowCount } = await db.query(
       `UPDATE beta_feature_polls SET status = $2,
-         resolved_at = CASE WHEN $2 IN ('released','declined') THEN NOW() ELSE resolved_at END
+         resolved_at = CASE WHEN $3::boolean THEN NOW() ELSE resolved_at END
        WHERE id = $1`,
-      [req.params.id, status]
+      [req.params.id, status, terminal]
     );
     if (!rowCount) return res.status(404).json({ error: 'Poll not found' });
     res.json({ updated: true });
   } catch (e) {
     console.error('Error updating poll status:', e);
-    res.status(500).json({ error: 'Failed to update poll' });
+    res.status(500).json({ error: 'Failed to update poll', detail: e.message });
   }
 });
 

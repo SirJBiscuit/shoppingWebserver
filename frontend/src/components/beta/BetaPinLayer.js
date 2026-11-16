@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
+import FormattedNote from '../FormattedNote';
 import { Popup, Portal, useCornerStack, usePanelShift } from '../../utils/autoPlacement';
 import {
   MapPin, Plus, X, Eye, EyeOff, MessageSquare, ChevronRight,
@@ -40,6 +41,11 @@ const STATUS_META = {
   fixed:       { label: 'Fixed',       cls: 'bg-emerald-500/20 text-emerald-300' },
   hidden:      { label: 'Hidden',      cls: 'bg-zinc-500/20 text-zinc-400' },
   removed:     { label: 'Removed',     cls: 'bg-red-500/20 text-red-300' },
+  // Poll progress statuses
+  thinking:    { label: 'Thinking',      cls: 'bg-amber-500/20 text-amber-300' },
+  working:     { label: 'Working on it', cls: 'bg-violet-500/20 text-violet-300' },
+  shipped:     { label: 'Shipped',       cls: 'bg-emerald-500/20 text-emerald-300' },
+  dropped:     { label: 'Dropped',       cls: 'bg-red-500/20 text-red-300' },
 };
 
 const relTime = (iso) => {
@@ -246,8 +252,10 @@ const BetaPinLayer = () => {
   const [pollsOpen, setPollsOpen] = useState(false); // tester popover
   const [adminPolls, setAdminPolls] = useState([]);  // admin view + tallies
   const [pollNotes, setPollNotes] = useState([]);    // voter notes
-  const [newPoll, setNewPoll] = useState({ title: '', description: '', options: [] });
+  const [newPoll, setNewPoll] = useState({ title: '', description: '', options: [], color: '' });
   const [optDraft, setOptDraft] = useState('');       // admin: option being typed
+  const [editPoll, setEditPoll] = useState(null);     // admin: poll being edited
+  const [editOptDraft, setEditOptDraft] = useState('');
   // Tester panel — own feedback threads + compose
   const [testerTab, setTesterTab] = useState('votes');
   const [myFeedback, setMyFeedback] = useState([]);
@@ -700,12 +708,45 @@ const BetaPinLayer = () => {
       await api.post('/beta/polls/admin', {
         title: newPoll.title.trim(),
         description: newPoll.description.trim() || null,
-        options: newPoll.options.length >= 2 ? newPoll.options : undefined
+        options: newPoll.options.length >= 2 ? newPoll.options : undefined,
+        textColor: newPoll.color || undefined
       });
-      setNewPoll({ title: '', description: '', options: [] });
+      setNewPoll({ title: '', description: '', options: [], color: '' });
       setOptDraft('');
       loadAdminPolls();
     } catch { /* silent */ }
+  };
+
+  // Admin poll editing — title/description support FormattedNote marks
+  // (**bold**, *italic*) and text_color paints the title.
+  const startEditPoll = (p) => {
+    setEditPoll({
+      id: p.id, title: p.title, description: p.description || '',
+      options: Array.isArray(p.options) ? [...p.options] : [],
+      color: p.text_color || ''
+    });
+    setEditOptDraft('');
+  };
+
+  const addEditOption = () => {
+    const o = editOptDraft.trim();
+    if (!o || editPoll.options.length >= 6 || editPoll.options.includes(o)) return;
+    setEditPoll((n) => ({ ...n, options: [...n.options, o] }));
+    setEditOptDraft('');
+  };
+
+  const savePollEdit = async () => {
+    if (!editPoll?.title.trim()) return;
+    try {
+      await api.patch(`/beta/polls/admin/${editPoll.id}`, {
+        title: editPoll.title.trim(),
+        description: editPoll.description.trim() || null,
+        options: editPoll.options,
+        textColor: editPoll.color || null
+      });
+      setEditPoll(null); setEditOptDraft('');
+      loadAdminPolls();
+    } catch (e) { apiErr(e, 'Poll update failed'); }
   };
 
   const setPollStatus = async (id, status) => {
@@ -1378,8 +1419,10 @@ const BetaPinLayer = () => {
                   <div key={p.id} className="px-3 py-2.5 border-b border-slate-800/60">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-slate-100">{p.title}</div>
-                        {p.description && <div className="text-xs text-slate-400 mt-0.5 max-h-16 overflow-y-auto scrollbar-3d pr-1">{p.description}</div>}
+                        <div className="text-sm font-medium text-slate-100" style={{ color: p.text_color || undefined }}>
+                          <FormattedNote text={p.title} />
+                        </div>
+                        {p.description && <div className="text-xs text-slate-400 mt-0.5 max-h-16 overflow-y-auto scrollbar-3d pr-1"><FormattedNote text={p.description} /></div>}
                       </div>
                       <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${p.status === 'open' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-blue-500/20 text-blue-300'}`}>
                         {p.status}
@@ -1868,6 +1911,16 @@ const BetaPinLayer = () => {
                     )}
                   </div>
                 )}
+                <div className="flex items-center gap-2 mt-1.5">
+                  <input
+                    type="color"
+                    value={newPoll.color || '#f1f5f9'}
+                    onChange={(e) => setNewPoll((n) => ({ ...n, color: e.target.value }))}
+                    className="w-6 h-6 rounded bg-slate-800 border border-slate-700 cursor-pointer p-0.5"
+                    title="Poll title text color"
+                  />
+                  <span className="text-[10px] text-slate-500">title color · **bold** *italic* supported</span>
+                </div>
                 <button
                   onClick={createPoll}
                   disabled={!newPoll.title.trim()}
@@ -1884,8 +1937,10 @@ const BetaPinLayer = () => {
                   <div key={p.id} className="px-3 py-2.5 border-b border-slate-800/60">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-slate-100">{p.title}</div>
-                        {p.description && <div className="text-xs text-slate-400 mt-0.5 max-h-16 overflow-y-auto scrollbar-3d pr-1">{p.description}</div>}
+                        <div className="text-sm font-medium text-slate-100" style={{ color: p.text_color || undefined }}>
+                          <FormattedNote text={p.title} />
+                        </div>
+                        {p.description && <div className="text-xs text-slate-400 mt-0.5 max-h-16 overflow-y-auto scrollbar-3d pr-1"><FormattedNote text={p.description} /></div>}
                       </div>
                       <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_META[p.status]?.cls || 'bg-slate-800 text-slate-300'}`}>
                         {p.status}
@@ -1932,16 +1987,82 @@ const BetaPinLayer = () => {
                         ))}
                       </div>
                     )}
-                    <div className="flex gap-1.5 mt-2">
-                      {p.status === 'open' && <>
-                        <button onClick={() => setPollStatus(p.id, 'planned')} className="text-[11px] px-2 py-1 rounded bg-blue-600/30 text-blue-200 hover:bg-blue-600/50">Planned</button>
-                        <button onClick={() => setPollStatus(p.id, 'released')} className="text-[11px] px-2 py-1 rounded bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50">Released</button>
-                        <button onClick={() => setPollStatus(p.id, 'declined')} className="text-[11px] px-2 py-1 rounded bg-red-600/30 text-red-300 hover:bg-red-600/50">Decline</button>
+                    <div className="flex gap-1.5 mt-2 flex-wrap">
+                      {!['shipped', 'dropped'].includes(p.status) && <>
+                        <button onClick={() => setPollStatus(p.id, 'thinking')} className="text-[11px] px-2 py-1 rounded bg-amber-600/30 text-amber-200 hover:bg-amber-600/50">Thinking</button>
+                        <button onClick={() => setPollStatus(p.id, 'in_progress')} className="text-[11px] px-2 py-1 rounded bg-blue-600/30 text-blue-200 hover:bg-blue-600/50">In progress</button>
+                        <button onClick={() => setPollStatus(p.id, 'working')} className="text-[11px] px-2 py-1 rounded bg-violet-600/30 text-violet-200 hover:bg-violet-600/50">Working on it</button>
+                        <button onClick={() => setPollStatus(p.id, 'shipped')} className="text-[11px] px-2 py-1 rounded bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50">Shipped</button>
+                        <button onClick={() => setPollStatus(p.id, 'dropped')} className="text-[11px] px-2 py-1 rounded bg-red-600/30 text-red-300 hover:bg-red-600/50">Drop</button>
                       </>}
-                      {p.status !== 'open' && (
+                      {['shipped', 'dropped'].includes(p.status) && (
                         <button onClick={() => setPollStatus(p.id, 'open')} className="text-[11px] px-2 py-1 rounded bg-slate-700 text-slate-300 hover:bg-slate-600">Reopen</button>
                       )}
+                      {editPoll?.id === p.id ? (
+                        <button onClick={() => setEditPoll(null)} className="text-[11px] px-2 py-1 rounded bg-slate-700 text-slate-300 hover:bg-slate-600 ml-auto">Cancel</button>
+                      ) : (
+                        <button onClick={() => startEditPoll(p)} className="text-[11px] px-2 py-1 rounded bg-slate-700/60 text-slate-200 hover:bg-slate-600 flex items-center gap-1 ml-auto">
+                          <Pencil className="w-3 h-3" /> Edit
+                        </button>
+                      )}
                     </div>
+                    {/* Inline poll editor — title/description formatting, color, options */}
+                    {editPoll?.id === p.id && (
+                      <div className="mt-2 space-y-1.5 border-t border-slate-800 pt-2">
+                        <input
+                          value={editPoll.title}
+                          onChange={(e) => setEditPoll((n) => ({ ...n, title: e.target.value }))}
+                          placeholder="Poll title"
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                        />
+                        <textarea
+                          value={editPoll.description}
+                          onChange={(e) => setEditPoll((n) => ({ ...n, description: e.target.value }))}
+                          placeholder="Description"
+                          rows={2}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 resize-y scrollbar-3d focus:outline-none focus:border-blue-500"
+                        />
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={editPoll.color || '#f1f5f9'}
+                            onChange={(e) => setEditPoll((n) => ({ ...n, color: e.target.value }))}
+                            className="w-6 h-6 rounded bg-slate-800 border border-slate-700 cursor-pointer p-0.5"
+                            title="Title text color"
+                          />
+                          <span className="text-[10px] text-slate-500">title color · **bold** *italic*</span>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <input
+                            value={editOptDraft}
+                            onChange={(e) => setEditOptDraft(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && addEditOption()}
+                            placeholder="Add choice… (empty list = yes/no poll)"
+                            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+                          />
+                          <button
+                            onClick={addEditOption}
+                            disabled={!editOptDraft.trim() || editPoll.options.length >= 6}
+                            className="text-xs px-3 py-1.5 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 disabled:opacity-40"
+                          ><Plus className="w-3.5 h-3.5" /></button>
+                        </div>
+                        {editPoll.options.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {editPoll.options.map((o, i) => (
+                              <span key={i} className="text-[11px] bg-slate-800 text-slate-300 rounded-full px-2 py-0.5 flex items-center gap-1">
+                                {o}
+                                <button onClick={() => setEditPoll((n) => ({ ...n, options: n.options.filter((_, x) => x !== i) }))} className="text-slate-500 hover:text-red-400">×</button>
+                              </span>
+                            ))}
+                            {editPoll.options.length === 1 && <span className="text-[10px] text-amber-400">need 2+ for multi-choice</span>}
+                          </div>
+                        )}
+                        <div className="flex gap-1.5">
+                          <button onClick={savePollEdit} disabled={!editPoll.title.trim() || editPoll.options.length === 1} className="flex-1 text-[11px] px-2 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40">Save</button>
+                          <button onClick={() => setEditPoll(null)} className="flex-1 text-[11px] px-2 py-1.5 rounded bg-slate-700 text-slate-300 hover:bg-slate-600">Cancel</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
