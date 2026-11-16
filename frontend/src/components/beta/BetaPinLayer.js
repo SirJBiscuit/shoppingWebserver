@@ -4,12 +4,14 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import FormattedNote from '../FormattedNote';
 import { Popup, Portal, Connector, useCornerStack, usePanelShift, setPanelShift, useIsMobile, useFloatSide } from '../../utils/autoPlacement';
+import { pinDisplayPos, usePinLayerTick } from '../../utils/pinLayer';
 import {
   MapPin, Plus, X, Eye, EyeOff, MessageSquare, ChevronRight,
   Check, Clock, Trash2, Layers, ExternalLink,
   BarChart3, ThumbsUp, ThumbsDown, Lock, Pencil, Move, Download, RotateCcw,
   LocateFixed, Copy, Flag, Bug, Lightbulb, AlertTriangle, HelpCircle, Star,
-  Crosshair, Ghost, PanelRightClose, PanelRightOpen, Pin, Archive
+  Crosshair, Ghost, PanelRightClose, PanelRightOpen, Pin, Archive,
+  Search, SlidersHorizontal
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -47,6 +49,16 @@ const STATUS_META = {
   shipped:     { label: 'Shipped',       cls: 'bg-emerald-500/20 text-emerald-300' },
   dropped:     { label: 'Dropped',       cls: 'bg-red-500/20 text-red-300' },
 };
+
+// Admin viewer filter windows + sort modes
+const TIME_WINDOWS = { '24h': 86400e3, '7d': 7 * 86400e3, '30d': 30 * 86400e3 };
+const SORT_MODES = [
+  { key: 'new',      label: 'Newest' },
+  { key: 'old',      label: 'Oldest' },
+  { key: 'priority', label: 'Priority' },
+  { key: 'page',     label: 'By page' },
+];
+const PIN_STATUSES = ['open', 'in_progress', 'fixed', 'hidden'];
 
 const relTime = (iso) => {
   const s = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -247,6 +259,15 @@ const BetaPinLayer = () => {
   const [allPins, setAllPins] = useState([]);
   const [byPage, setByPage] = useState([]);
   const [sel, setSel] = useState(new Set());
+  // Admin viewer — search + filter/sort popup state
+  const [pinSearch, setPinSearch] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(null); // {x,y} anchor for Popup
+  const [sortMode, setSortMode] = useState('new');       // new|old|priority|page
+  const [timeFilter, setTimeFilter] = useState('all');   // all|24h|7d|30d
+  const [authorFilter, setAuthorFilter] = useState('all'); // 'all'|username
+  const [roleFilter, setRoleFilter] = useState('all');   // all|admin|beta
+  const [sevFilter, setSevFilter] = useState(new Set()); // empty = all
+  const [statusFilter, setStatusFilter] = useState(new Set()); // empty = all non-removed
   const [feedback, setFeedback] = useState([]);
   const [openThread, setOpenThread] = useState(null);   // feedback id
   const [replies, setReplies] = useState([]);
@@ -471,17 +492,11 @@ const BetaPinLayer = () => {
     return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
   }, [page]);
 
-  // Element-anchored pins re-resolve from live rects — bump a tick on
-  // scroll (rAF-throttled) so fixed markers track their elements.
-  useEffect(() => {
-    let raf = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => setTick((t) => t + 1));
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => { window.removeEventListener('scroll', onScroll); cancelAnimationFrame(raf); };
-  }, []);
+  // pinLayer tick: capture-phase scroll catches INNER scroll containers
+  // (pantry grids, lab lists, slide-out panels — scroll doesn't bubble but
+  // does reach capture on document). The 1s poll re-checks occlusion when
+  // popups/menus open or chrome appears without any scroll.
+  const layerTick = usePinLayerTick(1000);
 
   // Close context menu / fanout on any outside click
   useEffect(() => {
@@ -531,17 +546,31 @@ const BetaPinLayer = () => {
       return pins.map((p) => ({ p, pos: resolvePin(p, elCache) }));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pins, docH, tick, page]
+    [pins, docH, tick, layerTick, page]
   );
+  // Occlusion-aware clustering: resolve each cluster's DISPLAY position
+  // through pinLayer — chrome (toolbars/sidebars/panels) nudges the marker
+  // to a free edge; transient overlays (menus/modals) underlap it.
   const clusters = useMemo(
-    () => clusterPositions(positioned.filter((it) =>
-      !it.pos.hidden
-      // Viewport culling — offscreen markers cost DOM + click handlers
-      // for nothing. 80px margin so edge clusters still fan out.
-      && it.pos.x > -80 && it.pos.y > -80
-      && it.pos.x < window.innerWidth + 80 && it.pos.y < window.innerHeight + 80
-    )),
-    [positioned]
+    () => {
+      const base = clusterPositions(positioned.filter((it) =>
+        !it.pos.hidden
+        // Viewport culling — offscreen markers cost DOM + click handlers
+        // for nothing. 80px margin so edge clusters still fan out.
+        && it.pos.x > -80 && it.pos.y > -80
+        && it.pos.x < window.innerWidth + 80 && it.pos.y < window.innerHeight + 80
+      ));
+      return base.map((c) => {
+        let anchorEl = null;
+        const sel = c.pins[0]?.element_selector;
+        if (sel) { try { anchorEl = document.querySelector(sel); } catch { /* stale */ } }
+        const disp = pinDisplayPos(c.x, c.y, { anchorEl });
+        return { ...c, x: disp.x, y: disp.y, mode: disp.mode, trueX: disp.trueX, trueY: disp.trueY };
+      }).filter((c) => c.mode !== 'hidden');
+    },
+    // layerTick re-checks every inner-scroll/resize/poll beat
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [positioned, layerTick]
   );
 
   // Position of the pin being inspected — drives the connector line that
@@ -551,6 +580,53 @@ const BetaPinLayer = () => {
     () => allPins.filter((p) => p.status === 'open' || p.status === 'in_progress').length,
     [allPins]
   );
+
+  // Admin viewer — distinct authors for the filter popup
+  const pinAuthors = useMemo(
+    () => [...new Set(allPins.map((p) => p.username).filter(Boolean))].sort(),
+    [allPins]
+  );
+  const activeFilterCount = useMemo(
+    () => (timeFilter !== 'all') + (authorFilter !== 'all') + (roleFilter !== 'all')
+      + sevFilter.size + statusFilter.size + (sortMode !== 'new'),
+    [timeFilter, authorFilter, roleFilter, sevFilter, statusFilter, sortMode]
+  );
+  const clearFilters = () => {
+    setTimeFilter('all'); setAuthorFilter('all'); setRoleFilter('all');
+    setSevFilter(new Set()); setStatusFilter(new Set()); setSortMode('new');
+  };
+  // Search + filter + sort pipeline for the pins tab
+  const filteredPins = useMemo(() => {
+    let list = allPins.filter((p) => p.status !== 'removed');
+    if (statusFilter.size) list = list.filter((p) => statusFilter.has(p.status));
+    if (sevFilter.size) list = list.filter((p) => sevFilter.has(p.severity));
+    if (authorFilter !== 'all') list = list.filter((p) => p.username === authorFilter);
+    if (roleFilter === 'admin') list = list.filter((p) => p.author_is_admin);
+    if (roleFilter === 'beta') list = list.filter((p) => p.author_is_beta && !p.author_is_admin);
+    if (timeFilter !== 'all') {
+      const cut = Date.now() - TIME_WINDOWS[timeFilter];
+      list = list.filter((p) => new Date(p.created_at).getTime() >= cut);
+    }
+    const q = pinSearch.trim().toLowerCase();
+    if (q) {
+      list = list.filter((p) => [p.note, p.username, p.page_path, p.element_label]
+        .some((v) => String(v || '').toLowerCase().includes(q)));
+    }
+    const sevRank = (s) => { const i = SEVERITIES.findIndex((x) => x.key === s); return i < 0 ? 99 : i; };
+    const t = (p) => new Date(p.created_at).getTime();
+    return [...list].sort((a, b) => {
+      if (sortMode === 'old') return t(a) - t(b);
+      if (sortMode === 'priority') return sevRank(a.severity) - sevRank(b.severity) || t(b) - t(a);
+      if (sortMode === 'page') return String(a.page_path).localeCompare(String(b.page_path)) || t(b) - t(a);
+      return t(b) - t(a);
+    });
+  }, [allPins, pinSearch, timeFilter, authorFilter, roleFilter, sevFilter, statusFilter, sortMode]);
+
+  const toggleSet = (set, setter, key) => setter((prev) => {
+    const next = new Set(prev);
+    next.has(key) ? next.delete(key) : next.add(key);
+    return next;
+  });
 
   // Admin: jump from the pins list to a pin — navigate if it's on another
   // page, then reopen the detail card once the page renders.
@@ -973,10 +1049,21 @@ const BetaPinLayer = () => {
       {/* Pin markers — fixed at live-resolved positions. Element-anchored
           pins track their element every render; fallback pins (selector
           dead, or pre-anchor legacy) sit at their stored doc-% spot and
-          render dimmed. */}
+          render dimmed. Pins whose spot sits under fixed chrome (toolbars,
+          sidebars, panels) are nudged to the nearest free edge by pinLayer
+          and get a dashed ring + tether back to the true spot. */}
       {showPins && !dropMode && clusters.map((c) => (
+        <React.Fragment key={`c-${c.pins.map((p) => p.id).join('-')}`}>
+        {c.mode === 'nudged' && (
+          <Connector
+            from={{ x: c.x, y: c.y - 10 }}
+            to={{ x: c.trueX, y: c.trueY - 6 }}
+            color={sevOf(c.pins[0].severity).color}
+            zIndex={9989}
+            ring={false}
+          />
+        )}
         <button
-          key={`c-${c.pins.map((p) => p.id).join('-')}`}
           className={`bp-marker fixed z-[9990] -translate-x-1/2 -translate-y-full group ${c.anchored ? '' : 'opacity-70'}`}
           style={{ left: c.x, top: c.y }}
           onClick={(e) => {
@@ -1019,9 +1106,134 @@ const BetaPinLayer = () => {
             {c.pins[0].status === 'hidden' && (
               <EyeOff className="absolute -bottom-1 -left-1 w-3 h-3 text-zinc-400 bg-slate-900 rounded-full" />
             )}
+            {c.mode === 'nudged' && (
+              <span className="absolute -inset-1 rounded-full border border-dashed border-white/60 animate-pulse pointer-events-none" />
+            )}
           </span>
         </button>
+        </React.Fragment>
       ))}
+
+      {/* Sort & filter popup — keeps the viewer clean; one funnel button
+          opens this card with every grouping control inside. */}
+      {filtersOpen && (
+        <>
+          <div className="fixed inset-0 z-[9995]" onClick={() => setFiltersOpen(null)} />
+          <Popup
+            x={filtersOpen.x} y={filtersOpen.y} width={272}
+            className="bp-popup z-[9996] w-[272px] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl"
+            sheetClassName="bg-slate-900 border-t border-slate-700 p-3"
+          >
+            <div onClick={(e) => e.stopPropagation()} className="max-h-[70vh] overflow-y-auto scrollbar-3d">
+              {/* Sort */}
+              <div className="px-3 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Sort by</div>
+              <div className="flex flex-wrap gap-1 px-3 pb-2">
+                {SORT_MODES.map((m) => (
+                  <button
+                    key={m.key}
+                    onClick={() => setSortMode(m.key)}
+                    className={`text-[11px] px-2 py-1 rounded-full border transition ${
+                      sortMode === m.key
+                        ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                        : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                    }`}
+                  >{m.label}</button>
+                ))}
+              </div>
+
+              {/* Time */}
+              <div className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border-t border-slate-800">When</div>
+              <div className="flex flex-wrap gap-1 px-3 pb-2">
+                {[['all', 'Any time'], ['24h', 'Last 24h'], ['7d', 'Last 7d'], ['30d', 'Last 30d']].map(([k, lbl]) => (
+                  <button
+                    key={k}
+                    onClick={() => setTimeFilter(k)}
+                    className={`text-[11px] px-2 py-1 rounded-full border transition ${
+                      timeFilter === k
+                        ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                        : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                    }`}
+                  >{lbl}</button>
+                ))}
+              </div>
+
+              {/* Author + role */}
+              <div className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border-t border-slate-800">Who</div>
+              <div className="flex flex-wrap gap-1 px-3 pb-1.5">
+                {[['all', 'Everyone'], ['admin', 'Admins'], ['beta', 'Beta testers']].map(([k, lbl]) => (
+                  <button
+                    key={k}
+                    onClick={() => setRoleFilter(k)}
+                    className={`text-[11px] px-2 py-1 rounded-full border transition ${
+                      roleFilter === k
+                        ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                        : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                    }`}
+                  >{lbl}</button>
+                ))}
+              </div>
+              <div className="px-3 pb-2">
+                <select
+                  value={authorFilter}
+                  onChange={(e) => setAuthorFilter(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="all">All users</option>
+                  {pinAuthors.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+
+              {/* Priority */}
+              <div className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border-t border-slate-800">Priority</div>
+              <div className="flex flex-wrap gap-1 px-3 pb-2">
+                {SEVERITIES.map((s) => (
+                  <button
+                    key={s.key}
+                    onClick={() => toggleSet(sevFilter, setSevFilter, s.key)}
+                    className={`text-[11px] px-2 py-1 rounded-full border transition flex items-center gap-1 ${
+                      sevFilter.has(s.key)
+                        ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                        : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                    }`}
+                  >
+                    <span className="w-2 h-2 rounded-full" style={{ background: s.color }} />
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Status */}
+              <div className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border-t border-slate-800">Status</div>
+              <div className="flex flex-wrap gap-1 px-3 pb-2">
+                {PIN_STATUSES.map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => toggleSet(statusFilter, setStatusFilter, st)}
+                    className={`text-[11px] px-2 py-1 rounded-full border transition ${
+                      statusFilter.has(st)
+                        ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                        : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                    }`}
+                  >{STATUS_META[st]?.label || st}</button>
+                ))}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center gap-2 px-3 py-2 border-t border-slate-800 sticky bottom-0 bg-slate-900">
+                <button
+                  onClick={clearFilters}
+                  disabled={!activeFilterCount}
+                  className="text-[11px] px-2 py-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 disabled:opacity-40"
+                >Reset all</button>
+                <button
+                  onClick={() => setFiltersOpen(null)}
+                  className="ml-auto text-[11px] px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white"
+                >Done</button>
+              </div>
+            </div>
+          </Popup>
+        </>
+      )}
 
       {/* Cluster fan-out — pick which stacked pin to inspect */}
       {fanout && (
@@ -1764,26 +1976,71 @@ const BetaPinLayer = () => {
 
           {tab === 'pins' && (
             <div className="flex-1 overflow-y-auto scrollbar-3d">
-              {/* Bulk action bar */}
-              <div className="sticky top-0 bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center gap-1.5 z-10">
-                <span className="text-xs text-slate-400 mr-auto">{sel.size} selected</span>
-                {['fixed', 'in_progress', 'open', 'hide', 'remove'].map((a) => (
+              {/* Search + filter row — compact so the viewer stays clean;
+                  sorting & filters live in the funnel popup */}
+              <div className="sticky top-0 bg-slate-900 px-3 pt-2 pb-1.5 border-b border-slate-800 z-10">
+                <div className="flex items-center gap-1.5">
+                  <div className="relative flex-1 min-w-0">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+                    <input
+                      value={pinSearch}
+                      onChange={(e) => setPinSearch(e.target.value)}
+                      placeholder="Search pins — note, user, page, element…"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-7 pr-7 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                    />
+                    {pinSearch && (
+                      <button
+                        onClick={() => setPinSearch('')}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                        title="Clear search"
+                      ><X className="w-3.5 h-3.5" /></button>
+                    )}
+                  </div>
                   <button
-                    key={a}
-                    onClick={() => bulk(a)}
-                    disabled={!sel.size}
-                    className="text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 capitalize"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setFiltersOpen(filtersOpen ? null : { x: r.right, y: r.bottom + 4 });
+                    }}
+                    className={`relative p-1.5 rounded-lg border transition shrink-0 ${
+                      filtersOpen || activeFilterCount
+                        ? 'border-blue-500/60 bg-blue-500/15 text-blue-300'
+                        : 'border-slate-700 bg-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Sort & filter pins"
                   >
-                    {a === 'in_progress' ? 'working' : a}
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    {activeFilterCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-blue-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                        {activeFilterCount}
+                      </span>
+                    )}
                   </button>
-                ))}
-                <button
-                  onClick={exportPins}
-                  title="Download the ordered bug list (.md) — critical first, grouped by page"
-                  className="text-[11px] px-2 py-1 rounded bg-blue-700/60 text-blue-100 hover:bg-blue-600 flex items-center gap-1"
-                >
-                  <Download className="w-3 h-3" /> Export
-                </button>
+                  <button
+                    onClick={exportPins}
+                    title="Download the ordered bug list (.md) — critical first, grouped by page"
+                    className="text-[11px] px-2 py-1.5 rounded-lg bg-blue-700/60 text-blue-100 hover:bg-blue-600 flex items-center gap-1 shrink-0"
+                  >
+                    <Download className="w-3 h-3" /> Export
+                  </button>
+                </div>
+                {/* Result count + bulk actions */}
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <span className="text-[11px] text-slate-500 mr-auto">
+                    {filteredPins.length} of {allPins.filter((p) => p.status !== 'removed').length}
+                    {sel.size > 0 && <span className="text-blue-300"> · {sel.size} selected</span>}
+                  </span>
+                  {['fixed', 'in_progress', 'open', 'hide', 'remove'].map((a) => (
+                    <button
+                      key={a}
+                      onClick={() => bulk(a)}
+                      disabled={!sel.size}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 capitalize"
+                    >
+                      {a === 'in_progress' ? 'working' : a}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Page groups */}
@@ -1803,8 +2060,8 @@ const BetaPinLayer = () => {
                 {!byPage.length && <span className="text-xs text-slate-500">No live pins</span>}
               </div>
 
-              {/* Pin list */}
-              {allPins.filter((p) => p.status !== 'removed').map((p) => (
+              {/* Pin list — filtered + sorted */}
+              {filteredPins.map((p) => (
                 <label key={p.id} className="flex items-start gap-2 px-3 py-2 border-b border-slate-800/60 hover:bg-slate-800/40 cursor-pointer">
                   <input
                     type="checkbox"

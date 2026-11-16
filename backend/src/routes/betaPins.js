@@ -189,7 +189,9 @@ router.get('/admin/all', authenticateToken, isAdmin, async (req, res) => {
       clauses.push(`p.page_path = $${params.length}`);
     }
     const { rows } = await db.query(
-      `SELECT p.*, u.username
+      `SELECT p.*, u.username,
+              u.is_admin AS author_is_admin,
+              u.is_beta_tester AS author_is_beta
        FROM beta_pins p LEFT JOIN users u ON u.id = p.user_id
        WHERE ${clauses.join(' AND ')}
        ORDER BY p.created_at DESC

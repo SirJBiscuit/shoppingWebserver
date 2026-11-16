@@ -142,6 +142,7 @@ export const Popup = ({
       {sheet ? (
         <div
           ref={ref}
+          data-ap-overlay
           className={`fixed inset-x-0 bottom-0 rounded-t-2xl shadow-2xl max-h-[72vh] overflow-y-auto ${className} ${sheetClassName}`}
           style={style}
           onClick={(e) => e.stopPropagation()}
@@ -152,6 +153,7 @@ export const Popup = ({
       ) : (
         <div
           ref={ref}
+          data-ap-overlay
           className={`fixed ${className}`}
           style={{ left: pos.x, top: pos.y, ...style }}
           onClick={(e) => e.stopPropagation()}
@@ -176,6 +178,7 @@ export const ModalPortal = ({
   return (
     <Portal>
       <div
+        data-ap-overlay
         className={`fixed inset-0 bg-black/50 flex z-[80] p-0 sm:p-4 ${
           asSheet ? 'items-end justify-center' : 'items-center justify-center'
         } ${backdropClassName}`}
