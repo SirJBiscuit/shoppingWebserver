@@ -171,6 +171,64 @@ router.post('/admin/:id/respond', authenticateToken, isAdmin, async (req, res) =
   }
 });
 
+// ---------------------------------------------------------------------------
+// REPLY THREAD — real back-and-forth between tester and admin
+// ---------------------------------------------------------------------------
+
+// GET /:id/replies — visible to the feedback author and admins
+router.get('/:id/replies', authenticateToken, async (req, res) => {
+  try {
+    const owner = await db.query('SELECT user_id FROM beta_feedback WHERE id = $1', [req.params.id]);
+    if (!owner.rows.length) return res.status(404).json({ error: 'Feedback not found' });
+    if (!req.user.isAdmin && owner.rows[0].user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const { rows } = await db.query(
+      `SELECT r.*, u.username
+       FROM beta_feedback_replies r LEFT JOIN users u ON u.id = r.author_id
+       WHERE r.feedback_id = $1 ORDER BY r.created_at ASC`,
+      [req.params.id]
+    );
+    res.json({ replies: rows });
+  } catch (e) {
+    console.error('Error fetching replies:', e);
+    res.status(500).json({ error: 'Failed to fetch replies' });
+  }
+});
+
+// POST /:id/reply { body } — author or admin can reply
+router.post('/:id/reply', authenticateToken, async (req, res) => {
+  try {
+    const { body } = req.body;
+    if (!body || !body.trim() || body.length > 2000) {
+      return res.status(400).json({ error: 'Reply required (max 2000 chars)' });
+    }
+    const owner = await db.query('SELECT user_id, status, type FROM beta_feedback WHERE id = $1', [req.params.id]);
+    if (!owner.rows.length) return res.status(404).json({ error: 'Feedback not found' });
+    if (!req.user.isAdmin && owner.rows[0].user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const { rows } = await db.query(
+      `INSERT INTO beta_feedback_replies (feedback_id, author_id, is_admin, body)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [req.params.id, req.user.id, !!req.user.isAdmin, body.trim()]
+    );
+    // An admin reply nudges the item into triage
+    if (req.user.isAdmin) {
+      await db.query(
+        `UPDATE beta_feedback SET status = CASE
+           WHEN status IN ('new','submitted') THEN 'in_progress' ELSE status END
+         WHERE id = $1`,
+        [req.params.id]
+      );
+    }
+    res.status(201).json(rows[0]);
+  } catch (e) {
+    console.error('Error posting reply:', e);
+    res.status(500).json({ error: 'Failed to post reply' });
+  }
+});
+
 // Vote on a feedback item (any user — mainly for feature requests)
 router.post('/:id/vote', authenticateToken, async (req, res) => {
   try {

@@ -9,6 +9,7 @@ const db = require('../database/db');
 const { authenticateToken } = require('../middleware/auth');
 const { canonicalizeCategory } = require('../utils/canonicalCategory');
 const { detectCategoryForName } = require('../utils/categories');
+const mdlQuality = require('../services/mdlQuality');
 
 /**
  * Learn a name -> canonical category mapping (064 mdl_category_learned).
@@ -136,12 +137,13 @@ router.get('/autocomplete', authenticateToken, async (req, res) => {
     );
     userRows.rows.forEach(r => push(r, 'user', { storeMatch: r.store_match }));
 
-    // GLOBAL tier — crowd registry ranked by usage
+    // GLOBAL tier — crowd registry ranked by usage.
+    // is_flagged names are quarantined junk and never suggested.
     const globalRows = await db.query(
       `SELECT normalized_name, original_variations, predicted_icon, predicted_category,
               total_uses, user_count
        FROM mdl_item_names
-       WHERE normalized_name ILIKE $1
+       WHERE normalized_name ILIKE $1 AND is_flagged = FALSE
        ORDER BY total_uses DESC, user_count DESC
        LIMIT 10`,
       [like]
@@ -805,10 +807,40 @@ router.post('/track-item', authenticateToken, async (req, res) => {
       await learnCategory(itemName, category, 'usage');
     }
 
-    // Seed the product catalog organically (never fails the track call)
-    if (itemName.trim().length > 2) {
+    // ── Quality gate ────────────────────────────────────────────────────
+    // Per-user writes above are ungated — the user's own list always works.
+    // Anything reaching the GLOBAL catalog / global autocomplete passes the
+    // gate first: junk is rejected, suspicious data is quarantined until a
+    // second distinct user confirms it or an admin approves it.
+    let submission = null;
+    let gateStatus = 'accept';
+    let rate = { seedOk: true, queueOk: true, untrusted: false };
+    try {
+      submission = await mdlQuality.assessSubmission({
+        itemName: itemName.trim(), price, category: resolvedCategory,
+        icon: req.body.icon, isAdmin: !!req.user.isAdmin
+      });
+      gateStatus = submission.status;
+      // Per-user caps on global side-effects — flooding can't spam the
+      // catalog or the queue, and repeat offenders get throttled to pending
+      rate = await mdlQuality.checkRateLimit(req.user.id, !!req.user.isAdmin);
+      if (['accept', 'known'].includes(gateStatus) && !rate.seedOk) {
+        gateStatus = 'pending';
+      } else if (gateStatus === 'pending' && !rate.queueOk) {
+        gateStatus = 'rate_limited';
+      }
+    } catch (e) {
+      console.warn('Quality gate failed — treating as pending:', e.message);
+      gateStatus = 'pending';
+    }
+
+    const seedAllowed = ['accept', 'known'].includes(gateStatus);
+    const priceClean = seedAllowed && submission && submission.price != null
+      && !submission.flags.some((f) => f.startsWith('price_'));
+
+    if (seedAllowed) {
       try {
-        const slug = itemName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        const slug = submission.cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         await db.query(
           `INSERT INTO product_master_data
              (product_name, slug, category, average_price, icon_emoji, times_purchased, last_price_update)
@@ -822,15 +854,76 @@ router.post('/track-item', authenticateToken, async (req, res) => {
              average_price = COALESCE(product_master_data.average_price, EXCLUDED.average_price),
              icon_emoji = COALESCE(product_master_data.icon_emoji, EXCLUDED.icon_emoji),
              last_price_update = NOW()`,
-          [itemName.trim(), slug, resolvedCategory || 'Other', price || null, req.body.icon || null]
+          [submission.cleanName, slug, resolvedCategory || 'Other',
+           submission.price, req.body.icon || null]
         );
       } catch (e) {
         console.warn('Product catalog upsert failed (non-fatal):', e.message);
       }
     }
 
-    // Location-aware price aggregation (state-level)
-    if (price && userState) {
+    if (gateStatus === 'pending' && submission) {
+      try {
+        const q = await mdlQuality.quarantine({
+          userId: req.user.id, submission,
+          category: resolvedCategory, icon: req.body.icon,
+          quantity, unit, store, source: req.body.source || 'track_item'
+        });
+        if (q.promoted) gateStatus = 'auto_confirmed';
+      } catch (e) {
+        console.warn('Quarantine insert skipped:', e.message);
+      }
+    }
+
+    if (gateStatus === 'rate_limited' && submission) {
+      try {
+        await db.query(
+          `INSERT INTO mdl_review_queue
+             (user_id, raw_name, normalized_name, price, store, reason, status,
+              source, quality_score, flags)
+           VALUES ($1,$2,$3,$4,$5,$6,'rejected',$7,$8,$9)`,
+          [req.user.id, submission.cleanName, submission.normalizedName,
+           submission.price, store || null, 'rate_limited',
+           req.body.source || 'track_item', submission.score,
+           JSON.stringify([...submission.flags, 'rate_limited'])]
+        );
+      } catch (e) {
+        console.warn('Rate-limit log skipped:', e.message);
+      }
+    }
+
+    if ((gateStatus === 'reject' || gateStatus === 'blocked') && submission) {
+      try {
+        await db.query(
+          `INSERT INTO mdl_review_queue
+             (user_id, raw_name, normalized_name, price, store, reason, status,
+              source, quality_score, flags)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [req.user.id, submission.cleanName, submission.normalizedName,
+           submission.price, store || null, submission.reason.slice(0, 50),
+           gateStatus === 'blocked' ? 'blocked' : 'rejected',
+           req.body.source || 'track_item', submission.score,
+           JSON.stringify(submission.flags)]
+        );
+        // Hard junk also flags the registry name out of autocomplete
+        if (submission.flags.includes('profanity') || submission.flags.includes('url_or_email')) {
+          await db.query(
+            `INSERT INTO mdl_blocked_names (normalized_name, reason, blocked_by)
+             VALUES ($1, $2, $3) ON CONFLICT (normalized_name) DO NOTHING`,
+            [submission.normalizedName, submission.reason.slice(0, 100), req.user.id]
+          );
+          await db.query(
+            'UPDATE mdl_item_names SET is_flagged = TRUE WHERE normalized_name = $1',
+            [submission.normalizedName]
+          );
+        }
+      } catch (e) {
+        console.warn('Reject log skipped:', e.message);
+      }
+    }
+
+    // Location-aware price aggregation (state-level) — only clean prices
+    if (priceClean && userState) {
       await db.query(
         `INSERT INTO mdl_location_prices
            (item_name_id, state, average_price, min_price, max_price, sample_size, confidence_score)
@@ -843,35 +936,17 @@ router.post('/track-item', authenticateToken, async (req, res) => {
            sample_size = mdl_location_prices.sample_size + 1,
            confidence_score = LEAST(0.95, (mdl_location_prices.sample_size + 1) / 20.0),
            last_updated = NOW()`,
-        [itemNameId, userState, price]
+        [itemNameId, userState, submission.price]
       );
     }
 
-    // Weird-data check — questionable submissions go to the admin review
-    // queue instead of polluting the learned data (never fails the request)
-    try {
-      const reasons = [];
-      const raw = itemName.trim();
-      const letters = (raw.match(/[a-zA-Z]/g) || []).length;
-      const digits = (raw.match(/\d/g) || []).length;
-      if (raw.length > 60) reasons.push('long_name');
-      if (letters === 0) reasons.push('no_letters');
-      else if (digits > letters * 2 && digits > 4) reasons.push('excessive_digits');
-      if (/[^a-zA-Z0-9\s&'().\-\/]/.test(raw)) reasons.push('special_chars');
-      if (price != null && !(price >= 0.01 && price <= 10000)) reasons.push('extreme_price');
-
-      if (reasons.length > 0) {
-        await db.query(
-          `INSERT INTO mdl_review_queue (user_id, raw_name, price, store, reason)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [req.user.id, raw, price || null, store || null, reasons.join(',')]
-        );
-      }
-    } catch (e) {
-      console.warn('Review-queue insert skipped:', e.message);
-    }
-
-    res.status(201).json({ tracked: true, itemNameId });
+    res.status(201).json({
+      tracked: true,
+      itemNameId,
+      // 'accept'|'known' seeded globally now; 'pending' awaits a second
+      // user's confirmation or admin review; 'rejected'/'blocked' was dropped
+      quality: gateStatus
+    });
   } catch (error) {
     console.error('Error tracking item:', error);
     res.status(500).json({ error: 'Failed to track item' });
@@ -1087,6 +1162,198 @@ router.get('/location', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error getting location:', error);
     res.status(500).json({ error: 'Failed to get location' });
+  }
+});
+
+// ============================================================================
+// COMMUNITY REVIEW FEED — crowd consensus on quarantined submissions.
+// Any logged-in user may vote; confirmations count like resubmissions and
+// DENY_THRESHOLD denials auto-reject. Votes are rate-limited per user.
+// ============================================================================
+
+/**
+ * GET /api/mdl/review-feed?limit=25
+ * Pending quarantine items open for community voting.
+ */
+router.get('/review-feed', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT q.id, q.raw_name, q.normalized_name, q.price, q.store,
+              q.category, q.icon_emoji, q.reason, q.flags, q.quality_score,
+              q.confirmations, q.denials, q.created_at, q.notes,
+              u.username AS submitted_by,
+              ($2 = ANY(COALESCE(q.confirmed_users, '{}'))) AS i_confirmed,
+              ($2 = ANY(COALESCE(q.denied_users, '{}'))) AS i_denied,
+              (q.user_id = $2) AS mine
+       FROM mdl_review_queue q LEFT JOIN users u ON u.id = q.user_id
+       WHERE q.status = 'pending'
+       ORDER BY q.created_at DESC
+       LIMIT $1`,
+      [Math.min(100, parseInt(req.query.limit) || 25), req.user.id]
+    );
+    res.json({ items: rows });
+  } catch (error) {
+    console.error('Error fetching review feed:', error);
+    res.status(500).json({ error: 'Failed to fetch review feed' });
+  }
+});
+
+/**
+ * POST /api/mdl/review-feed/:id/confirm  { note? }
+ * "This looks right" — advisory vote + optional note for the admin.
+ */
+router.post('/review-feed/:id/confirm', authenticateToken, async (req, res) => {
+  try {
+    const rate = await mdlQuality.checkRateLimit(req.user.id, !!req.user.isAdmin);
+    if (!rate.voteOk) return res.status(429).json({ error: 'Vote limit reached — try later' });
+    const result = await mdlQuality.confirmPending(req.params.id, req.user.id, req.body.note);
+    res.json(result);
+  } catch (error) {
+    console.error('Error confirming queue item:', error);
+    res.status(500).json({ error: 'Failed to record vote' });
+  }
+});
+
+/**
+ * POST /api/mdl/review-feed/:id/deny  { note? }
+ * "This looks wrong" — advisory vote + optional note; admin still decides.
+ */
+router.post('/review-feed/:id/deny', authenticateToken, async (req, res) => {
+  try {
+    const rate = await mdlQuality.checkRateLimit(req.user.id, !!req.user.isAdmin);
+    if (!rate.voteOk) return res.status(429).json({ error: 'Vote limit reached — try later' });
+    const result = await mdlQuality.denyPending(req.params.id, req.user.id, req.body.note);
+    res.json(result);
+  } catch (error) {
+    console.error('Error denying queue item:', error);
+    res.status(500).json({ error: 'Failed to record vote' });
+  }
+});
+
+// ============================================================================
+// QUALITY GATE — ADMIN REVIEW QUEUE
+// Suspect crowd submissions sit in mdl_review_queue until a second distinct
+// user confirms them (auto_confirmed) or an admin approves/rejects here.
+// ============================================================================
+
+/**
+ * GET /api/mdl/admin/pending?status=pending&limit=50&offset=0
+ * Quarantined submissions awaiting review, worst-scoring first.
+ */
+router.get('/admin/pending', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const { status = 'pending', limit = 50, offset = 0 } = req.query;
+    const [rows, count] = await Promise.all([
+      db.query(
+        `SELECT q.*, u.username
+         FROM mdl_review_queue q LEFT JOIN users u ON u.id = q.user_id
+         WHERE q.status = $1
+         ORDER BY q.quality_score ASC NULLS LAST, q.created_at DESC
+         LIMIT $2 OFFSET $3`,
+        [status, Math.min(200, parseInt(limit) || 50), parseInt(offset) || 0]
+      ),
+      db.query('SELECT COUNT(*)::int AS c FROM mdl_review_queue WHERE status = $1', [status])
+    ]);
+    res.json({ items: rows.rows, total: count.rows[0].c });
+  } catch (error) {
+    console.error('Error fetching review queue:', error);
+    res.status(500).json({ error: 'Failed to fetch review queue' });
+  }
+});
+
+/**
+ * POST /api/mdl/admin/pending/:id/approve
+ * { correctedName?, category?, icon?, price? } — promotes the item into the
+ * global catalog and unflags the name so autocomplete can use it.
+ */
+router.post('/admin/pending/:id/approve', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const q = await db.query('SELECT * FROM mdl_review_queue WHERE id = $1', [req.params.id]);
+    if (!q.rows.length) return res.status(404).json({ error: 'Queue item not found' });
+    const item = q.rows[0];
+
+    const name = (req.body.correctedName || item.corrected_name || item.raw_name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Name required to approve' });
+    const productId = await mdlQuality.promoteToCatalog({
+      name,
+      category: req.body.category || item.category,
+      price: req.body.price ?? item.price,
+      icon: req.body.icon || item.icon_emoji
+    });
+
+    await db.query(
+      `UPDATE mdl_review_queue SET status='approved', corrected_name=$2,
+         promoted_product_id=$3, resolved_by=$4, resolved_at=NOW() WHERE id=$1`,
+      [item.id, name !== item.raw_name ? name : null, productId, req.user.id]
+    );
+    await db.query('UPDATE mdl_item_names SET is_flagged = FALSE WHERE normalized_name = $1',
+      [item.normalized_name || name.toLowerCase()]);
+
+    res.json({ approved: true, productId });
+  } catch (error) {
+    console.error('Error approving queue item:', error);
+    res.status(500).json({ error: 'Failed to approve item' });
+  }
+});
+
+/**
+ * POST /api/mdl/admin/pending/:id/reject
+ * { block?: boolean } — rejects the submission; block:true also adds the
+ * normalized name to mdl_blocked_names so it can never re-enter.
+ */
+router.post('/admin/pending/:id/reject', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const q = await db.query('SELECT * FROM mdl_review_queue WHERE id = $1', [req.params.id]);
+    if (!q.rows.length) return res.status(404).json({ error: 'Queue item not found' });
+    const item = q.rows[0];
+
+    await db.query(
+      `UPDATE mdl_review_queue SET status='rejected', resolved_by=$2, resolved_at=NOW() WHERE id=$1`,
+      [item.id, req.user.id]
+    );
+    if (req.body.block && item.normalized_name) {
+      await db.query(
+        `INSERT INTO mdl_blocked_names (normalized_name, reason, blocked_by)
+         VALUES ($1, $2, $3) ON CONFLICT (normalized_name) DO NOTHING`,
+        [item.normalized_name, req.body.reason || 'admin_reject', req.user.id]
+      );
+      await db.query('UPDATE mdl_item_names SET is_flagged = TRUE WHERE normalized_name = $1',
+        [item.normalized_name]);
+    }
+    res.json({ rejected: true });
+  } catch (error) {
+    console.error('Error rejecting queue item:', error);
+    res.status(500).json({ error: 'Failed to reject item' });
+  }
+});
+
+/**
+ * GET /api/mdl/admin/quality-stats
+ * Gate health: queue depth by status + most common rejection flags.
+ */
+router.get('/admin/quality-stats', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const [byStatus, topFlags, blocked] = await Promise.all([
+      db.query(`SELECT status, COUNT(*)::int AS c FROM mdl_review_queue GROUP BY status`),
+      db.query(
+        `SELECT flag, COUNT(*)::int AS c FROM mdl_review_queue,
+           jsonb_array_elements_text(COALESCE(flags, '[]'::jsonb)) AS flag
+         GROUP BY flag ORDER BY c DESC LIMIT 10`
+      ),
+      db.query('SELECT COUNT(*)::int AS c FROM mdl_blocked_names')
+    ]);
+    res.json({
+      byStatus: Object.fromEntries(byStatus.rows.map((r) => [r.status, r.c])),
+      topFlags: topFlags.rows,
+      blockedNames: blocked.rows[0].c
+    });
+  } catch (error) {
+    console.error('Error fetching quality stats:', error);
+    res.status(500).json({ error: 'Failed to fetch quality stats' });
   }
 });
 

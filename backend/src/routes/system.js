@@ -12,14 +12,24 @@ const execPromise = util.promisify(exec);
 // Middleware to check if user is admin (first user, specific usernames, or has admin flag)
 const isAdmin = async (req, res, next) => {
   try {
+    // authenticateToken sets req.user = { id, username, isAdmin }
+    if (req.user?.isAdmin) {
+      return next();
+    }
+
+    const userId = req.user?.id || req.user?.userId;
+    console.log('Admin check - User ID:', userId);
+
+    if (!userId) {
+      return res.status(403).json({ error: 'User not found' });
+    }
+
     // Check if user is in admin list
     const adminUsernames = ['guy69']; // Add more admin usernames here
-    
-    console.log('Admin check - User ID:', req.user.userId);
-    
+
     const result = await db.query(
       'SELECT id, username FROM users WHERE id = $1',
-      [req.user.userId]
+      [userId]
     );
     
     if (result.rows.length === 0) {
@@ -163,7 +173,7 @@ async function saveUpdateStatus() {
 // Run update script via webhook (async, returns immediately)
 router.post('/run-update-script', authenticateToken, isAdmin, async (req, res) => {
   try {
-    console.log('Update script requested by user:', req.user.userId);
+    console.log('Update script requested by user:', req.user.id);
     
     if (updateStatus.running) {
       return res.json({
@@ -179,7 +189,7 @@ router.post('/run-update-script', authenticateToken, isAdmin, async (req, res) =
       progress: 0,
       message: 'Starting update...',
       startTime: new Date(),
-      logs: ['Update initiated by user ' + req.user.userId]
+      logs: ['Update initiated by user ' + req.user.id]
     };
     await saveUpdateStatus();
     
@@ -205,7 +215,7 @@ router.post('/run-update-script', authenticateToken, isAdmin, async (req, res) =
         
         const response = await axios.post(webhookUrl, {
           trigger: 'update',
-          user: req.user.userId
+          user: req.user.id
         }, {
           headers: {
             'X-Webhook-Secret': webhookSecret
@@ -256,7 +266,7 @@ router.get('/update-status', authenticateToken, isAdmin, async (req, res) => {
 // Apply updates (async, returns immediately to avoid 502 on container restart)
 router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
   try {
-    console.log('Apply updates requested by user:', req.user.userId);
+    console.log('Apply updates requested by user:', req.user.id);
     
     if (updateStatus.running) {
       return res.json({
@@ -272,7 +282,7 @@ router.post('/apply-updates', authenticateToken, isAdmin, async (req, res) => {
       progress: 0,
       message: 'Starting update...',
       startTime: new Date(),
-      logs: ['Update initiated by user ' + req.user.userId]
+      logs: ['Update initiated by user ' + req.user.id]
     };
     await saveUpdateStatus();
     
@@ -587,7 +597,7 @@ router.post('/update/request', authenticateToken, isAdmin, async (req, res) => {
     const flagPath = process.env.UPDATE_FLAG_PATH || '/opt/cloudmc-shop/.update-requested';
     await fs.writeFile(flagPath, JSON.stringify({
       requested_at: new Date().toISOString(),
-      requested_by: req.user.userId,
+      requested_by: req.user.id,
       manual: true
     }, null, 2));
 

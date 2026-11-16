@@ -10,6 +10,7 @@ import { getLists, addItem } from '../../api/shopping';
 import LabShell from './LabShell';
 import MixingOverlay from './MixingOverlay';
 import LabPantryPicker from './LabPantryPicker';
+import TasteRatingModal from './TasteRatingModal';
 import Toast from '../Toast';
 import { useToast } from '../../hooks/useToast';
 import { playSound } from '../../utils/soundEffects';
@@ -76,6 +77,7 @@ const CategoryRecipeLab = ({
   const [rMenu, setRMenu] = useState(null);      // { x, y, r } recipe context menu
   const [hiddenOpen, setHiddenOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [ratingFor, setRatingFor] = useState(null); // recipe open in the taste modal
 
   const hideRecipe = (r) => setHiddenR((p) => {
     const next = { ...p, [r.id]: true };
@@ -378,6 +380,11 @@ const CategoryRecipeLab = ({
                         <span className={`font-semibold ${canMake ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
                           {c ? (canMake ? '✓ All ingredients' : `${have}/${total} have`) : 'Checking…'}
                         </span>
+                        {r.avg_rating && (
+                          <span className="text-amber-500 font-semibold" title={`${r.rating_count} rating${Number(r.rating_count) !== 1 ? 's' : ''}`}>
+                            ★{r.avg_rating}
+                          </span>
+                        )}
                         {r.prep_time && (
                           <span className="flex items-center gap-0.5 text-gray-400">
                             <Timer className="w-3 h-3" />{r.prep_time}m
@@ -493,6 +500,13 @@ const CategoryRecipeLab = ({
                               {addingToList === r.id ? 'Adding…' : `${need.length} needed → list`}
                             </button>
                           )}
+                          <button
+                            onClick={() => setRatingFor(r)}
+                            title="Rate it & log taste notes — builds an improved variant"
+                            className="px-3 py-2 rounded-lg text-xs font-semibold bg-amber-400 text-white hover:bg-amber-500 transition-colors"
+                          >
+                            ★
+                          </button>
                         </div>
                       </div>
                     </motion.div>
@@ -569,6 +583,12 @@ const CategoryRecipeLab = ({
               </button>
             )}
             <button
+              onClick={() => { setRatingFor(rMenu.r); setRMenu(null); }}
+              className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+            >
+              ⭐ Rate / taste notes
+            </button>
+            <button
               onClick={() => { hideRecipe(rMenu.r); setRMenu(null); }}
               className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-red-600 dark:text-red-400"
             >
@@ -587,6 +607,14 @@ const CategoryRecipeLab = ({
         items={pantryItems}
         onChanged={refreshAllComparisons}
       />
+
+      <Portal>
+        <TasteRatingModal
+          recipe={ratingFor}
+          onClose={() => setRatingFor(null)}
+          onSaved={load}
+        />
+      </Portal>
 
       <AnimatePresence>
         {mixing && <MixingOverlay icons={mixing.icons} text={mixingText} onDone={mixing.onDone} />}

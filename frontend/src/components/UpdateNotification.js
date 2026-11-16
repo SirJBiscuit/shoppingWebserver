@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, RefreshCw, Zap, Star, CheckCircle, Smartphone, Monitor, Tablet } from 'lucide-react';
 import { Portal } from '../utils/autoPlacement';
+import { purgeCachesAndReload } from '../utils/appUpdate';
 
 const UpdateNotification = () => {
   const [showModal, setShowModal] = useState(false);
@@ -128,44 +129,9 @@ const UpdateNotification = () => {
       setIsUpdating(false);
       setShowModal(false);
     } else {
-      // Web platform - aggressive cache clearing and forced reload
+      // Web platform - purge caches, drop the session, hard reload
       console.log('🔄 Clearing all caches and reloading...');
-      
-      setTimeout(async () => {
-        // Clear Service Worker caches
-        if ('caches' in window) {
-          try {
-            const cacheNames = await caches.keys();
-            console.log(`🗑️  Deleting ${cacheNames.length} caches...`);
-            await Promise.all(cacheNames.map(name => caches.delete(name)));
-          } catch (err) {
-            console.error('Error clearing caches:', err);
-          }
-        }
-        
-        // Unregister service workers
-        if ('serviceWorker' in navigator) {
-          try {
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            await Promise.all(registrations.map(reg => reg.unregister()));
-            console.log('🗑️  Service workers unregistered');
-          } catch (err) {
-            console.error('Error unregistering service workers:', err);
-          }
-        }
-        
-        // Clear localStorage except auth token
-        const token = localStorage.getItem('token');
-        localStorage.clear();
-        if (token) localStorage.setItem('token', token);
-        
-        // Clear sessionStorage
-        sessionStorage.clear();
-        
-        // Force hard reload from server (bypasses all caches)
-        console.log('🚀 Forcing hard reload...');
-        window.location.href = window.location.href + '?v=' + Date.now();
-      }, 1000);
+      purgeCachesAndReload({ logout: true, delayMs: 1000 });
     }
   };
 

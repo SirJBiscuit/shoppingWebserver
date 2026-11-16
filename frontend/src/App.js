@@ -14,6 +14,7 @@ import FlyingItemAnimation from './components/FlyingItemAnimation';
 import AdminToolbar from './components/AdminToolbar';
 // import UpdateChecker from './backburner/components/UpdateChecker'; // Disabled - backburner component
 import UpdateNotification from './components/UpdateNotification';
+import BetaPinLayer from './components/beta/BetaPinLayer';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Lazy load pages for better performance
@@ -150,6 +151,7 @@ const AppWithEditor = () => {
         {/* <UpdateChecker /> */} {/* Disabled - backburner component */}
         <UpdateNotification />
         <AdminToolbar />
+        <BetaPinLayer />
         <AnimatedRoutes />
         <FlyingItemAnimation />
         {/* <MobileBottomNav /> */} {/* Disabled for now */}

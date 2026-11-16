@@ -503,6 +503,8 @@ router.patch('/:id(\\d+)', authenticateToken, async (req, res) => {
   try {
     const {
       item_name,
+      item_icon,
+      icon,
       storage_location,
       custom_location_id,
       category,
@@ -521,15 +523,43 @@ router.patch('/:id(\\d+)', authenticateToken, async (req, res) => {
       sort_order
     } = req.body;
     
+    // name/category/icon live on the joined `items` row, not on `inventory` —
+    // routing them into the inventory UPDATE was what threw the 500s.
+    const itemUpdates = [];
+    const itemValues = [];
+    let itemParam = 1;
+    if (item_name !== undefined) {
+      itemUpdates.push(`name = $${itemParam++}`);
+      itemValues.push(item_name);
+    }
+    if (category !== undefined) {
+      itemUpdates.push(`category = $${itemParam++}`);
+      itemValues.push(category);
+    }
+    // AddItemModal puts the chosen emoji in `image_url`; if it isn't a URL,
+    // it's really the icon, so train items.preferred_icon too.
+    const iconValue = item_icon !== undefined ? item_icon
+      : icon !== undefined ? icon
+      : (image_url !== undefined && typeof image_url === 'string' &&
+         image_url.length <= 8 && !/^https?:\/\//.test(image_url))
+        ? image_url
+        : undefined;
+    if (iconValue !== undefined) {
+      itemUpdates.push(`preferred_icon = $${itemParam++}`);
+      itemValues.push(iconValue);
+    }
+    if (itemUpdates.length > 0) {
+      await db.query(`
+        UPDATE items SET ${itemUpdates.join(', ')}
+        WHERE id = (SELECT item_id FROM inventory WHERE id = $${itemParam++} AND user_id = $${itemParam++})
+      `, [...itemValues, req.params.id, req.user.id]);
+    }
+
     // Build dynamic update query
     const updates = [];
     const values = [];
     let paramCount = 1;
-    
-    if (item_name !== undefined) {
-      updates.push(`item_name = $${paramCount++}`);
-      values.push(item_name);
-    }
+
     if (storage_location !== undefined) {
       updates.push(`storage_location = $${paramCount++}`);
       values.push(storage_location);
@@ -537,10 +567,6 @@ router.patch('/:id(\\d+)', authenticateToken, async (req, res) => {
     if (custom_location_id !== undefined) {
       updates.push(`custom_location_id = $${paramCount++}`);
       values.push(custom_location_id);
-    }
-    if (category !== undefined) {
-      updates.push(`category = $${paramCount++}`);
-      values.push(category);
     }
     if (quantity !== undefined) {
       updates.push(`current_quantity = $${paramCount++}`);
@@ -599,8 +625,22 @@ router.patch('/:id(\\d+)', authenticateToken, async (req, res) => {
       values.push(sort_order);
     }
     
-    if (updates.length === 0) {
+    if (updates.length === 0 && itemUpdates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    if (updates.length === 0) {
+      // Item-table-only change (name/icon/category) — return the fresh joined row
+      const fresh = await db.query(`
+        SELECT i.*, it.name as item_name, it.preferred_icon as item_icon,
+          it.category, csl.name as custom_location_name, csl.icon as custom_location_icon
+        FROM inventory i
+        LEFT JOIN items it ON i.item_id = it.id
+        LEFT JOIN custom_storage_locations csl ON i.custom_location_id = csl.id
+        WHERE i.id = $1 AND i.user_id = $2
+      `, [req.params.id, req.user.id]);
+      if (fresh.rows.length === 0) return res.status(404).json({ error: 'Item not found' });
+      return res.json(fresh.rows[0]);
     }
     
     updates.push(`last_updated = CURRENT_TIMESTAMP`);

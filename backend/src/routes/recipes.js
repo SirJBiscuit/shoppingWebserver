@@ -26,7 +26,9 @@ router.get('/', authenticateToken, async (req, res) => {
     
     let query = `
       SELECT r.*, 
-        (SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id) as ingredient_count
+        (SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id) as ingredient_count,
+        (SELECT ROUND(AVG(rating)::numeric, 1) FROM recipe_ratings WHERE recipe_id = r.id) as avg_rating,
+        (SELECT COUNT(*) FROM recipe_ratings WHERE recipe_id = r.id) as rating_count
       FROM recipes r
       WHERE (r.user_id = $1 OR r.is_public = true)
     `;
@@ -170,6 +172,130 @@ router.post('/:id/copy', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Copy recipe error:', error);
     res.status(500).json({ error: 'Failed to copy recipe' });
+  }
+});
+
+// ---------------- Taste feedback ----------------
+
+// Taste tags -> how to tweak the recipe for next time.
+//   scale: multiply every matching ingredient's quantity
+//   add:   ingredients appended to the variant
+//   drop:  ingredient names removed entirely
+const TASTE_RULES = {
+  'not-sweet-enough': { add: [{ item_name: 'honey', quantity: 1, unit: 'tbsp' }] },
+  'too-sweet':        { scale: [/sugar|honey|syrup|maple|agave|sweetener/i, 0.5] },
+  'too-thin':         { add: [{ item_name: 'banana', quantity: 0.5, unit: 'whole' }, { item_name: 'oats', quantity: 2, unit: 'tbsp' }] },
+  'too-thick':        { add: [{ item_name: 'milk', quantity: 0.5, unit: 'cup' }] },
+  'bland':            { add: [{ item_name: 'vanilla extract', quantity: 0.5, unit: 'tsp' }, { item_name: 'honey', quantity: 1, unit: 'tbsp' }] },
+  'too-strong':       { add: [{ item_name: 'milk', quantity: 0.25, unit: 'cup' }] },
+  'wanted-more-protein': { add: [{ item_name: 'protein powder', quantity: 1, unit: 'scoop' }] },
+  'wanted-more-fruit':   { add: [{ item_name: 'mixed berries', quantity: 0.5, unit: 'cup' }] },
+};
+
+// Save (upsert) a user's rating / taste notes for a recipe
+router.post('/:id/rate', authenticateToken, async (req, res) => {
+  try {
+    const { rating, taste_tags, note, servings_made } = req.body;
+    if (rating !== undefined && rating !== null && (rating < 1 || rating > 5)) {
+      return res.status(400).json({ error: 'Rating must be 1–5' });
+    }
+    const result = await db.query(`
+      INSERT INTO recipe_ratings (user_id, recipe_id, rating, taste_tags, note, servings_made, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      ON CONFLICT (user_id, recipe_id)
+      DO UPDATE SET rating = COALESCE($3, recipe_ratings.rating),
+                    taste_tags = COALESCE($4, recipe_ratings.taste_tags),
+                    note = COALESCE($5, recipe_ratings.note),
+                    servings_made = COALESCE($6, recipe_ratings.servings_made),
+                    updated_at = NOW()
+      RETURNING *
+    `, [req.user.id, req.params.id, rating ?? null, taste_tags || null, note ?? null, servings_made ?? null]);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Rate recipe error:', error);
+    res.status(500).json({ error: 'Failed to save rating' });
+  }
+});
+
+// Aggregate ratings for a recipe + the caller's own entry
+router.get('/:id/ratings', authenticateToken, async (req, res) => {
+  try {
+    const agg = await db.query(`
+      SELECT ROUND(AVG(rating)::numeric, 1) as avg_rating, COUNT(*)::int as count
+      FROM recipe_ratings WHERE recipe_id = $1
+    `, [req.params.id]);
+    const mine = await db.query(
+      'SELECT * FROM recipe_ratings WHERE recipe_id = $1 AND user_id = $2',
+      [req.params.id, req.user.id]
+    );
+    res.json({ avg: agg.rows[0].avg_rating, count: agg.rows[0].count, mine: mine.rows[0] || null });
+  } catch (error) {
+    console.error('Get ratings error:', error);
+    res.status(500).json({ error: 'Failed to fetch ratings' });
+  }
+});
+
+// Create an "improved" variant recipe from taste tags — clones the recipe
+// and adjusts ingredient quantities/additions per TASTE_RULES. The variant
+// is a user recipe so it lands in the labs' Can Create staging tab.
+router.post('/:id/variant', authenticateToken, async (req, res) => {
+  try {
+    const { taste_tags = [], name } = req.body;
+    const src = await db.query(
+      'SELECT * FROM recipes WHERE id = $1 AND (user_id = $2 OR is_public = true)',
+      [req.params.id, req.user.id]
+    );
+    if (src.rows.length === 0) return res.status(404).json({ error: 'Recipe not found' });
+    const s = src.rows[0];
+
+    const ings = await db.query(
+      'SELECT * FROM recipe_ingredients WHERE recipe_id = $1 ORDER BY sort_order ASC',
+      [s.id]
+    );
+
+    // Apply the rule set: scale matching ingredients, collect additions + drops
+    const adds = [];
+    const drops = [];
+    const scaled = ings.rows.map((ing) => {
+      let qty = parseFloat(ing.quantity);
+      for (const tag of taste_tags) {
+        const rule = TASTE_RULES[tag];
+        if (!rule) continue;
+        (rule.add || []).forEach((a) => { if (!adds.some((x) => x.item_name === a.item_name)) adds.push(a); });
+        (rule.drop || []).forEach((d) => { if (d.test(ing.item_name)) drops.push(ing.item_name); });
+        if (rule.scale && rule.scale[0].test(ing.item_name) && Number.isFinite(qty)) {
+          qty = Math.max(0, Math.round(qty * rule.scale[1] * 100) / 100);
+        }
+      }
+      return { ...ing, quantity: Number.isFinite(qty) ? qty : ing.quantity };
+    }).filter((ing) => !drops.includes(ing.item_name));
+
+    const tagNotes = taste_tags.length ? `Tweaked from "${s.name}" based on your feedback (${taste_tags.join(', ')}).` : `Variant of "${s.name}".`;
+    const variantName = name || `${s.name} (Improved)`;
+
+    const recipeResult = await db.query(`
+      INSERT INTO recipes (user_id, name, description, servings, prep_time, cook_time, total_time,
+        instructions, image_url, category, cuisine, difficulty, tags)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING *
+    `, [req.user.id, variantName, `${s.description || ''} ${tagNotes}`.trim(), s.servings, s.prep_time, s.cook_time,
+        s.total_time, s.instructions, s.image_url, s.category, s.cuisine, s.difficulty,
+        [...(s.tags || []), 'variant', 'taste-improved']]);
+
+    const recipe = recipeResult.rows[0];
+    let order = 0;
+    for (const ing of [...scaled, ...adds]) {
+      await db.query(`
+        INSERT INTO recipe_ingredients (recipe_id, item_name, quantity, unit, is_optional, is_pantry_staple, notes, sort_order)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [recipe.id, ing.item_name, ing.quantity, ing.unit, ing.is_optional || false, ing.is_pantry_staple || false, ing.notes || null, order++]);
+    }
+
+    recipe.ingredients = [...scaled, ...adds];
+    res.status(201).json(recipe);
+  } catch (error) {
+    console.error('Variant recipe error:', error);
+    res.status(500).json({ error: 'Failed to create variant' });
   }
 });
 

@@ -50,6 +50,7 @@ import CustomNumberPad from '../components/CustomNumberPad';
 import CustomNotification from '../components/CustomNotification';
 import CacheRefreshButton from '../components/CacheRefreshButton';
 import { useNotification } from '../hooks/useNotification';
+import { runServerUpdateFlow, purgeCachesAndReload } from '../utils/appUpdate';
 import { useShoppingItems } from '../hooks/useShoppingList';
 import Toast from '../components/Toast';
 import { XPNotificationContainer, showXPNotification } from '../components/XPNotification';
@@ -138,24 +139,18 @@ const Dashboard = () => {
   const { notification, hideNotification, success: notifySuccess, error: notifyError, ask, confirm, confirmDelete } = useNotification();
 
   // Admin-only: request a server update. Writes the .update-requested flag
-  // that the host watcher (trigger-update.sh → update-server.sh) consumes.
+  // that the host watcher (trigger-update.sh → update-server.sh) consumes,
+  // then purges caches, logs out, and reloads so fresh assets are served.
   const handleRequestUpdate = () => {
     confirm(
-      'Update the server now? The app will pull the latest code, rebuild, and may be briefly unavailable.',
+      'Update the server now? The app will pull the latest code, rebuild, clear your cache and log you out.',
       async () => {
-        try {
-          const res = await fetch('/api/system/update/request', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-          });
-          const data = await res.json();
-          if (res.ok && data.success) {
-            success(data.message || 'Update requested — the server will update shortly.');
-          } else {
-            error(data.error || data.details || 'Failed to request update.');
-          }
-        } catch (err) {
-          error('Failed to request update: ' + err.message);
+        const result = await runServerUpdateFlow();
+        if (result.ok) {
+          success(result.message || 'Update requested — you\'ll be logged out while the server updates.');
+          purgeCachesAndReload({ logout: true, delayMs: 1500 });
+        } else {
+          error(result.error || result.details || 'Failed to request update.');
         }
       },
       undefined,
@@ -1667,6 +1662,8 @@ const Dashboard = () => {
             <LabList
               list={activeList}
               items={items}
+              labLists={(lists || []).filter((l) => l.list_type === 'lab')}
+              onSelectList={(l) => { setActiveList(l); if (l?.id) loadListItems(l.id); }}
               onCheck={handleCheckItem}
               onDelete={deleteItem}
               onRefresh={() => loadListItems(activeList.id)}

@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { Portal } from '../utils/autoPlacement';
 import ConfirmModal from '../limbo/modals/ConfirmModal';
+import { runServerUpdateFlow, purgeCachesAndReload } from '../utils/appUpdate';
 
 const ChangelogViewer = ({ isOpen, onClose }) => {
   const { user } = useAuth();
@@ -40,14 +41,14 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
 
   const requestUpdate = async () => {
     setShowUpdateConfirm(false);
-    try {
-      const res = await fetch('/api/system/update/request', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      if (res.ok) setUpdateRequested(true);
-    } catch (err) {
-      console.error('Update request failed:', err);
+    const result = await runServerUpdateFlow();
+    if (result.ok) {
+      setUpdateRequested(true);
+      // Give the "requested" state a beat to render, then purge + log out + reload
+      purgeCachesAndReload({ logout: true, delayMs: 1500 });
+    } else {
+      console.error('Update request failed:', result.error || result);
+      alert(result.error || result.details || 'Failed to request update');
     }
   };
 

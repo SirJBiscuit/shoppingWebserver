@@ -4,12 +4,16 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 const path = require('path');
 const fs = require('fs').promises;
+const { authenticateToken } = require('../middleware/auth');
 
 const execAsync = promisify(exec);
 
-// Middleware to check admin permissions
+// Every git route requires a logged-in admin.
+router.use(authenticateToken);
+
+// Middleware to check admin permissions (authenticateToken sets req.user.isAdmin)
 const requireAdmin = (req, res, next) => {
-  if (!req.user || !req.user.is_admin) {
+  if (!req.user || !req.user.isAdmin) {
     return res.status(403).json({ error: 'Admin access required' });
   }
   next();

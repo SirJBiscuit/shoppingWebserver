@@ -51,6 +51,7 @@ const stapleAccessFor = (name) => {
 // Right-click menu choices
 const ICON_CHOICES = ['🧂','🫙','🥫','🥬','🧄','🧅','🍯','🥛','🧈','🥚','🍋','🌶️','🌿','🍇','🥕','🍞','🧊','🍫'];
 const BADGES = { seasoning: '🧂', fresh: '🥬', jarred: '🫙', canned: '🥫', frozen: '❄️', spice: '🌶️' };
+const LOCATIONS = { freezer: '❄️', fridge: '🥶', pantry: '📦', counter: '🍞' };
 const OTHER_LABS = ['Mix Lab', 'Meal Lab', 'Smoothie Lab', 'Jam Lab', 'Dough Lab', 'Canning Lab'];
 
 const ACCENT = {
@@ -128,6 +129,20 @@ const LabPantryPicker = ({
     localStorage.setItem('labPickerBadges', JSON.stringify(next));
     return next;
   });
+
+  // storage_location lives on the inventory row — PATCH it straight from the menu
+  const setLocation = async (row, loc) => {
+    if (!row.inv) return;
+    const key = invKey(row.name);
+    try {
+      await api.patch(`/inventory/${row.inv.id}`, { storage_location: loc });
+      setInventory((p) => ({
+        ...p,
+        [key]: { ...p[key], storage_location: loc, custom_location_id: null, custom_location_name: null },
+      }));
+      notify();
+    } catch { /* leave as-is */ }
+  };
 
   const toggleAccess = (id) => setAccess((p) => {
     const next = { ...p, [id]: !p[id] };
@@ -815,14 +830,14 @@ const LabPantryPicker = ({
                         <button
                           key={em}
                           className="text-lg rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                          onClick={() => { setIconFor(menu.row.name, em); setMenu(null); setIconPicking(null); }}
+                          onClick={() => { setIconFor(menu.row.name, em); setIconPicking(null); }}
                         >
                           {em}
                         </button>
                       ))}
                       <button
                         className="col-span-6 text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 py-1"
-                        onClick={() => { setIconFor(menu.row.name, null); setMenu(null); setIconPicking(null); }}
+                        onClick={() => { setIconFor(menu.row.name, null); setIconPicking(null); }}
                       >
                         Reset icon
                       </button>
@@ -841,7 +856,7 @@ const LabPantryPicker = ({
                           {Object.entries(BADGES).map(([id, em]) => (
                             <button
                               key={id}
-                              onClick={() => { setBadgeFor(menu.row.name, badgeMap[invKey(menu.row.name)] === id ? null : id); setMenu(null); }}
+                              onClick={() => setBadgeFor(menu.row.name, badgeMap[invKey(menu.row.name)] === id ? null : id)}
                               className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                                 badgeMap[invKey(menu.row.name)] === id
                                   ? `${a.chip} text-white`
@@ -852,13 +867,34 @@ const LabPantryPicker = ({
                             </button>
                           ))}
                           <button
-                            onClick={() => { setBadgeFor(menu.row.name, null); setMenu(null); }}
+                            onClick={() => setBadgeFor(menu.row.name, null)}
                             className="px-1.5 py-0.5 rounded text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-400"
                           >
                             none
                           </button>
                         </div>
                       </div>
+                      {/* Location — freezer/fridge/pantry (tracked items only) */}
+                      {menu.row.tracked && (
+                        <div className="px-3 py-1">
+                          <p className="text-[9px] uppercase tracking-wide text-gray-400 mb-1">Location</p>
+                          <div className="flex flex-wrap gap-1">
+                            {Object.entries(LOCATIONS).map(([loc, em]) => (
+                              <button
+                                key={loc}
+                                onClick={() => setLocation(menu.row, loc)}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                  (menu.row.inv?.storage_location || 'pantry') === loc && !menu.row.inv?.custom_location_name
+                                    ? `${a.chip} text-white`
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                }`}
+                              >
+                                {em} {loc}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       {menu.row.hiddenMode ? (
                         <button
                           onClick={() => { setHiddenFor(menu.row.name, null); setMenu(null); }}

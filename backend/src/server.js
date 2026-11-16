@@ -35,6 +35,8 @@ const priceTrainingRoutes = require('./routes/admin/priceTraining');
 const priceTrendsRoutes = require('./routes/priceTrends');
 const betaTestingRoutes = require('./routes/betaTesting');
 const betaFeedbackRoutes = require('./routes/betaFeedback');
+const betaPinsRoutes = require('./routes/betaPins');
+const betaPollsRoutes = require('./routes/betaPolls');
 const layoutsRoutes = require('./routes/layouts');
 const aveRoutes = require('../routes/ave');
 const storageRoutes = require('../routes/storage');
@@ -96,6 +98,8 @@ app.use('/api/admin/price-training', priceTrainingRoutes);
 app.use('/api/price-trends', priceTrendsRoutes);
 app.use('/api/beta', betaTestingRoutes);
 app.use('/api/beta/feedback', betaFeedbackRoutes);
+app.use('/api/beta/pins', betaPinsRoutes);
+app.use('/api/beta/polls', betaPollsRoutes);
 app.use('/api/layouts', layoutsRoutes);
 app.use('/api/ave', aveRoutes);
 app.use('/api/admin/storage', storageRoutes);
@@ -163,7 +167,13 @@ const runMigrations = async () => {
     { file: '066_spice_lab_sidebar_remove.sql', name: 'Spice Lab Sidebar Remove' },
     { file: '067_changelog_voting_progress.sql', name: 'Changelog Voting + Progress' },
     { file: '068_jam_dough_presets.sql', name: 'Jam + Dough Lab Presets' },
-    { file: '069_inventory_estimated_quantity.sql', name: 'Inventory Estimated Quantity' }
+    { file: '069_inventory_estimated_quantity.sql', name: 'Inventory Estimated Quantity' },
+    { file: '070_recipe_ratings.sql', name: 'Recipe Taste Ratings' },
+    { file: '071_items_preferred_storage.sql', name: 'Items Preferred Storage Location' },
+    { file: '072_mdl_quality_gate.sql', name: 'MDL Data Quality Gate' },
+    { file: '073_mdl_quality_votes.sql', name: 'MDL Quality Gate Votes' },
+    { file: '074_beta_pins.sql', name: 'Beta Pins & Feedback Replies' },
+    { file: '075_beta_polls_private_pins.sql', name: 'Beta Polls & Private Pins' }
   ];
 
   for (const migration of migrations) {
