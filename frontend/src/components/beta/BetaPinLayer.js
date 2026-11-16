@@ -284,6 +284,7 @@ const BetaPinLayer = () => {
   const [editOptDraft, setEditOptDraft] = useState('');
   // Private admin ideas board
   const [ideas, setIdeas] = useState([]);
+  const [deletedIdeas, setDeletedIdeas] = useState([]); // soft-deleted → history tab
   const [ideaDraft, setIdeaDraft] = useState({ title: '', body: '', tag: 'idea', color: '' });
   const [ideaEdit, setIdeaEdit] = useState(null);     // {id,title,body,tag,color}
   // Tester panel — own feedback threads + compose
@@ -367,9 +368,19 @@ const BetaPinLayer = () => {
     } catch { /* silent */ }
   }, [isAdmin]);
 
+  // Soft-deleted ideas shown in the history tab for recovery
+  const loadTrashedIdeas = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const { data } = await api.get('/beta/ideas/admin?trashed=1');
+      setDeletedIdeas(data.ideas || []);
+    } catch { /* silent */ }
+  }, [isAdmin]);
+
   useEffect(() => {
     if (isAdmin && panelOpen && tab === 'ideas') loadIdeas();
-  }, [isAdmin, panelOpen, tab, loadIdeas]);
+    if (isAdmin && panelOpen && tab === 'history') loadTrashedIdeas();
+  }, [isAdmin, panelOpen, tab, loadIdeas, loadTrashedIdeas]);
 
   useEffect(() => { if (canUse) { loadPagePins(); loadPolls(); } }, [canUse, loadPagePins, loadPolls]);
   useEffect(() => { if (pollsOpen) { loadPolls(); loadMyFeedback(); } }, [pollsOpen, loadPolls, loadMyFeedback]);
@@ -896,7 +907,16 @@ const BetaPinLayer = () => {
     try {
       await api.delete(`/beta/ideas/admin/${id}`);
       loadIdeas();
+      if (tab === 'history') loadTrashedIdeas();
     } catch (e) { apiErr(e, 'Delete failed'); }
+  };
+
+  const restoreIdea = async (id) => {
+    try {
+      await api.post(`/beta/ideas/admin/${id}/restore`);
+      loadTrashedIdeas();
+      loadIdeas();
+    } catch (e) { apiErr(e, 'Restore failed'); }
   };
 
   // Priority queue — the first idea prioritized takes rank 1 (highest);
@@ -1974,7 +1994,8 @@ const BetaPinLayer = () => {
             <button className="ctx-item" onClick={() => { updateIdea(ideaCtx.idea.id, { is_pinned: !ideaCtx.idea.is_pinned }); setIdeaCtx(null); }}>
               <Pin className="w-4 h-4 text-amber-400" /> {ideaCtx.idea.is_pinned ? 'Unpin' : 'Pin to top'}
             </button>
-            <button className="ctx-item text-red-300 hover:bg-red-500/10" onClick={() => { deleteIdea(ideaCtx.idea.id); setIdeaCtx(null); }}>
+            <button className="ctx-item text-red-300 hover:bg-red-500/10" title="Moves to the history tab — can be restored"
+              onClick={() => { deleteIdea(ideaCtx.idea.id); setIdeaCtx(null); }}>
               <Trash2 className="w-4 h-4" /> Delete
             </button>
           </div>
@@ -2278,9 +2299,31 @@ const BetaPinLayer = () => {
           {tab === 'history' && (
             <div className="flex-1 overflow-y-auto scrollbar-3d">
               <div className="px-3 py-2 border-b border-slate-800 text-[11px] text-slate-500">
-                Deleted/restored pins — restore brings one back as open; the
+                Deleted/restored pins and ideas — restore brings one back; the
                 ghost toggle shows where deleted pins used to be.
               </div>
+              {deletedIdeas.length > 0 && (
+                <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">Deleted ideas</div>
+              )}
+              {deletedIdeas.map((i) => (
+                <div key={`idea-${i.id}`} className="px-3 py-2 border-b border-slate-800/60">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] px-1.5 rounded-full bg-red-500/20 text-red-300">idea deleted</span>
+                    <span className="text-[10px] text-slate-500 capitalize">{i.tag}</span>
+                    <span className="text-[10px] text-slate-600 ml-auto shrink-0">{relTime(i.deleted_at)}</span>
+                  </div>
+                  <p className="text-sm text-slate-200 mt-1 font-medium">{i.title}</p>
+                  {i.body && <p className="text-xs text-slate-400 mt-0.5 line-clamp-2 whitespace-pre-wrap">{i.body}</p>}
+                  <div className="text-[10px] text-slate-500 mt-0.5">
+                    {i.created_by_name || 'admin'} · created {relTime(i.created_at)}
+                  </div>
+                  <div className="flex gap-1.5 mt-1.5">
+                    <button onClick={() => restoreIdea(i.id)}
+                      className="text-[11px] px-2 py-1 rounded bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50 flex items-center gap-1"
+                    ><RotateCcw className="w-3 h-3" /> Restore</button>
+                  </div>
+                </div>
+              ))}
               {historyItems.map((h) => {
                 const s = h.snapshot || {};
                 const superseded = h.event === 'deleted' && historyItems.some(
@@ -2313,8 +2356,8 @@ const BetaPinLayer = () => {
                   </div>
                 );
               })}
-              {!historyItems.length && (
-                <p className="text-sm text-slate-500 text-center py-8">No pin history yet — deleted pins show up here.</p>
+              {!historyItems.length && !deletedIdeas.length && (
+                <p className="text-sm text-slate-500 text-center py-8">No history yet — deleted pins and ideas show up here.</p>
               )}
             </div>
           )}

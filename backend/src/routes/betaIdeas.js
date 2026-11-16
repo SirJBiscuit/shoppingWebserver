@@ -12,10 +12,15 @@ const STATUSES = ['open', 'in_progress', 'done', 'archived'];
  */
 router.get('/admin', authenticateToken, isAdmin, async (req, res) => {
   try {
+    // ?trashed=1 returns only soft-deleted ideas (for the history tab).
+    const trashed = req.query.trashed === '1' || req.query.trashed === 'true';
     const { rows } = await db.query(
       `SELECT i.*, u.username AS created_by_name
        FROM beta_admin_ideas i LEFT JOIN users u ON u.id = i.created_by
-       ORDER BY i.is_pinned DESC, i.created_at DESC LIMIT 300`
+       WHERE i.deleted_at IS ${trashed ? 'NOT ' : ''}NULL
+       ORDER BY ${trashed
+         ? 'i.deleted_at DESC'
+         : 'i.is_pinned DESC, i.created_at DESC'} LIMIT 300`
     );
     res.json({ ideas: rows });
   } catch (e) {
@@ -102,7 +107,8 @@ router.post('/admin/:id/prioritize', authenticateToken, isAdmin, async (req, res
       `UPDATE beta_admin_ideas SET
          priority_rank = CASE WHEN $2::boolean THEN NULL
                               ELSE (SELECT COALESCE(MAX(priority_rank), 0) + 1
-                                    FROM beta_admin_ideas) END,
+                                    FROM beta_admin_ideas
+                                    WHERE deleted_at IS NULL) END,
          updated_at = NOW()
        WHERE id = $1
        RETURNING id, priority_rank`,
@@ -117,15 +123,42 @@ router.post('/admin/:id/prioritize', authenticateToken, isAdmin, async (req, res
 });
 
 /**
- * DELETE /api/beta/ideas/admin/:id
+ * DELETE /api/beta/ideas/admin/:id — SOFT delete.
+ * The row is kept (deleted_at set) so it can be recovered from the
+ * Admin Viewer history tab; pin/priority flags are cleared on the way out.
  */
 router.delete('/admin/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
-    await db.query('DELETE FROM beta_admin_ideas WHERE id = $1', [req.params.id]);
+    const { rowCount } = await db.query(
+      `UPDATE beta_admin_ideas
+       SET deleted_at = NOW(), is_pinned = false, priority_rank = NULL
+       WHERE id = $1 AND deleted_at IS NULL`,
+      [req.params.id]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Idea not found' });
     res.json({ deleted: true });
   } catch (e) {
     console.error('Error deleting idea:', e);
     res.status(500).json({ error: 'Failed to delete idea' });
+  }
+});
+
+/**
+ * POST /api/beta/ideas/admin/:id/restore
+ * Brings a soft-deleted idea back to the board (clears deleted_at).
+ */
+router.post('/admin/:id/restore', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { rowCount } = await db.query(
+      `UPDATE beta_admin_ideas SET deleted_at = NULL, updated_at = NOW()
+       WHERE id = $1 AND deleted_at IS NOT NULL`,
+      [req.params.id]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Idea not found' });
+    res.json({ restored: true });
+  } catch (e) {
+    console.error('Error restoring idea:', e);
+    res.status(500).json({ error: 'Failed to restore idea' });
   }
 });
 
