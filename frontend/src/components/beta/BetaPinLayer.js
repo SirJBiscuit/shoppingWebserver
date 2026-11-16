@@ -21,12 +21,17 @@ import {
 // ---------------------------------------------------------------------------
 
 const SEVERITIES = [
-  { key: 'critical', label: 'Big priority', color: '#ef4444' },
-  { key: 'annoying', label: 'Annoying',     color: '#f97316' },
-  { key: 'minor',    label: 'Low',          color: '#eab308' },
-  { key: 'weird',    label: 'Acts weird',   color: '#d946ef' },
+  { key: 'critical',     label: 'Big priority',   color: '#ef4444' },
+  { key: 'problem',      label: 'Problem',        color: '#e11d48' },
+  { key: 'annoying',     label: 'Annoying',       color: '#f97316' },
+  { key: 'needs_tweak',  label: 'Needs tweaked',  color: '#8b5cf6' },
+  { key: 'minor',        label: 'Low',            color: '#eab308' },
+  { key: 'low_priority', label: 'Low priority',   color: '#64748b' },
+  { key: 'weird',        label: 'Acts weird',     color: '#d946ef' },
+  { key: 'look',         label: 'Look at it',     color: '#38bdf8' },
 ];
-const sevOf = (key) => SEVERITIES.find((s) => s.key === key) || SEVERITIES[2];
+const sevOf = (key) => SEVERITIES.find((s) => s.key === key)
+  || SEVERITIES.find((s) => s.key === 'minor');
 
 const STATUS_META = {
   open:        { label: 'Open',        cls: 'bg-slate-500/20 text-slate-200' },
@@ -59,6 +64,19 @@ const PIN_ICONS = [
   { key: 'eye',      Icon: Eye,           label: 'Look' },
 ];
 const pinIconOf = (key) => (PIN_ICONS.find((i) => i.key === key) || PIN_ICONS[0]).Icon;
+
+// Pin purpose — bug pins go into the admin export list; note/idea pins are
+// exempt so testers can drop reminders or suggestions without polluting it.
+const PIN_KINDS = [
+  { key: 'bug',  label: 'Bug' },
+  { key: 'note', label: 'Note' },
+  { key: 'idea', label: 'Idea' },
+];
+const KIND_META = {
+  bug:  { label: 'Bug',  cls: 'bg-red-500/20 text-red-300' },
+  note: { label: 'Note', cls: 'bg-amber-500/20 text-amber-300' },
+  idea: { label: 'Idea', cls: 'bg-violet-500/20 text-violet-300' },
+};
 
 // Small icon picker row shared by the draft popup and admin edit mode.
 const IconPicker = ({ value, onChange }) => (
@@ -183,6 +201,9 @@ const BetaPinLayer = () => {
   const [draftNote, setDraftNote] = useState('');
   const [draftIcon, setDraftIcon] = useState('pin');
   const [editIcon, setEditIcon] = useState('pin');
+  const [draftKind, setDraftKind] = useState('bug');
+  const [editKind, setEditKind] = useState('bug');
+  const [detailDrag, setDetailDrag] = useState({ dx: 0, dy: 0 }); // drag offset
   const [saving, setSaving] = useState(false);
   const [draftPrivate, setDraftPrivate] = useState(false); // admin: private pin
   const [detail, setDetail] = useState(null);        // pin detail card
@@ -316,6 +337,29 @@ const BetaPinLayer = () => {
     toastErr(detail ? `${base}: ${detail}` : base);
   };
 
+  // Draggable detail card — pointer-down on the header drags the popup via
+  // a translate offset on top of Popup's clamped position. Buttons and
+  // inputs inside the header are excluded so clicks still work.
+  const startDetailDrag = (e) => {
+    if (e.button !== 0) return;
+    if (e.target.closest('button, a, input, textarea, select')) return;
+    e.preventDefault();
+    const startX = e.clientX - detailDrag.dx;
+    const startY = e.clientY - detailDrag.dy;
+    const onMove = (ev) => {
+      setDetailDrag({ dx: ev.clientX - startX, dy: ev.clientY - startY });
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
+  // New pin opened → card snaps back next to the pin marker.
+  useEffect(() => { setDetailDrag({ dx: 0, dy: 0 }); }, [detail?.id]);
+
   // Track document height — used for the doc-% fallback when a pin's
   // element anchor no longer resolves.
   useEffect(() => {
@@ -446,7 +490,8 @@ const BetaPinLayer = () => {
     }
 
     setDraft({ xPct, yPct, px: e.clientX, py: e.clientY, ...anchor });
-    setDraftSev('minor'); setDraftNote(''); setDraftIcon('pin'); setError(''); setHoverRect(null); setHoverLabel('');
+    setDraftSev('minor'); setDraftNote(''); setDraftIcon('pin'); setDraftKind('bug');
+    setError(''); setHoverRect(null); setHoverLabel('');
     setDropMode(false);
   };
 
@@ -458,10 +503,10 @@ const BetaPinLayer = () => {
         pagePath: page, x: draft.xPct, y: draft.yPct,
         severity: draftSev, note: draftNote.trim(),
         isPrivate: isAdmin ? draftPrivate : undefined,
+        icon: draftIcon, kind: draftKind,
         selector: draft.selector, offX: draft.offX, offY: draft.offY,
         elementLabel: draft.elementLabel,
-        viewport: `${window.innerWidth}x${window.innerHeight}`,
-        icon: draftIcon
+        viewport: `${window.innerWidth}x${window.innerHeight}`
       });
       setDraft(null); setDraftPrivate(false);
       loadPagePins(); if (isAdmin) loadAdminPins();
@@ -488,7 +533,7 @@ const BetaPinLayer = () => {
 
   const startEdit = (pin) => {
     setEditNote(pin.note); setEditSev(pin.severity);
-    setEditIcon(pin.icon || 'pin');
+    setEditIcon(pin.icon || 'pin'); setEditKind(pin.kind || 'bug');
     setEditMode(true); setCtx(null);
   };
 
@@ -527,7 +572,7 @@ const BetaPinLayer = () => {
   };
 
   // Ordered bug-list export — downloads the markdown the backend builds
-  // (severity first: critical → weird, grouped by page, private pins kept).
+  // (severity first: critical → look, grouped by page, private pins kept).
   const exportPins = async () => {
     try {
       const { data } = await api.get('/beta/pins/admin/export');
@@ -569,7 +614,7 @@ const BetaPinLayer = () => {
     if (!editNote.trim()) return;
     try {
       await api.patch(`/beta/pins/${detail.id}`, {
-        note: editNote.trim(), severity: editSev, icon: editIcon
+        note: editNote.trim(), severity: editSev, icon: editIcon, kind: editKind
       });
       setEditMode(false); setDetail(null);
       loadPagePins(); loadAdminPins();
@@ -861,13 +906,21 @@ const BetaPinLayer = () => {
           x={resolvePin(detail).x + 16}
           y={resolvePin(detail).y + 8}
           width={320}
+          style={{ transform: `translate(${detailDrag.dx}px, ${detailDrag.dy}px)` }}
           className="bp-popup z-[9999] w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3"
           sheetClassName="bg-slate-900 border-t border-slate-700 p-4"
         >
-          <div className="flex items-start justify-between gap-2">
+          <div
+            className="flex items-start justify-between gap-2 cursor-move touch-none select-none"
+            onPointerDown={startDetailDrag}
+            title="Drag to move"
+          >
             <div className="flex items-center gap-2 min-w-0">
               <span className="w-3 h-3 rounded-full shrink-0" style={{ background: sevOf(detail.severity).color }} />
               <span className="text-sm font-semibold text-slate-100 truncate">{sevOf(detail.severity).label}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${KIND_META[detail.kind]?.cls || 'bg-slate-700 text-slate-300'}`}>
+                {KIND_META[detail.kind]?.label || 'Bug'}
+              </span>
               <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${STATUS_META[detail.status]?.cls}`}>
                 {STATUS_META[detail.status]?.label}
               </span>
@@ -884,6 +937,16 @@ const BetaPinLayer = () => {
           {editMode && isAdmin ? (
             <div className="mt-2">
               <IconPicker value={editIcon} onChange={setEditIcon} />
+              <div className="flex gap-1 mb-1.5">
+                {PIN_KINDS.map((k) => (
+                  <button
+                    key={k.key}
+                    onClick={() => setEditKind(k.key)}
+                    title={k.key === 'bug' ? 'Included in export' : 'Exempt from export'}
+                    className={`flex-1 text-[10px] py-1 rounded border ${editKind === k.key ? 'border-white/60 text-white bg-slate-700/60' : 'border-slate-700 text-slate-400'}`}
+                  >{k.label}</button>
+                ))}
+              </div>
               <div className="flex gap-1 mb-1.5">
                 {SEVERITIES.map((s) => (
                   <button
@@ -1048,6 +1111,19 @@ const BetaPinLayer = () => {
               <MapPin className="w-4 h-4 text-red-400" /> Pin this spot
             </span>
             <button onClick={() => setDraft(null)} className="text-slate-500 hover:text-slate-300"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="flex gap-1.5 mb-2">
+            {PIN_KINDS.map((k) => (
+              <button
+                key={k.key}
+                onClick={() => setDraftKind(k.key)}
+                title={k.key === 'bug' ? 'Included in export' : 'Exempt from export'}
+                className={`flex-1 text-[11px] py-1.5 rounded-lg border transition ${draftKind === k.key ? 'border-white/60 text-white' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                style={draftKind === k.key ? { background: (KIND_META[k.key]?.cls || '').includes('amber') ? '#f59e0b33' : k.key === 'idea' ? '#8b5cf633' : '#ef444433' } : {}}
+              >
+                {k.label}
+              </button>
+            ))}
           </div>
           <div className="flex gap-1.5 mb-2">
             {SEVERITIES.map((s) => (

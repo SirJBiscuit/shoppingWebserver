@@ -3,9 +3,14 @@ const router = express.Router();
 const db = require('../database/db');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 
-const SEVERITIES = ['critical', 'annoying', 'minor', 'weird'];
+const SEVERITIES = [
+  'critical', 'problem', 'annoying', 'needs_tweak',
+  'minor', 'low_priority', 'weird', 'look'
+];
 const STATUSES = ['open', 'in_progress', 'fixed', 'hidden', 'removed'];
 const PIN_ICONS = ['pin', 'flag', 'bug', 'idea', 'warn', 'question', 'star', 'eye'];
+// Pin purpose — 'bug' pins feed the export list; 'note'/'idea' are exempt.
+const PIN_KINDS = ['bug', 'note', 'idea'];
 
 // ---------------------------------------------------------------------------
 // TESTER SIDE — create + view pins
@@ -27,7 +32,7 @@ const PIN_ICONS = ['pin', 'flag', 'bug', 'idea', 'warn', 'question', 'star', 'ey
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const { pagePath, x, y, severity, note, isPrivate, selector, offX, offY,
-      elementLabel, viewport, icon } = req.body;
+      elementLabel, viewport, icon, kind } = req.body;
     if (!pagePath || typeof pagePath !== 'string' || pagePath.length > 255) {
       return res.status(400).json({ error: 'pagePath required' });
     }
@@ -40,6 +45,7 @@ router.post('/', authenticateToken, async (req, res) => {
     }
     const sev = SEVERITIES.includes(severity) ? severity : 'minor';
     const pinIcon = PIN_ICONS.includes(icon) ? icon : 'pin';
+    const pinKind = PIN_KINDS.includes(kind) ? kind : 'bug';
 
     // Optional element anchor — validated loosely; it's a hint, not a key
     const sel = typeof selector === 'string' && selector.length > 0 && selector.length <= 500
@@ -64,11 +70,11 @@ router.post('/', authenticateToken, async (req, res) => {
 
     const { rows } = await db.query(
       `INSERT INTO beta_pins (user_id, page_path, x_pct, y_pct, severity, note, is_private,
-        element_selector, offset_x, offset_y, element_label, viewport, icon)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+        element_selector, offset_x, offset_y, element_label, viewport, icon, kind)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [req.user.id, pagePath, px, py, sev, note.trim(), req.user.isAdmin && isPrivate === true,
        anchor ? sel : null, anchor ? ox : null, anchor ? oy : null,
-       anchor ? label : null, vp, pinIcon]
+       anchor ? label : null, vp, pinIcon, pinKind]
     );
     res.status(201).json(rows[0]);
   } catch (e) {
@@ -125,7 +131,7 @@ router.get('/', authenticateToken, async (req, res) => {
  */
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
-    const { note, severity, isPrivate, adminNote, icon } = req.body;
+    const { note, severity, isPrivate, adminNote, icon, kind } = req.body;
     const q = await db.query('SELECT * FROM beta_pins WHERE id = $1', [req.params.id]);
     if (!q.rows.length) return res.status(404).json({ error: 'Pin not found' });
     const pin = q.rows[0];
@@ -142,6 +148,7 @@ router.patch('/:id', authenticateToken, async (req, res) => {
          is_private = CASE WHEN $4::boolean IS NULL THEN is_private ELSE $4 END,
          admin_note = COALESCE($5, admin_note),
          icon = COALESCE($6, icon),
+         kind = COALESCE($7, kind),
          updated_at = NOW()
        WHERE id = $1`,
       [req.params.id,
@@ -149,7 +156,10 @@ router.patch('/:id', authenticateToken, async (req, res) => {
        SEVERITIES.includes(severity) ? severity : null,
        req.user.isAdmin && typeof isPrivate === 'boolean' ? isPrivate : null,
        req.user.isAdmin && adminNote ? adminNote.trim().slice(0, 1000) : null,
-       req.user.isAdmin && PIN_ICONS.includes(icon) ? icon : null]
+       // Icon/kind are author-chosen at create — don't gate edits behind
+       // isAdmin or a tester's change silently reverts.
+       PIN_ICONS.includes(icon) ? icon : null,
+       PIN_KINDS.includes(kind) ? kind : null]
     );
     res.json({ updated: true });
   } catch (e) {
@@ -316,10 +326,13 @@ router.get('/admin/export', authenticateToken, isAdmin, async (req, res) => {
     const { rows } = await db.query(
       `SELECT p.*, u.username
        FROM beta_pins p LEFT JOIN users u ON u.id = p.user_id
-       WHERE p.status IN ('open','in_progress')`
+       WHERE p.status IN ('open','in_progress') AND p.kind = 'bug'`
     );
 
-    const sevOrder = { critical: 0, annoying: 1, minor: 2, weird: 3 };
+    const sevOrder = {
+      critical: 0, problem: 1, annoying: 2, needs_tweak: 3,
+      minor: 4, low_priority: 5, weird: 6, look: 7
+    };
     rows.sort((a, b) =>
       (sevOrder[a.severity] ?? 9) - (sevOrder[b.severity] ?? 9)
       || String(a.page_path).localeCompare(String(b.page_path))
@@ -327,7 +340,7 @@ router.get('/admin/export', authenticateToken, isAdmin, async (req, res) => {
     );
 
     let md = `# Bug List — ${new Date().toISOString().slice(0, 10)}\n\n`;
-    md += `Ordered: critical → annoying → minor → weird. Work top-down per page.\n\n`;
+    md += `Ordered: critical → problem → annoying → needs_tweak → minor → low_priority → weird → look. Work top-down per page.\n\n`;
     let page = null;
     let n = 0;
     for (const p of rows) {
