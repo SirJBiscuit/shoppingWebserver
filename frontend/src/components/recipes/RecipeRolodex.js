@@ -256,7 +256,7 @@ const RecipeRolodex = ({
                           {detail.ingredients.map((ing, i) => (
                             <li key={i} className="text-sm text-gray-700 dark:text-gray-300 flex items-baseline gap-1.5">
                               <span className="text-primary-500">•</span>
-                              <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{ing.quantity || ''} {ing.unit || ''}</span>
+                              <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{ing.quantity_display || ing.quantity || ''} {ing.unit || ''}</span>
                               <span>
                                 {ing.item_name}
                                 {ing.is_optional && <span className="text-[10px] text-gray-400"> (opt)</span>}

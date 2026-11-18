@@ -16,6 +16,7 @@ import { EditableContainer } from './editor/EditorOverlay';
 import { useEditor } from '../contexts/EditorContext';
 import ItemIcon from './ItemIcon';
 import QuickIconPicker from './QuickIconPicker';
+import QuickCategoryPicker from './QuickCategoryPicker';
 
 const ItemList = (props) => {
   const { items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null, onLookForThis } = props;
@@ -467,6 +468,21 @@ const StorePriceBadge = ({ itemName, currentPrice, priceCompare }) => {
 
 const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit, onQuantityChange, priceCompare, showButtonLabels, favorites, onOpenFavorites, onOpenEdit, onQuickIcon }) => {
   const [editingAisle, setEditingAisle] = useState(false);
+  const [catAnchor, setCatAnchor] = useState(null); // anchor for animated category popup
+
+  const openCategoryPicker = (e) => {
+    e.stopPropagation();
+    const r = e.currentTarget?.getBoundingClientRect?.();
+    setCatAnchor(r ? { cx: r.left + r.width / 2, top: r.top, bottom: r.bottom } : null);
+  };
+
+  const applyCategory = (name) => {
+    if (!onEdit) return;
+    (item.ids || [item.id]).forEach((id) => {
+      onEdit({ ...item, id, category: name, category_name: name, category_icon: getCategoryIcon(name) });
+    });
+    playSound('pop');
+  };
   const [aisleNumber, setAisleNumber] = useState('');
   const [aisleName, setAisleName] = useState('');
   const [checkAnimKey, setCheckAnimKey] = useState(0);
@@ -827,6 +843,15 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                         currentPrice={item.price}
                         priceCompare={priceCompare}
                       />
+                      {/* Category chip — opens the animated quick-change popup */}
+                      <button
+                        type="button"
+                        onClick={openCategoryPicker}
+                        title="Change category"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-xs font-semibold cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-800/40 transition-colors"
+                      >
+                        {getCategoryIcon(category)} {category}
+                      </button>
                       {editingAisle ? (
                         <div className="flex items-center gap-1">
                           <input
@@ -1027,6 +1052,16 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                 </div>
               </div>
       </CustomContextMenu>
+
+      {catAnchor !== null && (
+        <QuickCategoryPicker
+          itemName={item.item_name}
+          currentCategory={category}
+          anchor={catAnchor}
+          onSelect={applyCategory}
+          onClose={() => setCatAnchor(null)}
+        />
+      )}
     </div>
   );
 };

@@ -11,6 +11,7 @@ import CustomNotification from '../CustomNotification';
 import CustomDatePicker from '../CustomDatePicker';
 import RadialActionMenu from '../RadialActionMenu';
 import { Portal } from '../../utils/autoPlacement';
+import BetaChat from '../beta/BetaChat';
 
 const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChange }) => {
   const { notification, hideNotification, confirm, confirmDelete } = useNotification();
@@ -21,6 +22,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
   const [showThankYouModal, setShowThankYouModal] = useState(false);
   const [thankYouMessage, setThankYouMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [chatTester, setChatTester] = useState(null); // tester the instant-chat thread is open with
 
   // Extend-access + edit modals
   const [showExtendModal, setShowExtendModal] = useState(false);
@@ -480,6 +482,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
               onEdit={() => openEditTester(tester)}
               onResetPassword={() => openResetPassword(tester)}
               onActivity={(kind) => openActivity(tester, kind)}
+              onChat={() => setChatTester(tester)}
             />
           ))
         )}
@@ -684,6 +687,32 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
                   </button>
                 </div>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence></Portal>
+
+      {/* Instant chat modal — direct thread with this tester */}
+      <Portal><AnimatePresence>
+        {chatTester && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setChatTester(null)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg"
+            >
+              <BetaChat
+                peerId={chatTester.id}
+                peerName={chatTester.display_name || chatTester.beta_username || chatTester.username}
+              />
+              <button
+                onClick={() => setChatTester(null)}
+                className="mt-2 w-full py-1.5 text-xs text-gray-400 hover:text-gray-200"
+              >
+                Close
+              </button>
             </motion.div>
           </div>
         )}
@@ -937,7 +966,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
   );
 };
 
-const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSendThankYou, onConvert, onRemove, onExtend, onSuspend, onEdit, onResetPassword, onActivity }) => {
+const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSendThankYou, onConvert, onRemove, onExtend, onSuspend, onEdit, onResetPassword, onActivity, onChat }) => {
   const stars = Math.round(qualityScore / 20);
   
   const activityColors = {
@@ -1057,6 +1086,7 @@ const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSend
             primaryAction={{ label: 'Tester actions', className: 'bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700' }}
             actions={[
               { icon: Eye, label: 'View details', onClick: onViewDetails, color: 'bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700' },
+              { icon: MessageSquare, label: 'Chat', onClick: onChat, color: 'bg-gradient-to-br from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700' },
               { icon: Edit, label: 'Edit', onClick: onEdit, color: 'bg-gradient-to-br from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700' },
               { icon: KeyRound, label: 'Password', onClick: onResetPassword, color: 'bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700' },
               { icon: TimerReset, label: 'Extend', onClick: onExtend, color: 'bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700' },

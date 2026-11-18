@@ -3,20 +3,73 @@ import { X, Plus, Trash2, Save } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import { Portal } from '../utils/autoPlacement';
 
-const AisleConfigModal = ({ isOpen, onClose, storeName, storeId }) => {
+const authHeaders = (json = false) => ({
+  Authorization: `Bearer ${localStorage.getItem('token')}`,
+  ...(json ? { 'Content-Type': 'application/json' } : {}),
+});
+
+const AisleConfigModal = ({ isOpen, onClose, storeName, storeId: storeIdProp, onSave }) => {
   const { success, error } = useToast();
   const [aisles, setAisles] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [storeId, setStoreId] = useState(storeIdProp || null);
 
   useEffect(() => {
-    if (isOpen && storeId) {
-      loadAisles();
+    if (isOpen) {
+      openAndLoad();
     }
-  }, [isOpen, storeId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, storeName, storeIdProp]);
 
-  const loadAisles = async () => {
+  // The list only stores a free-text store_name — resolve (or create) the
+  // matching store_locations row so aisles have a real storeId to save under.
+  const resolveStoreId = async () => {
+    if (storeIdProp) return storeIdProp;
+    if (!storeName) return null;
     try {
-      const response = await fetch(`/api/stores/${storeId}/aisles`);
+      const res = await fetch(
+        `/api/mdl/stores/search?name=${encodeURIComponent(storeName)}`,
+        { headers: authHeaders() }
+      );
+      if (res.ok) {
+        const rows = await res.json();
+        const exact = rows.find(
+          (s) => (s.name || '').toLowerCase() === storeName.toLowerCase()
+        );
+        if (exact) return exact.id;
+        if (rows[0]) return rows[0].id;
+      }
+      // No store record yet — create one so the config persists
+      const create = await fetch('/api/mdl/stores', {
+        method: 'POST',
+        headers: authHeaders(true),
+        body: JSON.stringify({ name: storeName }),
+      });
+      if (create.ok) {
+        const created = await create.json();
+        return created.id || created.store?.id || null;
+      }
+    } catch (err) {
+      console.error('Error resolving store:', err);
+    }
+    return null;
+  };
+
+  const openAndLoad = async () => {
+    const id = await resolveStoreId();
+    setStoreId(id);
+    await loadAisles(id);
+  };
+
+  const loadAisles = async (id) => {
+    if (!id) {
+      setAisles([]);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/stores/${id}/aisles`, {
+        headers: authHeaders(),
+      });
       if (response.ok) {
         const data = await response.json();
         setAisles(data);
@@ -72,13 +125,17 @@ const AisleConfigModal = ({ isOpen, onClose, storeName, storeId }) => {
   };
 
   const saveAisles = async () => {
+    if (!storeId) {
+      error('No store selected — set a store location on the list first');
+      return;
+    }
     setLoading(true);
     try {
       // Save each aisle
       for (const aisle of aisles) {
-        await fetch(`/api/stores/${storeId}/aisles`, {
+        const res = await fetch(`/api/stores/${storeId}/aisles`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders(true),
           body: JSON.stringify({
             aisle_number: aisle.aisle_number,
             aisle_name: aisle.aisle_name,
@@ -86,8 +143,10 @@ const AisleConfigModal = ({ isOpen, onClose, storeName, storeId }) => {
             display_order: aisle.display_order,
           }),
         });
+        if (!res.ok) throw new Error(`Aisle ${aisle.aisle_number} failed to save`);
       }
       success('Aisle configuration saved!');
+      if (onSave) await onSave(aisles);
       onClose();
     } catch (err) {
       console.error('Error saving aisles:', err);

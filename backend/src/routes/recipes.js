@@ -22,7 +22,7 @@ const router = express.Router();
 // Get all recipes for user with filters
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const { category, cuisine, difficulty, search, favorite, canMake } = req.query;
+    const { category, cuisine, difficulty, search, favorite, canMake, include_staged } = req.query;
     
     let query = `
       SELECT r.*, 
@@ -34,6 +34,12 @@ router.get('/', authenticateToken, async (req, res) => {
     `;
     const params = [req.user.id];
     let paramCount = 2;
+
+    // Staged lab creations stay out of the Recipe Book unless explicitly
+    // requested (the labs pass include_staged to see their "Can Create" shelf)
+    if (include_staged !== 'true') {
+      query += ` AND r.in_recipe_book IS DISTINCT FROM false`;
+    }
 
     // Add filters
     if (category) {
@@ -104,36 +110,47 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Create new recipe
+// Create new recipe — recipe + its ingredients commit as one transaction so a
+// bad ingredient row can never leave a saved recipe with no ingredients.
 router.post('/', authenticateToken, async (req, res) => {
+  const client = await db.pool.connect();
   try {
     const { name, description, servings, prep_time, cook_time, instructions, image_url, ingredients,
-            category, cuisine, difficulty, tags } = req.body;
+            category, cuisine, difficulty, tags, temperature, in_recipe_book } = req.body;
 
-    const recipeResult = await db.query(`
-      INSERT INTO recipes (user_id, name, description, servings, prep_time, cook_time, instructions, image_url, category, cuisine, difficulty, tags)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    await client.query('BEGIN');
+
+    const recipeResult = await client.query(`
+      INSERT INTO recipes (user_id, name, description, servings, prep_time, cook_time, instructions, image_url, category, cuisine, difficulty, tags, temperature, in_recipe_book)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *
     `, [req.user.id, name, description, servings, prep_time, cook_time, instructions, image_url,
-        category || null, cuisine || null, difficulty || 'medium', Array.isArray(tags) ? tags : null]);
+        category || null, cuisine || null, difficulty || 'medium', Array.isArray(tags) ? tags : null,
+        temperature || null, in_recipe_book !== false]);
     
     const recipe = recipeResult.rows[0];
     
-    // Add ingredients
+    // Add ingredients — quantity_display keeps the user's typed format
+    // ("1/2", "1 1/2") while quantity stores the parsed numeric value.
     if (ingredients && ingredients.length > 0) {
       for (let i = 0; i < ingredients.length; i++) {
         const ing = ingredients[i];
-        await db.query(`
-          INSERT INTO recipe_ingredients (recipe_id, item_name, quantity, unit, is_optional, is_pantry_staple, notes, sort_order)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        `, [recipe.id, ing.item_name, ing.quantity, ing.unit, ing.is_optional || false, ing.is_pantry_staple || false, ing.notes, i]);
+        await client.query(`
+          INSERT INTO recipe_ingredients (recipe_id, item_name, quantity, quantity_display, unit, is_optional, is_pantry_staple, notes, sort_order)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `, [recipe.id, ing.item_name, ing.quantity, ing.quantity_display || null, ing.unit,
+            ing.is_optional || false, ing.is_pantry_staple || false, ing.notes, i]);
       }
     }
     
+    await client.query('COMMIT');
     res.status(201).json(recipe);
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Create recipe error:', error);
     res.status(500).json({ error: 'Failed to create recipe' });
+  } finally {
+    client.release();
   }
 });
 
@@ -163,9 +180,9 @@ router.post('/:id/copy', authenticateToken, async (req, res) => {
     for (let i = 0; i < ings.rows.length; i++) {
       const ing = ings.rows[i];
       await db.query(`
-        INSERT INTO recipe_ingredients (recipe_id, item_name, quantity, unit, is_optional, is_pantry_staple, notes, sort_order)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      `, [recipe.id, ing.item_name, ing.quantity, ing.unit, ing.is_optional || false, ing.is_pantry_staple || false, ing.notes, i]);
+        INSERT INTO recipe_ingredients (recipe_id, item_name, quantity, quantity_display, unit, is_optional, is_pantry_staple, notes, sort_order)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `, [recipe.id, ing.item_name, ing.quantity, ing.quantity_display || null, ing.unit, ing.is_optional || false, ing.is_pantry_staple || false, ing.notes, i]);
     }
 
     res.status(201).json(recipe);
@@ -304,7 +321,8 @@ router.post('/:id/variant', authenticateToken, async (req, res) => {
 // Update recipe
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
-    const { name, description, servings, prep_time, cook_time, instructions, image_url, is_favorite, ingredients } = req.body;
+    const { name, description, servings, prep_time, cook_time, instructions, image_url, is_favorite, ingredients, temperature,
+            difficulty, category, cuisine, tags, rating, in_recipe_book } = req.body;
     
     const result = await db.query(`
       UPDATE recipes 
@@ -316,10 +334,19 @@ router.patch('/:id', authenticateToken, async (req, res) => {
           instructions = COALESCE($6, instructions),
           image_url = COALESCE($7, image_url),
           is_favorite = COALESCE($8, is_favorite),
+          temperature = COALESCE($9, temperature),
+          difficulty = COALESCE($10, difficulty),
+          category = COALESCE($11, category),
+          cuisine = COALESCE($12, cuisine),
+          tags = COALESCE($13, tags),
+          rating = COALESCE($14, rating),
+          in_recipe_book = COALESCE($15, in_recipe_book),
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $9 AND user_id = $10
+      WHERE id = $16 AND user_id = $17
       RETURNING *
-    `, [name, description, servings, prep_time, cook_time, instructions, image_url, is_favorite, req.params.id, req.user.id]);
+    `, [name, description, servings, prep_time, cook_time, instructions, image_url, is_favorite, temperature,
+        difficulty, category, cuisine, Array.isArray(tags) ? tags : null, rating,
+        in_recipe_book === undefined ? null : in_recipe_book, req.params.id, req.user.id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Recipe not found' });
@@ -333,12 +360,13 @@ router.patch('/:id', authenticateToken, async (req, res) => {
       // Insert new ingredients
       for (const ingredient of ingredients) {
         await db.query(`
-          INSERT INTO recipe_ingredients (recipe_id, item_name, quantity, unit, is_optional, is_pantry_staple, notes)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          INSERT INTO recipe_ingredients (recipe_id, item_name, quantity, quantity_display, unit, is_optional, is_pantry_staple, notes)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `, [
           req.params.id,
           ingredient.item_name,
           ingredient.quantity || 1,
+          ingredient.quantity_display || null,
           ingredient.unit || '',
           ingredient.is_optional || false,
           ingredient.is_pantry_staple || false,
@@ -393,7 +421,8 @@ router.get('/can-make/check', authenticateToken, async (req, res) => {
         )) as ingredients
       FROM recipes r
       LEFT JOIN recipe_ingredients ri ON r.id = ri.recipe_id
-      WHERE r.user_id = $1 OR r.is_public = true
+      WHERE (r.user_id = $1 OR r.is_public = true)
+        AND r.in_recipe_book IS DISTINCT FROM false
       GROUP BY r.id
     `, [req.user.id]);
     

@@ -3,6 +3,7 @@ import { Gift, Calendar, Heart, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import BetaChat from './BetaChat';
 
 /**
  * Thank You Messages
@@ -47,17 +48,21 @@ const ThankYouMessages = () => {
 
   if (messages.length === 0) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-lg">
-        <div className="text-center">
-          <div className="inline-flex p-4 bg-purple-100 dark:bg-purple-900/30 rounded-full mb-4">
-            <Gift className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+      <div className="space-y-4">
+        {/* Instant two-way chat with the admin team — always available */}
+        <BetaChat />
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-lg">
+          <div className="text-center">
+            <div className="inline-flex p-4 bg-purple-100 dark:bg-purple-900/30 rounded-full mb-4">
+              <Gift className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              No Messages Yet
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Thank you for contributing!
+            </p>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            No Messages Yet
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Keep contributing and you might receive a thank you message from the admin team!
-          </p>
         </div>
       </div>
     );
@@ -65,6 +70,8 @@ const ThankYouMessages = () => {
 
   return (
     <div className="space-y-4">
+      {/* Instant two-way chat with the admin team */}
+      <BetaChat />
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
           <Heart className="w-5 h-5 text-red-500" />
@@ -140,13 +147,13 @@ const ThankYouMessages = () => {
                 Welcome to Beta Testing! 🎉
               </p>
               <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                Thank you for joining our beta testing program! Your feedback and contributions
-                help us build a better product. We appreciate your time and effort in testing
+                Thank you for joining my beta testing program! Your feedback and contributions
+                help me build a better product. I appreciate your time and effort in testing
                 new features and reporting issues.
               </p>
               <p className="text-sm text-gray-700 dark:text-gray-300 mt-3">
                 Keep up the great work, and you'll receive personalized thank you messages
-                from our team! 💜
+                from me! 💜
               </p>
             </div>
           </div>

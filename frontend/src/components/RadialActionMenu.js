@@ -42,7 +42,7 @@ const RadialActionMenu = ({
 
   const config = sizes[size];
   const visibleActions = actions.filter(action => action.show !== false);
-  const angleStep = (2 * Math.PI) / visibleActions.length;
+  const angleStep = visibleActions.length > 0 ? (2 * Math.PI) / visibleActions.length : 0;
 
   // Re-renders on resize so the clamp below stays current while open
   const isMobile = useIsMobile();

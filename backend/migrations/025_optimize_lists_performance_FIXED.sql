@@ -14,7 +14,7 @@ CREATE INDEX IF NOT EXISTS idx_shopping_list_items_user_list
   ON shopping_list_items(shopping_list_id, added_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_items_user_name 
-  ON items(user_id, item_name);
+  ON items(user_id, name);
 
 CREATE INDEX IF NOT EXISTS idx_inventory_user_location 
   ON inventory(user_id, storage_location);
@@ -28,7 +28,7 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
     CREATE INDEX IF NOT EXISTS idx_items_name_trgm 
-      ON items USING gin(item_name gin_trgm_ops);
+      ON items USING gin(name gin_trgm_ops);
   END IF;
 END $$;
 

@@ -53,16 +53,31 @@ ALTER TABLE store_locations ADD COLUMN IF NOT EXISTS latitude DECIMAL(10, 8);
 ALTER TABLE store_locations ADD COLUMN IF NOT EXISTS longitude DECIMAL(11, 8);
 ALTER TABLE store_locations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 
--- Backfill canonical columns from whichever legacy columns are populated
+-- Backfill canonical columns from whichever legacy columns are populated.
+-- chain_name is handled separately below because filling it blindly can
+-- collide on UNIQUE(chain_name, store_number).
 UPDATE store_locations SET
   name       = COALESCE(name, store_name),
   store_name = COALESCE(store_name, name),
   chain      = COALESCE(chain, chain_name, store_chain),
-  chain_name = COALESCE(chain_name, chain, store_chain),
   user_id    = COALESCE(user_id, created_by),
   created_by = COALESCE(created_by, user_id)
 WHERE name IS NULL OR store_name IS NULL OR chain IS NULL
    OR chain_name IS NULL OR user_id IS NULL OR created_by IS NULL;
+
+-- Fill chain_name only where it won't duplicate (chain_name, store_number).
+-- Rows that would collide keep chain_name NULL — the unique constraint
+-- allows NULLs, and `chain` still holds the canonical value.
+UPDATE store_locations s
+SET chain_name = COALESCE(s.chain, s.store_chain)
+WHERE s.chain_name IS NULL
+  AND COALESCE(s.chain, s.store_chain) IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM store_locations o
+    WHERE o.id <> s.id
+      AND o.store_number IS NOT DISTINCT FROM s.store_number
+      AND o.chain_name IS NOT DISTINCT FROM COALESCE(s.chain, s.store_chain)
+  );
 
 CREATE INDEX IF NOT EXISTS idx_store_locations_user ON store_locations(user_id);
 CREATE INDEX IF NOT EXISTS idx_store_locations_public ON store_locations(is_public) WHERE is_public = true;

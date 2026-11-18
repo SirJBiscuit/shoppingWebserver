@@ -37,7 +37,9 @@ const FloatingButtons = ({
   // (apps/active-list + beta stack + admin sidebar). The `position` prop is
   // only the fallback until the user picks a side.
   const position = useFloatSide(positionProp);
-  const side = position === 'left' ? 'left-4 items-start' : 'right-4 items-end';
+  // On desktop the nav sidebar (w-72, z-60) is always visible — push
+  // left-side columns past its right edge instead of hiding underneath.
+  const side = position === 'left' ? 'left-4 lg:left-[304px] items-start' : 'right-4 items-end';
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const onRecipesPage = useLocation().pathname.startsWith('/recipes');

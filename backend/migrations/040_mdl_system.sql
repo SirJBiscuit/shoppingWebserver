@@ -139,6 +139,10 @@ CREATE TABLE IF NOT EXISTS mdl_location_prices (
   confidence_score DECIMAL(3,2)
 );
 
+-- If the table already exists from a partial legacy run, it may lack this column
+ALTER TABLE mdl_location_prices ADD COLUMN IF NOT EXISTS specific_store_id INTEGER;
+ALTER TABLE mdl_location_prices ADD COLUMN IF NOT EXISTS store_chain VARCHAR(100);
+
 -- Expression unique (not valid inline in CREATE TABLE — must be an index)
 CREATE UNIQUE INDEX IF NOT EXISTS uq_mdl_location_prices
   ON mdl_location_prices(item_name_id, COALESCE(state, ''), COALESCE(store_chain, ''), COALESCE(specific_store_id, 0));
@@ -247,6 +251,9 @@ CREATE TABLE IF NOT EXISTS mdl_location_aisles (
   
   last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- If the table already exists from a partial legacy run, it may lack this column
+ALTER TABLE mdl_location_aisles ADD COLUMN IF NOT EXISTS specific_store_id INTEGER REFERENCES store_locations(id);
 
 -- Expression unique (not valid inline in CREATE TABLE — must be an index)
 CREATE UNIQUE INDEX IF NOT EXISTS uq_mdl_location_aisles

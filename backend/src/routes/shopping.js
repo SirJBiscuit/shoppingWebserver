@@ -148,7 +148,8 @@ router.get('/lists/:id', async (req, res) => {
     }
 
     const itemsResult = await db.query(
-      `SELECT sli.*, 
+      `SELECT sli.*,
+              sli.aisle_number AS aisle,
               i.is_recurring, 
               i.recurrence_days,
               COALESCE(sli.item_icon, im.icon) as item_icon,

@@ -58,9 +58,9 @@ const layerColor = (name, idx) => {
 
 /**
  * SmoothieBuilder — pick on-hand ingredients → layered glass → blend & save.
- * Every blend posts a category='smoothie' recipe so it lands on the
- * Recipe Book's Smoothie shelf; "Blend it!" also marks it cooked
- * (deducts from home inventory) just like markMade in CategoryRecipeLab.
+ * Every blend posts a category='smoothie' recipe staged in "Can Create" —
+ * the user sends it to the Recipe Book manually. "Blend it!" also marks
+ * it cooked (deducts from home inventory) just like markMade in CategoryRecipeLab.
  */
 const SmoothieBuilder = ({ onSaved }) => {
   const { success, error: showError, toasts, hideToast } = useToast();
@@ -164,6 +164,8 @@ const SmoothieBuilder = ({ onSaved }) => {
     prep_time: 5,
     image_url: 'emoji:🥤',
     tags: ['smoothie', 'custom-builder'],
+    // Staged in "Can Create" — user sends it to the Recipe Book manually
+    in_recipe_book: false,
     instructions: 'Add all ingredients to a blender. Blend until smooth, about 30–60 seconds. Serve immediately.',
     ingredients: pickedItems.map((i) => ({
       item_name: i.item_name,
@@ -182,7 +184,7 @@ const SmoothieBuilder = ({ onSaved }) => {
           await api.post(`/recipes/${recipe.id}/mark-cooked`, { servings_made: 1, deduct_inventory: true });
         } catch { /* recipe saved even if deduction fails */ }
       }
-      success(`"${payload.name}" is in your Recipe Book${deduct ? ' — inventory updated' : ''}!`);
+      success(`"${payload.name}" saved to Can Create${deduct ? ' — inventory updated' : ''} — send it to your Recipe Book when ready!`);
       playSound('pop');
       setPicked({});
       setName('');
@@ -355,7 +357,7 @@ const SmoothieBuilder = ({ onSaved }) => {
           <button
             onClick={() => startAction('blend')}
             disabled={!pickedItems.length || saving}
-            title="Blend, save to Recipe Book & deduct from inventory"
+            title="Blend, stage in Can Create & deduct from inventory"
             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-pink-500 text-white hover:bg-pink-600 disabled:opacity-40 transition-colors"
           >
             <Wand2 className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Blend it!'}
@@ -363,7 +365,7 @@ const SmoothieBuilder = ({ onSaved }) => {
           <button
             onClick={() => startAction('save')}
             disabled={!pickedItems.length || saving}
-            title="Save to Recipe Book without deducting inventory"
+            title="Save to Can Create without deducting inventory"
             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-40 transition-colors"
           >
             <BookPlus className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Save recipe'}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, ChefHat, Clock, Users, Trash2, ShoppingCart, Star, Edit2, GraduationCap, Layers, Library, List, Search } from 'lucide-react';
 import { recipesAPI } from '../services/api';
+import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
 import ThemeToggle from '../components/ThemeToggle';
@@ -8,6 +9,8 @@ import PageTransition from '../components/PageTransition';
 import RecipeModal from '../components/RecipeModal';
 import RecipeCardSlider from '../components/recipes/RecipeCardSlider';
 import RecipeRolodex from '../components/recipes/RecipeRolodex';
+import RecipeViewModal from '../components/recipes/RecipeViewModal';
+import RecipeIconPicker from '../components/recipes/RecipeIconPicker';
 import TeachableRecipe from '../components/recipes/TeachableRecipe';
 import QuickRecipeTemplates from '../components/recipes/QuickRecipeTemplates';
 import ConfirmModal from '../limbo/modals/ConfirmModal';
@@ -18,7 +21,9 @@ const Recipes = () => {
   const [canMake, setCanMake] = useState({ can_make: [], can_make_with_few_items: [] });
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedRecipe, setSelectedRecipe] = useState(null);
+  const [selectedRecipe, setSelectedRecipe] = useState(null); // edit modal target
+  const [viewingRecipe, setViewingRecipe] = useState(null);   // view sheet target
+  const [iconTarget, setIconTarget] = useState(null);         // recipe getting a new icon
   const [showQuickTemplates, setShowQuickTemplates] = useState(false);
   const [showTeach, setShowTeach] = useState(false);
   // Deck view persists across visits — rolodex | slider | list
@@ -31,13 +36,35 @@ const Recipes = () => {
 
   // Last-viewed recipe persists: leaving the page mid-view picks back
   // up in the same modal. Cleared when the modal is closed.
+  // Click → view sheet. Pencil → editor. LocalStorage remembers the last
+  // VIEWED recipe (not the editor).
   const openRecipe = (r) => {
-    setSelectedRecipe(r);
+    setViewingRecipe(r);
     localStorage.setItem('recipesLastRecipeId', String(r.id));
+  };
+  const closeViewer = () => {
+    setViewingRecipe(null);
+    localStorage.removeItem('recipesLastRecipeId');
+  };
+  const editRecipe = (r) => {
+    setViewingRecipe(null);
+    setSelectedRecipe(r);
   };
   const closeRecipe = () => {
     setSelectedRecipe(null);
-    localStorage.removeItem('recipesLastRecipeId');
+  };
+
+  // Quick icon/image change — PATCHes image_url straight from the list.
+  const updateRecipeIcon = async (value) => {
+    if (!iconTarget) return;
+    try {
+      await api.patch(`/recipes/${iconTarget.id}`, { image_url: value });
+      fetchRecipes();
+    } catch (error) {
+      console.error('Failed to update recipe icon:', error);
+    } finally {
+      setIconTarget(null);
+    }
   };
 
   useEffect(() => {
@@ -53,7 +80,7 @@ const Recipes = () => {
       const lastId = localStorage.getItem('recipesLastRecipeId');
       if (lastId) {
         const r = response.data.find((x) => String(x.id) === lastId);
-        if (r) setSelectedRecipe(r);
+        if (r) setViewingRecipe(r);
         else localStorage.removeItem('recipesLastRecipeId');
       }
     } catch (error) {
@@ -267,6 +294,8 @@ const Recipes = () => {
                 <RecipeListView
                   recipes={filteredRecipes}
                   onOpen={openRecipe}
+                  onEdit={editRecipe}
+                  onPickIcon={setIconTarget}
                   onToggleFavorite={handleToggleFavorite}
                   onAddToList={handleAddToShoppingList}
                   onDelete={handleDeleteRecipe}
@@ -349,6 +378,25 @@ const Recipes = () => {
               onSave={handleCreateRecipe}
             />
             
+            {/* View sheet — clicking a recipe opens this, not the editor */}
+            <RecipeViewModal
+              recipe={viewingRecipe}
+              onClose={closeViewer}
+              onEdit={editRecipe}
+              onToggleFavorite={handleToggleFavorite}
+              onAddToList={handleAddToShoppingList}
+              onDelete={handleDeleteRecipe}
+              onChanged={fetchRecipes}
+            />
+
+            {/* Quick icon picker opened from the list view */}
+            <RecipeIconPicker
+              isOpen={!!iconTarget}
+              onClose={() => setIconTarget(null)}
+              current={iconTarget?.image_url}
+              onPick={updateRecipeIcon}
+            />
+
             <RecipeModal
               isOpen={!!selectedRecipe}
               onClose={closeRecipe}
@@ -387,39 +435,57 @@ const Recipes = () => {
   );
 };
 
-/** Searchable list view — one row per recipe, opens the editor on click. */
-const RecipeListView = ({ recipes, onOpen, onToggleFavorite, onAddToList, onDelete }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden">
-    {recipes.length === 0 && (
-      <p className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">No recipes match.</p>
-    )}
-    {recipes.map((r) => {
-      const mins = r.total_time || (r.prep_time || 0) + (r.cook_time || 0);
-      return (
-        <div key={r.id} onClick={() => onOpen(r)}
-          className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/40 cursor-pointer">
-          <span className="text-xl w-8 text-center flex-shrink-0">
-            {r.image_url?.startsWith('emoji:') ? r.image_url.slice(6) : '🍽️'}
-          </span>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{r.name}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-              {[r.category, mins > 0 && `${mins} min`, r.servings && `${r.servings} servings`]
-                .filter(Boolean).join(' · ')}
-            </p>
+/** Searchable list view — click = view sheet; pencil = edit; icon = icon picker. */
+const RecipeListView = ({ recipes, onOpen, onEdit, onPickIcon, onToggleFavorite, onAddToList, onDelete }) => (
+  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div
+      className="divide-y divide-gray-100 dark:divide-gray-700 max-h-[560px] overflow-y-auto scrollbar-3d"
+      style={{ perspective: '800px' }}
+    >
+      {recipes.length === 0 && (
+        <p className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">No recipes match.</p>
+      )}
+      {recipes.map((r) => {
+        const mins = r.total_time || (r.prep_time || 0) + (r.cook_time || 0);
+        const isEmoji = r.image_url?.startsWith('emoji:');
+        return (
+          <div key={r.id} onClick={() => onOpen(r)}
+            className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/40 cursor-pointer">
+            <button
+              onClick={(e) => { e.stopPropagation(); onPickIcon(r); }}
+              title="Change icon / image"
+              className="w-9 h-9 flex-shrink-0 rounded-lg flex items-center justify-center text-xl hover:bg-gray-100 dark:hover:bg-gray-600 hover:ring-2 ring-primary-400 transition-shadow overflow-hidden"
+            >
+              {r.image_url && !isEmoji
+                ? <img src={r.image_url} alt="" className="w-full h-full object-cover rounded-lg" />
+                : (isEmoji ? r.image_url.slice(6) : '🍽️')}
+            </button>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{r.name}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                {[r.category, r.difficulty, mins > 0 && `${mins} min`, r.servings && `${r.servings} servings`]
+                  .filter(Boolean).join(' · ')}
+              </p>
+            </div>
+            {r.avg_rating > 0 && (
+              <span className="text-[10px] text-amber-500 flex-shrink-0">★ {r.avg_rating}</span>
+            )}
+            <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(r); }} className="p-1.5" title="Toggle favorite">
+              <Star className={`w-4 h-4 ${r.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); onEdit(r); }} className="p-1.5 text-gray-400 hover:text-primary-600" title="Edit recipe">
+              <Edit2 className="w-4 h-4" />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); onAddToList(r.id); }} className="p-1.5 text-primary-600 dark:text-primary-400" title="Add ingredients to shopping list">
+              <ShoppingCart className="w-4 h-4" />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); onDelete(r.id); }} className="p-1.5 text-red-500" title="Delete recipe">
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
-          <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(r); }} className="p-1.5" title="Toggle favorite">
-            <Star className={`w-4 h-4 ${r.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); onAddToList(r.id); }} className="p-1.5 text-primary-600 dark:text-primary-400" title="Add ingredients to shopping list">
-            <ShoppingCart className="w-4 h-4" />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); onDelete(r.id); }} className="p-1.5 text-red-500" title="Delete recipe">
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      );
-    })}
+        );
+      })}
+    </div>
   </div>
 );
 

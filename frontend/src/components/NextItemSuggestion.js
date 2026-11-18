@@ -1076,8 +1076,8 @@ const NextItemSuggestionContent = ({
               </motion.button>
             )}
             
-            {/* More Actions - vertical list menu on desktop/tablet, sheet on mobile */}
-            {deviceType !== 'mobile' ? (
+            {/* More Actions - radial menu on desktop, bottom sheet on touch devices */}
+            {deviceType === 'desktop' ? (
               <CustomRadialMenu
                 primaryAction={{
                   icon: MoreHorizontal,

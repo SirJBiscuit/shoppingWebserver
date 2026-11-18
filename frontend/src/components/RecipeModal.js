@@ -227,19 +227,23 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
     if (!amount) return { quantity: null, unit: '' };
     
     const trimmed = amount.trim();
-    const match = trimmed.match(/^([\d./]+)\s*(.*)$/);
+    const match = trimmed.match(/^(\d+\s+\d+\/\d+|\d+-\d+\/\d+|[\d./]+)\s*(.*)$/);
     
     if (match) {
-      let quantity = match[1];
-      // Handle fractions like 1/2
-      if (quantity.includes('/')) {
-        const [num, den] = quantity.split('/');
+      const display = match[1];
+      let quantity = null;
+      // Mixed number: "1 1/2" or "1-1/2"
+      const mixed = display.match(/^(\d+)[\s-](\d+)\/(\d+)$/);
+      if (mixed) {
+        quantity = parseFloat(mixed[1]) + parseFloat(mixed[2]) / parseFloat(mixed[3]);
+      } else if (display.includes('/')) {
+        const [num, den] = display.split('/');
         quantity = parseFloat(num) / parseFloat(den);
       } else {
-        quantity = parseFloat(quantity);
+        quantity = parseFloat(display);
       }
       const unit = match[2] || '';
-      return { quantity, unit };
+      return { quantity: Number.isFinite(quantity) ? quantity : null, unit, quantity_display: display };
     }
     
     // If no number found, treat whole thing as unit
@@ -251,11 +255,12 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
     
     // Parse ingredients to backend format
     const parsedIngredients = ingredients.map(ing => {
-      const { quantity, unit } = parseAmount(ing.amount);
+      const { quantity, unit, quantity_display } = parseAmount(ing.amount);
       return {
         item_name: ing.item_name,
         quantity,
         unit,
+        quantity_display,
         is_optional: ing.is_optional || false,
         is_pantry_staple: ing.is_pantry_staple || false,
         notes: ing.notes || ''

@@ -44,6 +44,7 @@ import StoreManager from '../components/StoreManager';
 import CopyItemModal from '../components/CopyItemModal';
 import SaveTemplateModal from '../components/SaveTemplateModal';
 import NextItemSuggestion from '../components/NextItemSuggestion';
+import QuickCategoryPicker from '../components/QuickCategoryPicker';
 import CustomPanel from '../components/CustomPanel';
 import CustomEditPanel from '../components/CustomEditPanel';
 import CustomNumberPad from '../components/CustomNumberPad';
@@ -64,7 +65,7 @@ import * as suggestionsAPI from '../api/suggestions';
 import * as pantryAPI from '../api/pantry';
 import * as categoriesAPI from '../api/categories';
 import * as stagingAPI from '../api/staging';
-import { detectCategory, estimatePrice, detectIcon } from '../utils/categoryDetector';
+import { detectCategory, estimatePrice, detectIcon, getCategoryIcon } from '../utils/categoryDetector';
 import { sortItemsByStoreLayout, calculateEfficiency } from '../utils/cartPacking';
 import { sortItemsByStoreAisle } from '../data/storeLayouts';
 import { smartSortItems, getShoppingEfficiency } from '../utils/storeSorting';
@@ -160,6 +161,7 @@ const Dashboard = () => {
   const [manualPriceSet, setManualPriceSet] = useState(false); // Track if user manually set price
   const [showPriceNumpad, setShowPriceNumpad] = useState(false);
   const [newItemCategory, setNewItemCategory] = useState('');
+  const [addCatAnchor, setAddCatAnchor] = useState(undefined); // anchor for animated category popup
   const [newItemIcon, setNewItemIcon] = useState('');
   const [suggestions, setSuggestions] = useState([]);
 
@@ -2354,18 +2356,19 @@ const Dashboard = () => {
                       readOnly={isMobile || isTablet}
                     />
                   </div>
-                  <select
-                    value={newItemCategory}
-                    onChange={(e) => setNewItemCategory(e.target.value)}
-                    className="input-field"
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setAddCatAnchor({ cx: r.left + r.width / 2, top: r.top, bottom: r.bottom });
+                    }}
+                    title="Pick category"
+                    className="input-field flex items-center justify-center gap-1 whitespace-nowrap"
                   >
-                    <option value="">Category</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.name}>
-                        {cat.icon} {cat.name}
-                      </option>
-                    ))}
-                  </select>
+                    {newItemCategory
+                      ? <>{getCategoryIcon(newItemCategory)} {newItemCategory}</>
+                      : 'Category'}
+                  </button>
                   <button 
                     ref={addButtonRef}
                     type="submit" 
@@ -2378,6 +2381,17 @@ const Dashboard = () => {
               </form>
               )}
               
+              {/* Animated category picker for the add-item form */}
+              {addCatAnchor !== undefined && (
+                <QuickCategoryPicker
+                  itemName={newItemName}
+                  currentCategory={newItemCategory}
+                  anchor={addCatAnchor}
+                  onSelect={(name) => setNewItemCategory(name)}
+                  onClose={() => setAddCatAnchor(undefined)}
+                />
+              )}
+
               {/* Price Numpad Modal */}
               {showPriceNumpad && (isMobile || isTablet) && (
                 <Portal><div className="fixed inset-0 z-[100] flex items-center justify-center">

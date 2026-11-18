@@ -1,6 +1,19 @@
 -- Item Training System Migration
 -- Allows users and admins to train the item database over time
 
+-- item_preferences is written to by routes/itemTraining.js but was only ever
+-- created in a legacy schema file — create it if the deploy never had it.
+CREATE TABLE IF NOT EXISTS item_preferences (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) UNIQUE NOT NULL,
+  category VARCHAR(100),
+  preferred_icon VARCHAR(10),
+  preferred_unit VARCHAR(50),
+  average_price DECIMAL(10, 2),
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Add training fields to item_preferences table
 ALTER TABLE item_preferences 
 ADD COLUMN IF NOT EXISTS trained_by_admin BOOLEAN DEFAULT false,

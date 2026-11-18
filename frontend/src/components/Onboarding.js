@@ -3,6 +3,11 @@ import { X, ChevronRight, ChevronLeft, Check, Zap, BookOpen, Plus, ShoppingCart,
 import { motion, AnimatePresence } from 'framer-motion';
 import { Portal } from '../utils/autoPlacement';
 
+// Bump this when the tutorial content changes — re-fires the tour once for
+// users who already completed the previous version.
+const ONBOARDING_VERSION = 'v2';
+const onboardingKey = (userId) => `onboarding_${ONBOARDING_VERSION}_${userId}`;
+
 const Onboarding = ({ userId, forceOpen, onClose }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [tutorialMode, setTutorialMode] = useState(null); // 'quick' or 'full'
@@ -231,7 +236,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
   ];
 
   useEffect(() => {
-    const hasSeenOnboarding = localStorage.getItem(`onboarding_${userId}`);
+    const hasSeenOnboarding = localStorage.getItem(onboardingKey(userId));
     if (!hasSeenOnboarding) {
       setIsOpen(true);
     }
@@ -309,7 +314,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
   }, [isOpen, currentStep]);
 
   const handleComplete = () => {
-    localStorage.setItem(`onboarding_${userId}`, 'true');
+    localStorage.setItem(onboardingKey(userId), 'true');
     setIsOpen(false);
     // Remove focus highlights
     document.querySelectorAll('.tutorial-highlight').forEach(el => {
@@ -320,7 +325,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
   };
 
   const handleSkip = () => {
-    localStorage.setItem(`onboarding_${userId}`, 'true');
+    localStorage.setItem(onboardingKey(userId), 'true');
     
     // Only show skip message once per user (not on every login)
     const hasSeenSkipMessage = localStorage.getItem(`onboarding_skip_message_${userId}`);

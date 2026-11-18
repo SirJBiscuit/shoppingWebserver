@@ -13,7 +13,7 @@ router.get('/', authenticateToken, async (req, res) => {
       LEFT JOIN categories c ON p.category_id = c.id
       WHERE p.user_id = $1
       ORDER BY c.sort_order ASC, p.item_name ASC
-    `, [req.user.userId]);
+    `, [req.user.id]);
     
     res.json(result.rows);
   } catch (error) {
@@ -32,7 +32,7 @@ router.post('/', authenticateToken, async (req, res) => {
         (user_id, item_name, quantity, unit, barcode, category_id, image_url, expiry_date, source, storage_location)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
-    `, [req.user.userId, item_name, quantity, unit, barcode, category_id, image_url, expiry_date, source || 'manual', req.body.storage_location || 'pantry']);
+    `, [req.user.id, item_name, quantity, unit, barcode, category_id, image_url, expiry_date, source || 'manual', req.body.storage_location || 'pantry']);
     
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -53,7 +53,7 @@ router.post('/bulk', authenticateToken, async (req, res) => {
           (user_id, item_name, quantity, unit, barcode, category_id, image_url, source, storage_location)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
-      `, [req.user.userId, item.item_name, item.quantity || 1, item.unit, item.barcode, item.category_id, item.image_url, source || 'scan', item.storage_location || 'pantry']);
+      `, [req.user.id, item.item_name, item.quantity || 1, item.unit, item.barcode, item.category_id, item.image_url, source || 'scan', item.storage_location || 'pantry']);
       
       addedItems.push(result.rows[0]);
     }
@@ -82,7 +82,7 @@ router.patch('/:id', authenticateToken, async (req, res) => {
           last_updated = CURRENT_TIMESTAMP
       WHERE id = $5 AND user_id = $6
       RETURNING *
-    `, [quantity, unit, expiry_date, category_id, req.params.id, req.user.userId]);
+    `, [quantity, unit, expiry_date, category_id, req.params.id, req.user.id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Pantry item not found' });
@@ -100,7 +100,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(`
       DELETE FROM pantry_inventory WHERE id = $1 AND user_id = $2 RETURNING id
-    `, [req.params.id, req.user.userId]);
+    `, [req.params.id, req.user.id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Pantry item not found' });
@@ -127,7 +127,7 @@ router.get('/expiring', authenticateToken, async (req, res) => {
         AND p.expiry_date IS NOT NULL
         AND p.expiry_date <= CURRENT_DATE + INTERVAL '${daysAhead} days'
       ORDER BY p.expiry_date ASC
-    `, [req.user.userId]);
+    `, [req.user.id]);
     
     res.json(result.rows);
   } catch (error) {

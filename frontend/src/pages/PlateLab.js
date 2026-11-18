@@ -190,14 +190,16 @@ const PlateLab = () => {
         servings: 1,
         image_url: `emoji:${{ breakfast: '🍳', lunch: '🥗', dinner: '🍽️', snack: '🍿' }[meal] || '🍽️'}`,
         tags: ['plate-lab'],
+        // Staged in the lab — the user sends it to the Recipe Book manually
+        in_recipe_book: false,
         ingredients: mealEntries.map((e) => ({
           item_name: e.item_name,
           quantity: parseFloat(e.servings) || 1,
           unit: e.unit || 'serving',
         })),
       });
-      success(`"${name}" saved to Recipe Book`);
-    } catch { showError('Could not save meal to Recipe Book'); }
+      success(`"${name}" saved to Can Create — send it to your Recipe Book when ready`);
+    } catch { showError('Could not save meal'); }
     finally { setSavingMeal(null); }
   };
 

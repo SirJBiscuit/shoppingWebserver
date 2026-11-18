@@ -369,6 +369,22 @@ router.post('/:storeId/aisles', async (req, res) => {
         `INSERT INTO aisle_categories (store_aisle_id, category_name) VALUES ${categoryValues}`,
         categoryParams
       );
+
+      // Feed configured category→aisle mappings into the MDL prediction layer
+      // so "Most Likely Aisle" reflects the user's configured layout.
+      try {
+        for (const cat of categories) {
+          await db.query(
+            `INSERT INTO mdl_category_aisles (category, store_id, aisle_number, item_count, last_updated)
+             VALUES ($1, $2, $3, 1, NOW())
+             ON CONFLICT (category, store_id, aisle_number)
+             DO UPDATE SET last_updated = NOW()`,
+            [cat, storeId, aisle_number]
+          );
+        }
+      } catch (mdlErr) {
+        console.warn('MDL category-aisle sync skipped:', mdlErr.message);
+      }
     }
 
     res.json({ success: true, aisleId });

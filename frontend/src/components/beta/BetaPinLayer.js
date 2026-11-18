@@ -2411,7 +2411,7 @@ const BetaPinLayer = () => {
       {!dropMode && !moving && !stackHidden && (
         <div
           ref={stackRef}
-          className={`bp-floating fixed bottom-5 ${floatSide === 'left' ? 'left-4 items-start' : 'right-4 items-end'} z-[45] flex flex-col gap-3 transition-transform duration-300`}
+          className={`bp-floating fixed bottom-5 ${floatSide === 'left' ? 'left-4 lg:left-[304px] items-start' : 'right-4 items-end'} z-[45] flex flex-col gap-3 transition-transform duration-300`}
           style={{ transform: `translateX(${-panelShift}px)` }}
         >
           {!isAdmin && (
@@ -2473,7 +2473,7 @@ const BetaPinLayer = () => {
       {canUse && stackHidden && !dropMode && !moving && (
         <button
           onClick={() => setStackHidden(false)}
-          className={`fixed ${floatSide === 'left' ? 'left-0 rounded-r-lg border-l-0' : 'right-0 rounded-l-lg border-r-0'} bottom-16 z-[46] bg-slate-900/90 border border-slate-700 px-1 py-3 text-slate-400 hover:text-slate-200 shadow-xl`}
+          className={`fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-lg border-l-0' : 'right-0 rounded-l-lg border-r-0'} bottom-16 z-[46] bg-slate-900/90 border border-slate-700 px-1 py-3 text-slate-400 hover:text-slate-200 shadow-xl`}
           title="Show beta controls"
         >
           <PanelRightOpen className="w-4 h-4" />
@@ -2527,7 +2527,7 @@ const BetaPinLayer = () => {
       {/* Admin sidebar — thin desktop-only tool column on the right edge.
           Hidden on mobile/tablet (lg+): inspect, ghosts, viewer. */}
       {isAdmin && canUse && !dropMode && !moving && (
-        <div className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-0 rounded-r-xl border-l-0' : 'right-0 rounded-l-xl border-r-0'} top-1/3 z-[46] flex-col items-center gap-1 bg-slate-900/90 border border-slate-700 py-2 px-1.5 shadow-xl`}>
+        <div className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-xl border-l-0' : 'right-0 rounded-l-xl border-r-0'} top-1/3 z-[46] flex-col items-center gap-1 bg-slate-900/90 border border-slate-700 py-2 px-1.5 shadow-xl`}>
           <button
             onClick={() => { setInspectMode((v) => !v); setInspectData(null); }}
             className={`p-2 rounded-lg transition ${inspectMode ? 'bg-cyan-600/30 text-cyan-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}

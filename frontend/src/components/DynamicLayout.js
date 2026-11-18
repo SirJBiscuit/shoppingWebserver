@@ -34,6 +34,7 @@ const componentMap = {
   BetaFeedbackWidget: lazy(() => import('./beta/BetaFeedbackWidget')),
   ContributionStats: lazy(() => import('./beta/ContributionStats')),
   ThankYouMessages: lazy(() => import('./beta/ThankYouMessages')),
+  BetaChat: lazy(() => import('./beta/BetaChat')),
 
   // User Components (PLACEHOLDERS)
   ShoppingList: () => <PlaceholderSection title="Shopping List" description="Your current shopping list" />,

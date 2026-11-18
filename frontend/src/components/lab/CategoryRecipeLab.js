@@ -16,10 +16,12 @@ import { useToast } from '../../hooks/useToast';
 import { playSound } from '../../utils/soundEffects';
 import { Portal } from '../../utils/autoPlacement';
 
-const fmtQty = (q, u) => {
-  const n = parseFloat(q);
-  const num = Number.isFinite(n) ? (Math.round(n * 4) / 4) : q;
-  return `${num}${u && u !== 'whole' ? ` ${u}` : ''}`;
+const fmtQty = (q, u, display) => {
+  const shown = display || (() => {
+    const n = parseFloat(q);
+    return Number.isFinite(n) ? (Math.round(n * 4) / 4) : q;
+  })();
+  return `${shown}${u && u !== 'whole' ? ` ${u}` : ''}`;
 };
 
 /**
@@ -107,9 +109,16 @@ const CategoryRecipeLab = ({
   const saveToBook = async (r) => {
     setSavingToBook(r.id);
     try {
-      await api.post(`/recipes/${r.id}/copy`);
+      if (isCreation(r)) {
+        // Staged lab creation → move the same recipe into the book
+        await api.patch(`/recipes/${r.id}`, { in_recipe_book: true });
+      } else {
+        // Preset → copy into the user's book
+        await api.post(`/recipes/${r.id}/copy`);
+      }
       success(`"${r.name}" saved to your Recipe Book`);
       playSound('pop');
+      load();
     } catch {
       showError('Could not save to Recipe Book');
     } finally {
@@ -135,7 +144,9 @@ const CategoryRecipeLab = ({
 
   const load = async () => {
     try {
-      const { data } = await api.get(category ? `/recipes?category=${category}` : '/recipes');
+      // include_staged so lab-built creations (in_recipe_book=false) still
+      // appear in the "Can Create" shelf — they only enter the book manually.
+      const { data } = await api.get(category ? `/recipes?category=${category}&include_staged=true` : '/recipes?include_staged=true');
       const list = data || [];
       setRecipes(list);
       setComparisons(await loadComparisons(list));
@@ -444,7 +455,7 @@ const CategoryRecipeLab = ({
                                   <span className="ml-1 text-[10px] text-amber-500">have ~{fmtQty(i.available, i.inventoryItem?.unit)}</span>
                                 )}
                               </span>
-                              <span className="font-mono text-xs text-gray-400">{fmtQty(i.quantity, i.unit)}</span>
+                              <span className="font-mono text-xs text-gray-400">{fmtQty(i.quantity, i.unit, i.quantity_display)}</span>
                               {canOmit && (
                                 <button
                                   onClick={() => toggleOmit(r.id, i.item_name)}

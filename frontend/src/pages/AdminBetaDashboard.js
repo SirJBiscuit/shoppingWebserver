@@ -4,6 +4,7 @@ import BetaAnalyticsCFS from '../components/admin/BetaAnalyticsCFS';
 import BetaCodeManagerCFS from '../components/admin/BetaCodeManagerCFS';
 import BetaTesterManagementCFS from '../components/admin/BetaTesterManagementCFS';
 import BetaFeedbackDashboardCFS from '../components/admin/BetaFeedbackDashboardCFS';
+import BetaChat from '../components/beta/BetaChat';
 
 /**
  * Admin Beta Dashboard
@@ -40,6 +41,13 @@ const AdminBetaDashboard = () => {
       icon: MessageSquare,
       component: BetaFeedbackDashboardCFS,
       description: 'View and respond to feedback'
+    },
+    {
+      id: 'chat',
+      name: 'Chat',
+      icon: MessageSquare,
+      component: BetaChat,
+      description: 'Instant messaging with beta testers'
     }
   ];
 
