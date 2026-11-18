@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChefHat, Clock, Users, Star, X, Plus, Trash2, ChevronLeft,
-  ChevronRight, ShoppingCart, RotateCw,
+  ChevronRight, ShoppingCart, RotateCw, Edit2,
 } from 'lucide-react';
 import { recipesAPI } from '../../services/api';
 import { Portal } from '../../utils/autoPlacement';
@@ -19,6 +19,7 @@ const RecipeRolodex = ({
   onDeleteRecipe,
   onToggleFavorite,
   onAddToList,
+  onEditRecipe,
 }) => {
   const [index, setIndex] = useState(0);
   const [leaving, setLeaving] = useState([]);   // absolute indices animating off the binding
@@ -121,12 +122,21 @@ const RecipeRolodex = ({
                       <div className="flex items-start justify-between mb-2">
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white line-clamp-2 flex-1">{recipe.name}</h3>
                         {isTop && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onToggleFavorite?.(recipe); }}
-                            className="ml-2 hover:scale-110 transition-transform"
-                          >
-                            <Star className={`w-5 h-5 ${recipe.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
-                          </button>
+                          <div className="flex items-center gap-1 ml-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onEditRecipe?.(recipe); }}
+                              className="p-1 text-gray-400 hover:text-primary-600 hover:scale-110 transition-transform"
+                              title="Edit recipe"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onToggleFavorite?.(recipe); }}
+                              className="hover:scale-110 transition-transform"
+                            >
+                              <Star className={`w-5 h-5 ${recipe.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
+                            </button>
+                          </div>
                         )}
                       </div>
                       <div className="flex items-center gap-2 mb-3">
@@ -292,6 +302,13 @@ const RecipeRolodex = ({
                       <ShoppingCart className="w-4 h-4" /> Add to List
                     </button>
                   )}
+                  <button
+                    onClick={() => { onEditRecipe?.(zoomed); setZoomed(null); }}
+                    className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    title="Edit recipe"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
                   <button
                     onClick={() => onToggleFavorite?.(zoomed)}
                     className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"

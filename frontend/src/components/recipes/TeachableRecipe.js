@@ -36,6 +36,50 @@ const fracToDecimal = (n, d) => {
   return den ? parseFloat(n) / den : null;
 };
 
+// Reverse lookup for live auto-format: "1/2" -> "½" as the user types.
+// Only common readable glyphs — anything else stays as typed ("1/5" etc.)
+// so the amount is never shown in a glyph too small to read.
+const DECIMAL_TO_UNI = Object.fromEntries(
+  Object.entries(UNICODE_FRACTIONS).map(([u, d]) => [d, u])
+);
+const FRAC_LIVE_RE = /(\d+)\s*\/\s*(\d+)(?=\s|$)/g;
+const autoFormatFractions = (text) =>
+  text.replace(FRAC_LIVE_RE, (m, n, d) => DECIMAL_TO_UNI[`${n}/${d}`] || m);
+
+// Canonical short forms — "tablespoons" -> "tbsp" so saved ingredients
+// stay tidy and consistent with the quick chips.
+const UNIT_NORMALIZE = {
+  teaspoon: 'tsp', teaspoons: 'tsp', tsps: 'tsp',
+  tablespoon: 'tbsp', tablespoons: 'tbsp', tbsps: 'tbsp',
+  cups: 'cup', ounce: 'oz', ounces: 'oz', floz: 'fl oz', 'fl oz': 'fl oz',
+  pound: 'lb', pounds: 'lb', lbs: 'lb',
+  gram: 'g', grams: 'g', kilogram: 'kg', kilograms: 'kg',
+  milligram: 'mg', milligrams: 'mg', mgs: 'mg',
+  milliliter: 'ml', milliliters: 'ml', mls: 'ml',
+  liter: 'l', liters: 'l', litre: 'l', litres: 'l', ls: 'l',
+  quart: 'qt', quarts: 'qt', qts: 'qt',
+  pint: 'pt', pints: 'pt', pts: 'pt',
+  gallon: 'gal', gallons: 'gal',
+  package: 'pkg', packages: 'pkg', pack: 'pkg', packs: 'pkg',
+  packet: 'pkt', packets: 'pkt',
+  cans: 'can', jars: 'jar', bottles: 'bottle',
+  cloves: 'clove', pinches: 'pinch', dashes: 'dash',
+  slices: 'slice', sticks: 'stick', bunches: 'bunch',
+  sprigs: 'sprig', pieces: 'piece', scoops: 'scoop',
+  sheets: 'sheet', cubes: 'cube', heads: 'head',
+  stalks: 'stalk', ears: 'ear', fillets: 'fillet',
+  containers: 'container', servings: 'serving',
+  handfuls: 'handful', dozen: 'doz', dozens: 'doz',
+};
+const normalizeUnit = (u) =>
+  UNIT_NORMALIZE[(u || '').toLowerCase().replace(/\./g, '').trim()] || u;
+
+// Temperatures — "350F" / "180c" / "350 deg f" -> "350°F" / "180°C".
+// Bare letters only, so words like "for" never match.
+const autoFormatTemperature = (v) =>
+  v.replace(/(\d+)\s*(?:\u00B0\s*|deg(?:rees?)?\s*)?([fc])\b/gi,
+    (m, n, s) => `${n}\u00B0${s.toUpperCase()}`);
+
 // Convert a raw quantity string into { value, display }.
 // display is the user's text verbatim — "1/2", "1 1/2", "0.5", "2-3", "½".
 const parseQuantityText = (raw) => {
@@ -91,7 +135,7 @@ const parseIngredientLine = (line) => {
       }
       const unitM = rest.match(/^(\S+)\s+(.*)$/);
       if (unitM && KNOWN_UNIT_RE.test(unitM[1])) {
-        return { item_name: unitM[2].trim(), quantity: qty.value, quantity_display: qty.display, unit: unitM[1] };
+        return { item_name: unitM[2].trim(), quantity: qty.value, quantity_display: qty.display, unit: normalizeUnit(unitM[1]) };
       }
       return { item_name: rest, quantity: qty.value, quantity_display: qty.display, unit: '' };
     }
@@ -215,9 +259,12 @@ const TeachableRecipe = ({ isOpen, onClose, onSave }) => {
   };
 
   // Autocomplete: suggest on the trailing ingredient-name portion only.
+  // Typed fractions ("1/2 ") snap to the unicode glyph ("½ ") as soon as
+  // they're complete — the saved display then matches the quick chips.
   const updateIngredientLine = (value) => {
-    setIngredientLine(value);
-    const { namePart } = splitForSuggestion(value);
+    const formatted = autoFormatFractions(value);
+    setIngredientLine(formatted);
+    const { namePart } = splitForSuggestion(formatted);
     setSuggestions(namePart.length >= 2 ? getAutocompleteSuggestions(namePart) : []);
   };
 
@@ -377,7 +424,7 @@ const TeachableRecipe = ({ isOpen, onClose, onSave }) => {
                     <ul className="mt-3 space-y-1.5">
                       {ingredients.map((ing, i) => (
                         <li key={i} className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-700/60 rounded-lg text-sm">
-                          <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{ing.quantity_display ?? ing.quantity ?? ''} {ing.unit}</span>
+                          <span className="font-mono text-sm font-semibold text-gray-600 dark:text-gray-300">{ing.quantity_display ?? ing.quantity ?? ''} {ing.unit}</span>
                           <span className="flex-1 text-gray-800 dark:text-gray-200">{ing.item_name}</span>
                           <button onClick={() => setIngredients((prev) => prev.filter((_, j) => j !== i))} className="text-gray-400 hover:text-red-500">
                             <Trash2 className="w-3.5 h-3.5" />
@@ -445,11 +492,11 @@ const TeachableRecipe = ({ isOpen, onClose, onSave }) => {
                       type="text"
                       placeholder="e.g. 350°F, 180°C, Gas mark 4"
                       value={temperature}
-                      onChange={(e) => setTemperature(e.target.value)}
+                      onChange={(e) => setTemperature(autoFormatTemperature(e.target.value))}
                       className="input-field"
                     />
                     <p className="text-xs text-gray-400 mt-1">
-                      Type naturally — "1 hour", "1h 30m", "45 min", "half hour" all convert to minutes.
+                      Type "350F" or "180c" — the ° symbol is added automatically.
                     </p>
                   </div>
 

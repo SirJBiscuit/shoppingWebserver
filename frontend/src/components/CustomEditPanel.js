@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, DollarSign, Package, Tag, FileText, Sparkles, TrendingUp, Clock } from 'lucide-react';
+import { X, Save, DollarSign, Package, Tag, FileText, Sparkles, TrendingUp, Clock, Plus, Trash2 } from 'lucide-react';
 import CustomNumberPad from './CustomNumberPad';
 import CustomDropdownList from './CustomDropdownList';
+import { useCustomUnits } from '../utils/customUnits';
 import IconPicker from './IconPicker';
 import ItemIcon from './ItemIcon';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
@@ -24,6 +25,12 @@ import { Portal } from '../utils/autoPlacement';
  * - Dark mode support
  */
 const CustomEditPanel = ({ item, isOpen, onClose, onSave, anchor }) => {
+  // Custom units follow the account on this device; adding/removing here
+  // updates every picker that uses them.
+  const userId = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}')?.id; } catch { return null; } })();
+  const [customUnits, addUnit, removeUnit] = useCustomUnits(userId);
+  const [showUnitInput, setShowUnitInput] = useState(false);
+  const [newUnitName, setNewUnitName] = useState('');
   const [formData, setFormData] = useState({
     item_name: '',
     quantity: 1,
@@ -58,7 +65,7 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave, anchor }) => {
     setErrors({});
   }, [item]);
 
-  const unitOptions = [
+  const baseUnitOptions = [
     { value: '', label: 'None' },
     { value: 'oz', label: 'oz (ounces)' },
     { value: 'lb', label: 'lb (pounds)' },
@@ -75,6 +82,23 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave, anchor }) => {
     { value: 'can', label: 'can' },
     { value: 'bag', label: 'bag' },
   ];
+
+  // Custom units sit in their own section; isCustom flags them so the row
+  // renders a removable ×.
+  const unitOptions = [
+    ...baseUnitOptions,
+    ...(customUnits.length ? [{ value: '__custom_hdr', label: '⭐ Custom Units', isHeader: true }] : []),
+    ...customUnits.map((u) => ({ value: u, label: u, isCustom: true })),
+  ];
+
+  const commitNewUnit = () => {
+    const u = newUnitName.trim();
+    if (!u) return;
+    addUnit(u);
+    setFormData((prev) => ({ ...prev, unit: u }));
+    setNewUnitName('');
+    setShowUnitInput(false);
+  };
 
   // Canonical categories — values match the categories table so items
   // join correctly for icons + shopping order
@@ -320,7 +344,49 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave, anchor }) => {
                     options={unitOptions}
                     placeholder="Select unit"
                     searchable={true}
+                    onAddNew={() => setShowUnitInput(true)}
+                    addNewLabel="Add Custom Unit"
+                    renderItem={(opt) => (
+                      <span className="flex items-center justify-between w-full">
+                        <span className="text-sm font-medium">{opt.label}</span>
+                        {opt.isCustom && (
+                          <span
+                            role="button"
+                            tabIndex={-1}
+                            title="Remove custom unit"
+                            onClick={(e) => { e.stopPropagation(); removeUnit(opt.value); }}
+                            className="p-0.5 text-gray-400 hover:text-red-500 rounded"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                      </span>
+                    )}
                   />
+                  {showUnitInput && (
+                    <div className="flex gap-2 mt-2">
+                      <input
+                        type="text"
+                        value={newUnitName}
+                        autoFocus
+                        onChange={(e) => setNewUnitName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { e.preventDefault(); commitNewUnit(); }
+                          if (e.key === 'Escape') setShowUnitInput(false);
+                        }}
+                        placeholder='e.g. "tray", "tube", "case"'
+                        className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={commitNewUnit}
+                        disabled={!newUnitName.trim()}
+                        className="px-3 py-1.5 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add
+                      </button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
 

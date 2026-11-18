@@ -82,9 +82,9 @@ const RecipeViewModal = ({ recipe, onClose, onEdit, onToggleFavorite, onAddToLis
 
   const isEmoji = current?.image_url?.startsWith('emoji:');
   const emoji = isEmoji ? current.image_url.slice(6) : null;
-  const ratingVal = ratings?.mine?.rating ?? current.rating;
-  const avg = ratings?.avg ?? detail?.avg_rating ?? current.avg_rating;
-  const ratingCount = ratings?.count ?? current.rating_count;
+  const ratingVal = ratings?.mine?.rating ?? current?.rating;
+  const avg = ratings?.avg ?? detail?.avg_rating ?? current?.avg_rating;
+  const ratingCount = ratings?.count ?? current?.rating_count;
   const steps = detail?.instructions
     ? detail.instructions.split(/\n+/).map((s) => s.trim()).filter(Boolean)
     : [];

@@ -280,6 +280,7 @@ const Recipes = () => {
                   recipes={filteredRecipes}
                   onAddRecipe={() => setShowCreateModal(true)}
                   onDeleteRecipe={handleDeleteRecipe}
+                  onEditRecipe={editRecipe}
                   onToggleFavorite={handleToggleFavorite}
                   onAddToList={handleAddToShoppingList}
                 />
