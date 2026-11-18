@@ -33,6 +33,13 @@ const Recipes = () => {
   const setDeckView = (v) => { setDeckViewState(v); localStorage.setItem('recipesDeckView', v); };
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [notice, setNotice] = useState(null); // {ok, text} — replaces alert() so failures are visible but non-blocking
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 5000);
+    return () => clearTimeout(t);
+  }, [notice]);
 
   // Last-viewed recipe persists: leaving the page mid-view picks back
   // up in the same modal. Cleared when the modal is closed.
@@ -98,10 +105,10 @@ const Recipes = () => {
   const handleAddToShoppingList = async (recipeId) => {
     try {
       await recipesAPI.recipeToShoppingList(recipeId, {});
-      alert('Recipe added to shopping list!');
+      setNotice({ ok: true, text: 'Recipe added to shopping list!' });
     } catch (error) {
       console.error('Failed to add to shopping list:', error);
-      alert('Failed to add recipe to shopping list');
+      setNotice({ ok: false, text: 'Could not add recipe — server unreachable, try again' });
     }
   };
 
@@ -155,6 +162,7 @@ const Recipes = () => {
       checkCanMake();
     } catch (error) {
       console.error('Failed to delete recipe:', error);
+      setNotice({ ok: false, text: 'Delete failed — server unreachable, try again' });
     }
   };
 
@@ -166,7 +174,7 @@ const Recipes = () => {
       setShowCreateModal(false);
     } catch (error) {
       console.error('Failed to create recipe:', error);
-      alert('Failed to create recipe');
+      setNotice({ ok: false, text: 'Could not create recipe — try again' });
     }
   };
 
@@ -178,7 +186,7 @@ const Recipes = () => {
       closeRecipe();
     } catch (error) {
       console.error('Failed to update recipe:', error);
-      alert('Failed to update recipe');
+      setNotice({ ok: false, text: 'Could not update recipe — try again' });
     }
   };
 
@@ -197,6 +205,17 @@ const Recipes = () => {
         
         <div className="lg:ml-72">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {notice && (
+              <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-between ${
+                notice.ok
+                  ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                  : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+              }`}>
+                <span>{notice.text}</span>
+                <button onClick={() => setNotice(null)} className="ml-4 opacity-60 hover:opacity-100">✕</button>
+              </div>
+            )}
+
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center">

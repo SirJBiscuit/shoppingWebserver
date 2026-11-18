@@ -167,6 +167,7 @@ const Dashboard = () => {
   const [addCatAnchor, setAddCatAnchor] = useState(undefined); // anchor for animated category popup
   const [newItemIcon, setNewItemIcon] = useState('');
   const [suggestions, setSuggestions] = useState([]);
+  const [removedItems, setRemovedItems] = useState([]); // quick re-add feed for Smart Suggestions
 
   // Debug: Log when icon changes
   useEffect(() => {
@@ -561,6 +562,13 @@ const Dashboard = () => {
       setSuggestions(response.data);
     } catch (error) {
       console.error('Error loading suggestions:', error);
+    }
+    // Independent — a missing table/endpoint must not block suggestions
+    try {
+      const removed = await suggestionsAPI.getRecentlyRemoved();
+      setRemovedItems(removed.data);
+    } catch (error) {
+      console.warn('Error loading recently-removed:', error);
     }
   };
 
@@ -1271,7 +1279,7 @@ const Dashboard = () => {
         itemName: suggestion.item,
         quantity: suggestion.quantity || 1,
         unit: suggestion.unit || '',
-        price: 0,
+        price: suggestion.price || 0,
         category: '',
       });
 
@@ -2651,6 +2659,7 @@ const Dashboard = () => {
                   <div className="mt-3">
                     <SmartSuggestions
                       suggestions={suggestions}
+                      removedItems={removedItems}
                       onAddSuggestion={addSuggestion}
                     />
                   </div>

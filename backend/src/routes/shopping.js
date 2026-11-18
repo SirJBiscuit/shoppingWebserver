@@ -394,12 +394,26 @@ router.delete('/lists/:listId/items/:itemId', async (req, res) => {
        AND sli.shopping_list_id = $2
        AND sl.id = sli.shopping_list_id
        AND sl.user_id = $3
-       RETURNING sli.id`,
+       RETURNING sli.*`,
       [itemId, listId, req.user.id]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Item not found' });
+    }
+
+    // Feed the "Previously removed" quick re-add section — best effort:
+    // a missing table (pre-migration) must never break item deletion.
+    try {
+      const it = result.rows[0];
+      await db.query(
+        `INSERT INTO list_item_removal_log
+           (user_id, shopping_list_id, item_name, quantity, unit, price, category)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [req.user.id, listId, it.item_name, it.quantity, it.unit, it.price, it.category]
+      );
+    } catch (logErr) {
+      console.warn('removal log skipped:', logErr.message);
     }
 
     res.json({ message: 'Item deleted successfully' });

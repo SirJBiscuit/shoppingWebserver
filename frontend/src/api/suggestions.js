@@ -32,6 +32,20 @@ export const searchItems = async (query) => {
   return { data };
 };
 
+// Previously-removed list items — quick re-add source for Smart Suggestions.
+export const getRecentlyRemoved = async () => {
+  try {
+    const response = await fetch(`${API_URL}/api/suggestions/recently-removed`, {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) return { data: [] };
+    const data = await response.json();
+    return { data: Array.isArray(data) ? data : [] };
+  } catch {
+    return { data: [] }; // non-critical — never block suggestions
+  }
+};
+
 export const deleteItem = async (itemId) => {
   const response = await fetch(`${API_URL}/api/suggestions/${itemId}`, {
     method: 'DELETE',

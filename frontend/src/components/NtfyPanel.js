@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Bell, Send, Check, X as XIcon, ExternalLink, RefreshCw } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Bell, Send, Check, X as XIcon, RefreshCw, ChevronLeft, SlidersHorizontal } from 'lucide-react';
 import api from '../services/api';
 import CustomPanel from './CustomPanel';
+import NtfySettings from './NtfySettings';
 import { setPanelShift, useFloatSide, useIsMobile } from '../utils/autoPlacement';
 
 const TYPE_LABELS = {
@@ -32,7 +32,8 @@ const fmtTime = (ts) => {
  * NtfyPanel — slide-out GUI opened from the floating Apps menu.
  * Status + per-type toggles (writes straight to /ntfy/settings), a test
  * ping, and a feed of the user's recent pushes from ntfy_notifications.
- * Full topic configuration stays in Settings → Notifications.
+ * Topic/admin configuration opens as a second view inside this same
+ * panel (NtfySettings) instead of kicking the user out to /settings.
  */
 const NtfyPanel = ({ isOpen, onClose }) => {
   const [settings, setSettings] = useState(null); // {topic, enabled, types, availableTypes}
@@ -40,9 +41,9 @@ const NtfyPanel = ({ isOpen, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState(false);
   const [notice, setNotice] = useState(null); // {ok, text}
+  const [showSettings, setShowSettings] = useState(false);
   const position = useFloatSide('right');
   const isMobile = useIsMobile();
-  const navigate = useNavigate();
 
   // Slide the corner button stack out from under this panel, same way the
   // Active List panel does via its 'list' shift source.
@@ -70,9 +71,17 @@ const NtfyPanel = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (isOpen) {
       setNotice(null);
+      setShowSettings(false);
       load();
     }
   }, [isOpen, load]);
+
+  // Returning from the config view — reload so the status card picks up
+  // any topic/enabled changes the user just saved there.
+  const backFromSettings = () => {
+    setShowSettings(false);
+    load();
+  };
 
   const save = async (patch) => {
     if (!settings) return;
@@ -129,6 +138,16 @@ const NtfyPanel = ({ isOpen, onClose }) => {
         <div className="flex justify-center py-10">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary-600 border-t-transparent" />
         </div>
+      ) : showSettings ? (
+        <div className="p-4">
+          <button
+            onClick={backFromSettings}
+            className="mb-3 flex items-center gap-1 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" /> Back
+          </button>
+          <NtfySettings />
+        </div>
       ) : (
         <div className="divide-y divide-gray-100 dark:divide-gray-700">
           {/* Connection status */}
@@ -156,14 +175,13 @@ const NtfyPanel = ({ isOpen, onClose }) => {
               </label>
             </div>
 
-            {!connected && (
-              <button
-                onClick={() => { onClose(); navigate('/settings'); }}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40"
-              >
-                <ExternalLink className="w-3.5 h-3.5" /> Configure topic in Settings
-              </button>
-            )}
+            <button
+              onClick={() => setShowSettings(true)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              {connected ? 'Configure topic & alerts' : 'Set up your ntfy topic'}
+            </button>
 
             {notice && (
               <div className={`text-xs px-3 py-2 rounded-lg ${notice.ok ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300'}`}>

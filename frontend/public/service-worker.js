@@ -122,7 +122,11 @@ globalThis.addEventListener('fetch', (event) => {
             }
             put(event.request, response);
             return response;
-          });
+          }).catch(() =>
+            // Nothing cached and network is down — resolve instead of
+            // leaving the FetchEvent promise rejected (console noise).
+            new Response('', { status: 504, statusText: 'Offline' })
+          );
         })
     );
   }

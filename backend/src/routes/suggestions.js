@@ -97,6 +97,50 @@ router.get('/smart-suggestions', async (req, res) => {
       return priorityOrder[a.priority] - priorityOrder[b.priority];
     });
 
+    // Enrich with MDL learning + price data — best effort: missing MDL
+    // tables/functions degrade to absent fields, never a 500.
+    try {
+      const keys = [...new Set(suggestions.map(s => s.item.toLowerCase()))];
+      if (keys.length > 0) {
+        const enrich = await db.query(
+          `SELECT LOWER(i.name) AS key,
+                  i.average_price AS catalog_price,
+                  n.normalized_name AS canonical_name,
+                  p.total_times_added, p.prediction_confidence,
+                  p.next_predicted_date, p.average_days_between,
+                  p.last_price, p.average_price AS mdl_price
+           FROM items i
+           LEFT JOIN mdl_item_names n ON n.normalized_name = normalize_item_name(i.name)
+           LEFT JOIN mdl_user_patterns p ON p.item_name_id = n.id AND p.user_id = $1
+           WHERE i.user_id = $1 AND LOWER(i.name) = ANY($2::text[])`,
+          [req.user.id, keys]
+        );
+
+        const byName = Object.fromEntries(enrich.rows.map(r => [r.key, r]));
+        for (const s of suggestions) {
+          const e = byName[s.item.toLowerCase()];
+          if (!e) continue;
+          const price = e.last_price ?? e.mdl_price ?? e.catalog_price;
+          if (price != null) {
+            s.price = parseFloat(price);
+            s.priceSource = e.last_price != null ? 'last_paid'
+              : e.mdl_price != null ? 'learned_avg' : 'catalog';
+          }
+          s.exactName = e.canonical_name || s.item;
+          if (e.total_times_added != null) {
+            s.mdl = {
+              timesAdded: e.total_times_added,
+              confidence: e.prediction_confidence,
+              nextDue: e.next_predicted_date,
+              avgDaysBetween: e.average_days_between,
+            };
+          }
+        }
+      }
+    } catch (enrichErr) {
+      console.warn('Suggestion enrichment skipped:', enrichErr.message);
+    }
+
     res.json(suggestions);
   } catch (error) {
     console.error('Error getting suggestions:', error);
@@ -216,6 +260,45 @@ router.get('/advise', async (req, res) => {
   } catch (error) {
     console.error('Advise error:', error);
     res.json({ verdict: 'none', reasons: [] });
+  }
+});
+
+// Recently-removed list items — powers the quick re-add section in Smart Suggestions.
+// Rows come from list_item_removal_log (migration 100), written by DELETE /shopping items.
+router.get('/recently-removed', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT DISTINCT ON (LOWER(l.item_name))
+         l.item_name, l.quantity, l.unit, l.price, l.category, l.removed_at
+       FROM list_item_removal_log l
+       WHERE l.user_id = $1
+       ORDER BY LOWER(l.item_name), l.removed_at DESC
+       LIMIT 30`,
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) return res.json([]);
+
+    // Names still sitting on a list need no re-add shortcut.
+    const onList = await db.query(
+      `SELECT DISTINCT LOWER(sli.item_name) AS name
+       FROM shopping_list_items sli
+       JOIN shopping_lists sl ON sl.id = sli.shopping_list_id
+       WHERE sl.user_id = $1`,
+      [req.user.id]
+    );
+    const onSet = new Set(onList.rows.map(r => r.name));
+
+    res.json(
+      result.rows
+        .filter(r => !onSet.has(r.item_name.toLowerCase()))
+        .sort((a, b) => new Date(b.removed_at) - new Date(a.removed_at))
+        .slice(0, 15)
+    );
+  } catch (error) {
+    // Table may not exist pre-migration — degrade to empty, not 500.
+    console.warn('recently-removed unavailable:', error.message);
+    res.json([]);
   }
 });
 

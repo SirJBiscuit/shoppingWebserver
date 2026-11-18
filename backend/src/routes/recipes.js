@@ -382,21 +382,62 @@ router.patch('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete recipe
+// Delete recipe — resilient to partially-migrated DBs where child-table FKs
+// may lack ON DELETE CASCADE. Discovers every constraint pointing at
+// recipes.id and clears dependents inside one transaction:
+//   CASCADE           → nothing to do, Postgres handles it
+//   SET NULL          → null the column explicitly (in case rule is stale)
+//   NO ACTION/RESTRICT→ delete the child rows (ratings, history, etc.)
+// shopping_list_items is always unlinked, never deleted — losing the item
+// off a live list just because a recipe was removed would be destructive.
 router.delete('/:id', authenticateToken, async (req, res) => {
+  const client = await db.pool.connect();
   try {
-    const result = await db.query(`
-      DELETE FROM recipes WHERE id = $1 AND user_id = $2 RETURNING id
-    `, [req.params.id, req.user.id]);
-    
+    await client.query('BEGIN');
+
+    const fkRows = await client.query(`
+      SELECT DISTINCT tc.table_name, kcu.column_name, rc.delete_rule
+      FROM information_schema.referential_constraints rc
+      JOIN information_schema.table_constraints tc
+        ON tc.constraint_name = rc.constraint_name
+      JOIN information_schema.key_column_usage kcu
+        ON kcu.constraint_name = rc.constraint_name
+      JOIN information_schema.constraint_column_usage ccu
+        ON ccu.constraint_name = rc.unique_constraint_name
+      WHERE tc.constraint_type = 'FOREIGN KEY'
+        AND tc.table_schema = 'public'
+        AND ccu.table_name = 'recipes'
+        AND ccu.column_name = 'id'
+    `);
+
+    for (const { table_name, column_name, delete_rule } of fkRows.rows) {
+      const rel = `"${table_name.replace(/"/g, '""')}"`;
+      const col = `"${column_name.replace(/"/g, '""')}"`;
+      if (table_name === 'shopping_list_items' || delete_rule === 'SET NULL') {
+        await client.query(`UPDATE ${rel} SET ${col} = NULL WHERE ${col} = $1`, [req.params.id]);
+      } else if (delete_rule !== 'CASCADE') {
+        await client.query(`DELETE FROM ${rel} WHERE ${col} = $1`, [req.params.id]);
+      }
+    }
+
+    const result = await client.query(
+      `DELETE FROM recipes WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [req.params.id, req.user.id]
+    );
+
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Recipe not found' });
     }
-    
+
+    await client.query('COMMIT');
     res.json({ message: 'Recipe deleted successfully' });
   } catch (error) {
+    try { await client.query('ROLLBACK'); } catch { /* already rolled back */ }
     console.error('Delete recipe error:', error);
     res.status(500).json({ error: 'Failed to delete recipe' });
+  } finally {
+    client.release();
   }
 });
 
@@ -445,7 +486,11 @@ router.get('/can-make/check', authenticateToken, async (req, res) => {
     const canMakeWithMissing = [];
     
     for (const recipe of recipesResult.rows) {
-      const required = recipe.ingredients.filter(i => !i.is_optional);
+      // LEFT JOIN emits a single all-null json object for ingredient-less
+      // recipes — drop those before comparing names (was 500ing on
+      // item_name.toLowerCase()).
+      const ingredients = (recipe.ingredients || []).filter(i => i.item_name);
+      const required = ingredients.filter(i => !i.is_optional);
       const missing = required.filter(i => !pantryItems.has(i.item_name.toLowerCase()));
       
       if (missing.length === 0) {

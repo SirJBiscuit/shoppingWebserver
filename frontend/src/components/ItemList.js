@@ -795,17 +795,27 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                           x{formatQuantityPlain(item.count)}
                         </span>
                       )}
-                      {/* Pantry Status Badge */}
+                      {/* Pantry Status Badge + on-hand count from Home Inventory */}
                       {inventoryCheck && !item.is_checked && (
-                        <span className={`px-2 py-0.5 text-xs font-semibold rounded-full flex items-center gap-1 ${
-                          inventoryCheck.isExpired
-                            ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-                            : inventoryCheck.isExpiringSoon
-                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'
-                            : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                        }`}>
-                          {inventoryCheck.isExpired ? '🔴 Expired' : inventoryCheck.isExpiringSoon ? '🟠 Expiring Soon' : '🟢 In Stock'}
-                        </span>
+                        <>
+                          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full flex items-center gap-1 ${
+                            inventoryCheck.isExpired
+                              ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                              : inventoryCheck.isExpiringSoon
+                              ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'
+                              : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                          }`}>
+                            {inventoryCheck.isExpired ? '🔴 Expired' : inventoryCheck.isExpiringSoon ? '🟠 Expiring Soon' : '🟢 In Stock'}
+                          </span>
+                          {inventoryCheck.quantity != null && (
+                            <span
+                              className="px-1.5 py-0.5 text-xs font-bold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                              title={`You have ${formatQuantityPlain(inventoryCheck.quantity)}${inventoryCheck.unit ? ` ${inventoryCheck.unit}` : ''} in ${inventoryCheck.location || 'home inventory'}`}
+                            >
+                              ×{formatQuantityPlain(inventoryCheck.quantity)}{inventoryCheck.unit ? ` ${inventoryCheck.unit}` : ''}
+                            </span>
+                          )}
+                        </>
                       )}
                     </p>
                     <div className="flex items-center gap-2 flex-wrap">
