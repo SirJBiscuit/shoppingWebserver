@@ -18,6 +18,20 @@ const TOPIC_RE = /^[a-zA-Z0-9_-]{1,200}$/;
 
 const sanitizeTopic = (t) => (typeof t === 'string' && TOPIC_RE.test(t.trim()) ? t.trim() : null);
 
+/** Best-effort send log — powers the floating ntfy panel's recent feed.
+ *  Never throws; silently skips when the table doesn't exist yet. */
+async function logSend(userId, type, title, message, delivered, scope = 'user') {
+  try {
+    await db.query(
+      `INSERT INTO ntfy_notifications (user_id, scope, type, title, message, delivered)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [userId, scope, type, String(title || ''), String(message || ''), delivered === true]
+    );
+  } catch (err) {
+    console.warn('ntfy logSend skipped:', err.message);
+  }
+}
+
 /** Low-level publish. Returns true/false. Never throws. */
 async function publish(topic, title, message, { tags = 'listzy', priority = 3 } = {}) {
   const safe = sanitizeTopic(topic);
@@ -67,7 +81,9 @@ async function notifyUser(userId, type, title, message, opts = {}) {
     const s = await getUserSettings(userId);
     if (!s || !s.enabled || !s.topic) return false;
     if (s.types?.[type] === false) return false;
-    return await publish(s.topic, title, message, opts);
+    const ok = await publish(s.topic, title, message, opts);
+    await logSend(userId, type, title, message, ok);
+    return ok;
   } catch (err) {
     console.warn('ntfy notifyUser failed:', err.message);
     return false;
@@ -81,7 +97,7 @@ async function notifyUser(userId, type, title, message, opts = {}) {
 async function notifyUsers(type, title, message, { betaOnly = false, tags = 'listzy', priority = 3 } = {}) {
   try {
     const { rows } = await db.query(
-      `SELECT s.topic FROM ntfy_user_settings s
+      `SELECT s.user_id, s.topic FROM ntfy_user_settings s
        JOIN users u ON u.id = s.user_id
        WHERE s.enabled = TRUE AND s.topic <> ''
          AND (s.types->>$1)::boolean IS DISTINCT FROM FALSE
@@ -91,7 +107,9 @@ async function notifyUsers(type, title, message, { betaOnly = false, tags = 'lis
     const results = await Promise.allSettled(
       rows.map((r) => publish(r.topic, title, message, { tags, priority }))
     );
-    return results.filter((r) => r.status === 'fulfilled' && r.value).length;
+    const sent = results.map((r) => r.status === 'fulfilled' && r.value);
+    await Promise.all(rows.map((r, i) => logSend(r.user_id, type, title, message, sent[i])));
+    return sent.filter(Boolean).length;
   } catch (err) {
     console.warn('ntfy notifyUsers failed:', err.message);
     return 0;
@@ -104,7 +122,9 @@ async function notifyAdmin(type, title, message, opts = {}) {
     const s = await getAdminSettings();
     if (!s || !s.enabled || !s.topic) return false;
     if (s.types?.[type] === false) return false;
-    return await publish(s.topic, title, message, opts);
+    const ok = await publish(s.topic, title, message, opts);
+    await logSend(null, type, title, message, ok, 'admin');
+    return ok;
   } catch (err) {
     console.warn('ntfy notifyAdmin failed:', err.message);
     return false;
@@ -144,6 +164,7 @@ async function maybeNotifyExpiring(userId) {
       `Use these up:\n${list}`,
       { tags: 'warning,food', priority: 4 }
     );
+    await logSend(userId, 'expiry', `Expiring soon: ${rows.length} item${rows.length === 1 ? '' : 's'}`, `Use these up:\n${list}`, sent);
     if (sent) {
       await db.query(
         'UPDATE ntfy_user_settings SET last_expiry_alert_at = NOW() WHERE user_id = $1',
@@ -157,6 +178,7 @@ async function maybeNotifyExpiring(userId) {
 
 module.exports = {
   publish,
+  logSend,
   sanitizeTopic,
   getUserSettings,
   getAdminSettings,

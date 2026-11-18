@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Grid, List, MoveHorizontal, BookOpen } from 'lucide-react';
+import { Grid, List, MoveHorizontal, BookOpen, BellRing } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Portal, useIsMobile, useCornerOffset, usePanelShift, setPanelShift, useFloatSide, setFloatSide } from '../utils/autoPlacement';
 
@@ -29,6 +29,7 @@ const FloatingButtons = ({
   showAppsMenu,
   setShowAppsMenu,
   setShowCalculator,
+  setShowNtfy,
   showListPanel,
   setShowListPanel,
   items = [],
@@ -85,6 +86,18 @@ const FloatingButtons = ({
                   <span className="text-xl">🧮</span>
                   <span className="font-medium text-gray-900 dark:text-white">Calculator</span>
                 </button>
+                {setShowNtfy && (
+                  <button
+                    onClick={() => {
+                      setShowNtfy(true);
+                      setShowAppsMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600 transition-colors text-left touch-manipulation border-t border-gray-100 dark:border-gray-700"
+                  >
+                    <BellRing className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                    <span className="font-medium text-gray-900 dark:text-white">Notifications</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setFloatSide(position === 'left' ? 'right' : 'left');

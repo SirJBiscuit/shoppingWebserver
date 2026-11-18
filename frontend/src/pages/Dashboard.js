@@ -27,6 +27,7 @@ import PageTransition from '../components/PageTransition';
 import AnimatedCart from '../components/AnimatedCart';
 import BudgetTracker from '../components/BudgetTracker';
 import FloatingButtons from '../components/FloatingButtons';
+import NtfyPanel from '../components/NtfyPanel';
 import ShareList from '../components/ShareList';
 import LevelingSystem, { XP_REWARDS } from '../components/LevelingSystem';
 import LevelUpModal from '../components/LevelUpModal';
@@ -214,6 +215,7 @@ const Dashboard = () => {
   const [noteText, setNoteText] = useState('');
   const [showChangelog, setShowChangelog] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [showNtfy, setShowNtfy] = useState(false);
   const [showAppsMenu, setShowAppsMenu] = useState(false);
 
   // Load item preferences for autocomplete
@@ -3147,6 +3149,9 @@ const Dashboard = () => {
         />
       )}
 
+      {/* Push notification panel — opened from the floating Apps menu */}
+      <NtfyPanel isOpen={showNtfy} onClose={() => setShowNtfy(false)} />
+
       {/* Floating Buttons Widget */}
       <EditableContainer
         isEditorActive={isEditorActive}
@@ -3165,6 +3170,7 @@ const Dashboard = () => {
           showAppsMenu={showAppsMenu}
           setShowAppsMenu={setShowAppsMenu}
           setShowCalculator={setShowCalculator}
+          setShowNtfy={setShowNtfy}
           showListPanel={showListPanel}
           setShowListPanel={setShowListPanel}
           items={items}

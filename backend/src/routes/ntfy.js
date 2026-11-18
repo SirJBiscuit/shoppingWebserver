@@ -64,12 +64,33 @@ router.put('/settings', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/ntfy/recent — this user's last 25 pushes (feed for the floating panel)
+router.get('/recent', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT id, type, title, message, delivered, sent_at
+       FROM ntfy_notifications
+       WHERE user_id = $1
+       ORDER BY sent_at DESC
+       LIMIT 25`,
+      [req.user.id]
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('Error loading ntfy history:', error);
+    // The log table may predate migration 099 on this DB — an empty feed
+    // must not break the panel.
+    res.json([]);
+  }
+});
+
 // POST /api/ntfy/test — send a test ping to the user's own topic
 router.post('/test', authenticateToken, async (req, res) => {
   try {
     const s = await ntfy.getUserSettings(req.user.id);
     if (!s || !s.topic) return res.status(400).json({ error: 'Save a topic first' });
     const ok = await ntfy.publish(s.topic, 'Listzy test 🎉', 'Push notifications are working!', { tags: 'tada', priority: 4 });
+    await ntfy.logSend(req.user.id, 'test', 'Listzy test 🎉', 'Push notifications are working!', ok);
     if (!ok) return res.status(502).json({ error: 'Could not reach ntfy — check the topic name' });
     res.json({ success: true });
   } catch (error) {
