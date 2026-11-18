@@ -253,13 +253,13 @@ CREATE TABLE IF NOT EXISTS mdl_location_aisles (
   report_count INTEGER DEFAULT 0,
   
   last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
---columns e ndexebelow referene — guard all f them.
-ALTER TABLE mdl_ocation_aisles ADD COLUMN IF NOT EXISTS item_name_id INTEGER REFERENCES mdl_item_names(id);
-ALTER TABLE mdl_location_aisles ADD COLUMN IF NOT EXISTS store_chain VARCHAR(100);
-ALTER TABLE dl_locatio_aisles ADD COLUMN IF NOT EXISTS state VARCHAR(2);
 );
 
--- If the table already exists from a partial legacy run, it may lack this column
+-- If the table already exists from a partial legacy run, it may lack
+-- columns the indexes below reference — guard all of them.
+ALTER TABLE mdl_location_aisles ADD COLUMN IF NOT EXISTS item_name_id INTEGER REFERENCES mdl_item_names(id);
+ALTER TABLE mdl_location_aisles ADD COLUMN IF NOT EXISTS store_chain VARCHAR(100);
+ALTER TABLE mdl_location_aisles ADD COLUMN IF NOT EXISTS state VARCHAR(2);
 ALTER TABLE mdl_location_aisles ADD COLUMN IF NOT EXISTS specific_store_id INTEGER REFERENCES store_locations(id);
 
 -- Expression unique (not valid inline in CREATE TABLE — must be an index)
