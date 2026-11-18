@@ -2,10 +2,12 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Plus, X, FlaskConical, ArrowLeft, Search, ChevronDown, Pencil, Loader2 } from 'lucide-react';
 import LabPantryPicker from '../components/lab/LabPantryPicker';
+import QuickIconPicker from '../components/QuickIconPicker';
 import api from '../services/api';
 import { createList, updateList } from '../api/shopping';
 import { trackItem } from '../api/mdl';
 import { detectIcon } from '../utils/categoryDetector';
+import { Portal } from '../utils/autoPlacement';
 
 /**
  * LabList — dedicated clean view for lab-type shopping lists.
@@ -36,7 +38,7 @@ const THEMES = {
 const fmtPrice = (n) => `$${parseFloat(n).toFixed(2)}`;
 
 const LabList = ({ list, items = [], onCheck, onDelete, onBack, onRefresh, labLists = [], onSelectList }) => {
-  const [themeId, setThemeId] = useState(() => localStorage.getItem('labListTheme') || 'violet');
+  const [themeId] = useState(() => localStorage.getItem('labListTheme') || 'violet');
   const t = THEMES[themeId] || THEMES.violet;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState('');            // unified add + filter
@@ -48,6 +50,8 @@ const LabList = ({ list, items = [], onCheck, onDelete, onBack, onRefresh, labLi
   const [suggestions, setSuggestions] = useState([]);
   const [prices, setPrices] = useState({});          // itemName -> { avg, trained }
   const [trainFor, setTrainFor] = useState(null);    // item open in train popover
+  const [trainAnchor, setTrainAnchor] = useState(null); // {cx, top, bottom} of the clicked control
+  const [iconAnchor, setIconAnchor] = useState(null);   // QuickIconPicker anchor inside popover
   const [trainIcon, setTrainIcon] = useState('');
   const [trainCategory, setTrainCategory] = useState('');
   const [trainLocation, setTrainLocation] = useState('');
@@ -107,11 +111,6 @@ const LabList = ({ list, items = [], onCheck, onDelete, onBack, onRefresh, labLi
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open.map((i) => i.item_name).join(',')]);
-
-  const pickTheme = (id) => {
-    setThemeId(id);
-    localStorage.setItem('labListTheme', id);
-  };
 
   const check = (item) => {
     // Pop animation flag so the circle fills with a spring before the row sinks
@@ -188,7 +187,10 @@ const LabList = ({ list, items = [], onCheck, onDelete, onBack, onRefresh, labLi
     }
   };
 
-  const openTrain = (item) => {
+  const openTrain = (item, e) => {
+    const r = e?.currentTarget?.getBoundingClientRect?.();
+    setTrainAnchor(r ? { cx: r.left + r.width / 2, top: r.top, bottom: r.bottom } : null);
+    setIconAnchor(null);
     setTrainFor(item);
     setTrainNote('');
     setTrainIcon(item.item_icon || '');
@@ -334,19 +336,6 @@ const LabList = ({ list, items = [], onCheck, onDelete, onBack, onRefresh, labLi
                 )}
               </AnimatePresence>
             </div>
-            {/* Theme picker */}
-            <div className="hidden sm:flex items-center gap-1.5">
-              {Object.entries(THEMES).map(([id, th]) => (
-                <button
-                  key={id}
-                  onClick={() => pickTheme(id)}
-                  title={`${id} theme`}
-                  className={`w-5 h-5 rounded-full bg-gradient-to-br ${th.grad} transition-transform ${
-                    themeId === id ? 'scale-125 ring-2 ring-offset-2 ring-gray-300 dark:ring-gray-600 dark:ring-offset-gray-800' : 'opacity-60 hover:opacity-100'
-                  }`}
-                />
-              ))}
-            </div>
           </div>
 
           {/* Progress */}
@@ -445,7 +434,7 @@ const LabList = ({ list, items = [], onCheck, onDelete, onBack, onRefresh, labLi
                 transition={{ type: 'spring', stiffness: 300, damping: 24 }}
                 className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md"
               >
-                <button onClick={() => openTrain(item)} title="Train this item (icon / price)">
+                <button onClick={(e) => openTrain(item, e)} title="Train this item (icon / price)">
                   <span className="text-xl leading-none">{item.item_icon || detectIcon(item.item_name) || '🧪'}</span>
                 </button>
                 <div className="flex-1 min-w-0">
@@ -457,7 +446,7 @@ const LabList = ({ list, items = [], onCheck, onDelete, onBack, onRefresh, labLi
                 {/* MDL price — or needs-training chip */}
                 {price && (
                   <button
-                    onClick={() => openTrain(item)}
+                    onClick={(e) => openTrain(item, e)}
                     title={price.trained ? 'MDL price — tap to edit' : 'No MDL data — tap to train'}
                     className={`px-2 py-1 rounded-full text-[10px] font-bold flex-shrink-0 ${
                       price.trained
@@ -559,22 +548,29 @@ const LabList = ({ list, items = [], onCheck, onDelete, onBack, onRefresh, labLi
         )}
       </div>
 
-      {/* Train popover — icon + price go to the shared items dictionary */}
+      {/* Train popover — icon + price go to the shared items dictionary.
+          Anchored to the clicked control, transparent backdrop (no dimming). */}
       <AnimatePresence>
-        {trainFor && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[110] bg-black/10 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={() => setTrainFor(null)}
-          >
+        {trainFor && (() => {
+          const M = 8, W = 320, H = 340; // max-w-xs panel
+          const pos = (() => {
+            if (!trainAnchor || typeof window === 'undefined' || window.innerWidth < 640) return null;
+            const left = Math.min(Math.max(trainAnchor.cx - W / 2, M), window.innerWidth - W - M);
+            if (trainAnchor.bottom + 8 + H <= window.innerHeight - M) return { left, top: trainAnchor.bottom + 8 };
+            if (trainAnchor.top - 8 - H >= M) return { left, bottom: window.innerHeight - trainAnchor.top + 8 };
+            return { left, top: M };
+          })();
+          return (
+          <Portal>
+            {/* transparent click-away — no dim */}
+            <div className="fixed inset-0 z-[110]" onClick={() => setTrainFor(null)} />
             <motion.div
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-xs bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4"
+              initial={{ opacity: 0, scale: 0.92, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 320 }}
+              className="fixed z-[111] w-full max-w-xs bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4"
+              style={pos ? { left: pos.left, top: pos.top, bottom: pos.bottom } : { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}
             >
               <p className="font-bold text-gray-900 dark:text-white truncate mb-1">{trainFor.item_name}</p>
               <p className="text-[10px] text-gray-400 mb-3">Trains the item for every list &amp; lab — icon, category, price.</p>
@@ -584,6 +580,17 @@ const LabList = ({ list, items = [], onCheck, onDelete, onBack, onRefresh, labLi
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2">
                   <label className="text-[11px] text-gray-500 dark:text-gray-400 w-12">Icon</label>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setIconAnchor({ cx: r.left + r.width / 2, top: r.top, bottom: r.bottom });
+                    }}
+                    title="Pick an icon"
+                    className="w-11 h-11 flex items-center justify-center text-2xl rounded-xl bg-gray-100 dark:bg-gray-700 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-primary-500 transition-colors"
+                  >
+                    {trainIcon || detectIcon(trainFor.item_name) || '�'}
+                  </button>
                   <input
                     value={trainIcon}
                     onChange={(e) => setTrainIcon(e.target.value)}
@@ -591,11 +598,7 @@ const LabList = ({ list, items = [], onCheck, onDelete, onBack, onRefresh, labLi
                     maxLength={4}
                     className="w-16 px-2 py-1.5 text-center text-lg rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900"
                   />
-                  <div className="flex gap-1">
-                    {(detectIcon(trainFor.item_name) ? [detectIcon(trainFor.item_name)] : []).concat(['🍎','🥛','🥩','🍌']).slice(0, 4).map((ic) => (
-                      <button key={ic} onClick={() => setTrainIcon(ic)} className="text-lg hover:scale-125 transition-transform">{ic}</button>
-                    ))}
-                  </div>
+                  <span className="text-[10px] text-gray-400">tap the big icon for the full picker</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <label className="text-[11px] text-gray-500 dark:text-gray-400 w-12">Type</label>
@@ -652,9 +655,22 @@ const LabList = ({ list, items = [], onCheck, onDelete, onBack, onRefresh, labLi
                 </button>
               </div>
             </motion.div>
-          </motion.div>
-        )}
+          </Portal>
+          );
+        })()}
       </AnimatePresence>
+
+      {/* Full icon picker — anchored, layers above the train popover */}
+      {iconAnchor && (
+        <QuickIconPicker
+          item={trainFor}
+          anchor={iconAnchor}
+          currentIcon={trainIcon}
+          zIndex={130}
+          onSelect={(icon) => setTrainIcon(icon)}
+          onClose={() => setIconAnchor(null)}
+        />
+      )}
 
       <LabPantryPicker
         open={pickerOpen}

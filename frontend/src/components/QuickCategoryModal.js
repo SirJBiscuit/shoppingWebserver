@@ -1,5 +1,5 @@
-import React from 'react';
-import { Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { Check, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ModalShell from './ui/ModalShell';
 
@@ -62,14 +62,33 @@ const QuickCategoryModal = ({
   onSelect,
   onClose,
 }) => {
+  const [query, setQuery] = useState('');
   const options = categories.map(normalize);
   const current = (currentCategory || '').toLowerCase();
 
+  const q = query.trim().toLowerCase();
+  const list = q
+    ? options.filter((c) =>
+        c.label?.toLowerCase().includes(q) || c.value?.toLowerCase().includes(q))
+    : options;
+
   return (
     <ModalShell isOpen={isOpen} onClose={onClose} title={title} maxWidth="max-w-sm" bodyClass="p-3">
+      {/* Search — same pattern as QuickCategoryPicker */}
+      <div className="relative mb-2">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input
+          autoFocus
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search categories…"
+          className="w-full pl-8 pr-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-primary-500 focus:outline-none"
+        />
+      </div>
+
       {/* Category grid */}
       <div className="grid grid-cols-2 gap-2 max-h-[60vh]">
-        {options.map((cat, i) => {
+        {list.map((cat, i) => {
           const active = cat.value?.toLowerCase() === current || cat.label?.toLowerCase() === current;
           return (
             <motion.button
@@ -90,6 +109,9 @@ const QuickCategoryModal = ({
             </motion.button>
           );
         })}
+        {list.length === 0 && (
+          <p className="col-span-2 text-center text-xs text-gray-400 py-4">No matches for “{query.trim()}”</p>
+        )}
       </div>
     </ModalShell>
   );

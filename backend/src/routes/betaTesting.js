@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../database/db');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+const ntfy = require('../services/ntfyService');
 
 // Shared code-validation helper (table: beta_testing_codes — migration 043)
 const validateCode = async (code) => {
@@ -337,6 +338,14 @@ router.post('/register', async (req, res) => {
       token,
       user: { id: user.id, username: user.username, isBetaTester: true },
     });
+
+    // Admin alert — fire-and-forget, registration must never depend on ntfy
+    ntfy.notifyAdmin(
+      'beta_signup',
+      'New beta tester',
+      `${displayName} (@${username}) joined the beta\n${state}, ${country} · code ${check.betaCode.code}`,
+      { tags: 'busts_in_silhouette' }
+    ).catch(() => {});
   } catch (error) {
     console.error('Error registering beta tester:', error);
     res.status(500).json({ error: 'Failed to create beta account' });

@@ -7,6 +7,7 @@ const {
   getExpirationStatus,
   extendExpiration
 } = require('../services/expirationService');
+const ntfy = require('../services/ntfyService');
 
 const router = express.Router();
 
@@ -940,7 +941,12 @@ router.get('/expiring-soon', authenticateToken, async (req, res) => {
       ...item,
       expirationStatus: getExpirationStatus(item.estimated_expiry_date)
     }));
-    
+
+    // Daily-deduped ntfy expiry digest (fire-and-forget; only if user opted in)
+    if (items.length > 0) {
+      ntfy.maybeNotifyExpiring(req.user.id).catch(() => {});
+    }
+
     res.json(items);
   } catch (error) {
     console.error('Error fetching expiring items:', error);

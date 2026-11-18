@@ -13,7 +13,7 @@ const GRID_LIMIT = 30;
  * suggestions from the item name, and custom uploads (128×128 item_icon
  * images). Transparent backdrop, click-outside to close.
  */
-const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose }) => {
+const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex = 70 }) => {
   const [query, setQuery] = useState('');
   const [customIcons, setCustomIcons] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -93,14 +93,17 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose }) => {
   return (
     <Portal>
       {/* transparent backdrop — no dim, click outside closes */}
-      <div className="fixed inset-0 z-[70]" onClick={onClose} />
+      <div className="fixed inset-0" style={{ zIndex }} onClick={onClose} />
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 8 }}
         transition={{ type: 'spring', damping: 24, stiffness: 320 }}
-        className="fixed z-[71] w-72 max-w-[calc(100vw-16px)] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
-        style={pos ? { left: pos.left, top: pos.top, bottom: pos.bottom } : { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}
+        className="fixed w-72 max-w-[calc(100vw-16px)] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+        style={{
+          zIndex: zIndex + 1,
+          ...(pos ? { left: pos.left, top: pos.top, bottom: pos.bottom } : { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }),
+        }}
       >
         {/* header */}
         <div className="flex items-center justify-between px-3 pt-2.5 pb-2 border-b border-gray-100 dark:border-gray-700">

@@ -79,6 +79,8 @@ import ConsoleViewer from '../components/ConsoleViewer';
 import ChangelogViewer from '../components/ChangelogViewer';
 import { useFeatureFlags } from '../context/FeatureFlagContext';
 import CalculatorWidget from '../components/CalculatorWidget';
+import HidableWidget from '../components/HidableWidget';
+import useHiddenWidgets from '../hooks/useHiddenWidgets';
 import useScrollSound from '../hooks/useScrollSound';
 import { playSound } from '../utils/soundEffects';
 import { savePreference, getPreference, trackItem, reportAisle } from '../api/mdl';
@@ -92,6 +94,7 @@ const Dashboard = () => {
   const { optimizationMode, toggleOptimization } = useOptimization();
   const { isEditorActive, toggleEditor, selectWidget, selectedWidget, widgetProperties } = useEditor();
   const { hasFeature } = useFeatureFlags();
+  const { isHidden, hide, unhide } = useHiddenWidgets();
   const dashboardProps = widgetProperties['dashboard'] || {};
   const addButtonRef = useRef(null);
   const rootRef = useRef(null);
@@ -2423,7 +2426,9 @@ const Dashboard = () => {
               {/* Show recipes associated with this shopping list */}
               {activeList && (
                 <div className="mb-6">
-                  <ShoppingListRecipes listId={activeList.id} />
+                  <HidableWidget id="list-recipes" label="List Recipes" hidden={isHidden('list-recipes')} onHide={() => hide('list-recipes')} onUnhide={() => unhide('list-recipes')}>
+                    <ShoppingListRecipes listId={activeList.id} />
+                  </HidableWidget>
                 </div>
               )}
 
@@ -2433,6 +2438,7 @@ const Dashboard = () => {
                 const sameAisleItems = nextItem ? getSameAisleItems(nextItem) : [];
                 return nextItem ? (
                   <div data-tutorial="looking-for-next">
+                    <HidableWidget id="looking-for-next" label="Looking for Next" hidden={isHidden('looking-for-next')} onHide={() => hide('looking-for-next')} onUnhide={() => unhide('looking-for-next')}>
                     <NextItemSuggestion 
                     nextItem={nextItem} 
                     sameAisleItems={sameAisleItems}
@@ -2467,6 +2473,7 @@ const Dashboard = () => {
                       }
                     }}
                   />
+                    </HidableWidget>
                   </div>
                 ) : null;
               })()}
@@ -2594,23 +2601,30 @@ const Dashboard = () => {
 
           <div className="space-y-6">
             {/* Animated Shopping Cart */}
-            <AnimatedCart 
-              items={getSortedItems()}
-              sortedByZone={smartSort}
-            />
+            <HidableWidget id="animated-cart" label="Shopping Cart" hidden={isHidden('animated-cart')} onHide={() => hide('animated-cart')} onUnhide={() => unhide('animated-cart')}>
+              <AnimatedCart
+                items={getSortedItems()}
+                sortedByZone={smartSort}
+              />
+            </HidableWidget>
 
             {/* Budget Tracker */}
             <div data-tutorial="budget-tracker">
-              <BudgetTracker
-                items={items}
-                totalCost={totalCost}
-                listId={activeList?.id}
-              />
+              <HidableWidget id="budget-tracker" label="Budget Tracker" hidden={isHidden('budget-tracker')} onHide={() => hide('budget-tracker')} onUnhide={() => unhide('budget-tracker')}>
+                <BudgetTracker
+                  items={items}
+                  totalCost={totalCost}
+                  listId={activeList?.id}
+                />
+              </HidableWidget>
             </div>
 
             {/* Leveling System */}
-            <LevelingSystem userId={user?.id || user?.username} />
+            <HidableWidget id="leveling" label="Leveling" hidden={isHidden('leveling')} onHide={() => hide('leveling')} onUnhide={() => unhide('leveling')}>
+              <LevelingSystem userId={user?.id || user?.username} />
+            </HidableWidget>
 
+            <HidableWidget id="smart-suggestions" label="Smart Suggestions" hidden={isHidden('smart-suggestions')} onHide={() => hide('smart-suggestions')} onUnhide={() => unhide('smart-suggestions')}>
             <div className="card" data-tutorial="suggestions">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold flex items-center">
@@ -2641,7 +2655,9 @@ const Dashboard = () => {
                 </>
               )}
             </div>
+            </HidableWidget>
 
+            <HidableWidget id="pantry-quick-view" label="Home Inventory" hidden={isHidden('pantry-quick-view')} onHide={() => hide('pantry-quick-view')} onUnhide={() => unhide('pantry-quick-view')}>
             <div className="card">
               <PantryQuickView
                 pantryItems={inventory}
@@ -2690,6 +2706,7 @@ const Dashboard = () => {
                 }}
               />
             </div>
+            </HidableWidget>
           </div>
               </div>
             </div>

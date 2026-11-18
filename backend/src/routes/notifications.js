@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+const ntfy = require('../services/ntfyService');
 
 // GET /api/notifications — the calling user's notifications, unread first
 router.get('/', authenticateToken, async (req, res) => {
@@ -75,6 +76,10 @@ router.post('/admin/broadcast', authenticateToken, isAdmin, async (req, res) => 
        SELECT id, $1, $2, $3 FROM users ${betaOnly ? 'WHERE is_beta_tester = TRUE' : ''}`,
       [type, title.trim(), message || null]
     );
+
+    // Also push to ntfy subscribers who opted into broadcasts (same audience split)
+    ntfy.notifyUsers('broadcast', title.trim(), message || '', { betaOnly, tags: 'mega' }).catch(() => {});
+
     res.json({ success: true, sent: result.rowCount });
   } catch (error) {
     console.error('Error broadcasting notification:', error);

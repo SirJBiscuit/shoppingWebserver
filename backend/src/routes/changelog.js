@@ -6,6 +6,7 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 const db = require('../database/db');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+const ntfy = require('../services/ntfyService');
 
 const execFileP = promisify(execFile);
 
@@ -247,6 +248,15 @@ router.patch('/admin/features/:id', authenticateToken, isAdmin, async (req, res)
         ]
       );
       notified = ins.rowCount;
+
+      // Push to users who opted into ntfy feature releases + admin alert
+      ntfy.notifyUsers(
+        'feature_release',
+        `New feature released: ${feature.title}`,
+        feature.description || 'A new feature just went live — check the changelog!',
+        { betaOnly: feature.beta_only === true, tags: 'rocket' }
+      ).catch(() => {});
+      ntfy.notifyAdmin('changelog', 'Feature released', feature.title, { tags: 'rocket' }).catch(() => {});
     }
 
     res.json({ feature, notified });
@@ -318,7 +328,15 @@ router.post('/admin/features/bulk-release', authenticateToken, isAdmin, async (r
           ]
         );
         notified += ins.rowCount;
+        // Push audience-matched ntfy fan-out (same beta/all split)
+        ntfy.notifyUsers(
+          'feature_release',
+          `Update released: ${notifyable.length} new feature${notifyable.length === 1 ? '' : 's'}`,
+          body,
+          { betaOnly, tags: 'rocket' }
+        ).catch(() => {});
       }
+      ntfy.notifyAdmin('changelog', 'Update released', body, { tags: 'rocket' }).catch(() => {});
     }
 
     res.json({ released: released.length, notified });

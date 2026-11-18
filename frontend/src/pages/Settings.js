@@ -11,6 +11,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import PageTransition from '../components/PageTransition';
 import Sidebar from '../components/Sidebar';
 import SoundSettings from '../components/SoundSettings';
+import NtfySettings from '../components/NtfySettings';
 
 const Settings = () => {
   const { user } = useAuth();
@@ -338,6 +339,22 @@ const Settings = () => {
                   Configure Sounds
                 </button>
               </div>
+            </motion.div>
+
+            {/* Push Notifications (ntfy) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.18 }}
+              className="card"
+            >
+              <div className="flex items-center space-x-3 mb-4">
+                <Bell className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Push Notifications
+                </h2>
+              </div>
+              <NtfySettings />
             </motion.div>
 
             {/* Custom Units */}
