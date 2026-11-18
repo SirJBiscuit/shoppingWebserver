@@ -1,0 +1,18 @@
+# Separate project name on purpose: update-server.sh runs
+# `docker compose down` on the main file mid-update — if this shared the
+# default project (dir name) it would be torn down too and the port-3006
+# swap would never work. Own name => survives the main stack's down/build.
+name: shop_maintenance
+
+services:
+  maintenance:
+    image: nginx:alpine
+    container_name: shop_maintenance
+    restart: unless-stopped
+    ports:
+      # Same socket cloudflared tunnels to. shop_frontend must be stopped
+      # before this starts (update-server.sh handles the handoff).
+      - "127.0.0.1:3006:80"
+    volumes:
+      - ./maintenance/updating.html:/usr/share/nginx/html/updating.html:ro
+      - ./maintenance/nginx.conf:/etc/nginx/conf.d/default.conf:ro

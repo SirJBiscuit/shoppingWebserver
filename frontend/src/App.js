@@ -14,6 +14,7 @@ import FlyingItemAnimation from './components/FlyingItemAnimation';
 import AdminToolbar from './components/AdminToolbar';
 // import UpdateChecker from './backburner/components/UpdateChecker'; // Disabled - backburner component
 import UpdateNotification from './components/UpdateNotification';
+import UpdateBanner from './components/UpdateBanner';
 import BetaPinLayer from './components/beta/BetaPinLayer';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -150,6 +151,7 @@ const AppWithEditor = () => {
       <Router>
         {/* <UpdateChecker /> */} {/* Disabled - backburner component */}
         <UpdateNotification />
+        <UpdateBanner />
         <AdminToolbar />
         <BetaPinLayer />
         <AnimatedRoutes />

@@ -1,52 +1,68 @@
-const CACHE_VERSION = Date.now(); // Auto-increment on each build
-const CACHE_NAME = `shopping-list-v${CACHE_VERSION}`;
+/* eslint-env worker */
+/* global globalThis */
+const CACHE_NAME = 'listzy-shell-v2';
 const urlsToCache = [
   '/',
-  '/static/css/main.css',
-  '/static/js/main.js',
+  '/index.html',
   '/manifest.json',
+  '/logo192.png',
 ];
 
-// Install event - cache resources
-self.addEventListener('install', (event) => {
-  console.log('Service Worker installing with cache:', CACHE_NAME);
+// Install event - cache the app shell
+globalThis.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Opened cache');
         // Cache files individually to avoid failure if one is missing
         return Promise.allSettled(
-          urlsToCache.map(url => 
+          urlsToCache.map(url =>
             cache.add(url).catch(err => console.log('Failed to cache:', url, err))
           )
         );
       })
   );
-  self.skipWaiting();
+  globalThis.skipWaiting();
 });
 
 // Activate event - clean up old caches
-self.addEventListener('activate', (event) => {
-  console.log('Service Worker activating');
+globalThis.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+        cacheNames
+          .filter((cacheName) => cacheName !== CACHE_NAME)
+          .map((cacheName) => {
             console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
-          }
-        })
+          })
       );
     })
   );
-  return self.clients.claim();
+  return globalThis.clients.claim();
 });
 
-// Fetch event - network first for app files, cache first for assets
-self.addEventListener('fetch', (event) => {
+// Only successful responses go in the cache. Caching a 5xx would poison
+// later loads — this is what used to let a cloudflared Bad Gateway page
+// get stored and re-served forever.
+const cacheable = (response) => response && response.ok;
+
+const put = (request, response) => {
+  const clone = response.clone();
+  caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+};
+
+// Fetch event — the key contract of this worker:
+//   /api        → NEVER intercepted (data calls must fail/succeed naturally)
+//   navigations → network first, but a FAILED or 5xx response falls back to
+//                 the cached shell. During a deploy the origin is briefly
+//                 gone and the tunnel returns a 502 PAGE — swallowing that
+//                 and serving the cached app is what keeps the user inside
+//                 Listzy with zero downtime.
+//   js/css/html → network first (fresh after updates), cache fallback
+//   other       → cache first, network fallback
+globalThis.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  
+
   // NEVER intercept or cache API requests — always go to network.
   // Caching /api responses caused stale data (e.g. empty lists) to be
   // served indefinitely, which triggered runaway auto-create loops.
@@ -54,30 +70,43 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Only handle GET requests from same origin
-  if (event.request.method !== 'GET' || url.origin !== self.location.origin) {
+  if (event.request.method !== 'GET' || url.origin !== globalThis.location.origin) {
+    return;
+  }
+
+  // Full-page navigations (F5, deep links like /recipes, PWA launch)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Origin reachable and healthy → refresh the shell cache
+          if (cacheable(response)) {
+            put('/index.html', response);
+            return response;
+          }
+          // Origin answered but it's an error page (e.g. tunnel 502 while
+          // the frontend container rebuilds) → serve the cached app instead
+          return caches.match('/index.html').then((cached) => cached || response);
+        })
+        .catch(() => caches.match('/index.html'))
+    );
     return;
   }
 
   // Network-first strategy for HTML, JS, CSS (always get fresh content)
-  if (url.pathname.endsWith('.html') || 
-      url.pathname.endsWith('.js') || 
+  if (url.pathname.endsWith('.html') ||
+      url.pathname.endsWith('.js') ||
       url.pathname.endsWith('.css') ||
       url.pathname === '/') {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // Clone and cache the response
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+          if (cacheable(response)) {
+            put(event.request, response);
+          }
           return response;
         })
-        .catch(() => {
-          // Fallback to cache if network fails
-          return caches.match(event.request);
-        })
+        .catch(() => caches.match(event.request))
     );
   } else {
     // Cache-first strategy for images, fonts, etc.
@@ -88,16 +117,10 @@ self.addEventListener('fetch', (event) => {
             return response;
           }
           return fetch(event.request).then((response) => {
-            if (!response || response.status !== 200 || response.type !== 'basic') {
+            if (!cacheable(response)) {
               return response;
             }
-            // Only cache GET requests
-            if (event.request.method === 'GET') {
-              const responseToCache = response.clone();
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-            }
+            put(event.request, response);
             return response;
           });
         })
@@ -106,7 +129,7 @@ self.addEventListener('fetch', (event) => {
 });
 
 // Push notification event
-self.addEventListener('push', (event) => {
+globalThis.addEventListener('push', (event) => {
   const data = event.data.json();
   const options = {
     body: data.body,
@@ -119,14 +142,14 @@ self.addEventListener('push', (event) => {
     }
   };
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    globalThis.registration.showNotification(data.title, options)
   );
 });
 
 // Notification click event
-self.addEventListener('notificationclick', (event) => {
+globalThis.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(
-    clients.openWindow('/')
+    globalThis.clients.openWindow('/')
   );
 });

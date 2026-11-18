@@ -79,13 +79,26 @@ fi
 echo -e "${YELLOW}Setting up production configuration...${NC}"
 cp docker-compose.prod.yml docker-compose.yml
 
+# Hand :3006 to the maintenance placeholder so visitors get the branded
+# "Listzy is updating" page instead of a bad gateway while the frontend
+# container is down for its rebuild. Separate compose project — the main
+# `docker compose down` below must NOT kill it (see compose file header).
+echo -e "${YELLOW}Swapping in the updating page on :3006...${NC}"
+docker compose stop frontend || true
+docker compose -f docker-compose.maintenance.yml up -d
+
 # Stop containers
 echo -e "${YELLOW}Stopping containers...${NC}"
 docker compose down
 
-# Rebuild and start
-echo -e "${YELLOW}Building and starting containers...${NC}"
-docker compose up -d --build
+# Rebuild images (placeholder keeps serving :3006 through this whole step)
+echo -e "${YELLOW}Building images...${NC}"
+docker compose build
+
+# Swap the placeholder back out and bring the real stack up
+echo -e "${YELLOW}Restoring the app...${NC}"
+docker compose -f docker-compose.maintenance.yml down || true
+docker compose up -d
 
 # Wait for containers to be ready
 echo -e "${YELLOW}Waiting for containers to start...${NC}"
