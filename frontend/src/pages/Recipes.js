@@ -551,12 +551,16 @@ const ShelfCard = ({ recipe, onOpen, onToggleFavorite, onAddToList }) => {
 const RecipeCard = ({ recipe, onAddToList, onToggleFavorite, onDelete, onEdit, canMake, missingItems }) => {
   return (
     <div className="card hover:shadow-lg transition-shadow">
-      {recipe.image_url && (
+      {recipe.image_url && !recipe.image_url.startsWith('emoji:') ? (
         <img
           src={recipe.image_url}
           alt={recipe.name}
           className="w-full h-48 object-cover rounded-t-lg"
         />
+      ) : recipe.image_url?.startsWith('emoji:') && (
+        <div className="w-full h-48 bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center rounded-t-lg">
+          <span className="text-6xl">{recipe.image_url.slice(6)}</span>
+        </div>
       )}
       <div className="p-4">
         <div className="flex justify-between items-start mb-2">
