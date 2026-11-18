@@ -678,8 +678,10 @@ router.get('/preferences/:key', authenticateToken, async (req, res) => {
       WHERE user_id = $1 AND preference_key = $2
     `, [req.user.id, req.params.key]);
     
+    // Missing key is a normal state (first run) — return null, not 404,
+    // so the client doesn't log it as an error.
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Preference not found' });
+      return res.json({ value: null });
     }
     
     res.json({ value: result.rows[0].preference_value });
@@ -837,6 +839,21 @@ router.post('/track-item', authenticateToken, async (req, res) => {
     const seedAllowed = ['accept', 'known'].includes(gateStatus);
     const priceClean = seedAllowed && submission && submission.price != null
       && !submission.flags.some((f) => f.startsWith('price_'));
+
+    // Learned icon — an explicit icon in the track call is the strongest
+    // signal; once it passes the gate it becomes the registry's
+    // predicted_icon so autocomplete/suggestions/shortcuts keep showing it
+    // after the list item is removed.
+    if (seedAllowed && req.body.icon) {
+      try {
+        await db.query(
+          'UPDATE mdl_item_names SET predicted_icon = $2 WHERE id = $1',
+          [itemNameId, req.body.icon]
+        );
+      } catch (e) {
+        console.warn('predicted_icon update skipped:', e.message);
+      }
+    }
 
     if (seedAllowed) {
       try {
@@ -1040,12 +1057,18 @@ router.get('/price/:itemName', authenticateToken, async (req, res) => {
       return res.json({ price: l.average_price, confidence: l.confidence_score, source: 'location' });
     }
 
-    // Catalog default
-    const catalog = await db.query(
+    // Catalog default — if this source is unavailable, return 'none'
+    // rather than 500 so the UI still gets a valid estimate shape.
+    let catalog = { rows: [] };
+    try {
+      catalog = await db.query(
       `SELECT average_price, price_confidence FROM product_master_data
        WHERE LOWER(product_name) = LOWER($1) OR slug = $2 LIMIT 1`,
       [itemName.trim(), itemName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')]
-    );
+      );
+    } catch (e) {
+      console.warn('price catalog fallback:', e.message);
+    }
     res.json({
       price: catalog.rows[0]?.average_price || null,
       confidence: (catalog.rows[0]?.price_confidence || 0) / 100,
@@ -1053,7 +1076,8 @@ router.get('/price/:itemName', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting price estimate:', error);
-    res.status(500).json({ error: 'Failed to get price estimate' });
+    // Predictions must not 500 the UI — report 'no estimate' instead.
+    res.json({ price: null, confidence: 0, source: 'none' });
   }
 });
 
@@ -1076,10 +1100,10 @@ router.get('/store-usuals', authenticateToken, async (req, res) => {
     const base = `
       SELECT n.normalized_name AS item_name, n.predicted_icon, n.predicted_category,
              COUNT(*) AS times_bought,
-             MAX(h.created_at) AS last_bought,
-             (ARRAY_AGG(h.price    ORDER BY h.created_at DESC))[1] AS last_price,
-             (ARRAY_AGG(h.quantity ORDER BY h.created_at DESC))[1] AS last_quantity,
-             (ARRAY_AGG(h.unit     ORDER BY h.created_at DESC))[1] AS last_unit
+             MAX(h.added_at) AS last_bought,
+             (ARRAY_AGG(h.price    ORDER BY h.added_at DESC))[1] AS last_price,
+             (ARRAY_AGG(h.quantity ORDER BY h.added_at DESC))[1] AS last_quantity,
+             (ARRAY_AGG(h.unit     ORDER BY h.added_at DESC))[1] AS last_unit
       FROM mdl_user_item_history h
       JOIN mdl_item_names n ON n.id = h.item_name_id
       WHERE h.user_id = $1`;
@@ -1125,7 +1149,9 @@ router.get('/store-usuals', authenticateToken, async (req, res) => {
     res.json({ items: rows, shop_time });
   } catch (error) {
     console.error('Store usuals error:', error);
-    res.status(500).json({ error: 'Failed to fetch store usuals' });
+    // 'Usually buy' is a suggestion panel — degrade to empty instead of 500
+    // when history tables/columns aren't present on this DB yet.
+    res.json({ items: [], shop_time: null });
   }
 });
 

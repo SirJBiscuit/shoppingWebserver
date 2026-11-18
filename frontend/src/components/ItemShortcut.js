@@ -13,6 +13,14 @@ import { detectIcon } from '../utils/categoryDetector';
 import { playSound } from '../utils/soundEffects';
 import { Portal } from '../utils/autoPlacement';
 import { COMMON_GROCERY_ITEMS } from '../utils/autocomplete';
+import QuickIconPicker, { isImageIcon } from './QuickIconPicker';
+
+/** Renders an "icon" that may be an emoji string or an uploaded image URL. */
+const IconGlyph = ({ icon, name = '', className = 'text-2xl', imgClass = 'w-7 h-7' }) => (
+  isImageIcon(icon)
+    ? <img src={icon} alt={name} title={name} className={`${imgClass} rounded object-cover`} />
+    : <span className={`${className} leading-none`} title={name}>{icon}</span>
+);
 
 /**
  * ItemShortcut — MDL-powered "grab anything into the active list" picker.
@@ -116,7 +124,7 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
     // 3) popular catalog fill — keeps the grid alive for fresh accounts
     if (popularRes.status === 'fulfilled') {
       (popularRes.value.data || []).forEach((p) =>
-        mergeInto(seen, p.name || p.item_name, { icon: p.icon || null, source: 'popular' })
+        mergeInto(seen, p.name || p.item_name, { icon: p.icon || p.icon_emoji || null, source: 'popular' })
       );
     }
     setPicks([...seen.values()].slice(0, 40));
@@ -125,7 +133,7 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
     const cat = new Map();
     if (catalogRes.status === 'fulfilled') {
       (Array.isArray(catalogRes.value) ? catalogRes.value : []).forEach((p) =>
-        mergeInto(cat, p.name || p.item_name, { icon: p.icon || null, source: 'catalog' })
+        mergeInto(cat, p.name || p.item_name, { icon: p.icon || p.icon_emoji || null, source: 'catalog' })
       );
     }
     COMMON_GROCERY_ITEMS.slice(0, 60).forEach((n) => mergeInto(cat, n, { source: 'catalog' }));
@@ -171,7 +179,7 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
     const map = new Map();
     remote.forEach((r) =>
       mergeInto(map, r.name || r.item_name, {
-        icon: r.icon || null,
+        icon: r.icon || r.icon_emoji || null,
         source: r.storeMatch ? 'store' : r.source === 'user' ? 'yours' : r.source === 'global' ? 'popular' : 'catalog',
       })
     );
@@ -241,6 +249,20 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
     return () => { alive = false; };
   }, [tray]);
 
+  // Right-click icon assignment — writes to the user's item dictionary AND
+  // MDL so a trained icon survives removing the list item and keeps showing
+  // up in shortcut grids/autocomplete afterwards.
+  const [iconEdit, setIconEdit] = useState(null); // { row, current, x, y }
+
+  const setIconFor = (row, icon) => {
+    const k = norm(row.name);
+    const patch = (setFn) => setFn((prev) => prev.map((r) => (norm(r.name) === k ? { ...r, icon } : r)));
+    patch(setPicks); patch(setCatalog);
+    setTray((prev) => prev.map((t) => (norm(t.name) === k ? { ...t, icon } : t)));
+    api.post('/items', { name: row.name, icon }).catch(() => {});
+    trackItem({ itemName: row.name, icon, store, source: 'shortcut_icon' });
+  };
+
   const commit = async () => {
     if (!tray.length || committing) return;
     setCommitting(true);
@@ -248,11 +270,16 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
       onAddItems(tray.map((t) => ({
         name: t.name, quantity: t.quantity, unit: t.unit, icon: t.icon,
       })));
-      // Fire-and-forget learning — shortcut adds count as explicit intent
-      tray.forEach((t) => trackItem({
-        itemName: t.name, quantity: t.quantity, unit: t.unit,
-        store, wasSuggestion: t.source !== 'new',
-      }));
+      // Fire-and-forget learning — shortcut adds count as explicit intent,
+      // and the staged icon trains the dictionary + MDL at the same time so
+      // re-adding the item later never shows a missing icon again.
+      tray.forEach((t) => {
+        trackItem({
+          itemName: t.name, icon: t.icon || null, quantity: t.quantity, unit: t.unit,
+          store, wasSuggestion: t.source !== 'new', source: 'item_shortcut',
+        });
+        if (t.icon) api.post('/items', { name: t.name, icon: t.icon, unit: t.unit }).catch(() => {});
+      });
       playSound('check');
       setTray([]);
       onClose();
@@ -312,7 +339,7 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/10"
+            className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/10"
             onClick={onClose}
           >
             <motion.div
@@ -323,7 +350,7 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
               style={{ transformPerspective: 900 }}
               onClick={(e) => e.stopPropagation()}
               onKeyDown={onKey}
-              className="w-full max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col max-h-[85vh] overflow-hidden"
+              className="w-full max-w-2xl bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col max-h-[92dvh] sm:max-h-[85dvh] overflow-hidden"
             >
               {/* Header */}
               <div className="bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 px-5 py-4">
@@ -476,6 +503,12 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
                             whileHover={{ y: -3, rotateX: 4 }}
                             whileTap={{ scale: 0.93 }}
                             onClick={() => toggle(row, icon)}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setIconEdit({ row, current: row.icon, x: e.clientX, y: e.clientY });
+                            }}
+                            title={`${name} — click to add · right-click to ${row.icon ? 'change' : 'set'} icon`}
                             className={`relative rounded-xl border-2 p-3 text-left select-none transition-colors ${
                               selected
                                 ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 ring-2 ring-indigo-300 dark:ring-indigo-600'
@@ -483,7 +516,7 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
                             }`}
                           >
                             <div className="flex items-start justify-between">
-                              <span className="text-2xl leading-none">{icon}</span>
+                              <IconGlyph icon={icon} name={name} />
                               <AnimatePresence>
                                 {selected && (
                                   <motion.span
@@ -541,7 +574,7 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
                             exit={{ scale: 0.6, opacity: 0 }}
                             className="flex items-center gap-1 shrink-0 pl-1.5 pr-1 py-1 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 shadow-sm"
                           >
-                            <span className="text-sm">{t.icon}</span>
+                            <IconGlyph icon={t.icon} name={t.name} className="text-sm" imgClass="w-5 h-5" />
                             <span className="text-xs font-semibold text-gray-800 dark:text-gray-100 max-w-[90px] truncate">{t.name}</span>
                             <button onClick={() => stepTray(t.name, -1)} className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-500">
                               <Minus className="w-3 h-3" />
@@ -579,6 +612,18 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Right-click icon assignment — layered above the modal */}
+      {iconEdit && (
+        <QuickIconPicker
+          item={{ item_name: iconEdit.row.name }}
+          anchor={{ cx: iconEdit.x, top: iconEdit.y - 4, bottom: iconEdit.y + 4 }}
+          currentIcon={iconEdit.current}
+          zIndex={140}
+          onSelect={(icon) => setIconFor(iconEdit.row, icon)}
+          onClose={() => setIconEdit(null)}
+        />
+      )}
     </Portal>
   );
 };

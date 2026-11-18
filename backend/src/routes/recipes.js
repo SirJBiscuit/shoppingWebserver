@@ -403,15 +403,19 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 // "What can I make?" - Find recipes based on pantry
 router.get('/can-make/check', authenticateToken, async (req, res) => {
   try {
-    // Get user's pantry items
+    // Get user's pantry items from the live inventory table (item names
+    // come via the items join; pantry_inventory is the deprecated schema)
     const pantryResult = await db.query(`
-      SELECT LOWER(item_name) as item_name FROM pantry_inventory WHERE user_id = $1
+      SELECT LOWER(it.name) AS item_name
+      FROM inventory i JOIN items it ON i.item_id = it.id
+      WHERE i.user_id = $1
     `, [req.user.id]);
     
     const pantryItems = new Set(pantryResult.rows.map(r => r.item_name));
     
-    // Get all recipes with ingredients
-    const recipesResult = await db.query(`
+    // Get all recipes with ingredients. The in_recipe_book filter is
+    // retried without that column if this DB predates migration 094.
+    const recipesSql = (bookFilter) => `
       SELECT r.id, r.name, r.description, r.image_url, r.servings, r.prep_time, r.cook_time,
         json_agg(json_build_object(
           'item_name', ri.item_name,
@@ -422,9 +426,19 @@ router.get('/can-make/check', authenticateToken, async (req, res) => {
       FROM recipes r
       LEFT JOIN recipe_ingredients ri ON r.id = ri.recipe_id
       WHERE (r.user_id = $1 OR r.is_public = true)
-        AND r.in_recipe_book IS DISTINCT FROM false
+        ${bookFilter}
       GROUP BY r.id
-    `, [req.user.id]);
+    `;
+    let recipesResult;
+    try {
+      recipesResult = await db.query(
+        recipesSql('AND r.in_recipe_book IS DISTINCT FROM false'),
+        [req.user.id]
+      );
+    } catch (e) {
+      if (e.code !== '42703') throw e;
+      recipesResult = await db.query(recipesSql(''), [req.user.id]);
+    }
     
     // Check which recipes can be made
     const canMake = [];
@@ -462,9 +476,11 @@ router.post('/:id/to-shopping-list', authenticateToken, async (req, res) => {
       SELECT * FROM recipe_ingredients WHERE recipe_id = $1
     `, [req.params.id]);
     
-    // Get user's pantry
+    // Get user's pantry (live inventory table; pantry_inventory is deprecated)
     const pantryResult = await db.query(`
-      SELECT LOWER(item_name) as item_name, quantity FROM pantry_inventory WHERE user_id = $1
+      SELECT LOWER(it.name) AS item_name, i.current_quantity AS quantity
+      FROM inventory i JOIN items it ON i.item_id = it.id
+      WHERE i.user_id = $1
     `, [req.user.id]);
     
     const pantryMap = new Map(pantryResult.rows.map(r => [r.item_name, r.quantity]));

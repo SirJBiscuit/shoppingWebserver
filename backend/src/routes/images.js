@@ -152,7 +152,8 @@ router.get('/', authenticateToken, async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Get images error:', error);
-    res.status(500).json({ error: 'Failed to fetch images' });
+    // An empty library must not break callers (icon picker expects a list).
+    res.json([]);
   }
 });
 

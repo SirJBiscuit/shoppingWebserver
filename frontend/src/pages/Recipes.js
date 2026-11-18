@@ -76,13 +76,9 @@ const Recipes = () => {
     try {
       const response = await recipesAPI.getRecipes();
       setRecipes(response.data);
-      // Reopen the recipe that was being viewed, if it's still there
-      const lastId = localStorage.getItem('recipesLastRecipeId');
-      if (lastId) {
-        const r = response.data.find((x) => String(x.id) === lastId);
-        if (r) setViewingRecipe(r);
-        else localStorage.removeItem('recipesLastRecipeId');
-      }
+      // Deliberately do NOT auto-reopen the last-viewed recipe — popping a
+      // full sheet on every book visit was annoying. Viewing is opt-in only.
+      localStorage.removeItem('recipesLastRecipeId');
     } catch (error) {
       console.error('Failed to fetch recipes:', error);
     } finally {

@@ -39,7 +39,12 @@ const RecipeViewModal = ({ recipe, onClose, onEdit, onToggleFavorite, onAddToLis
   const [ratings, setRatings] = useState(null); // {avg, count, mine} from recipe_ratings
   const [loading, setLoading] = useState(true);
   const [iconOpen, setIconOpen] = useState(false);
-  const [current, setCurrent] = useState(recipe); // live-updated view of the recipe row
+  const [currentOverride, setCurrent] = useState(null); // live-updated view of the recipe row
+  // useState(recipe) captured null — this component is always mounted with
+  // recipe={viewingRecipe}, and the sync effect below runs *after* the first
+  // render where current.name is read. Falling back to the prop guarantees
+  // current is non-null whenever recipe is set.
+  const current = currentOverride || recipe;
 
   useEffect(() => {
     setCurrent(recipe);
