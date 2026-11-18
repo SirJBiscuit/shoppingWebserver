@@ -9,6 +9,8 @@ import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
 import PageTransition from '../components/PageTransition';
 import PantryModal from '../components/PantryModal';
+import ConfirmModal from '../limbo/modals/ConfirmModal';
+import { formatQuantityPlain } from '../utils/formatQuantity';
 
 const PantryEnhanced = () => {
   const navigate = useNavigate();
@@ -22,6 +24,7 @@ const PantryEnhanced = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [activeList, setActiveList] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null);
 
   useEffect(() => {
     fetchItems();
@@ -75,16 +78,20 @@ const PantryEnhanced = () => {
     }
   };
 
-  const handleDeleteItem = async (id) => {
-    if (window.confirm('Remove this item?')) {
-      try {
-        await pantryAPI.deleteItem(id);
-        fetchItems();
-        fetchExpiring();
-      } catch (error) {
-        console.error('Failed to delete item:', error);
+  const handleDeleteItem = (id) => {
+    setConfirmAction({
+      title: 'Remove item',
+      message: 'Remove this item?',
+      onConfirm: async () => {
+        try {
+          await pantryAPI.deleteItem(id);
+          fetchItems();
+          fetchExpiring();
+        } catch (error) {
+          console.error('Failed to delete item:', error);
+        }
       }
-    }
+    });
   };
 
   const handleAddItem = async (itemData) => {
@@ -119,28 +126,32 @@ const PantryEnhanced = () => {
       return;
     }
 
-    if (window.confirm(`Add "${item.item_name}" to shopping list?`)) {
-      try {
-        await shoppingAPI.addItem(activeList.id, {
-          item_name: item.item_name,
-          quantity: item.quantity || 1,
-          unit: item.unit || '',
-          category: item.category_name || 'Other',
-          item_icon: item.item_icon || '📦'
-        });
-        alert(`Added "${item.item_name}" to shopping list!`);
-      } catch (error) {
-        console.error('Failed to add to shopping list:', error);
-        alert('Failed to add to shopping list');
+    setConfirmAction({
+      title: 'Add to shopping list',
+      message: `Add "${item.item_name}" to shopping list?`,
+      onConfirm: async () => {
+        try {
+          await shoppingAPI.addItem(activeList.id, {
+            item_name: item.item_name,
+            quantity: item.quantity || 1,
+            unit: item.unit || '',
+            category: item.category_name || 'Other',
+            item_icon: item.item_icon || '📦'
+          });
+          alert(`Added "${item.item_name}" to shopping list!`);
+        } catch (error) {
+          console.error('Failed to add to shopping list:', error);
+          alert('Failed to add to shopping list');
+        }
       }
-    }
+    });
   };
 
   const currentItems = activeTab === 'pantry' ? pantryItems : fridgeItems;
   const groupedItems = currentItems.reduce((acc, item) => {
     const category = item.category_name || 'Other';
     if (!acc[category]) {
-      acc[category] = { items: [], icon: '📦' };
+      acc[category] = { items: [], icon: item.category_icon || '📦' };
     }
     acc[category].items.push(item);
     return acc;
@@ -311,6 +322,19 @@ const PantryEnhanced = () => {
         item={selectedItem}
         categories={categories}
       />
+
+      <ConfirmModal
+        isOpen={!!confirmAction}
+        title={confirmAction?.title}
+        message={confirmAction?.message}
+        type="warning"
+        onConfirm={() => {
+          const run = confirmAction?.onConfirm;
+          setConfirmAction(null);
+          run?.();
+        }}
+        onCancel={() => setConfirmAction(null)}
+      />
     </PageTransition>
   );
 };
@@ -335,7 +359,7 @@ const ItemCard = ({ item, onDelete, onEdit, onAddToList }) => {
           <div>
             <h4 className="font-semibold text-gray-900 dark:text-white">{item.item_name}</h4>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {item.quantity} {item.unit}
+              {formatQuantityPlain(item.quantity)} {item.unit}
             </p>
           </div>
         </div>
