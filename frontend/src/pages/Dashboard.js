@@ -62,7 +62,7 @@ import { useToast } from '../hooks/useToast';
 import * as shoppingAPI from '../api/shopping';
 import * as itemsAPI from '../api/items';
 import * as suggestionsAPI from '../api/suggestions';
-import * as pantryAPI from '../api/pantry';
+import inventoryAPI from '../services/inventoryAPI';
 import * as categoriesAPI from '../api/categories';
 import * as stagingAPI from '../api/staging';
 import { detectCategory, estimatePrice, detectIcon, getCategoryIcon } from '../utils/categoryDetector';
@@ -562,11 +562,16 @@ const Dashboard = () => {
 
   const loadInventory = async () => {
     try {
-      // Load pantry items
-      const response = await pantryAPI.getPantry();
-      setInventory(response.data);
+      // Home Inventory (/api/inventory) — map to the widget's field names:
+      // current_quantity -> quantity, manual/estimated expiry -> expiry_date
+      const items = await inventoryAPI.getItems();
+      setInventory((items || []).map((it) => ({
+        ...it,
+        quantity: it.current_quantity ?? it.quantity,
+        expiry_date: it.manual_expiry_date || it.estimated_expiry_date || it.expiry_date || null,
+      })));
     } catch (error) {
-      console.error('Error loading pantry:', error);
+      console.error('Error loading inventory:', error);
     }
   };
 
@@ -1563,23 +1568,19 @@ const Dashboard = () => {
         const storageLocation = getStorageLocation(item.category || item.category_name);
         
         try {
-          await fetch('/api/pantry', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              item_name: item.item_name,
-              quantity: item.quantity,
-              unit: item.unit,
-              storage_location: storageLocation,
-              category: item.category || item.category_name,
-              expiry_date: getDefaultExpiryDate(storageLocation)
-            })
+          // New Home Inventory system — same endpoint the inventory page uses,
+          // so locations/categories land in the real model instead of the
+          // old kitchen-pantry shape.
+          await inventoryAPI.addItem({
+            item_name: item.item_name,
+            quantity: item.quantity,
+            unit: item.unit,
+            storage_location: storageLocation,
+            category: item.category || item.category_name,
+            manual_expiry_date: getDefaultExpiryDate(storageLocation)
           });
         } catch (pantryError) {
-          console.error('Error adding to pantry:', pantryError);
+          console.error('Error adding to inventory:', pantryError);
         }
       }
       
@@ -2650,10 +2651,10 @@ const Dashboard = () => {
                     console.error('Error adding item from pantry:', error);
                   }
                 }}
-                onViewPantry={() => navigate('/pantry')}
+                onViewPantry={() => navigate('/pantry-new-v2')}
                 onDeleteItem={async (itemId) => {
                   try {
-                    await pantryAPI.deleteItem(itemId);
+                    await inventoryAPI.deleteItem(itemId);
                     await loadInventory();
                     success('Item removed from inventory');
                   } catch (error) {
@@ -2667,9 +2668,7 @@ const Dashboard = () => {
                     'This will permanently delete all items from your Pantry, Fridge, and Freezer. This action cannot be undone.',
                     async () => {
                       try {
-                        for (const item of inventory) {
-                          await pantryAPI.deleteItem(item.id);
-                        }
+                        await inventoryAPI.clearAll();
                         await loadInventory();
                         success('All items cleared from inventory');
                       } catch (err) {

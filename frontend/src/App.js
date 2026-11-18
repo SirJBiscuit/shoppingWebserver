@@ -23,7 +23,6 @@ const Register = lazy(() => import('./pages/Register'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Recipes = lazy(() => import('./pages/Recipes'));
 // const RecipesNew = lazy(() => import('./backburner/pages/RecipesNew')); // Disabled - backburner
-const PantryEnhanced = lazy(() => import('./pages/PantryEnhanced'));
 // const PantryNew = lazy(() => import('./backburner/pages/PantryNew')); // Disabled - backburner
 const PantryNewV2 = lazy(() => import('./backburner/pages/PantryNewV2')); // Home Inventory
 const StagingArea = lazy(() => import('./pages/StagingArea'));
@@ -102,7 +101,8 @@ const AnimatedRoutes = () => {
         <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         {/* <Route path="/recipes" element={<PrivateRoute><RecipesNew /></PrivateRoute>} /> */} {/* Disabled - backburner, will redo */}
         <Route path="/recipes" element={<PrivateRoute><Recipes /></PrivateRoute>} /> {/* Using current Recipes for now */}
-        <Route path="/pantry" element={<PrivateRoute><PantryEnhanced /></PrivateRoute>} />
+        {/* Old kitchen-pantry page retired — always land on Home Inventory */}
+        <Route path="/pantry" element={<Navigate to="/pantry-new-v2" replace />} />
         <Route path="/pantry-new-v2" element={<PrivateRoute><PantryNewV2 /></PrivateRoute>} /> {/* Home Inventory */}
         {/* <Route path="/pantry-old" element={<PrivateRoute><PantryNew /></PrivateRoute>} /> */} {/* Disabled - backburner */}
         <Route path="/staging" element={<PrivateRoute><StagingArea /></PrivateRoute>} />

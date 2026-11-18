@@ -11,7 +11,7 @@ const MobileBottomNav = () => {
   const navItems = [
     { path: '/', icon: ShoppingCart, label: 'Lists' },
     { path: '/recipes', icon: UtensilsCrossed, label: 'Recipes' },
-    { path: '/pantry', icon: Package, label: 'Pantry' },
+    { path: '/pantry-new-v2', icon: Package, label: 'Inventory' },
     { path: '/statistics', icon: BarChart3, label: 'Stats' },
     { path: '/settings', icon: Settings, label: 'Settings' },
   ];
