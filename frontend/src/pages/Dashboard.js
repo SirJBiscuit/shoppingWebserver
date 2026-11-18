@@ -2456,6 +2456,17 @@ const Dashboard = () => {
                     triggerCheckmarkAnimation={triggerCheckmarkAnimation}
                     triggerFlyingAnimation={triggerFlyingAnimation}
                     onPriceUpdate={handlePriceUpdate}
+                    categories={categories}
+                    onCategoryChange={async (item, cat) => {
+                      try {
+                        await shoppingAPI.updateItem(activeList.id, item.id, { category: cat });
+                        await loadListItems(activeList.id);
+                        success(`"${item.item_name}" moved to ${cat}`);
+                      } catch (e) {
+                        console.error('Error updating category:', e);
+                        error('Failed to update category. Please try again.');
+                      }
+                    }}
                   />
                   </div>
                 ) : null;
@@ -2752,8 +2763,9 @@ const Dashboard = () => {
         } : null}
       />
 
-        {/* Onboarding Tutorial */}
-        <Onboarding userId={user?.id || user?.username} />
+        {/* Onboarding Tutorial — mount only once user resolves so the
+            localStorage key is stable (avoids onboarding_v3_undefined) */}
+        {user && <Onboarding userId={user.id || user.username} />}
         
         {/* Celebration Overlay - quick confetti burst, then off to After Shop */}
         {showCelebration && (

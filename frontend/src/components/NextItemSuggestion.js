@@ -11,6 +11,7 @@ import { useEditor } from '../contexts/EditorContext';
 import { EditableContainer } from './editor/EditorOverlay';
 import { Portal, Popup } from '../utils/autoPlacement';
 import ItemIcon from './ItemIcon';
+import QuickCategoryModal from './QuickCategoryModal';
 
 const NextItemSuggestion = (props) => {
   const { isEditorActive, selectWidget, selectedWidget, widgetProperties } = useEditor();
@@ -50,6 +51,8 @@ const NextItemSuggestionContent = ({
   triggerCheckmarkAnimation, 
   onPriceUpdate, 
   triggerFlyingAnimation,
+  categories = [],
+  onCategoryChange,
   // AVE Properties
   showAisle = true,
   showCategory = true,
@@ -67,6 +70,7 @@ const NextItemSuggestionContent = ({
     return !localStorage.getItem('lookingForNextGuideShown');
   });
   const [showGuideOptOut, setShowGuideOptOut] = useState(false); // "don't show again?" popup
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
 
   // Guide UX: it auto-dismisses after ~5s (view-only — NOT persisted), then
   // a delayed animated popup offers the permanent opt-out. Only clicking
@@ -715,13 +719,18 @@ const NextItemSuggestionContent = ({
                 </div>
               )}
               
-              {/* Category - Always show if available */}
+              {/* Category - Always show if available — click to quick-change */}
               {showCategory && (nextItem.category_name || nextItem.category) && (
-                <div className="flex items-center gap-2 bg-orange-500 px-4 py-2 rounded-xl shadow-md">
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryPicker(true)}
+                  title="Change category"
+                  className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-xl shadow-md transition-colors"
+                >
                   <span className="text-base font-bold text-white">
                     📍 {nextItem.category_name || nextItem.category}
                   </span>
-                </div>
+                </button>
               )}
               
               {/* Default Price */}
@@ -1297,6 +1306,19 @@ const NextItemSuggestionContent = ({
         )}
       </AnimatePresence></Portal>
     </motion.div>
+
+      {/* Quick category picker for the current next item */}
+      <QuickCategoryModal
+        isOpen={showCategoryPicker}
+        title={`Category — ${nextItem.item_name}`}
+        categories={categories}
+        currentCategory={nextItem.category_name || nextItem.category}
+        onSelect={(cat) => {
+          setShowCategoryPicker(false);
+          onCategoryChange?.(nextItem, cat);
+        }}
+        onClose={() => setShowCategoryPicker(false)}
+      />
 
       {/* Spacing bar — visual break between the suggestion card and the list */}
       <div className="mx-auto -mt-4 mb-6 h-1.5 w-28 rounded-full bg-gradient-to-r from-transparent via-green-400/70 to-transparent dark:via-green-600/70" />

@@ -388,6 +388,7 @@ router.post('/', authenticateToken, async (req, res) => {
   try {
     const {
       item_name,
+      item_category,
       storage_location,
       custom_location_id,
       category,
@@ -445,16 +446,17 @@ router.post('/', authenticateToken, async (req, res) => {
     
     const result = await db.query(`
       INSERT INTO inventory (
-        user_id, item_id, storage_location, custom_location_id,
+        user_id, item_id, item_category, storage_location, custom_location_id,
         current_quantity, unit, bought_date, opened_date,
         is_opened, manual_expiry_date, estimated_expiry_date,
         expiry_confidence, barcode, image_url, price, store, notes
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       RETURNING *
     `, [
       req.user.id,
       item_id,
+      item_category || 'food',
       custom_location_id ? null : (storage_location || 'pantry'),
       custom_location_id || null,
       quantity || 1,
@@ -505,6 +507,7 @@ router.patch('/:id(\\d+)', authenticateToken, async (req, res) => {
       item_name,
       item_icon,
       icon,
+      item_category,
       storage_location,
       custom_location_id,
       category,
@@ -560,6 +563,10 @@ router.patch('/:id(\\d+)', authenticateToken, async (req, res) => {
     const values = [];
     let paramCount = 1;
 
+    if (item_category !== undefined) {
+      updates.push(`item_category = $${paramCount++}`);
+      values.push(item_category);
+    }
     if (storage_location !== undefined) {
       updates.push(`storage_location = $${paramCount++}`);
       values.push(storage_location);

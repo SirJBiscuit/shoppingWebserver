@@ -8,12 +8,16 @@ import api from '../services/api';
 // users who already completed the previous version.
 const ONBOARDING_VERSION = 'v3';
 const onboardingKey = (userId) => `onboarding_${ONBOARDING_VERSION}_${userId}`;
+// Permanent opt-out — NOT versioned, so bumping the tutorial version never
+// re-fires for users who explicitly asked not to see it.
+const neverKey = (userId) => `onboarding_never_${userId || 'guest'}`;
 
 const Onboarding = ({ userId, forceOpen, onClose }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [tutorialMode, setTutorialMode] = useState(null); // 'quick' or 'full'
   const [currentStep, setCurrentStep] = useState(0);
   const [showSkipMessage, setShowSkipMessage] = useState(false);
+  const [dontShowAgain, setDontShowAgain] = useState(false);
   const [targetRect, setTargetRect] = useState(null); // spotlight: focused element bounds
   const modalRef = useRef(null);
   const nextButtonRef = useRef(null);
@@ -238,7 +242,9 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
 
   useEffect(() => {
     let cancelled = false;
-    const localSeen = () => !!localStorage.getItem(onboardingKey(userId));
+    const localSeen = () =>
+      !!localStorage.getItem(onboardingKey(userId)) ||
+      !!localStorage.getItem(neverKey(userId));
     const show = () => { if (!cancelled) setIsOpen(true); };
 
     // Server flag wins — it follows the account across devices and lets a
@@ -261,6 +267,9 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
   // marker so the tour doesn't flicker open while the GET is in flight.
   const markSeen = () => {
     localStorage.setItem(onboardingKey(userId), 'true');
+    if (dontShowAgain) {
+      localStorage.setItem(neverKey(userId), 'true');
+    }
     if (userId) {
       api.post('/users/onboarding', { version: ONBOARDING_VERSION }).catch(() => {});
     }
@@ -647,6 +656,17 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-6">
                 You can skip the tutorial anytime by pressing ESC
               </p>
+
+              {/* Permanent opt-out — honored by Skip, X, backdrop, and finishing */}
+              <label className="mt-4 inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none hover:text-gray-900 dark:hover:text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={dontShowAgain}
+                  onChange={(e) => setDontShowAgain(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                Don't show this tutorial automatically again
+              </label>
             </div>
           ) : (
             // Tutorial Steps
@@ -730,9 +750,9 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
                 </button>
               </div>
 
-              {/* Skip Link */}
+              {/* Skip Link + permanent opt-out */}
               {currentStep < steps.length - 1 && (
-                <div className="text-center mt-4">
+                <div className="flex items-center justify-center gap-4 mt-4">
                   <button
                     onClick={handleSkip}
                     className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white focus:ring-2 focus:ring-gray-400 rounded px-2 py-1"
@@ -740,6 +760,15 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
                   >
                     Skip tutorial (ESC)
                   </button>
+                  <label className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={dontShowAgain}
+                      onChange={(e) => setDontShowAgain(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    Don't show again
+                  </label>
                 </div>
               )}
             </>

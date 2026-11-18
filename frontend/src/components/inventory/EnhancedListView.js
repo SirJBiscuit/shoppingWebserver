@@ -16,7 +16,8 @@ const EnhancedListView = ({
   onEdit, 
   onDelete, 
   onToggleFavorite,
-  onQuickAction 
+  onQuickAction,
+  onCategoryChange
 }) => {
   
   // Get expiration status color
@@ -54,6 +55,7 @@ const EnhancedListView = ({
   const getCategoryIcon = (category) => {
     const icons = {
       food: '🍎',
+      seasoning: '🧂',
       household: '🏠',
       pet: '🐾',
       medical: '💊',
@@ -126,17 +128,27 @@ const EnhancedListView = ({
                     className={`w-4 h-4 ${item.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} 
                   />
                 </button>
-                <span className="text-lg flex-shrink-0">{item.item_icon || '📦'}</span>
+                <button
+                  type="button"
+                  onClick={() => onCategoryChange?.(item)}
+                  title="Change category"
+                  className="text-lg flex-shrink-0 hover:scale-110 transition-transform"
+                >{item.item_icon || '📦'}</button>
                 <span className="font-medium text-gray-900 dark:text-white truncate">
                   {item.item_name}
                 </span>
               </div>
 
-              {/* Category */}
+              {/* Category — click to change type */}
               <div className="col-span-1 text-center">
-                <span className="text-2xl" title={item.item_category || 'food'}>
+                <button
+                  type="button"
+                  onClick={() => onCategoryChange?.(item)}
+                  className="text-2xl hover:scale-125 transition-transform"
+                  title={`Type: ${item.item_category || 'food'} — click to change`}
+                >
                   {getCategoryIcon(item.item_category)}
-                </span>
+                </button>
               </div>
 
               {/* Quantity */}

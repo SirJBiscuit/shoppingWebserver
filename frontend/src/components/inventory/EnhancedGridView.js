@@ -19,6 +19,7 @@ const EnhancedGridView = ({
   onDelete, 
   onToggleFavorite,
   onQuickAction,
+  onCategoryChange,
   selectionMode = false,
   selectedItems = [],
   onToggleSelection
@@ -59,6 +60,7 @@ const EnhancedGridView = ({
   const getCategoryIcon = (category) => {
     const icons = {
       food: '🍎',
+      seasoning: '🧂',
       household: '🏠',
       pet: '🐾',
       medical: '💊',
@@ -120,9 +122,14 @@ const EnhancedGridView = ({
                   className="w-24 h-24 object-cover rounded-lg mb-3"
                 />
               ) : (
-                <div className="w-24 h-24 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg mb-3">
+                <button
+                  type="button"
+                  onClick={() => onCategoryChange?.(item)}
+                  title="Change category"
+                  className="w-24 h-24 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg mb-3 hover:bg-primary-50 dark:hover:bg-primary-900/30 hover:ring-2 hover:ring-primary-400 transition-all"
+                >
                   <span className="text-5xl">{item.item_icon || detectIcon(item.item_name) || getCategoryIcon(item.item_category)}</span>
-                </div>
+                </button>
               )}
 
               {/* Item Name */}
@@ -130,11 +137,16 @@ const EnhancedGridView = ({
                 {item.item_name}
               </h3>
 
-              {/* Category Badge */}
+              {/* Category Badge — click to change type */}
               <div className="flex items-center gap-2 mb-3">
-                <span className="px-3 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-full text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => onCategoryChange?.(item)}
+                  title="Change category"
+                  className="px-3 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-full text-xs font-semibold hover:bg-primary-200 dark:hover:bg-primary-900/50 transition-colors"
+                >
                   {getCategoryIcon(item.item_category)} {item.item_category || 'food'}
-                </span>
+                </button>
               </div>
 
               {/* Details */}

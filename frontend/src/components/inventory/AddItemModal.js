@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Calendar, DollarSign, MapPin, Package, Image as ImageIcon, Trash2, Lightbulb, Smile } from 'lucide-react';
 import { detectLocation, getCategorySuggestions } from '../../utils/smartLocationDetector';
 import IconPicker from './IconPicker';
+import QuickCategoryModal, { INVENTORY_CATEGORIES } from '../QuickCategoryModal';
 import DateInput from '../DateInput';
 import { useDeviceType, getTouchSizes } from '../../hooks/useDeviceType';
 import { classifyIngredient } from '../../utils/ingredientClassifier';
@@ -21,6 +22,7 @@ const AddItemModal = ({
 }) => {
   const [formData, setFormData] = useState({
     item_name: '',
+    item_category: 'food',
     storage_location: 'pantry',
     custom_location_id: null,
     category: '',
@@ -43,6 +45,7 @@ const AddItemModal = ({
   });
 
   const [showIconPicker, setShowIconPicker] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [locationSuggestion, setLocationSuggestion] = useState(null);
   const [errors, setErrors] = useState({});
@@ -133,6 +136,7 @@ const AddItemModal = ({
     if (item) {
       setFormData({
         item_name: item.item_name || '',
+        item_category: item.item_category || 'food',
         storage_location: item.storage_location || 'pantry',
         custom_location_id: item.custom_location_id || null,
         category: item.category || '',
@@ -258,6 +262,7 @@ const AddItemModal = ({
       // Format data for backend API
       const apiData = {
         item_name: formData.item_name.trim(),
+        item_category: formData.item_category || 'food',
         storage_location: formData.custom_location_id ? null : (formData.storage_location || 'pantry'),
         custom_location_id: formData.custom_location_id || null,
         category: formData.category || '',
@@ -288,6 +293,7 @@ const AddItemModal = ({
         const currentLocation = formData.storage_location;
         setFormData({
           item_name: '',
+          item_category: 'food',
           storage_location: currentLocation,
           custom_location_id: null,
           category: '',
@@ -451,6 +457,19 @@ const AddItemModal = ({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Location
               </label>
+              {/* Item type (food/cleaning/medical/etc) — quick picker */}
+              <button
+                type="button"
+                onClick={() => setShowCategoryPicker(true)}
+                className="mb-3 w-full flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-primary-400 dark:hover:border-primary-500 bg-white dark:bg-gray-700 transition-colors"
+                title="Change item type"
+              >
+                <span className="text-lg">{INVENTORY_CATEGORIES.find(c => c.value === formData.item_category)?.icon || '📦'}</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1 text-left">
+                  {INVENTORY_CATEGORIES.find(c => c.value === formData.item_category)?.label || 'Food'}
+                </span>
+                <span className="text-xs text-gray-400">Type</span>
+              </button>
               <select
                 name="storage_location"
                 value={formData.storage_location}
@@ -664,6 +683,16 @@ const AddItemModal = ({
         onClose={() => setShowIconPicker(false)}
         onSelect={(emoji) => setFormData(prev => ({ ...prev, icon: emoji }))}
         currentIcon={formData.icon}
+      />
+      <QuickCategoryModal
+        isOpen={showCategoryPicker}
+        categories={INVENTORY_CATEGORIES}
+        currentCategory={formData.item_category}
+        onSelect={(cat) => {
+          setFormData(prev => ({ ...prev, item_category: cat }));
+          setShowCategoryPicker(false);
+        }}
+        onClose={() => setShowCategoryPicker(false)}
       />
     </div></Portal>
   );
