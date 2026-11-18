@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, X } from 'lucide-react';
 import { Portal } from '../../utils/autoPlacement';
+import { DEFAULT_STORAGE_LOCATIONS } from '../../utils/storageLocations';
 
 /**
  * StorageLocationTabs - Tabs for switching between storage locations
@@ -18,12 +19,9 @@ const StorageLocationTabs = ({
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingLocation, setEditingLocation] = useState(null);
 
-  // Default locations
-  const defaultLocations = locations?.default || [
-    { id: 'pantry', name: 'Pantry', icon: '🥫', color: '#8B4513', isDefault: true },
-    { id: 'fridge', name: 'Fridge', icon: '🧊', color: '#60A5FA', isDefault: true },
-    { id: 'freezer', name: 'Freezer', icon: '❄️', color: '#3B82F6', isDefault: true }
-  ];
+  // Default locations (shared whole-home set)
+  const defaultLocations = locations?.default ||
+    DEFAULT_STORAGE_LOCATIONS.map(l => ({ ...l, isDefault: true }));
 
   // Custom locations
   const customLocations = locations?.custom || [];
@@ -184,7 +182,7 @@ const LocationModal = ({ location, onSave, onClose }) => {
   };
 
   return (
-    <Portal><div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <Portal><div className="fixed inset-0 bg-black/10 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">

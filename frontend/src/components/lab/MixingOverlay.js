@@ -15,7 +15,7 @@ import { Portal } from '../../utils/autoPlacement';
 const MixingOverlay = ({ icons = ['🧂', '🌶️', '🌿'], bowl = '🥣', text = 'Mixing your blend…', onDone }) => (
   <Portal><motion.div
     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-    className="fixed inset-0 z-[130] bg-black/60 flex items-center justify-center"
+    className="fixed inset-0 z-[130] bg-black/10 flex items-center justify-center"
   >
     <motion.div
       initial={{ scale: 0.9, opacity: 0 }}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Package, AlertTriangle, TrendingUp, DollarSign, Calendar, Trash2 } from 'lucide-react';
+import { formatQuantityPlain } from '../../utils/formatQuantity';
 
 /**
  * InventoryStats - Analytics dashboard showing inventory statistics
@@ -134,7 +135,7 @@ const InventoryStats = ({ stats, expiringSoon = [] }) => {
                       {item.item_name}
                     </div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {item.current_quantity} {item.unit}
+                      {formatQuantityPlain(item.current_quantity)} {item.unit}
                     </div>
                   </div>
                 </div>

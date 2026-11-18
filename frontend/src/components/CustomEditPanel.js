@@ -486,7 +486,7 @@ const CustomEditPanel = ({ item, isOpen, onClose, onSave, anchor }) => {
             never shifts the modal panel behind the sidebar */}
         {showPriceKeypad && (
           <div
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/10 p-4"
             onClick={() => setShowPriceKeypad(false)}
           >
             <div onClick={(e) => e.stopPropagation()}>

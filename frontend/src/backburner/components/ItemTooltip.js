@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Package, DollarSign, Tag, MapPin, Calendar } from 'lucide-react';
+import { formatQuantityPlain } from '../../utils/formatQuantity';
 
 const ItemTooltip = ({ item, children }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -60,7 +61,7 @@ const ItemTooltip = ({ item, children }) => {
                 {item.quantity && (
                   <div className="flex items-center text-gray-300">
                     <Package className="w-3 h-3 mr-1.5" />
-                    <span>{item.quantity} {item.unit || 'units'}</span>
+                    <span>{formatQuantityPlain(item.quantity)} {item.unit || 'units'}</span>
                   </div>
                 )}
 

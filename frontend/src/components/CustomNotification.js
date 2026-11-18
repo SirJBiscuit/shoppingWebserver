@@ -216,7 +216,7 @@ const CustomNotification = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={dismissible ? onClose : undefined}
-              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[150]"
+              className="fixed inset-0 bg-black/10 backdrop-blur-sm z-[150]"
             />
           )}
 

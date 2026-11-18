@@ -41,11 +41,9 @@ const LocationNavigator = ({
     return <IconComponent className="w-5 h-5" />;
   };
 
-  // View mode options
+  // View mode options — grid & map disabled per UX preference
   const viewModes = [
-    { id: 'grid', label: 'Grid', icon: '▦' },
     { id: 'list', label: 'List', icon: '☰' },
-    { id: 'map', label: 'Map', icon: '🗺️' },
     { id: 'category', label: 'Category', icon: '📁' },
   ];
 

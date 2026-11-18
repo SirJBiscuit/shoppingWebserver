@@ -1629,7 +1629,7 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
 
   const isFullscreen = mode === 'fullscreen';
   const shellCls = isFullscreen
-    ? 'fixed inset-0 z-[70] p-3 sm:p-6 bg-black/40'
+    ? 'fixed inset-0 z-[70] p-3 sm:p-6 bg-black/10'
     : 'fixed top-0 left-0 z-[65] w-[560px] max-w-[calc(100vw-16px)]';
   const panelH = isFullscreen ? 'h-full' : 'h-[520px] max-h-[calc(100vh-100px)]';
 
@@ -2834,7 +2834,7 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
 
       {/* ===== move-to-folder popup ===== */}
       {folderMenuPage != null && (
-        <Portal><div className="fixed inset-0 z-[96] flex items-center justify-center bg-black/40" onClick={() => { setFolderMenuPage(null); setFolderEdit(null); }}>
+        <Portal><div className="fixed inset-0 z-[96] flex items-center justify-center bg-black/10" onClick={() => { setFolderMenuPage(null); setFolderEdit(null); }}>
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -3048,7 +3048,7 @@ const Notepad = ({ isOpen, onClose, onCloseCompletely, launcherEnabled = true, u
 
       {/* ===== due date editor ===== */}
       {dueEditId && (
-        <Portal><div className="fixed inset-0 z-[96] flex items-center justify-center bg-black/40" onClick={() => setDueEditId(null)}>
+        <Portal><div className="fixed inset-0 z-[96] flex items-center justify-center bg-black/10" onClick={() => setDueEditId(null)}>
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}

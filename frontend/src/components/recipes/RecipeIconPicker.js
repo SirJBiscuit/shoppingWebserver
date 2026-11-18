@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Image as ImageIcon, Link, Smile } from 'lucide-react';
-import { Portal } from '../../utils/autoPlacement';
+import { Image as ImageIcon, Link, Smile } from 'lucide-react';
+import ModalShell from '../ui/ModalShell';
 
 // Preset food emoji the user can tap to set as the recipe icon.
 const PRESETS = [
@@ -21,8 +20,6 @@ const RecipeIconPicker = ({ isOpen, onClose, onPick, current }) => {
   const fileRef = useRef(null);
   const [urlText, setUrlText] = useState('');
   const [error, setError] = useState('');
-
-  if (!isOpen) return null;
 
   const pickEmoji = (e) => {
     onPick(`emoji:${e}`);
@@ -57,30 +54,15 @@ const RecipeIconPicker = ({ isOpen, onClose, onPick, current }) => {
     reader.readAsDataURL(file);
   };
 
-  return (
-    <Portal>
-      <AnimatePresence>
-        <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.9, y: 20 }} transition={{ type: 'spring', damping: 22 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
-          >
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <Smile className="w-5 h-5 text-primary-500" /> Recipe icon
-              </h3>
-              <button onClick={onClose} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                <X className="w-4 h-4 text-gray-500" />
-              </button>
-            </div>
+  const title = (
+    <span className="flex items-center gap-2">
+      <Smile className="w-5 h-5 text-primary-500" /> Recipe icon
+    </span>
+  );
 
-            <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+  return (
+    <ModalShell isOpen={isOpen} onClose={onClose} title={title} maxWidth="max-w-md" bodyClass="p-4">
+      <div className="space-y-4 max-h-[70vh]">
               <div>
                 <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">Emoji</p>
                 <div className="grid grid-cols-8 gap-1">
@@ -129,12 +111,9 @@ const RecipeIconPicker = ({ isOpen, onClose, onPick, current }) => {
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
               </div>
 
-              {error && <p className="text-xs text-red-500">{error}</p>}
-            </div>
-          </motion.div>
-        </motion.div>
-      </AnimatePresence>
-    </Portal>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+      </div>
+    </ModalShell>
   );
 };
 

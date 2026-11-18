@@ -168,7 +168,7 @@ const AisleConfigModal = ({ isOpen, onClose, storeName, storeId: storeIdProp, on
   ];
 
   return (
-    <Portal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 overflow-y-auto">
+    <Portal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4 overflow-y-auto">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 flex items-center justify-between">
           <div>

@@ -310,7 +310,7 @@ const Sidebar = ({ onAction }) => {
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
             onTouchStart={() => setIsOpen(false)}
-            className="fixed inset-0 bg-black bg-opacity-50 z-[45]"
+            className="fixed inset-0 bg-black/10 z-[45]"
           />
         )}
       </AnimatePresence></Portal>

@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Package } from 'lucide-react';
 import StorageIndicator from './StorageIndicator';
+import { DEFAULT_STORAGE_LOCATIONS } from '../../utils/storageLocations';
 
 /**
- * VisualInventoryMap - Visual representation of kitchen storage locations
+ * VisualInventoryMap - Visual representation of storage locations
  * Shows items organized by their physical location with visual indicators
  */
 const VisualInventoryMap = ({ items, onEdit, onAdjustQuantity }) => {
   // Group items by location (default + custom)
   const groupItemsByLocation = () => {
-    const defaultGroups = {
-      pantry: [],
-      fridge: [],
-      freezer: []
-    };
+    const defaultGroups = Object.fromEntries(
+      DEFAULT_STORAGE_LOCATIONS.map((l) => [l.id, []])
+    );
     
     const customGroups = {};
     
@@ -86,32 +85,28 @@ const VisualInventoryMap = ({ items, onEdit, onAdjustQuantity }) => {
     });
   };
 
-  const locationConfig = {
-    pantry: {
-      name: 'Pantry',
-      icon: '🥫',
-      color: 'from-amber-100 to-amber-200 dark:from-amber-900/30 dark:to-amber-800/30',
-      borderColor: 'border-amber-300 dark:border-amber-700',
-      textColor: 'text-amber-800 dark:text-amber-300',
-      bgColor: 'bg-amber-50 dark:bg-amber-900/20'
-    },
-    fridge: {
-      name: 'Fridge',
-      icon: '🧊',
-      color: 'from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30',
-      borderColor: 'border-blue-300 dark:border-blue-700',
-      textColor: 'text-blue-800 dark:text-blue-300',
-      bgColor: 'bg-blue-50 dark:bg-blue-900/20'
-    },
-    freezer: {
-      name: 'Freezer',
-      icon: '❄️',
-      color: 'from-cyan-100 to-cyan-200 dark:from-cyan-900/30 dark:to-cyan-800/30',
-      borderColor: 'border-cyan-300 dark:border-cyan-700',
-      textColor: 'text-cyan-800 dark:text-cyan-300',
-      bgColor: 'bg-cyan-50 dark:bg-cyan-900/20'
-    }
-  };
+  // Rotating accent palettes for locations without a hand-tuned theme
+  const ACCENTS = [
+    ['from-rose-100 to-rose-200 dark:from-rose-900/30 dark:to-rose-800/30', 'border-rose-300 dark:border-rose-700', 'text-rose-800 dark:text-rose-300', 'bg-rose-50 dark:bg-rose-900/20'],
+    ['from-violet-100 to-violet-200 dark:from-violet-900/30 dark:to-violet-800/30', 'border-violet-300 dark:border-violet-700', 'text-violet-800 dark:text-violet-300', 'bg-violet-50 dark:bg-violet-900/20'],
+    ['from-teal-100 to-teal-200 dark:from-teal-900/30 dark:to-teal-800/30', 'border-teal-300 dark:border-teal-700', 'text-teal-800 dark:text-teal-300', 'bg-teal-50 dark:bg-teal-900/20'],
+    ['from-lime-100 to-lime-200 dark:from-lime-900/30 dark:to-lime-800/30', 'border-lime-300 dark:border-lime-700', 'text-lime-800 dark:text-lime-300', 'bg-lime-50 dark:bg-lime-900/20'],
+    ['from-sky-100 to-sky-200 dark:from-sky-900/30 dark:to-sky-800/30', 'border-sky-300 dark:border-sky-700', 'text-sky-800 dark:text-sky-300', 'bg-sky-50 dark:bg-sky-900/20'],
+    ['from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30', 'border-orange-300 dark:border-orange-700', 'text-orange-800 dark:text-orange-300', 'bg-orange-50 dark:bg-orange-900/20'],
+  ];
+
+  const locationConfig = Object.fromEntries(DEFAULT_STORAGE_LOCATIONS.map((loc, i) => {
+    // Hand-tuned original three; others get a rotating accent
+    const hand = {
+      pantry: ['from-amber-100 to-amber-200 dark:from-amber-900/30 dark:to-amber-800/30', 'border-amber-300 dark:border-amber-700', 'text-amber-800 dark:text-amber-300', 'bg-amber-50 dark:bg-amber-900/20'],
+      fridge: ['from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30', 'border-blue-300 dark:border-blue-700', 'text-blue-800 dark:text-blue-300', 'bg-blue-50 dark:bg-blue-900/20'],
+      freezer: ['from-cyan-100 to-cyan-200 dark:from-cyan-900/30 dark:to-cyan-800/30', 'border-cyan-300 dark:border-cyan-700',
+        'text-cyan-800 dark:text-cyan-300', 'bg-cyan-50 dark:bg-cyan-900/20'],
+    };
+    const [color, borderColor, textColor, bgColor] = hand[loc.id] || ACCENTS[i % ACCENTS.length];
+    return [loc.id, { name: loc.name, icon: loc.icon, color, borderColor, textColor, bgColor }];
+  }));
+
 
   const getTotalValue = (locationItems) => {
     return locationItems.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);

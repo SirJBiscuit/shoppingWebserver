@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { inventoryAPI } from '../services/api';
 import { formatDistanceToNow } from 'date-fns';
+import { formatQuantityPlain } from '../../utils/formatQuantity';
 
 const InventoryPanel = ({ inventory, onUpdate }) => {
   const [editingItem, setEditingItem] = useState(null);
@@ -42,7 +43,7 @@ const InventoryPanel = ({ inventory, onUpdate }) => {
           <div className="flex items-center justify-between mb-2">
             <span className="font-medium text-gray-900">{item.item_name}</span>
             <span className="text-xs text-gray-500">
-              {item.current_quantity} {item.unit}
+              {formatQuantityPlain(item.current_quantity)} {item.unit}
             </span>
           </div>
           

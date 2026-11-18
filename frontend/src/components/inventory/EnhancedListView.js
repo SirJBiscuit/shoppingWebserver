@@ -1,6 +1,8 @@
 import React from 'react';
 import { Edit2, Trash2, Star, AlertCircle, CheckCircle, Package } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { formatQuantityPlain } from '../../utils/formatQuantity';
+import { INVENTORY_CATEGORIES } from '../QuickCategoryModal';
 
 /**
  * EnhancedListView - Compact list display for inventory items
@@ -17,7 +19,10 @@ const EnhancedListView = ({
   onDelete, 
   onToggleFavorite,
   onQuickAction,
-  onCategoryChange
+  onCategoryChange,
+  selectionMode = false,
+  selectedItems = [],
+  onToggleSelection
 }) => {
   
   // Get expiration status color
@@ -51,20 +56,10 @@ const EnhancedListView = ({
     return badges[color] || badges.gray;
   };
 
-  // Get category icon
+  // Get category icon — shared map so every picker/view agrees
   const getCategoryIcon = (category) => {
-    const icons = {
-      food: '🍎',
-      seasoning: '🧂',
-      household: '🏠',
-      pet: '🐾',
-      medical: '💊',
-      cleaning: '🧹',
-      tools: '🔧',
-      beauty: '💄',
-      other: '📦'
-    };
-    return icons[category] || '📦';
+    const hit = INVENTORY_CATEGORIES.find(c => c.value === category);
+    return hit ? hit.icon : '📦';
   };
 
   // Format date
@@ -87,7 +82,7 @@ const EnhancedListView = ({
       {/* Table Header */}
       <div className="bg-gray-50 dark:bg-gray-700 border-b-2 border-gray-200 dark:border-gray-600">
         <div className="grid grid-cols-12 gap-4 px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
-          <div className="col-span-1 text-center">Status</div>
+          <div className="col-span-1 text-center">{selectionMode ? 'Select' : 'Status'}</div>
           <div className="col-span-3">Item Name</div>
           <div className="col-span-1 text-center">Category</div>
           <div className="col-span-1 text-center">Quantity</div>
@@ -109,13 +104,31 @@ const EnhancedListView = ({
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.02 }}
-              className="grid grid-cols-12 gap-4 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors items-center"
+              onClick={() => selectionMode && onToggleSelection?.(item.id)}
+              className={`grid grid-cols-12 gap-4 px-4 py-3 transition-colors items-center ${
+                selectionMode ? 'cursor-pointer' : ''
+              } ${
+                selectedItems.includes(item.id)
+                  ? 'bg-primary-50 dark:bg-primary-900/20 ring-1 ring-inset ring-primary-400'
+                  : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+              }`}
             >
-              {/* Status */}
+              {/* Status / Select */}
               <div className="col-span-1 flex justify-center">
-                <div className={`${status.bg} ${status.text} px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1`}>
-                  <span>{status.icon}</span>
-                </div>
+                {selectionMode ? (
+                  <input
+                    type="checkbox"
+                    checked={selectedItems.includes(item.id)}
+                    onChange={() => onToggleSelection?.(item.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    aria-label={`Select ${item.item_name}`}
+                  />
+                ) : (
+                  <div className={`${status.bg} ${status.text} px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1`}>
+                    <span>{status.icon}</span>
+                  </div>
+                )}
               </div>
 
               {/* Item Name */}
@@ -154,7 +167,7 @@ const EnhancedListView = ({
               {/* Quantity */}
               <div className="col-span-1 text-center">
                 <span className="font-semibold text-gray-900 dark:text-white">
-                  {item.quantity ? Math.floor(item.quantity) : '-'}
+                  {item.quantity ? formatQuantityPlain(item.quantity) : '-'}
                 </span>
                 {item.unit && (
                   <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">

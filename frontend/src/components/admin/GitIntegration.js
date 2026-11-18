@@ -494,7 +494,7 @@ const GitIntegration = () => {
 
       {/* Diff Viewer Modal */}
       {showDiff && (
-        <Portal><div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <Portal><div className="fixed inset-0 bg-black/10 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-xl font-bold">Diff: {showDiff.file}</h3>

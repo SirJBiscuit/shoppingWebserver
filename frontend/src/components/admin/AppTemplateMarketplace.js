@@ -189,7 +189,7 @@ const AppTemplateMarketplace = ({ onSelectTemplate }) => {
       {/* Preview Modal */}
       {showPreview && selectedTemplate && (
         <Portal><div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/10 flex items-center justify-center z-50 p-4"
           onClick={() => setShowPreview(false)}
         >
           <div 

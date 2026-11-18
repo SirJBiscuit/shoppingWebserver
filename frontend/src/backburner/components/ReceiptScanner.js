@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Camera, Upload, X, Check, Loader, FileText } from 'lucide-react';
+import { formatQuantityPlain } from '../../utils/formatQuantity';
 
 const ReceiptScanner = ({ isOpen, onClose, onItemsExtracted }) => {
   const [image, setImage] = useState(null);
@@ -58,7 +59,7 @@ const ReceiptScanner = ({ isOpen, onClose, onItemsExtracted }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/10 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -140,7 +141,7 @@ const ReceiptScanner = ({ isOpen, onClose, onItemsExtracted }) => {
                   className="w-full rounded-lg border border-gray-200 dark:border-gray-700"
                 />
                 {processing && (
-                  <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
+                  <div className="absolute inset-0 bg-black/10 flex items-center justify-center rounded-lg">
                     <div className="text-center">
                       <Loader className="w-12 h-12 text-white animate-spin mx-auto mb-3" />
                       <p className="text-white font-semibold">Processing receipt...</p>
@@ -172,7 +173,7 @@ const ReceiptScanner = ({ isOpen, onClose, onItemsExtracted }) => {
                         <div className="flex-1">
                           <p className="font-medium text-gray-900 dark:text-white">{item.name}</p>
                           <div className="flex items-center space-x-3 text-sm text-gray-600 dark:text-gray-400">
-                            <span>Qty: {item.quantity}</span>
+                            <span>Qty: {formatQuantityPlain(item.quantity)}</span>
                             <span>•</span>
                             <span>${item.price.toFixed(2)}</span>
                             <span>•</span>

@@ -179,7 +179,7 @@ export const ModalPortal = ({
     <Portal>
       <div
         data-ap-overlay
-        className={`fixed inset-0 bg-black/50 flex z-[80] p-0 sm:p-4 ${
+        className={`fixed inset-0 bg-black/10 flex z-[80] p-0 sm:p-4 ${
           asSheet ? 'items-end justify-center' : 'items-center justify-center'
         } ${backdropClassName}`}
         onClick={onClose}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, BarChart3, GripVertical, CheckSquare } from 'lucide-react';
+import { Plus, BarChart3, CheckSquare } from 'lucide-react';
 import inventoryAPI from '../../services/inventoryAPI';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
@@ -13,11 +13,8 @@ import { useNotification } from '../../hooks/useNotification';
 // New Home Inventory Components
 import LocationNavigator from '../../components/inventory/LocationNavigator';
 import FilterPanel from '../../components/inventory/FilterPanel';
-import EnhancedGridView from '../../components/inventory/EnhancedGridView';
-import DraggableGridView from '../../components/inventory/DraggableGridView';
 import EnhancedListView from '../../components/inventory/EnhancedListView';
 import CategoryView from '../../components/inventory/CategoryView';
-import VisualInventoryMap from '../../components/inventory/VisualInventoryMap';
 import AddItemModal from '../../components/inventory/AddItemModal';
 import InventoryStats from '../../components/inventory/InventoryStats';
 import BulkActionBar from '../../components/inventory/BulkActionBar';
@@ -27,7 +24,7 @@ import QuickCategoryModal, { INVENTORY_CATEGORIES } from '../../components/Quick
 /**
  * PantryNewV2 - Home Inventory with new 3-panel layout
  * Left: Location Navigator
- * Center: Item Display (Grid/List/Map/Category)
+ * Center: Item Display (List/Category — grid & map disabled)
  * Right: Filter Panel
  */
 const PantryNewV2 = () => {
@@ -44,15 +41,20 @@ const PantryNewV2 = () => {
   // UI State
   const [activeLocation, setActiveLocation] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  // View mode persists across visits (grid | list | category | map)
-  const [viewMode, setViewModeState] = useState(
-    () => localStorage.getItem('pantryViewMode') || 'grid'
-  );
-  const setViewMode = (v) => { setViewModeState(v); localStorage.setItem('pantryViewMode', v); };
+  // View mode persists across visits — grid & map disabled, list/category only
+  const VALID_VIEW_MODES = ['list', 'category'];
+  const [viewMode, setViewModeState] = useState(() => {
+    const saved = localStorage.getItem('pantryViewMode');
+    return VALID_VIEW_MODES.includes(saved) ? saved : 'list';
+  });
+  const setViewMode = (v) => {
+    const mode = VALID_VIEW_MODES.includes(v) ? v : 'list';
+    setViewModeState(mode);
+    localStorage.setItem('pantryViewMode', mode);
+  };
   const [activeFilter, setActiveFilter] = useState('all');
   const [activeCategory, setActiveCategory] = useState('all');
   const [showStats, setShowStats] = useState(false);
-  const [dragMode, setDragMode] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
   
@@ -359,21 +361,6 @@ const PantryNewV2 = () => {
     }
   };
 
-  const handleReorder = async (itemIds) => {
-    try {
-      // Update sort_order for each item
-      await Promise.all(
-        itemIds.map((id, index) => 
-          inventoryAPI.updateItem(id, { sort_order: index })
-        )
-      );
-      success('Items reordered!');
-      await loadItems();
-    } catch (error) {
-      console.error('Failed to reorder items:', error);
-      showError('Failed to reorder items');
-    }
-  };
 
   // ============================================
   // BULK ACTIONS
@@ -551,7 +538,7 @@ const PantryNewV2 = () => {
               </div>
 
               <div className="flex gap-3">
-                {viewMode === 'grid' && !dragMode && (
+                {viewMode === 'list' && (
                   <button
                     onClick={() => {
                       setSelectionMode(!selectionMode);
@@ -565,19 +552,6 @@ const PantryNewV2 = () => {
                   >
                     <CheckSquare className="w-5 h-5" />
                     <span className="hidden md:inline">{selectionMode ? 'Select Mode ON' : 'Select'}</span>
-                  </button>
-                )}
-                {viewMode === 'grid' && !selectionMode && (
-                  <button
-                    onClick={() => setDragMode(!dragMode)}
-                    className={`px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
-                      dragMode 
-                        ? 'bg-green-600 text-white hover:bg-green-700' 
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    <GripVertical className="w-5 h-5" />
-                    <span className="hidden md:inline">{dragMode ? 'Drag Mode ON' : 'Drag Mode'}</span>
                   </button>
                 )}
                 <button
@@ -630,8 +604,8 @@ const PantryNewV2 = () => {
 
               {/* Center Panel - Item Display */}
               <div className="lg:col-span-6">
-                {viewMode === 'grid' && !dragMode && (
-                  <EnhancedGridView
+                {viewMode === 'list' && (
+                  <EnhancedListView
                     items={filteredItems}
                     onEdit={handleEditItem}
                     onDelete={handleDeleteItem}
@@ -644,44 +618,13 @@ const PantryNewV2 = () => {
                   />
                 )}
                 
-                {viewMode === 'grid' && dragMode && (
-                  <DraggableGridView
-                    items={filteredItems}
-                    onEdit={handleEditItem}
-                    onDelete={handleDeleteItem}
-                    onToggleFavorite={handleToggleFavorite}
-                    onQuickAction={handleQuickAction}
-                    onReorder={handleReorder}
-                  />
-                )}
-                
-                {viewMode === 'list' && (
-                  <EnhancedListView
-                    items={filteredItems}
-                    onEdit={handleEditItem}
-                    onDelete={handleDeleteItem}
-                    onToggleFavorite={handleToggleFavorite}
-                    onQuickAction={handleQuickAction}
-                    onCategoryChange={setCategoryPickerItem}
-                  />
-                )}
-                
                 {viewMode === 'category' && (
                   <CategoryView
                     items={filteredItems}
                     onEdit={handleEditItem}
                     onDelete={handleDeleteItem}
                     onToggleFavorite={handleToggleFavorite}
-                  />
-                )}
-                
-                {viewMode === 'map' && (
-                  <VisualInventoryMap
-                    items={filteredItems}
-                    location={activeLocation?.name || 'All Locations'}
-                    onEdit={handleEditItem}
-                    onDelete={handleDeleteItem}
-                    onQuickAction={handleQuickAction}
+                    onCategoryChange={setCategoryPickerItem}
                   />
                 )}
               </div>

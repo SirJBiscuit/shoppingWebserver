@@ -12,6 +12,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import { detectIcon, canonicalizeCategory, getCategoryIcon, getCategoryOrder } from '../utils/categoryDetector';
+import { formatQuantityPlain } from '../utils/formatQuantity';
 
 const Pantry = () => {
   const navigate = useNavigate();
@@ -279,7 +280,7 @@ const Pantry = () => {
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">{item.item_name}</p>
                     <p className="text-sm text-gray-600">
-                      {item.quantity} {item.unit}
+                      {formatQuantityPlain(item.quantity)} {item.unit}
                     </p>
                     <p className="text-xs text-red-600 mt-1">
                       Expires: {new Date(item.expiry_date).toLocaleDateString()}
@@ -501,7 +502,7 @@ const PantryItemCard = ({ item, onDelete, onUpdateQuantity, onEdit, onRefresh })
       ) : (
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm text-gray-600">
-            {item.quantity} {item.unit}
+            {formatQuantityPlain(item.quantity)} {item.unit}
           </p>
           <button
             onClick={() => setEditing(true)}

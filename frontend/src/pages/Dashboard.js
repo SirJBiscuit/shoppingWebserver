@@ -71,7 +71,6 @@ import { sortItemsByStoreAisle } from '../data/storeLayouts';
 import { smartSortItems, getShoppingEfficiency } from '../utils/storeSorting';
 import { learnIcon, getLearnedIcon, learnPrice, getLearnedPrice } from '../utils/userPreferences';
 import { getAutocompleteSuggestions } from '../utils/autocomplete';
-import { formatQuantityPlain } from '../utils/formatQuantity';
 import RichNoteEditor from '../components/RichNoteEditor';
 import Notepad from '../components/notepad/Notepad';
 import { useContextMenu, oiRow, oiHeader, oiSep, oiSub } from '../overlay/OverlayInteractions';
@@ -2398,7 +2397,7 @@ const Dashboard = () => {
                 <Portal><div className="fixed inset-0 z-[100] flex items-center justify-center">
                   {/* Backdrop */}
                   <div 
-                    className="absolute inset-0 bg-black/50"
+                    className="absolute inset-0 bg-black/10"
                     onClick={() => setShowPriceNumpad(false)}
                   />
                   
@@ -2819,7 +2818,7 @@ const Dashboard = () => {
         
         {/* Recovery Modal */}
         {showRecovery && (
-          <Portal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <Portal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -2919,7 +2918,7 @@ const Dashboard = () => {
 
       {/* Add Note Modal */}
       {itemForNote && (
-        <Portal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+        <Portal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <FileText className="w-6 h-6" />
@@ -2956,7 +2955,7 @@ const Dashboard = () => {
 
       {/* Edit List Name Modal */}
       {editingListName && (
-        <Portal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+        <Portal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               Edit Shopping List

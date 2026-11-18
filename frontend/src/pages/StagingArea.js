@@ -7,6 +7,7 @@ import StagingItemCard from '../components/staging/StagingItemCard';
 import RotationPanel from '../components/staging/RotationPanel';
 import Sidebar from '../components/Sidebar';
 import ConfirmModal from '../limbo/modals/ConfirmModal';
+import { formatQuantityPlain } from '../utils/formatQuantity';
 
 /**
  * StagingArea - Unpack
@@ -354,7 +355,7 @@ const StagingArea = () => {
                               {item.item_name}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {item.current_quantity} {item.unit}
+                              {formatQuantityPlain(item.current_quantity)} {item.unit}
                             </p>
                           </div>
                           <div className="text-xs text-gray-400">

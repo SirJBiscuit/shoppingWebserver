@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Package, ShoppingCart, AlertTriangle, Eye, Plus, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { detectIcon } from '../utils/categoryDetector';
+import { formatQuantityPlain } from '../utils/formatQuantity';
 import ExpirationBadge from './ExpirationBadge';
 
 const PantryQuickView = ({ pantryItems, onAddToList, onViewPantry, onDeleteItem, onClearAll }) => {
@@ -154,7 +155,7 @@ const PantryQuickView = ({ pantryItems, onAddToList, onViewPantry, onDeleteItem,
                       {item.item_name}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {item.quantity} {item.unit} left
+                      {formatQuantityPlain(item.quantity)} {item.unit} left
                     </p>
                     {item.expiry_date && (
                       <div className="mt-1">
@@ -206,7 +207,7 @@ const PantryQuickView = ({ pantryItems, onAddToList, onViewPantry, onDeleteItem,
                       {item.item_name}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {item.quantity} {item.unit}
+                      {formatQuantityPlain(item.quantity)} {item.unit}
                       {item.expiry_date && (
                         <span className="ml-2">
                           • Expires {new Date(item.expiry_date).toLocaleDateString()}

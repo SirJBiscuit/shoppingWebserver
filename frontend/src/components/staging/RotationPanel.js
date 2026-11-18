@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Trash2, RotateCcw, Clock, X } from 'lucide-react';
+import { formatQuantityPlain } from '../../utils/formatQuantity';
 
 /**
  * RotationPanel - Shows rotation suggestions for selected staging item
@@ -60,7 +61,7 @@ const RotationPanel = ({ item, suggestions, onPutAway, onResolveSuggestion, onCl
             <div>
               <h3 className="font-bold text-lg">{item.item_name}</h3>
               <p className="text-sm opacity-90">
-                {item.quantity} {item.unit}
+                {formatQuantityPlain(item.quantity)} {item.unit}
               </p>
             </div>
           </div>

@@ -52,7 +52,7 @@ function LevelUpModal({ isOpen, onClose, levelData }) {
   };
 
   return (
-    <Portal><div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <Portal><div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm">
       <div className="relative bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden">
         {/* Animated Background */}
         <div className="absolute inset-0 opacity-20">

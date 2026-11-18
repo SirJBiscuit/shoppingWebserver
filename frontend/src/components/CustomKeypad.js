@@ -227,7 +227,7 @@ const CustomKeypad = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 z-[100]"
+          className="fixed inset-0 bg-black/10 z-[100]"
           onClick={handleClose}
         /></Portal>
         
@@ -254,7 +254,7 @@ const CustomKeypad = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 z-[100]"
+          className="fixed inset-0 bg-black/10 z-[100]"
           onClick={handleClose}
         /></Portal>
         
@@ -280,7 +280,7 @@ const CustomKeypad = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/30 z-[100]"
+        className="fixed inset-0 bg-black/10 z-[100]"
         onClick={handleClose}
       /></Portal>
       

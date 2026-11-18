@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Share2, Copy, Mail, MessageCircle, X, Check, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Portal } from '../utils/autoPlacement';
+import { formatQuantityPlain } from '../utils/formatQuantity';
 
 const ShareList = ({ list, items, isOpen, onClose }) => {
   const [copied, setCopied] = useState(false);
@@ -15,7 +16,7 @@ const ShareList = ({ list, items, isOpen, onClose }) => {
     items.forEach((item, index) => {
       text += `${index + 1}. ${item.item_name}`;
       if (item.quantity > 1) {
-        text += ` (${item.quantity}${item.unit ? ' ' + item.unit : ''})`;
+        text += ` (${formatQuantityPlain(item.quantity)}${item.unit ? ' ' + item.unit : ''})`;
       }
       text += '\n';
     });
@@ -79,7 +80,7 @@ const ShareList = ({ list, items, isOpen, onClose }) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        className="fixed inset-0 bg-black/10 flex items-center justify-center z-50 p-4"
         onClick={onClose}
       >
         <motion.div

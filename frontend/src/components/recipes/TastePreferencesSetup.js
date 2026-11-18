@@ -111,7 +111,7 @@ const TastePreferencesSetup = ({ onSave, onSkip, existingPreferences = null }) =
   };
 
   return (
-    <Portal><div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <Portal><div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}

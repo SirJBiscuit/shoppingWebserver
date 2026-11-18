@@ -151,7 +151,7 @@ function XPProgressBar({ compact = false, showDetails = true }) {
 
       {/* Level Up Animation */}
       {showLevelUp && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-lg pointer-events-none">
           <div className="animate-bounce">
             <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-8 py-4 rounded-2xl shadow-2xl">
               <div className="text-center">

@@ -178,7 +178,7 @@ const MediaAssetManager = () => {
 
       {/* Preview Modal */}
       {previewAsset && (
-        <Portal><div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4" onClick={() => setPreviewAsset(null)}>
+        <Portal><div className="fixed inset-0 bg-black/10 flex items-center justify-center z-50 p-4" onClick={() => setPreviewAsset(null)}>
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-xl font-bold mb-4">{previewAsset.name}</h3>
             {activeTab === 'sounds' ? (

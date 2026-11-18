@@ -309,7 +309,7 @@ const AdminFeatureFlagsManager = () => {
 
       {/* Add/Edit Modal */}
       {(showAddModal || editingFlag) && (
-        <Portal><div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <Portal><div className="fixed inset-0 bg-black/10 flex items-center justify-center z-50 p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}

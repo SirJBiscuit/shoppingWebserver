@@ -1,6 +1,8 @@
 import React from 'react';
 import { Edit2, Trash2, Star, Package } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { formatQuantityPlain } from '../../utils/formatQuantity';
+import { INVENTORY_CATEGORIES } from '../QuickCategoryModal';
 
 /**
  * CategoryView - Organize items by category with collapsible sections
@@ -15,22 +17,17 @@ const CategoryView = ({
   items = [], 
   onEdit, 
   onDelete, 
-  onToggleFavorite 
+  onToggleFavorite,
+  onCategoryChange
 }) => {
   
   const [expandedCategories, setExpandedCategories] = React.useState(new Set(['food']));
 
-  // Category definitions
-  const categories = {
-    food: { icon: '🍎', label: 'Food', color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' },
-    household: { icon: '🏠', label: 'Household', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' },
-    pet: { icon: '🐾', label: 'Pet Supplies', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' },
-    medical: { icon: '💊', label: 'Medical', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' },
-    cleaning: { icon: '🧹', label: 'Cleaning', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' },
-    tools: { icon: '🔧', label: 'Tools', color: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300' },
-    beauty: { icon: '💄', label: 'Beauty', color: 'bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300' },
-    other: { icon: '📦', label: 'Other', color: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300' }
-  };
+  // Category definitions — shared with the quick-category picker so the
+  // picker, this view, and the list view always agree on icons/colors.
+  const categories = Object.fromEntries(
+    INVENTORY_CATEGORIES.map(c => [c.value, { icon: c.icon, label: c.label, color: c.color }])
+  );
 
   // Group items by category
   const groupedItems = React.useMemo(() => {
@@ -143,6 +140,14 @@ const CategoryView = ({
                     {/* Item Header */}
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => onCategoryChange?.(item)}
+                          title={`Type: ${item.item_category || 'food'} — click to change`}
+                          className="text-lg flex-shrink-0 hover:scale-110 transition-transform"
+                        >
+                          {item.item_icon || '📦'}
+                        </button>
                         <span className="text-lg">{getStatusIndicator(item)}</span>
                         <h4 className="font-semibold text-sm text-gray-900 dark:text-white truncate">
                           {item.item_name}
@@ -164,7 +169,7 @@ const CategoryView = ({
                         <div className="flex justify-between">
                           <span>Quantity:</span>
                           <span className="font-semibold text-gray-900 dark:text-white">
-                            {Math.floor(item.quantity)} {item.unit}
+                            {formatQuantityPlain(item.quantity)} {item.unit}
                           </span>
                         </div>
                       )}

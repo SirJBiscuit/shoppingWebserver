@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import IconPicker from './IconPicker';
 import ItemIcon from './ItemIcon';
-import { Portal } from '../utils/autoPlacement';
+import ModalShell from './ui/ModalShell';
 // import ItemHistoryWidget from './ItemHistoryWidget'; // Component doesn't exist
 
 const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
@@ -37,23 +37,9 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <Portal><div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Edit Item</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+    <ModalShell isOpen={isOpen} onClose={onClose} title="Edit Item" maxWidth="max-w-md" bodyClass="p-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
             {/* Item History Widget - DISABLED (component doesn't exist) */}
             {/* {formData.item_name && (
               <ItemHistoryWidget itemName={formData.item_name} />
@@ -266,9 +252,7 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
                 Save Changes
               </button>
             </div>
-          </form>
-        </div>
-      </div>
+      </form>
 
       {/* Icon Picker Modal */}
       {showIconPicker && (
@@ -282,7 +266,7 @@ const EditItemModal = ({ item, isOpen, onClose, onSave }) => {
           onClose={() => setShowIconPicker(false)}
         />
       )}
-    </div></Portal>
+    </ModalShell>
   );
 };
 

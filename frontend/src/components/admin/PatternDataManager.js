@@ -153,7 +153,7 @@ const PatternDataManager = () => {
 
       {/* Edit Modal */}
       {editMode && selectedPattern && (
-        <Portal><div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <Portal><div className="fixed inset-0 bg-black/10 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full p-6">
             <h3 className="text-xl font-bold mb-4">Edit Pattern: {selectedPattern.item_name}</h3>
             <div className="space-y-4">

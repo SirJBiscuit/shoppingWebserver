@@ -25,11 +25,25 @@ router.get('/locations', authenticateToken, async (req, res) => {
       ORDER BY sort_order ASC, name ASC
     `, [req.user.id]);
     
-    // Default locations
+    // Default locations — kept in sync with
+    // frontend/src/utils/storageLocations.js (whole-home coverage)
     const defaultLocations = [
-      { id: 'pantry', name: 'Pantry', icon: '🥫', color: '#8B4513', sort_order: 0, isDefault: true },
-      { id: 'fridge', name: 'Fridge', icon: '🧊', color: '#60A5FA', sort_order: 1, isDefault: true },
-      { id: 'freezer', name: 'Freezer', icon: '❄️', color: '#3B82F6', sort_order: 2, isDefault: true }
+      { id: 'pantry',           name: 'Pantry',           icon: '🥫', color: '#8B4513', sort_order: 0,  isDefault: true },
+      { id: 'fridge',           name: 'Fridge',           icon: '🧊', color: '#60A5FA', sort_order: 1,  isDefault: true },
+      { id: 'freezer',          name: 'Freezer',          icon: '❄️', color: '#3B82F6', sort_order: 2,  isDefault: true },
+      { id: 'counter',          name: 'Counter',          icon: '🍞', color: '#D97706', sort_order: 3,  isDefault: true },
+      { id: 'spice_rack',       name: 'Spice Rack',       icon: '🌶️', color: '#DC2626', sort_order: 4,  isDefault: true },
+      { id: 'cabinet',          name: 'Cabinet',          icon: '🗄️', color: '#78716C', sort_order: 5,  isDefault: true },
+      { id: 'medicine_cabinet', name: 'Medicine Cabinet', icon: '💊', color: '#EF4444', sort_order: 6,  isDefault: true },
+      { id: 'bathroom',         name: 'Bathroom',         icon: '🛁', color: '#0EA5E9', sort_order: 7,  isDefault: true },
+      { id: 'laundry_room',     name: 'Laundry Room',     icon: '🧺', color: '#8B5CF6', sort_order: 8,  isDefault: true },
+      { id: 'closet',           name: 'Closet',           icon: '🚪', color: '#A16207', sort_order: 9,  isDefault: true },
+      { id: 'garage',           name: 'Garage',           icon: '🔧', color: '#6B7280', sort_order: 10, isDefault: true },
+      { id: 'basement',         name: 'Basement',         icon: '📦', color: '#57534E', sort_order: 11, isDefault: true },
+      { id: 'attic',            name: 'Attic',            icon: '🏠', color: '#B45309', sort_order: 12, isDefault: true },
+      { id: 'shed',             name: 'Shed',             icon: '🌱', color: '#16A34A', sort_order: 13, isDefault: true },
+      { id: 'office',           name: 'Office',           icon: '📎', color: '#4F46E5', sort_order: 14, isDefault: true },
+      { id: 'car',              name: 'Car',              icon: '🚗', color: '#0891B2', sort_order: 15, isDefault: true },
     ];
     
     res.json({

@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle, Trash2, AlertCircle } from 'lucide-react';
+import { formatQuantityPlain } from '../../utils/formatQuantity';
 
 /**
  * StagingItemCard - Card for items in staging area
@@ -31,7 +32,7 @@ const StagingItemCard = ({ item, isSelected, onSelect, onPutAway, onRemove }) =>
             {item.item_name}
           </h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            {item.quantity} {item.unit}
+            {formatQuantityPlain(item.quantity)} {item.unit}
           </p>
           {item.category && (
             <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">

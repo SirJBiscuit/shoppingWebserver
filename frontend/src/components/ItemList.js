@@ -363,7 +363,7 @@ const ItemListContent = (props) => {
     {/* Note Modal */}
     {noteItem && (
       <Portal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <FileText className="w-6 h-6" />

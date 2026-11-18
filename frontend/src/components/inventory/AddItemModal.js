@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Calendar, DollarSign, MapPin, Package, Image as ImageIcon, Trash2, Lightbulb, Smile } from 'lucide-react';
-import { detectLocation, getCategorySuggestions } from '../../utils/smartLocationDetector';
+import { detectLocation } from '../../utils/smartLocationDetector';
+import { DEFAULT_STORAGE_LOCATIONS } from '../../utils/storageLocations';
 import IconPicker from './IconPicker';
 import QuickCategoryModal, { INVENTORY_CATEGORIES } from '../QuickCategoryModal';
 import DateInput from '../DateInput';
@@ -355,7 +356,7 @@ const AddItemModal = ({
   };
 
   return (
-    <Portal><div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+    <Portal><div className="fixed inset-0 bg-black/10 flex items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full my-8">
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
@@ -476,9 +477,11 @@ const AddItemModal = ({
                 onChange={handleChange}
                 className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
               >
-                <option value="pantry">🥫 Pantry</option>
-                <option value="fridge">🧊 Fridge</option>
-                <option value="freezer">❄️ Freezer</option>
+                {DEFAULT_STORAGE_LOCATIONS.map(loc => (
+                  <option key={loc.id} value={loc.id}>
+                    {loc.icon} {loc.name}
+                  </option>
+                ))}
                 {locations.custom?.map(loc => (
                   <option key={loc.id} value={`custom_${loc.id}`}>
                     {loc.icon} {loc.name}

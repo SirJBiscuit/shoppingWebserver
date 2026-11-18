@@ -195,7 +195,7 @@ const PriceLearningModal = ({ isOpen, onClose, onSubmit, storeLocation = null, o
   const close = () => { stopCamera(); onClose(); };
 
   return (
-    <Portal><div className="fixed inset-0 z-[80] flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm" onClick={close}>
+    <Portal><div className="fixed inset-0 z-[80] flex items-center justify-center p-3 bg-black/10 backdrop-blur-sm" onClick={close}>
       <motion.div
         initial={{ opacity: 0, scale: 0.94, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}

@@ -4,6 +4,8 @@
  * Learns from user preferences over time
  */
 
+import { getLocationMeta } from './storageLocations';
+
 const LOCATION_RULES = {
   fridge: {
     keywords: [
@@ -105,6 +107,71 @@ const LOCATION_RULES = {
       'Eye Level': ['cereal', 'pasta', 'rice', 'snacks', 'coffee', 'tea'],
       'Bottom Shelf': ['canned goods', 'flour', 'sugar', 'oil', 'vinegar', 'bulk items']
     }
+  },
+
+  spice_rack: {
+    keywords: [
+      'salt', 'pepper', 'paprika', 'cumin', 'cinnamon', 'oregano', 'basil',
+      'thyme', 'rosemary', 'garlic powder', 'onion powder', 'chili powder',
+      'seasoning', 'spice', 'bay leaf', 'turmeric', 'ginger', 'nutmeg',
+      'vanilla extract', 'food coloring'
+    ],
+    subCategories: {}
+  },
+
+  medicine_cabinet: {
+    keywords: [
+      'medicine', 'pill', 'pills', 'vitamin', 'vitamins', 'ibuprofen',
+      'acetaminophen', 'tylenol', 'advil', 'aspirin', 'cough syrup',
+      'bandage', 'bandaid', 'band-aid', 'gauze', 'antiseptic', 'neosporin',
+      'first aid', 'thermometer', 'prescription', 'antacid', 'allergy',
+      'cold medicine', 'ointment', 'cream', 'medicine cabinet', 'supplement'
+    ],
+    subCategories: {}
+  },
+
+  bathroom: {
+    keywords: [
+      'shampoo', 'conditioner', 'body wash', 'soap', 'hand soap', 'toothpaste',
+      'toothbrush', 'floss', 'mouthwash', 'deodorant', 'razor', 'shaving',
+      'lotion', 'moisturizer', 'sunscreen', 'toilet paper', 'tissue',
+      'cotton ball', 'q-tip', 'q-tips', 'cotton swab', 'hair', 'brush',
+      'comb', 'makeup', 'cosmetic', 'nail', 'tweezer', 'feminine'
+    ],
+    subCategories: {}
+  },
+
+  laundry_room: {
+    keywords: [
+      'detergent', 'laundry', 'bleach', 'fabric softener', 'dryer sheet',
+      'dryer sheets', 'stain remover', 'starch', 'washing', 'ironing',
+      'iron', 'clothespin', 'mesh bag', 'laundry basket', 'cleaner',
+      'disinfect', 'wipes', 'paper towel', 'sponge', 'mop', 'broom',
+      'duster', 'vacuum', 'trash bag', 'trash bags', 'cleaning'
+    ],
+    subCategories: {}
+  },
+
+  garage: {
+    keywords: [
+      'tool', 'tools', 'hammer', 'screwdriver', 'wrench', 'drill', 'nail',
+      'nails', 'screw', 'screws', 'bolt', 'nuts', 'tape', 'duct tape',
+      'measure', 'level', 'saw', 'sandpaper', 'paint', 'paintbrush',
+      'ladder', 'extension cord', 'light bulb', 'lightbulb', 'battery',
+      'batteries', 'wd-40', 'wd40', 'oil', 'motor oil', 'antifreeze',
+      'jumper', 'car', 'tire', 'funnel', 'zip tie', 'utility knife'
+    ],
+    subCategories: {}
+  },
+
+  shed: {
+    keywords: [
+      'garden', 'gardening', 'hose', 'sprinkler', 'seed', 'seeds',
+      'fertilizer', 'soil', 'potting', 'rake', 'shovel', 'mower',
+      'weed', 'herbicide', 'pesticide', 'mulch', 'compost', 'flower',
+      'plant', 'planter', 'trowel', 'pruner', 'glove', 'outdoor'
+    ],
+    subCategories: {}
   }
 };
 
@@ -116,7 +183,7 @@ const LOCATION_RULES = {
  */
 export const detectLocation = (itemName, category = '') => {
   const searchText = `${itemName} ${category}`.toLowerCase();
-  const scores = { fridge: 0, freezer: 0, pantry: 0 };
+  const scores = Object.fromEntries(Object.keys(LOCATION_RULES).map((k) => [k, 0]));
   let detectedSubCategory = null;
   
   // Check each location's keywords
@@ -161,6 +228,7 @@ export const detectLocation = (itemName, category = '') => {
  */
 export const getCategorySuggestions = (category) => {
   const categoryMap = {
+    // Canonical grocery categories
     'Dairy & Eggs': 'fridge',
     'Meat & Seafood': 'fridge',
     'Produce': 'fridge',
@@ -168,13 +236,43 @@ export const getCategorySuggestions = (category) => {
     'Bakery & Bread': 'pantry',
     'Canned & Jarred': 'pantry',
     'Grains & Pasta': 'pantry',
-    'Spices & Seasonings': 'pantry',
+    'Spices & Seasonings': 'spice_rack',
     'Snacks & Sweets': 'pantry',
     'Beverages': 'pantry',
     'Condiments & Sauces': 'fridge',
-    'Leftovers': 'fridge'
+    'Leftovers': 'fridge',
+    // Inventory item_category values
+    food: 'pantry',
+    produce: 'fridge',
+    meat_seafood: 'fridge',
+    dairy_eggs: 'fridge',
+    bakery: 'pantry',
+    frozen: 'freezer',
+    pantry_staples: 'pantry',
+    snacks: 'pantry',
+    beverages: 'pantry',
+    breakfast: 'pantry',
+    seasoning: 'spice_rack',
+    condiments: 'pantry',
+    baking: 'pantry',
+    alcohol: 'pantry',
+    household: 'cabinet',
+    cleaning: 'laundry_room',
+    laundry: 'laundry_room',
+    paper_plastic: 'pantry',
+    medical: 'medicine_cabinet',
+    beauty: 'bathroom',
+    baby: 'pantry',
+    pet: 'pantry',
+    tools: 'garage',
+    garden: 'shed',
+    automotive: 'garage',
+    office: 'office',
+    electronics: 'office',
+    holiday: 'basement',
+    other: 'pantry',
   };
-  
+
   return categoryMap[category] || 'pantry';
 };
 
@@ -182,24 +280,16 @@ export const getCategorySuggestions = (category) => {
  * Get icon for location
  */
 export const getLocationIcon = (location) => {
-  const icons = {
-    fridge: '🧊',
-    freezer: '❄️',
-    pantry: '🥫'
-  };
-  return icons[location] || '📦';
+  const meta = getLocationMeta(location);
+  return meta ? meta.icon : '📦';
 };
 
 /**
  * Get color for location
  */
 export const getLocationColor = (location) => {
-  const colors = {
-    fridge: '#3B82F6', // Blue
-    freezer: '#06B6D4', // Cyan
-    pantry: '#F59E0B'  // Amber
-  };
-  return colors[location] || '#6B7280';
+  const meta = getLocationMeta(location);
+  return meta ? meta.color : '#6B7280';
 };
 
 export default {

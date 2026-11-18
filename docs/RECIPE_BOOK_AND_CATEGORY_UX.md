@@ -35,6 +35,51 @@ shopping-list items.
 - `emoji:` prefix convention is rendered by list rows, shelf cards, and the
   view modal (slice off prefix; anything else renders as `<img>`).
 
+## RecipeModal editor (`frontend/src/components/RecipeModal.js`)
+
+- **Shared parsers** — `frontend/src/utils/recipeParsers.js` holds the
+  Teachable-style parsing helpers used by both `RecipeModal` and
+  `recipes/TeachableRecipe.js` (single source of truth):
+  `parseIngredientLine` ("1/2 tsp salt"), `parseMinutesText` ("1h 30m",
+  "half hour"), `parseServingsText` ("serves 6", "2-3"),
+  `autoFormatFractions` ("1/2" → "½" as you type), `autoFormatTemperature`
+  ("350F" → "350°F"), `splitForSuggestion` (autocomplete prefix split),
+  `FRACTION_CHIPS` / `UNIT_CHIPS`.
+- **Free-text meta row** — Servings / Prep / Cook / Temp are text inputs
+  parsed on submit; prefill shows e.g. "15 min". `temperature` is a real
+  backend column (PATCH/POST).
+- **Icon/photo** — the broken Unsplash auto-detect and raw `imagesAPI`
+  upload were removed. `RecipeIconPicker` (emoji presets, URL, file→dataURL)
+  is the single picker; "Auto icon" guesses an emoji via `detectIcon()`
+  from `utils/categoryDetector.js`. First ingredient added also triggers
+  auto icon if nothing is set.
+- **URL import** — kept (backend `POST /api/recipes/import` scraper works)
+  but tucked behind a collapsible "Import from a recipe URL" section;
+  errors render inline instead of `alert()`.
+- **Ingredients** — one-line teachable input (`parseIngredientLine`),
+  Enter adds, autocomplete via `splitForSuggestion` +
+  `getAutocompleteSuggestions`, fraction/unit quick chips, optional/staple/
+  notes extras kept, click ✎ rebuilds the editable line.
+- **Backdrop** — lightened to `bg-black/25` with a spring `motion.div`
+  entrance; same for `EditItemModal.js` (`bg-black/25`).
+
+## Inventory categories & views
+
+- **`INVENTORY_CATEGORIES`** lives in `components/QuickCategoryModal.js`
+  and is the single source for the ~29 inventory categories — each entry
+  is `{ value, label, icon, color }` where `color` is the Tailwind chip
+  classes used by `CategoryView` group headers. `CategoryView` and
+  `EnhancedListView` both import it (do NOT re-add per-file icon maps).
+- **View modes** — Home Inventory (`backburner/pages/PantryNewV2.js`)
+  only allows `list` and `category`; `LocationNavigator` exposes only
+  those two and a stale `localStorage.pantryViewMode` falls back to
+  `list`. Bulk select-mode lives in list view via
+  `selectionMode`/`selectedItems`/`onToggleSelection` props on
+  `EnhancedListView`.
+- **Quantities** — every inventory surface uses `formatQuantityPlain`
+  (`utils/formatQuantity.js`) so `1.00` renders as `1` and fractions
+  render as unicode glyphs.
+
 ## Home-lab staging (`in_recipe_book`)
 
 - **Migration** `backend/migrations/094_recipe_book_staging.sql` adds

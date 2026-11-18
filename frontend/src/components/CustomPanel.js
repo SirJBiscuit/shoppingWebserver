@@ -220,7 +220,7 @@ const CustomPanel = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={handleBackdropClick}
-              className="fixed inset-0 bg-black/50 z-[200]"
+              className="fixed inset-0 bg-black/10 z-[200]"
             /></Portal>
           )}
 

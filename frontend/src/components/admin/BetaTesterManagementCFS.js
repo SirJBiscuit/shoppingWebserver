@@ -506,7 +506,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       {/* Extend Access Modal */}
       <Portal><AnimatePresence>
         {showExtendModal && selectedTester && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -616,7 +616,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       {/* Edit Tester Modal */}
       <Portal><AnimatePresence>
         {showEditModal && selectedTester && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -695,7 +695,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       {/* Instant chat modal — direct thread with this tester */}
       <Portal><AnimatePresence>
         {chatTester && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setChatTester(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm" onClick={() => setChatTester(null)}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -721,7 +721,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       {/* Thank You Modal */}
       <Portal><AnimatePresence>
         {showThankYouModal && selectedTester && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -796,7 +796,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       {/* Reset / Set Password Modal */}
       <Portal><AnimatePresence>
         {showPwModal && selectedTester && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -886,7 +886,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       {/* Activity Feed Modal — opened by clicking items/feedback stats */}
       <Portal><AnimatePresence>
         {showActivityModal && selectedTester && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -1104,7 +1104,7 @@ const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSend
 
 const TesterDetailsModal = ({ tester, qualityScore, activityLevel, onClose }) => {
   return (
-    <Portal><div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <Portal><div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}

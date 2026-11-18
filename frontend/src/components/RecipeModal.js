@@ -1,9 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Upload, Image as ImageIcon, Sparkles, Link as LinkIcon, Edit2 } from 'lucide-react';
-import { imagesAPI } from '../services/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, Sparkles, Link as LinkIcon, Edit2, Smile, ChevronDown, Thermometer } from 'lucide-react';
 import recipesAPI from '../services/recipesAPI';
 import CustomCheckbox from './ui/CustomCheckbox';
-import { Portal } from '../utils/autoPlacement';
+import RecipeIconPicker from './recipes/RecipeIconPicker';
+import ModalShell from './ui/ModalShell';
+import { detectIcon } from '../utils/categoryDetector';
+import { getAutocompleteSuggestions } from '../utils/autocomplete';
+import {
+  autoFormatFractions, autoFormatTemperature, parseIngredientLine,
+  parseMinutesText, parseServingsText, splitForSuggestion,
+  FRACTION_CHIPS, UNIT_CHIPS,
+} from '../utils/recipeParsers';
+
+// Normalize an ingredient from any stored shape into the editor's shape.
+const toEditorIngredient = (ing) => ({
+  item_name: ing.item_name || ing.name || '',
+  quantity: ing.quantity ?? null,
+  quantity_display: ing.quantity_display || (ing.quantity != null ? String(ing.quantity) : null),
+  unit: ing.unit || '',
+  is_optional: ing.is_optional || false,
+  is_pantry_staple: ing.is_pantry_staple || false,
+  notes: ing.notes || '',
+});
 
 const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
   const [formData, setFormData] = useState({
@@ -12,36 +30,40 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
     servings: '',
     prep_time: '',
     cook_time: '',
+    temperature: '',
     instructions: '',
     image_url: ''
   });
-  
+
   const [ingredients, setIngredients] = useState([]);
-  const [newIngredient, setNewIngredient] = useState({
-    item_name: '',
-    amount: '',
+  const [ingredientLine, setIngredientLine] = useState('');
+  const [ingredientExtras, setIngredientExtras] = useState({
     is_optional: false,
     is_pantry_staple: false,
     notes: ''
   });
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [autoDetecting, setAutoDetecting] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showIconPicker, setShowIconPicker] = useState(false);
   const [importingFromUrl, setImportingFromUrl] = useState(false);
   const [importUrl, setImportUrl] = useState('');
+  const [importError, setImportError] = useState('');
+  const [showImport, setShowImport] = useState(false);
   const [editingIndex, setEditingIndex] = useState(null);
+  const ingredientRef = useRef(null);
 
   useEffect(() => {
     if (recipe) {
       setFormData({
         name: recipe.name || '',
         description: recipe.description || '',
-        servings: recipe.servings || '',
-        prep_time: recipe.prep_time || '',
-        cook_time: recipe.cook_time || '',
+        servings: recipe.servings != null ? String(recipe.servings) : '',
+        prep_time: recipe.prep_time != null ? `${recipe.prep_time} min` : '',
+        cook_time: recipe.cook_time != null ? `${recipe.cook_time} min` : '',
+        temperature: recipe.temperature || '',
         instructions: recipe.instructions || '',
         image_url: recipe.image_url || ''
       });
-      setIngredients(recipe.ingredients || []);
+      setIngredients((recipe.ingredients || []).map(toEditorIngredient));
     } else {
       // Reset form
       setFormData({
@@ -50,431 +72,359 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
         servings: '',
         prep_time: '',
         cook_time: '',
+        temperature: '',
         instructions: '',
         image_url: ''
       });
       setIngredients([]);
     }
+    setIngredientLine('');
+    setIngredientExtras({ is_optional: false, is_pantry_staple: false, notes: '' });
+    setSuggestions([]);
+    setEditingIndex(null);
+    setImportUrl('');
+    setImportError('');
+    setShowImport(false);
   }, [recipe, isOpen]);
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  // RecipeIconPicker emits 'emoji:X' or an image URL/data URL.
+  const handlePickIcon = (value) => {
+    setFormData((prev) => ({ ...prev, image_url: value }));
+  };
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Image size must be less than 5MB');
-      return;
-    }
-
-    setUploadingImage(true);
-    try {
-      const formDataToUpload = new FormData();
-      formDataToUpload.append('image', file);
-      formDataToUpload.append('category', 'recipes');
-
-      const response = await imagesAPI.upload(formDataToUpload);
-      setFormData({ ...formData, image_url: response.data.url });
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      alert('Failed to upload image');
-    } finally {
-      setUploadingImage(false);
-    }
+  // Auto icon: guess an emoji from the recipe name using the app's detector.
+  const handleAutoIcon = () => {
+    if (!formData.name.trim()) return;
+    const icon = detectIcon(formData.name) || '🍽️';
+    setFormData((prev) => ({ ...prev, image_url: `emoji:${icon}` }));
   };
 
   const handleImportFromUrl = async () => {
-    if (!importUrl) return;
+    const url = importUrl.trim();
+    if (!url) return;
+    if (!/^https?:\/\//i.test(url)) {
+      setImportError('Enter a full URL starting with http:// or https://');
+      return;
+    }
 
     setImportingFromUrl(true);
+    setImportError('');
     try {
-      const importedRecipe = await recipesAPI.importFromUrl(importUrl);
+      const importedRecipe = await recipesAPI.importFromUrl(url);
 
-      // Auto-fill all fields
       setFormData({
         name: importedRecipe.name || formData.name,
         description: importedRecipe.description || formData.description,
-        servings: importedRecipe.servings || formData.servings,
-        prep_time: importedRecipe.prep_time || formData.prep_time,
-        cook_time: importedRecipe.cook_time || formData.cook_time,
+        servings: importedRecipe.servings != null ? String(importedRecipe.servings) : formData.servings,
+        prep_time: importedRecipe.prep_time != null ? `${importedRecipe.prep_time} min` : formData.prep_time,
+        cook_time: importedRecipe.cook_time != null ? `${importedRecipe.cook_time} min` : formData.cook_time,
+        temperature: importedRecipe.temperature || formData.temperature,
         instructions: importedRecipe.instructions || formData.instructions,
         image_url: importedRecipe.image_url || formData.image_url,
-        source_url: importUrl
+        source_url: url
       });
 
-      // Auto-fill ingredients
       if (importedRecipe.ingredients && importedRecipe.ingredients.length > 0) {
-        const formattedIngredients = importedRecipe.ingredients.map(ing => ({
-          item_name: ing.item_name || ing.name,
-          amount: ing.amount || `${ing.quantity || ''} ${ing.unit || ''}`.trim(),
-          is_optional: ing.is_optional || false,
-          notes: ing.notes || ''
-        }));
-        setIngredients(formattedIngredients);
+        setIngredients(importedRecipe.ingredients.map(toEditorIngredient));
       }
 
       setImportUrl('');
-      alert('Recipe imported successfully! Review and edit as needed.');
+      setShowImport(false);
     } catch (error) {
       console.error('Error importing recipe:', error);
-      alert('Failed to import recipe. Make sure the URL is from a supported site (Food Network, AllRecipes, etc.)');
+      setImportError('Could not import from that URL. Try Food Network, AllRecipes, or another supported site.');
     } finally {
       setImportingFromUrl(false);
     }
   };
 
-  const handleAutoDetectImage = async () => {
-    if (!formData.name) {
-      alert('Please enter a recipe name first');
-      return;
-    }
-
-    setAutoDetecting(true);
-    try {
-      // Use Unsplash API for food images
-      const query = encodeURIComponent(formData.name + ' food');
-      const response = await fetch(
-        `https://api.unsplash.com/search/photos?query=${query}&per_page=1&client_id=your_unsplash_access_key`
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.results && data.results.length > 0) {
-          setFormData({ ...formData, image_url: data.results[0].urls.regular });
-        } else {
-          // Fallback: generate a food emoji based on recipe name
-          const foodEmojis = {
-            'chicken': '🍗', 'beef': '🥩', 'fish': '🐟', 'pasta': '🍝',
-            'pizza': '🍕', 'burger': '🍔', 'salad': '🥗', 'soup': '🍲',
-            'cake': '🎂', 'cookie': '🍪', 'bread': '🍞', 'rice': '🍚',
-            'taco': '🌮', 'sushi': '🍣', 'curry': '🍛', 'sandwich': '🥪'
-          };
-          
-          const recipeLower = formData.name.toLowerCase();
-          const emoji = Object.entries(foodEmojis).find(([key]) => 
-            recipeLower.includes(key)
-          )?.[1] || '🍽️';
-          
-          // Store emoji as a data URL for display
-          setFormData({ ...formData, image_url: `emoji:${emoji}` });
-        }
-      }
-    } catch (error) {
-      console.error('Error auto-detecting image:', error);
-      // Fallback to emoji
-      setFormData({ ...formData, image_url: 'emoji:🍽️' });
-    } finally {
-      setAutoDetecting(false);
-    }
-  };
-
+  // Teachable-style one-line ingredient entry: "1/2 tsp salt".
   const handleAddIngredient = () => {
-    if (newIngredient.item_name && newIngredient.amount) {
-      if (editingIndex !== null) {
-        // Update existing ingredient
-        const updatedIngredients = [...ingredients];
-        updatedIngredients[editingIndex] = { ...newIngredient };
-        setIngredients(updatedIngredients);
-        setEditingIndex(null);
-      } else {
-        // Add new ingredient
-        setIngredients([...ingredients, { ...newIngredient }]);
-        
-        // Auto-detect image if not set and this is the first ingredient
-        if (!formData.image_url && formData.name && ingredients.length === 0) {
-          handleAutoDetectImage();
-        }
+    const parsed = parseIngredientLine(ingredientLine);
+    if (!parsed) return;
+
+    const item = { ...parsed, ...ingredientExtras };
+    if (editingIndex !== null) {
+      const updated = [...ingredients];
+      updated[editingIndex] = item;
+      setIngredients(updated);
+      setEditingIndex(null);
+    } else {
+      setIngredients([...ingredients, item]);
+      // Auto icon on first ingredient if nothing set yet
+      if (!formData.image_url && formData.name && ingredients.length === 0) {
+        handleAutoIcon();
       }
-      
-      setNewIngredient({
-        item_name: '',
-        amount: '',
-        is_optional: false,
-        is_pantry_staple: false,
-        notes: ''
-      });
     }
+
+    setIngredientLine('');
+    setIngredientExtras({ is_optional: false, is_pantry_staple: false, notes: '' });
+    setSuggestions([]);
   };
 
+  // Rebuild an editable line from a stored ingredient, e.g. "1½ cups flour".
   const handleEditIngredient = (index) => {
-    setNewIngredient({ ...ingredients[index] });
+    const ing = ingredients[index];
+    const qtyUnit = [ing.quantity_display ?? ing.quantity, ing.unit].filter(Boolean).join(' ');
+    setIngredientLine([qtyUnit, ing.item_name].filter(Boolean).join(' '));
+    setIngredientExtras({
+      is_optional: ing.is_optional || false,
+      is_pantry_staple: ing.is_pantry_staple || false,
+      notes: ing.notes || ''
+    });
     setEditingIndex(index);
+    ingredientRef.current?.focus();
   };
 
   const handleCancelEdit = () => {
-    setNewIngredient({
-      item_name: '',
-      amount: '',
-      is_optional: false,
-      is_pantry_staple: false,
-      notes: ''
-    });
+    setIngredientLine('');
+    setIngredientExtras({ is_optional: false, is_pantry_staple: false, notes: '' });
     setEditingIndex(null);
+    setSuggestions([]);
   };
 
   const handleRemoveIngredient = (index) => {
     setIngredients(ingredients.filter((_, i) => i !== index));
+    if (editingIndex === index) handleCancelEdit();
   };
 
-  const parseAmount = (amount) => {
-    // Parse "2 cups", "1/2 tsp", "3", etc. into quantity and unit
-    if (!amount) return { quantity: null, unit: '' };
-    
-    const trimmed = amount.trim();
-    const match = trimmed.match(/^(\d+\s+\d+\/\d+|\d+-\d+\/\d+|[\d./]+)\s*(.*)$/);
-    
-    if (match) {
-      const display = match[1];
-      let quantity = null;
-      // Mixed number: "1 1/2" or "1-1/2"
-      const mixed = display.match(/^(\d+)[\s-](\d+)\/(\d+)$/);
-      if (mixed) {
-        quantity = parseFloat(mixed[1]) + parseFloat(mixed[2]) / parseFloat(mixed[3]);
-      } else if (display.includes('/')) {
-        const [num, den] = display.split('/');
-        quantity = parseFloat(num) / parseFloat(den);
-      } else {
-        quantity = parseFloat(display);
-      }
-      const unit = match[2] || '';
-      return { quantity: Number.isFinite(quantity) ? quantity : null, unit, quantity_display: display };
-    }
-    
-    // If no number found, treat whole thing as unit
-    return { quantity: 1, unit: trimmed };
+  // Insert a quick chip (unit or unicode fraction) at the end of the line.
+  const insertChip = (chip) => {
+    setIngredientLine((prev) => {
+      const base = prev.replace(/\s+$/, '');
+      return base ? `${base} ${chip} ` : `${chip} `;
+    });
+    ingredientRef.current?.focus();
+  };
+
+  const updateIngredientLine = (value) => {
+    const formatted = autoFormatFractions(value);
+    setIngredientLine(formatted);
+    const { namePart } = splitForSuggestion(formatted);
+    setSuggestions(namePart.length >= 2 ? getAutocompleteSuggestions(namePart) : []);
+  };
+
+  const pickSuggestion = (s) => {
+    const { prefix } = splitForSuggestion(ingredientLine);
+    setIngredientLine(`${prefix}${s}`);
+    setSuggestions([]);
+    ingredientRef.current?.focus();
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    // Parse ingredients to backend format
-    const parsedIngredients = ingredients.map(ing => {
-      const { quantity, unit, quantity_display } = parseAmount(ing.amount);
-      return {
-        item_name: ing.item_name,
-        quantity,
-        unit,
-        quantity_display,
-        is_optional: ing.is_optional || false,
-        is_pantry_staple: ing.is_pantry_staple || false,
-        notes: ing.notes || ''
-      };
-    });
-    
+
+    const parsedIngredients = ingredients.map((ing) => ({
+      item_name: ing.item_name,
+      quantity: ing.quantity ?? null,
+      unit: ing.unit || '',
+      quantity_display: ing.quantity_display || null,
+      is_optional: ing.is_optional || false,
+      is_pantry_staple: ing.is_pantry_staple || false,
+      notes: ing.notes || ''
+    }));
+
     onSave({
       ...formData,
-      servings: parseInt(formData.servings) || null,
-      prep_time: parseInt(formData.prep_time) || null,
-      cook_time: parseInt(formData.cook_time) || null,
+      servings: parseServingsText(formData.servings),
+      prep_time: parseMinutesText(formData.prep_time),
+      cook_time: parseMinutesText(formData.cook_time),
+      temperature: formData.temperature.trim() || null,
       ingredients: parsedIngredients
     });
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <Portal><div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {recipe ? 'Edit Recipe' : 'Create New Recipe'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+    <>
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      title={recipe ? 'Edit Recipe' : 'Create New Recipe'}
+      maxWidth="max-w-4xl"
+      bodyClass="p-0"
+    >
+      <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Basic Info */}
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Recipe Name *
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="input-field"
-                required
-              />
+            {/* Name + icon preview */}
+            <div className="flex gap-4 items-start">
+              <button
+                type="button"
+                onClick={() => setShowIconPicker(true)}
+                title="Choose recipe icon"
+                className="flex-shrink-0 w-20 h-20 rounded-2xl bg-gradient-to-br from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 border-2 border-dashed border-primary-300 dark:border-primary-700 flex items-center justify-center overflow-hidden hover:border-primary-500 transition-colors group"
+              >
+                {formData.image_url ? (
+                  formData.image_url.startsWith('emoji:') ? (
+                    <span className="text-4xl group-hover:scale-110 transition-transform">
+                      {formData.image_url.replace('emoji:', '')}
+                    </span>
+                  ) : (
+                    <img src={formData.image_url} alt="Recipe" className="w-full h-full object-cover" />
+                  )
+                ) : (
+                  <Smile className="w-7 h-7 text-primary-400" />
+                )}
+              </button>
+              <div className="flex-1 space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Recipe Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="input-field"
+                    placeholder="Grandma's Pancakes"
+                    required
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowIconPicker(true)}
+                    className="btn-secondary text-sm flex items-center"
+                  >
+                    <Smile className="w-4 h-4 mr-1.5" />
+                    {formData.image_url ? 'Change icon / photo' : 'Pick icon or photo'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAutoIcon}
+                    disabled={!formData.name.trim()}
+                    className="btn-secondary text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={!formData.name.trim() ? 'Enter a recipe name first' : 'Guess an icon from the name'}
+                  >
+                    <Sparkles className="w-4 h-4 mr-1.5" />
+                    Auto icon
+                  </button>
+                  {formData.image_url && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, image_url: '' })}
+                      className="text-sm text-red-500 hover:text-red-600 px-2"
+                      title="Remove icon/photo"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Description
               </label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className="input-field"
-                rows="3"
+                rows="2"
+                placeholder="A short description..."
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            {/* Teachable-style free-text timing fields */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Servings
-                </label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Servings</label>
                 <input
-                  type="number"
+                  type="text"
                   value={formData.servings}
                   onChange={(e) => setFormData({ ...formData, servings: e.target.value })}
                   className="input-field"
-                  min="1"
+                  placeholder="4"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Prep Time (min)
-                </label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Prep time</label>
                 <input
-                  type="number"
+                  type="text"
                   value={formData.prep_time}
                   onChange={(e) => setFormData({ ...formData, prep_time: e.target.value })}
                   className="input-field"
-                  min="0"
+                  placeholder="15 min"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Cook Time (min)
-                </label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Cook time</label>
                 <input
-                  type="number"
+                  type="text"
                   value={formData.cook_time}
                   onChange={(e) => setFormData({ ...formData, cook_time: e.target.value })}
                   className="input-field"
-                  min="0"
+                  placeholder="1 hour"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 flex items-center gap-1">
+                  <Thermometer className="w-3.5 h-3.5" /> Temp
+                </label>
+                <input
+                  type="text"
+                  value={formData.temperature}
+                  onChange={(e) => setFormData({ ...formData, temperature: autoFormatTemperature(e.target.value) })}
+                  className="input-field"
+                  placeholder="350°F"
                 />
               </div>
             </div>
+            <p className="text-xs text-gray-400 -mt-2">
+              Times accept free text — "1h 30m", "half hour", "serves 6". Temp auto-adds the ° symbol.
+            </p>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Recipe Image (optional)
-              </label>
-              
-              {/* Image Preview */}
-              {formData.image_url && (
-                <div className="mb-3 relative">
-                  {formData.image_url.startsWith('emoji:') ? (
-                    <div className="w-full h-48 bg-gradient-to-br from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 rounded-lg flex items-center justify-center border-2 border-primary-200 dark:border-primary-700">
-                      <span className="text-8xl">{formData.image_url.replace('emoji:', '')}</span>
-                    </div>
-                  ) : (
-                    <img
-                      src={formData.image_url}
-                      alt="Recipe preview"
-                      className="w-full h-48 object-cover rounded-lg"
+            {/* Import from URL — tucked behind a toggle */}
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowImport((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <LinkIcon className="w-4 h-4" /> Import from a recipe URL
+                </span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${showImport ? 'rotate-180' : ''}`} />
+              </button>
+              {showImport && (
+                <div className="px-4 pb-4 pt-1 border-t border-gray-100 dark:border-gray-700">
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={importUrl}
+                      onChange={(e) => { setImportUrl(e.target.value); setImportError(''); }}
+                      className="input-field flex-1"
+                      placeholder="https://www.foodnetwork.com/recipes/..."
                     />
+                    <button
+                      type="button"
+                      onClick={handleImportFromUrl}
+                      disabled={importingFromUrl || !importUrl.trim()}
+                      className="btn-primary flex items-center whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {importingFromUrl ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Importing...
+                        </>
+                      ) : (
+                        <>
+                          <LinkIcon className="w-4 h-4 mr-2" />
+                          Import
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  {importError && (
+                    <p className="text-xs text-red-500 mt-2">{importError}</p>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, image_url: '' })}
-                    className="absolute top-2 right-2 p-2 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
-                    title="Remove image"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Auto-fills everything — review and adjust after importing.
+                  </p>
                 </div>
               )}
-
-              {/* Upload/Auto-detect Buttons */}
-              <div className="grid grid-cols-2 gap-3">
-                <label className="btn-secondary cursor-pointer flex items-center justify-center">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    disabled={uploadingImage}
-                  />
-                  {uploadingImage ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600 mr-2"></div>
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload Image
-                    </>
-                  )}
-                </label>
-
-                <button
-                  type="button"
-                  onClick={handleAutoDetectImage}
-                  disabled={autoDetecting || !formData.name}
-                  className="btn-secondary flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={!formData.name ? 'Enter recipe name first' : 'Auto-detect image'}
-                >
-                  {autoDetecting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600 mr-2"></div>
-                      Detecting...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Auto-Detect
-                    </>
-                  )}
-                </button>
-              </div>
-              
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                Upload your own image or let us find one based on the recipe name
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Import from Recipe URL
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  value={importUrl}
-                  onChange={(e) => setImportUrl(e.target.value)}
-                  className="input-field flex-1"
-                  placeholder="https://www.foodnetwork.com/recipes/..."
-                />
-                <button
-                  type="button"
-                  onClick={handleImportFromUrl}
-                  disabled={importingFromUrl || !importUrl}
-                  className="btn-primary flex items-center whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Import recipe from URL"
-                >
-                  {importingFromUrl ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Importing...
-                    </>
-                  ) : (
-                    <>
-                      <LinkIcon className="w-4 h-4 mr-2" />
-                      Import
-                    </>
-                  )}
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Paste a recipe URL from Food Network, AllRecipes, or other supported sites to auto-fill
-              </p>
             </div>
           </div>
 
@@ -488,23 +438,30 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
                 {ingredients.map((ing, index) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                    className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                      editingIndex === index
+                        ? 'bg-primary-50 dark:bg-primary-900/20 ring-1 ring-primary-400'
+                        : 'bg-gray-50 dark:bg-gray-700'
+                    }`}
                   >
-                    <div className="flex-1">
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {ing.amount} {ing.item_name}
+                    <div className="flex-1 flex items-baseline gap-2 min-w-0">
+                      <span className="font-mono text-sm font-semibold text-primary-600 dark:text-primary-400 whitespace-nowrap">
+                        {[ing.quantity_display ?? ing.quantity, ing.unit].filter(Boolean).join(' ') || '—'}
+                      </span>
+                      <span className="font-medium text-gray-900 dark:text-white truncate">
+                        {ing.item_name}
                       </span>
                       {ing.is_pantry_staple && (
-                        <span className="ml-2 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded">🏠 Pantry Staple</span>
+                        <span className="flex-shrink-0 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded">🏠 Staple</span>
                       )}
                       {ing.is_optional && (
-                        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">(optional)</span>
+                        <span className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">(optional)</span>
                       )}
                       {ing.notes && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 italic">Note: {ing.notes}</p>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 italic truncate">{ing.notes}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 ml-2">
                       <button
                         type="button"
                         onClick={() => handleEditIngredient(index)}
@@ -527,78 +484,117 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
               </div>
             )}
 
-            {/* Add Ingredient Form */}
-            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg space-y-3">
-              <div className="grid grid-cols-12 gap-3">
-                <input
-                  type="text"
-                  placeholder="Amount (e.g., 2 cups, 1 tbsp, 3 large)"
-                  value={newIngredient.amount}
-                  onChange={(e) => setNewIngredient({ ...newIngredient, amount: e.target.value })}
-                  className="input-field col-span-5"
-                />
-                <input
-                  type="text"
-                  placeholder="Ingredient name"
-                  value={newIngredient.item_name}
-                  onChange={(e) => setNewIngredient({ ...newIngredient, item_name: e.target.value })}
-                  className="input-field col-span-5"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddIngredient}
-                  className="btn-primary col-span-2 flex items-center justify-center"
-                  title={editingIndex !== null ? "Update ingredient" : "Add ingredient"}
-                >
-                  {editingIndex !== null ? (
-                    <>
-                      <Edit2 className="w-5 h-5 mr-1" />
-                      Update
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-5 h-5 mr-1" />
-                      Add
-                    </>
-                  )}
-                </button>
-              </div>
-              
-              <div className="grid grid-cols-12 gap-3">
-                <input
-                  type="text"
-                  placeholder="Notes (e.g., 'chopped', 'room temperature')"
-                  value={newIngredient.notes}
-                  onChange={(e) => setNewIngredient({ ...newIngredient, notes: e.target.value })}
-                  className="input-field col-span-6"
-                />
-                <div className="col-span-3 flex items-center">
-                  <CustomCheckbox
-                    checked={newIngredient.is_optional}
-                    onChange={(e) => setNewIngredient({ ...newIngredient, is_optional: e.target.checked })}
-                    label="Optional"
+            {/* Add Ingredient — teachable-style one-liner */}
+            <div className="bg-gray-50 dark:bg-gray-700/60 p-4 rounded-xl space-y-3">
+              <div className="relative">
+                <div className="flex gap-2">
+                  <input
+                    ref={ingredientRef}
+                    type="text"
+                    placeholder={editingIndex !== null ? 'Edit ingredient...' : 'e.g. "1/2 tsp salt" or "0.5 cup flour" — Enter to add'}
+                    value={ingredientLine}
+                    onChange={(e) => updateIngredientLine(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (suggestions.length > 0) {
+                          pickSuggestion(suggestions[0]);
+                        } else {
+                          handleAddIngredient();
+                        }
+                      }
+                      if (e.key === 'Escape') {
+                        if (suggestions.length > 0) setSuggestions([]);
+                        else if (editingIndex !== null) handleCancelEdit();
+                      }
+                    }}
+                    className="input-field flex-1"
                   />
+                  <button
+                    type="button"
+                    onClick={handleAddIngredient}
+                    disabled={!ingredientLine.trim()}
+                    className="btn-primary px-4 flex items-center justify-center disabled:opacity-50"
+                    title={editingIndex !== null ? 'Update ingredient' : 'Add ingredient'}
+                  >
+                    {editingIndex !== null ? <Edit2 className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                  </button>
                 </div>
-                <div className="col-span-3 flex items-center" title="Common pantry items you always have (flour, salt, oil, etc.)">
+                {/* Autocomplete — completes the ingredient name only */}
+                {suggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-20 overflow-hidden">
+                    {suggestions.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => pickSuggestion(s)}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-800 dark:text-gray-200"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Quick-format chips */}
+              <div className="flex flex-wrap gap-1">
+                {FRACTION_CHIPS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => insertChip(c)}
+                    className="px-2 py-1 text-xs font-mono bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+                  >
+                    {c}
+                  </button>
+                ))}
+                <span className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-1" />
+                {UNIT_CHIPS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => insertChip(c)}
+                    className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  type="text"
+                  placeholder="Note (chopped, room temp…)"
+                  value={ingredientExtras.notes}
+                  onChange={(e) => setIngredientExtras({ ...ingredientExtras, notes: e.target.value })}
+                  className="input-field flex-1 min-w-[10rem]"
+                />
+                <CustomCheckbox
+                  checked={ingredientExtras.is_optional}
+                  onChange={(e) => setIngredientExtras({ ...ingredientExtras, is_optional: e.target.checked })}
+                  label="Optional"
+                />
+                <div title="Common pantry items you always have (flour, salt, oil, etc.)">
                   <CustomCheckbox
-                    checked={newIngredient.is_pantry_staple}
-                    onChange={(e) => setNewIngredient({ ...newIngredient, is_pantry_staple: e.target.checked })}
-                    label="🏠 Pantry Staple"
+                    checked={ingredientExtras.is_pantry_staple}
+                    onChange={(e) => setIngredientExtras({ ...ingredientExtras, is_pantry_staple: e.target.checked })}
+                    label="🏠 Staple"
                   />
                 </div>
                 {editingIndex !== null && (
                   <button
                     type="button"
                     onClick={handleCancelEdit}
-                    className="col-span-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                    className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
                   >
-                    Cancel
+                    Cancel edit
                   </button>
                 )}
               </div>
-              
+
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                💡 <strong>Examples:</strong> "2 cups" flour, "1 tbsp" olive oil, "3 large" eggs, "1 pinch" salt
+                💡 Free-form amounts: <span className="font-mono">1/2</span>, <span className="font-mono">1 1/2</span>, <span className="font-mono">0.5</span>, <span className="font-mono">2-3</span> — shown back exactly as typed.
               </p>
             </div>
           </div>
@@ -633,9 +629,17 @@ const RecipeModal = ({ isOpen, onClose, onSave, recipe = null }) => {
               {recipe ? 'Update Recipe' : 'Create Recipe'}
             </button>
           </div>
-        </form>
-      </div>
-    </div></Portal>
+      </form>
+    </ModalShell>
+
+    {/* Recipe icon/photo picker — emoji presets, URL, or upload */}
+    <RecipeIconPicker
+      isOpen={showIconPicker}
+      onClose={() => setShowIconPicker(false)}
+      onPick={handlePickIcon}
+      current={formData.image_url}
+    />
+    </>
   );
 };
 

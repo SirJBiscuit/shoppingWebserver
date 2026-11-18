@@ -64,7 +64,7 @@ const FavoritePicker = ({ entityName, entityType: initialType = 'item', productI
 
   return (
     <Portal>
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[80] p-4" onClick={close}>
+    <div className="fixed inset-0 bg-black/10 flex items-center justify-center z-[80] p-4" onClick={close}>
       <div
         className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-5"
         onClick={(e) => e.stopPropagation()}
