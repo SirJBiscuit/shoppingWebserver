@@ -172,6 +172,44 @@ router.patch('/:id', authenticateToken, async (req, res) => {
 // ADMIN SIDE — triage, bulk controls, cross-page view
 // ---------------------------------------------------------------------------
 
+// Celebrate a resolved pin for its author — an in-app notification plus a
+// congratulatory card in their beta inbox. Best-effort: a notify failure
+// must never block triage.
+const notifyPinResolved = async (pin, adminId, outcome) => {
+  try {
+    if (!pin || !pin.user_id || Number(pin.user_id) === Number(adminId)) return;
+    const kindLabel = { bug: 'bug report', idea: 'idea', note: 'note' }[pin.kind] || 'pin';
+    const completed = outcome === 'completed';
+    const title = completed
+      ? `\u{1F389} Your ${kindLabel} was completed!`
+      : `Your ${kindLabel} was addressed`;
+    const body = completed
+      ? `The team just completed your ${kindLabel}: "${String(pin.note || '').slice(0, 140)}"`
+      : `Your ${kindLabel} was reviewed and cleared by the team.`;
+    await db.query(
+      `INSERT INTO user_notifications (user_id, type, title, message, data)
+       VALUES ($1, 'beta_pin_resolved', $2, $3, $4)`,
+      [pin.user_id, title, body,
+       JSON.stringify({ pin_id: pin.id, page: pin.page_path, kind: pin.kind, outcome })]
+    );
+    const tester = await db.query(
+      'SELECT id FROM beta_testers WHERE user_id = $1', [pin.user_id]
+    );
+    if (tester.rows[0]) {
+      const msg = completed
+        ? `\u{1F389} PIN COMPLETE \u{1F389}\n\nThe Admin team just completed your ${kindLabel}!\n\n"${String(pin.note || '').slice(0, 200)}"\n\nEvery pin you drop makes this app better — keep them coming! \u{1F680}`
+        : `\u2728 PIN RESOLVED \u2728\n\nYour ${kindLabel} was reviewed and cleared by the Admin team.\n\n"${String(pin.note || '').slice(0, 200)}"\n\nThanks for helping make the app better!`;
+      await db.query(
+        `INSERT INTO beta_thank_you_messages (beta_tester_id, sent_by, message)
+         VALUES ($1, $2, $3)`,
+        [tester.rows[0].id, adminId, msg]
+      );
+    }
+  } catch (e) {
+    console.error('Pin resolution notify failed:', e.message);
+  }
+};
+
 /**
  * GET /api/beta/pins/admin/all?status=open&page=/pantry
  * Every pin with author, for the admin viewer panel.
@@ -219,6 +257,9 @@ router.post('/admin/:id/status', authenticateToken, isAdmin, async (req, res) =>
     if (!STATUSES.includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
+    // Grab the pin first — needed to celebrate the resolution with its author.
+    const pinQ = await db.query('SELECT * FROM beta_pins WHERE id = $1', [req.params.id]);
+    const pinRow = pinQ.rows[0];
     // resolved_by is INTEGER — a non-integer token id must not 500 the update
     const resolverId = Number.isFinite(Number(req.user.id)) ? Number(req.user.id) : null;
     // Resolved-state passed as a boolean: comparing $2 against string
@@ -235,6 +276,9 @@ router.post('/admin/:id/status', authenticateToken, isAdmin, async (req, res) =>
       [req.params.id, status, adminNote || null, resolverId, isResolved]
     );
     if (!rowCount) return res.status(404).json({ error: 'Pin not found' });
+    if (status === 'fixed' && pinRow && pinRow.status !== 'fixed') {
+      await notifyPinResolved(pinRow, req.user.id, 'completed');
+    }
     res.json({ updated: true });
   } catch (e) {
     console.error('Error setting pin status:', e);
@@ -267,6 +311,16 @@ router.post('/admin/bulk', authenticateToken, isAdmin, async (req, res) => {
     const status = map[action];
     if (!status) return res.status(400).json({ error: 'action: hide|remove|fixed|open|private|unprivate' });
 
+    // Pins being newly completed — snapshot before the update for notification.
+    let toCelebrate = [];
+    if (status === 'fixed') {
+      const pq = await db.query(
+        `SELECT * FROM beta_pins WHERE id = ANY($1) AND status <> 'fixed'`,
+        [cleanIds]
+      );
+      toCelebrate = pq.rows;
+    }
+
     const resolverId = Number.isFinite(Number(req.user.id)) ? Number(req.user.id) : null;
     const { rowCount } = await db.query(
       `UPDATE beta_pins SET status = $2, resolved_by = $3,
@@ -275,6 +329,9 @@ router.post('/admin/bulk', authenticateToken, isAdmin, async (req, res) => {
        WHERE id = ANY($1)`,
       [cleanIds, status, resolverId]
     );
+    for (const pin of toCelebrate) {
+      await notifyPinResolved(pin, req.user.id, 'completed');
+    }
     res.json({ updated: rowCount });
   } catch (e) {
     console.error('Error bulk-updating pins:', e);
@@ -346,6 +403,7 @@ router.delete('/admin/:id', authenticateToken, isAdmin, async (req, res) => {
     if (!q.rows.length) return res.status(404).json({ error: 'Pin not found' });
     await snapshotPin(q.rows[0], 'deleted', req.user.id);
     await db.query('DELETE FROM beta_pins WHERE id = $1', [req.params.id]);
+    await notifyPinResolved(q.rows[0], req.user.id, 'removed');
     res.json({ deleted: true });
   } catch (e) {
     console.error('Error deleting pin:', e);

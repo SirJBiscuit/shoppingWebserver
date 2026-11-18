@@ -5,6 +5,69 @@ import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import BetaChat from './BetaChat';
 
+const PIN_WIN_RE = /^(🎉 PIN COMPLETE|✨ PIN RESOLVED)/;
+
+const CONFETTI = ['🎉', '✨', '🚀', '💜', '⭐', '🎊', '🔥', '💎', '🏆', '👏'];
+
+/**
+ * PinWinCard — celebratory card shown when the admin team completes or
+ * resolves a tester's pin. Floating confetti + gradient frame so the win
+ * feels like an event, encouraging more pins.
+ */
+const PinWinCard = ({ message, index }) => {
+  const isComplete = message.message.startsWith('🎉 PIN COMPLETE');
+  // Strip the marker header line; the rest is the body copy.
+  const body = message.message.split('\n\n').slice(1).join('\n\n');
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.85, rotateX: -15 }}
+      animate={{ opacity: 1, scale: 1, rotateX: 0 }}
+      transition={{ delay: index * 0.1, type: 'spring', damping: 18, stiffness: 200 }}
+      className="relative overflow-hidden rounded-xl p-[2px] bg-gradient-to-r from-amber-400 via-pink-500 to-violet-500 shadow-lg"
+    >
+      {/* One-time gentle confetti burst — plays on open, then settles.
+          Nothing loops or moves after that so it never fights attention. */}
+      {CONFETTI.map((c, i) => (
+        <motion.span
+          key={i}
+          className="absolute text-sm pointer-events-none select-none"
+          style={{ left: `${8 + i * 9}%`, top: '10%' }}
+          initial={{ y: 0, opacity: 0, rotate: 0 }}
+          animate={{ y: [0, -18, 28], opacity: [0, 0.9, 0], rotate: [0, 180] }}
+          transition={{ duration: 2.4 + (i % 3) * 0.4, delay: 0.3 + i * 0.28, repeat: 0 }}
+        >
+          {c}
+        </motion.span>
+      ))}
+      <div className="relative rounded-[10px] bg-white dark:bg-gray-800 p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-white text-xs font-extrabold tracking-wide uppercase shadow ${
+            isComplete
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
+              : 'bg-gradient-to-r from-slate-500 to-slate-600'
+          }`}>
+            <Sparkles className="w-4 h-4" />
+            {isComplete ? 'Pin Completed!' : 'Pin Resolved'}
+          </div>
+          <span className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            {new Date(message.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </span>
+        </div>
+        <p className="text-gray-800 dark:text-gray-100 whitespace-pre-wrap leading-relaxed text-[15px]">
+          {body}
+        </p>
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+          <span className="text-xs font-semibold bg-gradient-to-r from-amber-500 to-pink-500 bg-clip-text text-transparent">
+            — The Admin Team
+          </span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">Keep those pins coming! 📌</span>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 /**
  * Thank You Messages
  * Displays messages from admins to beta testers
@@ -84,6 +147,9 @@ const ThankYouMessages = () => {
 
       <AnimatePresence>
         {messages.map((message, index) => (
+          typeof message.message === 'string' && PIN_WIN_RE.test(message.message) ? (
+            <PinWinCard key={message.id} message={message} index={index} />
+          ) : (
           <motion.div
             key={message.id}
             initial={{ opacity: 0, y: 20 }}
@@ -128,6 +194,7 @@ const ThankYouMessages = () => {
               </span>
             </div>
           </motion.div>
+          )
         ))}
       </AnimatePresence>
 

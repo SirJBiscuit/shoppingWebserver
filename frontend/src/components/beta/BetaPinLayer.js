@@ -2118,7 +2118,7 @@ const BetaPinLayer = () => {
           )}
           {(ctx.pin.status === 'open' || ctx.pin.status === 'in_progress') && (
             <button className="ctx-item" onClick={() => setStatus(ctx.pin, 'fixed')}>
-              <Check className="w-4 h-4 text-emerald-400" /> Mark fixed
+              <Check className="w-4 h-4 text-emerald-400" /> Mark complete
             </button>
           )}
           {(ctx.pin.status !== 'open' && ctx.pin.status !== 'in_progress') && (
