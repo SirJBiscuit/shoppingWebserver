@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Wand2 } from 'lucide-react';
+import AnimatedScrollbar3D from './3DAnimatedScrollbar';
 import { Portal } from '../utils/autoPlacement';
 import {
   CANONICAL_CATEGORIES,
@@ -87,30 +88,37 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
           />
         </div>
 
-        <div className="px-3 py-2 max-h-56 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-1.5">
-            {list.map((cat, i) => (
-              <motion.button
-                key={cat.name}
-                initial={{ opacity: 0, y: 6, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ delay: Math.min(i * 0.025, 0.3), type: 'spring', damping: 20, stiffness: 300 }}
-                onClick={() => pick(cat.name)}
-                className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-xs font-medium transition-all hover:scale-[1.04] active:scale-95 ${
-                  canonical === cat.name
-                    ? 'bg-primary-100 dark:bg-primary-900/50 ring-1 ring-primary-500 text-primary-700 dark:text-primary-300'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-primary-900/30'
-                }`}
-              >
-                <span className="text-base leading-none">{cat.icon}</span>
-                <span className="truncate">{cat.name}</span>
-              </motion.button>
-            ))}
-            {list.length === 0 && (
-              <p className="col-span-2 text-center text-xs text-gray-400 py-3">No matches</p>
-            )}
+        <AnimatedScrollbar3D
+          maxHeight="14rem"
+          thumbColor="bg-gradient-to-b from-primary-400 to-primary-600"
+          glowColor="primary"
+          autoHide={false}
+        >
+          <div className="px-3 py-2">
+            <div className="grid grid-cols-2 gap-1.5">
+              {list.map((cat, i) => (
+                <motion.button
+                  key={cat.name}
+                  initial={{ opacity: 0, y: 6, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ delay: Math.min(i * 0.025, 0.3), type: 'spring', damping: 20, stiffness: 300 }}
+                  onClick={() => pick(cat.name)}
+                  className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-xs font-medium transition-all hover:scale-[1.04] active:scale-95 ${
+                    canonical === cat.name
+                      ? 'bg-primary-100 dark:bg-primary-900/50 ring-1 ring-primary-500 text-primary-700 dark:text-primary-300'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-primary-900/30'
+                  }`}
+                >
+                  <span className="text-base leading-none">{cat.icon}</span>
+                  <span className="truncate">{cat.name}</span>
+                </motion.button>
+              ))}
+              {list.length === 0 && (
+                <p className="col-span-2 text-center text-xs text-gray-400 py-3">No matches</p>
+              )}
+            </div>
           </div>
-        </div>
+        </AnimatedScrollbar3D>
       </motion.div>
     </Portal>
   );

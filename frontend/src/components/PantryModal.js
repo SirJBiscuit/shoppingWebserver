@@ -27,6 +27,7 @@ const PantryModal = ({ isOpen, onClose, onSave, item = null, categories = [] }) 
         quantity: item.quantity || '',
         unit: item.unit || '',
         category_id: item.category_id || '',
+        storage_location: item.storage_location || 'pantry',
         expiry_date: item.expiry_date ? item.expiry_date.split('T')[0] : '',
         barcode: item.barcode || '',
         image_url: item.image_url || ''

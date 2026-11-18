@@ -68,17 +68,54 @@ async function categoryNameById(categoryId) {
   return r.rows[0]?.name || null;
 }
 
+// Match against the canonical spice library — spices get their own icon,
+// a tsp container size as the storage amount, and a rack entry so the
+// spice system knows the user owns it.
+async function matchSpice(itemName, userId) {
+  try {
+    const r = await db.query(
+      `SELECT s.id, s.icon, COALESCE(r.container_tsp, 12) AS container_tsp
+         FROM spices s
+         LEFT JOIN user_spice_rack r ON r.spice_id = s.id AND r.user_id = $2
+        WHERE LOWER(s.name) = LOWER($1)
+        LIMIT 1`,
+      [itemName, userId]
+    );
+    return r.rows[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+// Feed the MDL system: register the name and record the usage event so
+// predictions/suggestions learn from pantry adds. Best-effort — older
+// installs may lack the tables/functions.
+async function trackMDL(userId, itemName) {
+  try {
+    const r = await db.query(`SELECT get_or_create_item_name($1) AS id`, [itemName]);
+    if (r.rows[0]?.id) {
+      await db.query(
+        `INSERT INTO mdl_user_item_history (user_id, item_name_id) VALUES ($1, $2)`,
+        [userId, r.rows[0].id]
+      );
+    }
+  } catch { /* MDL not installed — ignore */ }
+}
+
 // Find-or-create the items row, then upsert an inventory row for it.
 async function upsertInventoryItem(userId, { item_name, quantity, unit, barcode, category_id, category_name, image_url, expiry_date, source, storage_location }) {
-  const catName = category_name || await categoryNameById(category_id);
+  const spice = await matchSpice(item_name, userId);
+  const catName = category_name || await categoryNameById(category_id)
+    || (spice ? 'Condiments & Sauces' : null);
   const { icon, category } = await guessIconAndCategory(item_name, catName);
+  const finalIcon = spice?.icon || icon;
 
   const itemRes = await db.query(
     `INSERT INTO items (user_id, name, category, preferred_icon)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT DO NOTHING
      RETURNING id`,
-    [userId, item_name, category, icon]
+    [userId, item_name, category, finalIcon]
   );
   let itemId = itemRes.rows[0]?.id;
   if (!itemId) {
@@ -101,9 +138,24 @@ async function upsertInventoryItem(userId, { item_name, quantity, unit, barcode,
        manual_expiry_date = COALESCE(EXCLUDED.manual_expiry_date, inventory.manual_expiry_date),
        last_updated = CURRENT_TIMESTAMP
      RETURNING *`,
-    [userId, itemId, storage_location || 'pantry', quantity ?? 1, unit || null,
+    [userId, itemId, storage_location || 'pantry',
+     quantity ?? spice?.container_tsp ?? 1,
+     unit || (spice ? 'tsp' : null),
      barcode || null, image_url || null, expiry_date || null, category]
   );
+
+  // Spice library match → mark it owned in the user's rack + feed MDL
+  if (spice) {
+    try {
+      await db.query(
+        `INSERT INTO user_spice_rack (user_id, spice_id)
+         VALUES ($1, $2) ON CONFLICT (user_id, spice_id) DO NOTHING`,
+        [userId, spice.id]
+      );
+    } catch { /* spice system not installed — ignore */ }
+  }
+  await trackMDL(userId, item_name);
+
   return invRes.rows[0];
 }
 
