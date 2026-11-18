@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronRight, ChevronLeft, Check, Zap, BookOpen, Plus, ShoppingCart, Package, ChefHat, Settings as SettingsIcon, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Portal } from '../utils/autoPlacement';
+import api from '../services/api';
 
 // Bump this when the tutorial content changes — re-fires the tour once for
 // users who already completed the previous version.
-const ONBOARDING_VERSION = 'v2';
+const ONBOARDING_VERSION = 'v3';
 const onboardingKey = (userId) => `onboarding_${ONBOARDING_VERSION}_${userId}`;
 
 const Onboarding = ({ userId, forceOpen, onClose }) => {
@@ -45,7 +46,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
     {
       title: 'Add Items to Your List ✍️',
       description: 'Type item names in the input box',
-      image: '�️',
+      image: '✍️',
       focusElement: '[data-tutorial="add-item-input"]',
       instructions: [
         'Type an item name (e.g., "Milk", "Bread")',
@@ -67,7 +68,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
       handHold: 'The sidebar on the left has three colorful icons. Click them to switch between sections.',
     },
     {
-      title: 'Dashboard Sections �',
+      title: 'Dashboard Sections 📋',
       description: 'Everything you need in one place',
       image: '✅',
       focusElement: null,
@@ -137,7 +138,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
       focusElement: '[data-tutorial="add-item-input"]',
       instructions: [
         '⌨️ Type manually - Just start typing',
-        '� Voice input - Click the microphone icon',
+        '🎤 Voice input - Click the microphone icon',
         '📷 Barcode scan - Click the scan icon',
         '💡 Auto-suggestions appear as you type',
       ],
@@ -157,7 +158,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
       handHold: 'Each item has small icons on the right. Click the pencil to edit, the palette for colors, or the trash to delete.',
     },
     {
-      title: 'Looking For Next �',
+      title: 'Looking For Next 🔍',
       description: 'Your smart shopping assistant',
       image: '👀',
       focusElement: '[data-tutorial="looking-for-next"]',
@@ -172,7 +173,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
     {
       title: 'The Sidebar Navigation 🗺️',
       description: 'Three main sections',
-      image: '�',
+      image: '🗺️',
       focusElement: '[data-tutorial="sidebar"]',
       instructions: [
         '🛒 Shopping - Your lists (where you are now)',
@@ -195,7 +196,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
       handHold: 'Scroll down to see "Smart Suggestions". These are items you might have forgotten, based on what you usually buy.',
     },
     {
-      title: 'Budget Tracker �',
+      title: 'Budget Tracker 💰',
       description: 'Stay on budget while shopping',
       image: '💵',
       focusElement: '[data-tutorial="budget-tracker"]',
@@ -236,11 +237,34 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
   ];
 
   useEffect(() => {
-    const hasSeenOnboarding = localStorage.getItem(onboardingKey(userId));
-    if (!hasSeenOnboarding) {
-      setIsOpen(true);
+    let cancelled = false;
+    const localSeen = () => !!localStorage.getItem(onboardingKey(userId));
+    const show = () => { if (!cancelled) setIsOpen(true); };
+
+    // Server flag wins — it follows the account across devices and lets a
+    // bumped version re-fire for accounts that finished an older tour.
+    // localStorage is the fallback for guests and API hiccups.
+    if (!userId) {
+      if (!localSeen()) show();
+      return undefined;
     }
+    api.get('/users/onboarding')
+      .then((r) => {
+        const serverSeen = r.data?.version === ONBOARDING_VERSION;
+        if (!serverSeen && !localSeen()) show();
+      })
+      .catch(() => { if (!localSeen()) show(); });
+    return () => { cancelled = true; };
   }, [userId]);
+
+  // Persist "seen" both places — account flag (cross-device) + per-device
+  // marker so the tour doesn't flicker open while the GET is in flight.
+  const markSeen = () => {
+    localStorage.setItem(onboardingKey(userId), 'true');
+    if (userId) {
+      api.post('/users/onboarding', { version: ONBOARDING_VERSION }).catch(() => {});
+    }
+  };
 
   // Allow reopening tutorial from Help button
   useEffect(() => {
@@ -314,7 +338,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
   }, [isOpen, currentStep]);
 
   const handleComplete = () => {
-    localStorage.setItem(onboardingKey(userId), 'true');
+    markSeen();
     setIsOpen(false);
     // Remove focus highlights
     document.querySelectorAll('.tutorial-highlight').forEach(el => {
@@ -325,7 +349,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
   };
 
   const handleSkip = () => {
-    localStorage.setItem(onboardingKey(userId), 'true');
+    markSeen();
     
     // Only show skip message once per user (not on every login)
     const hasSeenSkipMessage = localStorage.getItem(`onboarding_skip_message_${userId}`);
