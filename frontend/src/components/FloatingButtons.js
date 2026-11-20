@@ -44,7 +44,7 @@ const FloatingButtons = ({
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const onRecipesPage = useLocation().pathname.startsWith('/recipes');
-  const belowPx = useCornerOffset(['beta']); // beta controls live below us
+  const belowPx = useCornerOffset(['beta', 'restoretab', 'adminrail']); // beta controls + admin rail live below us
   const panelShift = usePanelShift();
   // The mobile nav drawer (z-60 + z-45 backdrop) is the one overlay allowed
   // to cover this column — hide ourselves while it's open instead of

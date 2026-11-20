@@ -5,7 +5,7 @@ import api from '../../services/api';
 import { motion } from 'framer-motion';
 import FormattedNote from '../FormattedNote';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
-import { Popup, Portal, Connector, ScrollStrip, useCornerStack, usePanelShift, setPanelShift, useIsMobile, useFloatSide } from '../../utils/autoPlacement';
+import { Popup, Portal, Connector, ScrollStrip, useCornerStack, useCornerOffset, usePanelShift, setPanelShift, useIsMobile, useFloatSide } from '../../utils/autoPlacement';
 import { pinDisplayPos, usePinLayerTick } from '../../utils/pinLayer';
 import {
   MapPin, Plus, X, Eye, EyeOff, MessageSquare, ChevronRight,
@@ -612,6 +612,19 @@ const BetaPinLayer = () => {
   useCornerStack('beta', stackRef,
     !dropMode && !moving && canUse && !stackHidden,
     [isAdmin, pins, allPins]);
+  // The restore tab and the admin rail are stack members too — they publish
+  // their heights under their own names, so the app's button column floats
+  // above them instead of covering them at any viewport height.
+  const restoreRef = useRef(null);
+  const railRef = useRef(null);
+  useCornerStack('restoretab', restoreRef,
+    canUse && stackHidden && !dropMode && !moving);
+  useCornerStack('adminrail', railRef,
+    isAdmin && canUse && !dropMode && !moving, [stackHidden]);
+  // Each stack reads only what's BELOW it — never include your own name or
+  // the measurement feeds back and ratchets you up the screen.
+  const betaOnly = useCornerOffset(['beta']);
+  const railBelow = useCornerOffset(['beta', 'restoretab']);
   const panelShift = usePanelShift();
   const isMobile = useIsMobile();
   // Shared side — the whole corner assembly (apps stack, beta stack, admin
@@ -645,9 +658,11 @@ const BetaPinLayer = () => {
     const id = setInterval(load, 30000);
     return () => { dead = true; clearInterval(id); };
   }, [isAdmin, canUse]);
+  // standby (idle maintenance page) and unknown (unprobeable, e.g. the
+  // loopback-bound webhook) are normal states — only down/degraded dim the dot
   const svcWorst = !services ? 'unknown'
     : services.some((s) => s.status === 'down') ? 'down'
-    : services.some((s) => s.status === 'degraded' || s.status === 'standby') ? 'degraded'
+    : services.some((s) => s.status === 'degraded') ? 'degraded'
     : 'up';
 
   // Track document height — used for the doc-% fallback when a pin's
@@ -2493,9 +2508,11 @@ const BetaPinLayer = () => {
       {/* Restore tab — visible when the beta controls stack is hidden */}
       {canUse && stackHidden && !dropMode && !moving && (
         <button
+          ref={restoreRef}
           onClick={() => setStackHidden(false)}
-          className={`fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-lg border-l-0' : 'right-0 rounded-l-lg border-r-0'} bottom-16 z-[46] bg-slate-900/90 border border-slate-700 px-1 py-3 text-slate-400 hover:text-slate-200 shadow-xl`}
+          className={`fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-lg border-l-0' : 'right-0 rounded-l-lg border-r-0'} z-[46] bg-slate-900/90 border border-slate-700 px-1 py-3 text-slate-400 hover:text-slate-200 shadow-xl transition-transform duration-300`}
           title="Show beta controls"
+          style={{ bottom: betaOnly + 4, transform: `translateX(${-panelShift}px)` }}
         >
           <PanelRightOpen className="w-4 h-4" />
         </button>
@@ -2549,8 +2566,9 @@ const BetaPinLayer = () => {
           Hidden on mobile/tablet (lg+): inspect, ghosts, viewer. */}
       {isAdmin && canUse && !dropMode && !moving && (
         <div
-          className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-xl border-l-0' : 'right-0 rounded-l-xl border-r-0'} top-1/3 z-[46] flex-col items-center gap-1 bg-slate-900/90 border border-slate-700 py-2 px-1.5 shadow-xl transition-transform duration-300`}
-          style={{ transform: `translateX(${-panelShift}px)` }}
+          ref={railRef}
+          className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-xl border-l-0' : 'right-0 rounded-l-xl border-r-0'} z-[46] flex-col items-center gap-1 bg-slate-900/90 border border-slate-700 py-2 px-1.5 shadow-xl transition-all duration-300`}
+          style={{ bottom: railBelow + 4, transform: `translateX(${-panelShift}px)` }}
         >
           <button
             onClick={() => { setInspectMode((v) => !v); setInspectData(null); }}
@@ -2591,10 +2609,10 @@ const BetaPinLayer = () => {
       )}
 
       {/* Service status popover — sits beside the admin rail */}
-      {isAdmin && svcOpen && (
+      {isAdmin && svcOpen && !dropMode && !moving && (
         <div
-          className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-12 lg:left-80' : 'right-12'} top-1/3 z-[46] flex-col w-64 bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl overflow-hidden transition-transform duration-300`}
-          style={{ transform: `translateX(${-panelShift}px)` }}
+          className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-14 lg:left-[328px]' : 'right-14'} z-[46] flex-col w-64 bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl overflow-hidden transition-all duration-300`}
+          style={{ bottom: railBelow + 4, transform: `translateX(${-panelShift}px)` }}
         >
           <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800">
             <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Services</span>

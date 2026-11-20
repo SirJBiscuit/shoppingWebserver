@@ -480,31 +480,45 @@ router.get('/services', authenticateToken, isAdmin, async (req, res) => {
     push('postgres', 'Postgres DB', 'down', err.message, null);
   }
 
-  // Frontend container — HTTP probe beats container state when available
-  const feProbe = await svcHttp('http://frontend:3006', 3000);
+  // Frontend container — nginx listens on :80 inside; :3006 is host-side only
+  const feProbe = await svcHttp('http://frontend:80', 3000);
   if (feProbe.ok) push('frontend', 'Frontend', 'up', `http ${feProbe.code}`, feProbe.ms);
   else push('frontend', 'Frontend', dockerState(containers, 'shop_frontend').status === 'up' ? 'degraded' : 'down',
     dockerState(containers, 'shop_frontend').detail || feProbe.err, feProbe.ms);
 
-  // Maintenance placeholder — running means the app is mid-deploy
+  // Maintenance placeholder — only runs DURING a deploy; idle is the norm
   const maint = dockerState(containers, 'shop_maintenance');
-  push('maintenance', 'Maintenance page', maint.status === 'up' ? 'standby' : 'down',
-    maint.status === 'up' ? 'serving :3006 (deploy in progress)' : 'idle (not running)', null);
+  push('maintenance', 'Maintenance page', 'standby',
+    maint.status === 'up' ? 'serving :3006 (deploy in progress)' : 'idle — only serves during deploys', null);
 
   // ntfy push service — HEAD the base URL
   const ntfyBase = process.env.NTFY_BASE_URL || 'https://ntfy.sh';
   const ntfy = await svcHttp(ntfyBase, 4000);
   push('ntfy', 'ntfy push', ntfy.ok ? 'up' : 'down', ntfy.ok ? `${ntfyBase} ${ntfy.code}` : (ntfy.err || `http ${ntfy.code}`), ntfy.ms);
 
-  // Public URL — distinguishes app-down from Cloudflare/tunnel-down, mirroring watchdog.sh
-  const pubUrl = process.env.PUBLIC_URL || 'https://shop.cloudmc.online';
-  const pub = await svcHttp(pubUrl, 6000);
+  // Public URL — distinguishes app-down from Cloudflare/tunnel-down. Probe
+  // the domain the admin actually used (Host header) first, then configured
+  // URLs — hardcoding a stale domain reports a false outage.
+  const reqHost = (req.headers['x-forwarded-host'] || req.headers.host || '').split(':')[0];
+  const candidates = [
+    reqHost && !/localhost|127\.0\.0\.1/.test(reqHost) ? `https://${reqHost}` : null,
+    process.env.PUBLIC_URL || null,
+    process.env.FRONTEND_URL || null,
+    'https://shop.cloudmc.online',
+    'https://listzy.app',
+  ].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i); // dedupe
+  let pub = { ok: false, err: 'no candidate URLs' }; let pubUrl = candidates[0];
+  for (const url of candidates) {
+    const r = await svcHttp(url, 6000);
+    if (r.ok) { pub = r; pubUrl = url; break; }
+    pub = r;
+  }
   push('public', 'Public URL', pub.ok ? 'up' : 'down',
     pub.ok ? `${pubUrl} ${pub.code}${pub.headers?.get('cf-ray') ? ' · via Cloudflare' : ''}` : (pub.err || `http ${pub.code}`), pub.ms);
 
-  // Update webhook listener on the host
-  const hook = await svcHttp('http://host.docker.internal:9000/', 2000);
-  push('webhook', 'Update webhook', hook.ok ? 'up' : 'down', hook.ok ? `http ${hook.code}` : (hook.err || 'unreachable'), hook.ms);
+  // Update webhook binds host loopback (127.0.0.1:9000) — a container can't
+  // reach it; that's by design. Report it as unprobeable, not "offline".
+  push('webhook', 'Update webhook', 'unknown', 'host loopback only — check `systemctl status shop-webhook` on the server', null);
 
   // GitHub reachability (update checking depends on it)
   const gh = await svcHttp('https://api.github.com', 4000);

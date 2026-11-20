@@ -123,6 +123,27 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Admin rail **Activity** button shows a live worst-status dot + popover with
   per-service badges; "Details" jumps to Admin › Services.
 
+### 14. Services panel — false "offline" readings + rail overlap — FIXED
+
+- **Frontend "degraded":** probe hit `:3006`, but container nginx listens on
+  `:80` (`3006:80` is host-side). Fixed to `http://frontend:80`.
+- **Maintenance "Offline":** was misleading — it only runs during deploys;
+  now always reports `standby` ("idle — only serves during deploys").
+- **Public URL "offline":** probed `shop.cloudmc.online`, which isn't the
+  live domain. Now tries Host header first (the domain the admin actually
+  used), then `PUBLIC_URL`/`FRONTEND_URL` env, then both known domains.
+- **Webhook "offline":** binds host loopback by design — a container can't
+  reach it. Now reports `unknown` with a hint to check
+  `systemctl status shop-webhook`.
+- **Rail overlap:** the admin rail was `top-1/3` fixed — outside the corner
+  stack — so the app column grew into it. Rail + restore tab are now stack
+  members (`adminrail`/`restoretab` via `useCornerStack`), bottom-anchored
+  above the beta stack; `FloatingButtons` offsets all three. Guaranteed no
+  overlap at any height. Watch for feedback loops: a stack must never read
+  its own published height.
+- `svcWorst` ignores `standby`/`unknown` (normal states) — only
+  down/degraded dim the rail dot.
+
 ### 13. UpdateBanner UX rework
 
 - Moved from top-center bar (covered the toolbar) to a **bottom-center card**
