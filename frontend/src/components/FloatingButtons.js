@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Grid, List, MoveHorizontal, BookOpen, BellRing } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Portal, useIsMobile, useCornerOffset, usePanelShift, setPanelShift, useFloatSide, setFloatSide } from '../utils/autoPlacement';
+import { Portal, useIsMobile, useCornerOffset, usePanelShift, setPanelShift, useFloatSide, setFloatSide, useNavDrawerOpen } from '../utils/autoPlacement';
 
 // Floating action buttons — same visual scheme as the beta pin layer:
 // circular buttons in one bottom-corner stack with a small visible label
@@ -46,6 +46,10 @@ const FloatingButtons = ({
   const onRecipesPage = useLocation().pathname.startsWith('/recipes');
   const belowPx = useCornerOffset(['beta']); // beta controls live below us
   const panelShift = usePanelShift();
+  // The mobile nav drawer (z-60 + z-45 backdrop) is the one overlay allowed
+  // to cover this column — hide ourselves while it's open instead of
+  // floating above the dimmed backdrop.
+  const navDrawerOpen = useNavDrawerOpen();
 
   // The Active List panel slides in from the right at z-201 — instead of
   // hiding this column underneath it, shift every corner column left so
@@ -63,7 +67,7 @@ const FloatingButtons = ({
   return (
     <Portal>
       <div
-        className={`fixed ${side} z-50 flex flex-col gap-3 transition-transform duration-300`}
+        className={`fixed ${side} z-50 flex flex-col gap-3 transition-all duration-300 ${navDrawerOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
         style={{ bottom, transform: `translateX(${-panelShift}px)` }}
       >
         {/* Apps menu */}

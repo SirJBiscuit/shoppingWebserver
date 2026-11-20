@@ -430,6 +430,89 @@ router.get('/status/detailed', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
+// Service health — powers the admin Services panel. Each check runs with a
+// short timeout and reports {key,label,status,detail,ms}; status is one of
+// up | down | standby | unknown. docker.sock is bind-mounted so container
+// states are real, not assumed.
+const svcHttp = (url, ms) => {
+  const t0 = Date.now();
+  return fetch(url, { signal: AbortSignal.timeout(ms), redirect: 'manual' })
+    .then((r) => ({ ok: r.status < 500, ms: Date.now() - t0, code: r.status, headers: r.headers }))
+    .catch((err) => ({ ok: false, ms: Date.now() - t0, err: err.name === 'TimeoutError' ? 'timeout' : err.message }));
+};
+
+const svcDockerPs = () => new Promise((resolve) => {
+  const http = require('http');
+  const r = http.request({ socketPath: '/var/run/docker.sock', path: '/containers/json?all=true' }, (resp) => {
+    let d = '';
+    resp.on('data', (c) => { d += c; });
+    resp.on('end', () => { try { resolve(JSON.parse(d)); } catch { resolve([]); } });
+  });
+  r.on('error', () => resolve([]));
+  r.setTimeout(2000, () => r.destroy());
+  r.end();
+});
+
+const dockerState = (containers, name) => {
+  const c = containers.find((x) => (x.Names || []).some((n) => n === `/${name}`));
+  if (!c) return { status: 'down', detail: 'container not found' };
+  if (c.State !== 'running') return { status: 'down', detail: c.Status || c.State };
+  const healthy = c.Status?.includes('healthy');
+  const unhealthy = c.Status?.includes('unhealthy');
+  return { status: unhealthy ? 'degraded' : 'up', detail: c.Status, health: healthy ? 'healthy' : (unhealthy ? 'unhealthy' : 'none') };
+};
+
+router.get('/services', authenticateToken, isAdmin, async (req, res) => {
+  const out = [];
+  const push = (key, label, status, detail, ms) => out.push({ key, label, status, detail, ms });
+
+  const containers = await svcDockerPs();
+
+  // Backend is answering this request — report self
+  push('backend', 'Backend API', 'up', `uptime ${Math.round(process.uptime() / 60)}m`, 0);
+
+  // Postgres — real query
+  try {
+    const t0 = Date.now();
+    await db.query('SELECT 1');
+    push('postgres', 'Postgres DB', 'up', 'query OK', Date.now() - t0);
+  } catch (err) {
+    push('postgres', 'Postgres DB', 'down', err.message, null);
+  }
+
+  // Frontend container — HTTP probe beats container state when available
+  const feProbe = await svcHttp('http://frontend:3006', 3000);
+  if (feProbe.ok) push('frontend', 'Frontend', 'up', `http ${feProbe.code}`, feProbe.ms);
+  else push('frontend', 'Frontend', dockerState(containers, 'shop_frontend').status === 'up' ? 'degraded' : 'down',
+    dockerState(containers, 'shop_frontend').detail || feProbe.err, feProbe.ms);
+
+  // Maintenance placeholder — running means the app is mid-deploy
+  const maint = dockerState(containers, 'shop_maintenance');
+  push('maintenance', 'Maintenance page', maint.status === 'up' ? 'standby' : 'down',
+    maint.status === 'up' ? 'serving :3006 (deploy in progress)' : 'idle (not running)', null);
+
+  // ntfy push service — HEAD the base URL
+  const ntfyBase = process.env.NTFY_BASE_URL || 'https://ntfy.sh';
+  const ntfy = await svcHttp(ntfyBase, 4000);
+  push('ntfy', 'ntfy push', ntfy.ok ? 'up' : 'down', ntfy.ok ? `${ntfyBase} ${ntfy.code}` : (ntfy.err || `http ${ntfy.code}`), ntfy.ms);
+
+  // Public URL — distinguishes app-down from Cloudflare/tunnel-down, mirroring watchdog.sh
+  const pubUrl = process.env.PUBLIC_URL || 'https://shop.cloudmc.online';
+  const pub = await svcHttp(pubUrl, 6000);
+  push('public', 'Public URL', pub.ok ? 'up' : 'down',
+    pub.ok ? `${pubUrl} ${pub.code}${pub.headers?.get('cf-ray') ? ' · via Cloudflare' : ''}` : (pub.err || `http ${pub.code}`), pub.ms);
+
+  // Update webhook listener on the host
+  const hook = await svcHttp('http://host.docker.internal:9000/', 2000);
+  push('webhook', 'Update webhook', hook.ok ? 'up' : 'down', hook.ok ? `http ${hook.code}` : (hook.err || 'unreachable'), hook.ms);
+
+  // GitHub reachability (update checking depends on it)
+  const gh = await svcHttp('https://api.github.com', 4000);
+  push('github', 'GitHub API', gh.ok ? 'up' : 'down', gh.ok ? `http ${gh.code}` : (gh.err || 'unreachable'), gh.ms);
+
+  res.json({ services: out, checkedAt: new Date().toISOString() });
+});
+
 // Restart services
 router.post('/restart', authenticateToken, isAdmin, async (req, res) => {
   try {

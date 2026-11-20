@@ -359,6 +359,24 @@ export const useFloatSide = (fallback = 'right') =>
   );
 
 // ---------------------------------------------------------------------------
+// Mobile nav-drawer open state — corner columns (floating buttons etc.) sit at
+// z-50, ABOVE the drawer backdrop (z-45), so they visibly float over the dimmed
+// screen. Sidebar publishes `true` while its mobile drawer is open; columns
+// hide themselves until it closes.
+let navDrawerOpen = false;
+export const setNavDrawerOpen = (v) => {
+  const nv = v === true;
+  if (navDrawerOpen === nv) return;
+  navDrawerOpen = nv;
+  notifyStacks();
+};
+export const useNavDrawerOpen = () =>
+  useSyncExternalStore(
+    (cb) => { stackSubs.add(cb); return () => stackSubs.delete(cb); },
+    () => navDrawerOpen
+  );
+
+// ---------------------------------------------------------------------------
 // ScrollStrip — automatic GUI arrangement for horizontal rows.
 //
 // Drop-in replacement for `flex` rows (tab bars, filter chips, toolbars,

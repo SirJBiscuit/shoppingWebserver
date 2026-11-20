@@ -16,6 +16,7 @@ import StorageDashboard from '../components/admin/StorageDashboard';
 import MDLProductsPanel from '../components/admin/MDLProductsPanel';
 import ChangelogPanel from '../components/admin/ChangelogPanel';
 import PriceReviewPanel from '../components/admin/PriceReviewPanel';
+import ServiceStatus from '../components/admin/ServiceStatus';
 // import UserManagement from '../backburner/components/UserManagement'; // Disabled - will rebuild with CFS
 // import DashboardEditor from '../backburner/components/DashboardEditor'; // Disabled - replaced by AES
 import SoundSettings from '../components/SoundSettings';
@@ -218,6 +219,7 @@ const AdminNew = () => {
     { id: 'system', name: 'System & Updates', icon: Server },
     { id: 'features', name: 'Feature Management', icon: Flag },
     { id: 'users', name: 'User Management', icon: Users },
+    { id: 'services', name: 'Services', icon: Server },
     { id: 'storage', name: 'Storage Management', icon: Folder },
     { id: 'mdl', name: 'Product Database (MDL)', icon: Database },
     { id: 'review', name: 'Price Review', icon: ShieldAlert },
@@ -508,6 +510,12 @@ const AdminNew = () => {
                 
                 <MDLProductsPanel />
               </div>
+            )}
+
+            {/* Services Tab — live online/offline badges for every part
+                of the stack (containers, DB, ntfy, public URL, webhook) */}
+            {activeTab === 'services' && (
+              <ServiceStatus />
             )}
 
             {/* Storage Management Tab */}

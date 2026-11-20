@@ -13,7 +13,7 @@ import {
   BarChart3, ThumbsUp, ThumbsDown, Lock, Pencil, Move, Download, RotateCcw,
   LocateFixed, Copy, Flag, Bug, Lightbulb, AlertTriangle, HelpCircle, Star,
   Crosshair, Ghost, PanelRightClose, PanelRightOpen, Pin, Archive,
-  Search, SlidersHorizontal, ListChecks, StickyNote, MapPinned
+  Search, SlidersHorizontal, ListChecks, StickyNote, MapPinned, Activity
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -628,6 +628,27 @@ const BetaPinLayer = () => {
   useEffect(() => {
     localStorage.setItem('betaStackHidden', stackHidden ? '1' : '0');
   }, [stackHidden]);
+
+  // Admin service health — polled while an admin is present so the rail
+  // button dot always reflects the worst service state.
+  const [svcOpen, setSvcOpen] = useState(false);
+  const [services, setServices] = useState(null);
+  useEffect(() => {
+    if (!isAdmin || !canUse) return undefined;
+    let dead = false;
+    const load = () => fetch(`${process.env.REACT_APP_API_URL || ''}/api/system/services`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+    }).then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!dead && d) setServices(d.services); })
+      .catch(() => {});
+    load();
+    const id = setInterval(load, 30000);
+    return () => { dead = true; clearInterval(id); };
+  }, [isAdmin, canUse]);
+  const svcWorst = !services ? 'unknown'
+    : services.some((s) => s.status === 'down') ? 'down'
+    : services.some((s) => s.status === 'degraded' || s.status === 'standby') ? 'degraded'
+    : 'up';
 
   // Track document height — used for the doc-% fallback when a pin's
   // element anchor no longer resolves.
@@ -2527,7 +2548,10 @@ const BetaPinLayer = () => {
       {/* Admin sidebar — thin desktop-only tool column on the right edge.
           Hidden on mobile/tablet (lg+): inspect, ghosts, viewer. */}
       {isAdmin && canUse && !dropMode && !moving && (
-        <div className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-xl border-l-0' : 'right-0 rounded-l-xl border-r-0'} top-1/3 z-[46] flex-col items-center gap-1 bg-slate-900/90 border border-slate-700 py-2 px-1.5 shadow-xl`}>
+        <div
+          className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-xl border-l-0' : 'right-0 rounded-l-xl border-r-0'} top-1/3 z-[46] flex-col items-center gap-1 bg-slate-900/90 border border-slate-700 py-2 px-1.5 shadow-xl transition-transform duration-300`}
+          style={{ transform: `translateX(${-panelShift}px)` }}
+        >
           <button
             onClick={() => { setInspectMode((v) => !v); setInspectData(null); }}
             className={`p-2 rounded-lg transition ${inspectMode ? 'bg-cyan-600/30 text-cyan-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
@@ -2549,6 +2573,63 @@ const BetaPinLayer = () => {
             className={`p-2 rounded-lg transition ${stackHidden ? 'bg-amber-600/30 text-amber-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
             title={stackHidden ? 'Show beta controls (viewer / pins / pin button)' : 'Hide beta controls — apps buttons drop into place'}
           >{stackHidden ? <PanelRightOpen className="w-4 h-4" /> : <PanelRightClose className="w-4 h-4" />}</button>
+          <div className="w-6 h-px bg-slate-700 my-0.5" />
+          <button
+            onClick={() => setSvcOpen((v) => !v)}
+            className={`p-2 rounded-lg transition relative ${svcOpen ? 'bg-emerald-600/30 text-emerald-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+            title="Service status — backend, DB, ntfy, tunnel & webhook health"
+          >
+            <Activity className="w-4 h-4" />
+            <span className={`absolute top-1 right-1 w-2 h-2 rounded-full ${{
+              up: 'bg-emerald-500',
+              degraded: 'bg-amber-500 animate-pulse',
+              down: 'bg-red-500 animate-pulse',
+              unknown: 'bg-gray-500',
+            }[svcWorst]}`} />
+          </button>
+        </div>
+      )}
+
+      {/* Service status popover — sits beside the admin rail */}
+      {isAdmin && svcOpen && (
+        <div
+          className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-12 lg:left-80' : 'right-12'} top-1/3 z-[46] flex-col w-64 bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl overflow-hidden transition-transform duration-300`}
+          style={{ transform: `translateX(${-panelShift}px)` }}
+        >
+          <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Services</span>
+            <button onClick={() => setSvcOpen(false)} className="text-slate-500 hover:text-slate-300"><X className="w-3.5 h-3.5" /></button>
+          </div>
+          <div className="px-3 py-2 space-y-1.5 max-h-64 overflow-y-auto scrollbar-3d">
+            {(services || []).map((s) => (
+              <div key={s.key} className="flex items-center justify-between gap-2">
+                <span className="text-xs text-slate-300 truncate" title={s.detail}>{s.label}</span>
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0 ${{
+                  up: 'bg-emerald-500/15 text-emerald-300',
+                  degraded: 'bg-amber-500/15 text-amber-300',
+                  standby: 'bg-blue-500/15 text-blue-300',
+                  down: 'bg-red-500/15 text-red-300',
+                  unknown: 'bg-slate-600/30 text-slate-400',
+                }[s.status] || 'bg-slate-600/30 text-slate-400'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${{
+                    up: 'bg-emerald-400',
+                    degraded: 'bg-amber-400',
+                    standby: 'bg-blue-400',
+                    down: 'bg-red-400 animate-pulse',
+                    unknown: 'bg-slate-500',
+                  }[s.status] || 'bg-slate-500'}`} />
+                  {s.status === 'up' ? 'Online' : s.status === 'down' ? 'Offline' : s.status}
+                </span>
+              </div>
+            ))}
+            {!services && <p className="text-xs text-slate-500 py-2">Checking…</p>}
+          </div>
+          <button
+            onClick={() => { setSvcOpen(false); navigate('/admin'); }}
+            className="px-3 py-2 text-[11px] text-slate-400 hover:text-slate-200 border-t border-slate-800 text-left"
+          >
+            Details → Admin › Services
+          </button>
         </div>
       )}
 

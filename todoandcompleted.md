@@ -93,6 +93,31 @@ ships move it to the Completed Log (newest first) with the commit hash.
 - **Verify on prod:** `docker exec -i shop_postgres psql -U shopuser -d shopdb \
   -c "\d ntfy_user_settings"` after deploy.
 
+### 9. Admin "Admin sidebar" rail gets covered by floating UI — FIXED
+
+- **Panel:** the `hidden lg:flex fixed … top-1/3` rail in `BetaPinLayer.js` (~line 2548)
+  — inspect (Crosshair), ghost pins (Ghost), admin viewer (MessageSquare),
+  hide-controls (PanelRightClose), now + service status (Activity).
+- **Bug:** it never consumed `usePanelShift`, so the Admin Viewer (w-96) and
+  Active List panel slid in at `right-0` and covered it. Now translates with
+  `-panelShift` like every other corner element.
+- **Also:** `PropertiesPanel` (AVE w-80 sidebar) now publishes
+  `setPanelShift('ave-props', 336)` so floating columns slide left instead of
+  hiding under it; `setNavDrawerOpen`/`useNavDrawerOpen` hides the floating
+  buttons while the mobile nav drawer is open (they were z-50 above the z-45
+  backdrop).
+
+### 10. Service-status feature (admin)
+
+- `GET /api/system/services` (admin): backend self, postgres ping, frontend
+  probe, maintenance container state (docker.sock), ntfy reachability, public
+  URL (detects Cloudflare via cf-ray), webhook :9000, GitHub API — each with
+  status + latency + detail.
+- `Admin.js` new **Services** tab → `components/admin/ServiceStatus.js`
+  (30s poll, inline Online/Offline/Degraded/Standby badges, overall banner).
+- Admin rail **Activity** button shows a live worst-status dot + popover with
+  per-service badges; "Details" jumps to Admin › Services.
+
 ### 8. ntfy — downtime/offline alerts (admin topic)
 
 - `watchdog.sh` (host cron `* * * * *`) pings public URL then localhost:3006 to

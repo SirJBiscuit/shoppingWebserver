@@ -14,7 +14,7 @@ import { useFeatureFlags } from '../context/FeatureFlagContext';
 import { usePreviewMode } from '../contexts/PreviewModeContext';
 import { useEditor } from '../contexts/EditorContext';
 import EditorOverlay from './editor/EditorOverlay';
-import { Portal } from '../utils/autoPlacement';
+import { Portal, setNavDrawerOpen } from '../utils/autoPlacement';
 // import ClearCacheButton from './ClearCacheButton'; // Component doesn't exist
 
 const Sidebar = ({ onAction }) => {
@@ -84,6 +84,7 @@ const Sidebar = ({ onAction }) => {
 
   // Prevent body scroll when sidebar is open on mobile
   useEffect(() => {
+    setNavDrawerOpen(isOpen && !isDesktop);
     if (isOpen && !isDesktop) {
       document.body.style.overflow = 'hidden';
     } else {
@@ -91,6 +92,7 @@ const Sidebar = ({ onAction }) => {
     }
     return () => {
       document.body.style.overflow = '';
+      setNavDrawerOpen(false);
     };
   }, [isOpen, isDesktop]);
 

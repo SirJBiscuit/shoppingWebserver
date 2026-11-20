@@ -5,7 +5,7 @@ import {
   Eye, EyeOff, Sliders, ChevronDown, ChevronUp 
 } from 'lucide-react';
 import { useEditor } from '../../contexts/EditorContext';
-import { Portal } from '../../utils/autoPlacement';
+import { Portal, setPanelShift, useFloatSide, useIsMobile } from '../../utils/autoPlacement';
 
 /**
  * PropertiesPanel - Right sidebar for editing selected widget properties
@@ -35,6 +35,18 @@ const PropertiesPanel = () => {
       setLocalProperties({});
     }
   }, [selectedWidget, widgetProperties]);
+
+  // This right-side sidebar (w-80) would sit on top of the floating button
+  // column — push every corner stack left while it's open, same mechanism
+  // the Active List panel uses. Only needed when floats live on the right
+  // and there's room to shift (desktop).
+  const floatSide = useFloatSide('right');
+  const isMobile = useIsMobile();
+  useEffect(() => {
+    const shift = selectedWidget && floatSide === 'right' && !isMobile ? 336 : 0;
+    setPanelShift('ave-props', shift);
+    return () => setPanelShift('ave-props', 0);
+  }, [selectedWidget, floatSide, isMobile]);
 
   if (!selectedWidget) return null;
 
