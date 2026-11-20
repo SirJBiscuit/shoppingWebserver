@@ -215,6 +215,13 @@ const Dashboard = () => {
   const [itemForNote, setItemForNote] = useState(null);
   const [noteText, setNoteText] = useState('');
   const [showChangelog, setShowChangelog] = useState(false);
+  // UpdateBanner's "Read update" button opens the changelog from anywhere —
+  // the banner navigates here first when needed, then fires this event.
+  useEffect(() => {
+    const open = () => setShowChangelog(true);
+    window.addEventListener('listzy:open-changelog', open);
+    return () => window.removeEventListener('listzy:open-changelog', open);
+  }, []);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showNtfy, setShowNtfy] = useState(false);
   const [showAppsMenu, setShowAppsMenu] = useState(false);

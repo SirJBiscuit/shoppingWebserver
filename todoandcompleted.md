@@ -123,6 +123,17 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Admin rail **Activity** button shows a live worst-status dot + popover with
   per-service badges; "Details" jumps to Admin › Services.
 
+### 13. UpdateBanner UX rework
+
+- Moved from top-center bar (covered the toolbar) to a **bottom-center card**
+  (`bottom-20` mobile / `bottom-6` desktop) — clears toolbar + corner stacks.
+- **"Read update"** button → dispatches `listzy:open-changelog`; Dashboard
+  listens and opens `ChangelogViewer` (navigates home first if needed).
+- **X now collapses to a pill** (gradient chip with pulsing dot) pinned at the
+  same spot — the persistent reminder the user asked for; tapping re-expands.
+  Dismissal is per-build (`listzy_update_dismissed` = build hash), so the NEXT
+  deploy earns the full card again. Hides while the mobile nav drawer is open.
+
 ### 12. "Latest improvements and fixes" placeholder everywhere — FIXED
 
 - **Root cause:** update command is `git pull && ./update-server.sh` — the pull

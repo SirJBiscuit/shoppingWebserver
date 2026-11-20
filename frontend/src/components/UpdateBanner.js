@@ -1,6 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, X } from 'lucide-react';
+import { RefreshCw, X, BookOpen } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavDrawerOpen } from '../utils/autoPlacement';
 
 /**
  * UpdateBanner — "a new version is live" prompt.
@@ -11,14 +13,16 @@ import { RefreshCw, X } from 'lucide-react';
  * cache), and CRA bakes a content hash into the bundle name
  * (main.<hash>.js) — the hash changing IS the version changing.
  *
- * Flow: poll the html every 60s → hash differs from what this tab loaded →
- * banner. "Update now" stamps the new hash and reloads; if the deploy is
- * still running the SW serves the cached old shell and the banner just
- * comes back on the next poll once the new build is actually live.
+ * UX: a bottom-center card that never covers the toolbar or the corner
+ * button stacks (bottom-20 on mobile clears MobileBottomNav). Dismissing
+ * collapses it to a small pill — a persistent but unobtrusive reminder
+ * pinned at the same spot until the update is taken. "Read update"
+ * opens the changelog viewer (custom event; navigates home first if
+ * the dashboard isn't mounted).
  */
 const POLL_MS = 60 * 1000;
-const SNOOZE_MS = 30 * 60 * 1000;
 const HASH_KEY = 'listzy_build_hash';
+const DISMISS_KEY = 'listzy_update_dismissed';
 const HASH_RE = /main\.([a-z0-9]+)\.js/;
 
 const fetchBuildHash = async () => {
@@ -65,9 +69,12 @@ const fetchUpdateNotes = async () => {
 };
 
 const UpdateBanner = () => {
-  const [showBanner, setShowBanner] = useState(false);
+  const [mode, setMode] = useState('hidden'); // hidden | card | pill
   const [notes, setNotes] = useState([]);
-  const snoozeRef = useRef(null);
+  const remoteHash = useRef(null);
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const navDrawerOpen = useNavDrawerOpen();
 
   useEffect(() => {
     let cancelled = false;
@@ -83,7 +90,11 @@ const UpdateBanner = () => {
         return;
       }
       if (remote !== seen) {
-        setShowBanner(true);
+        remoteHash.current = remote;
+        // A dismissed pill stays dismissed for THAT build; a new build
+        // (another deploy) earns the card again.
+        const dismissed = localStorage.getItem(DISMISS_KEY);
+        setMode(dismissed === remote ? 'pill' : 'card');
         fetchUpdateNotes().then((n) => { if (!cancelled && n.length) setNotes(n); });
       }
     };
@@ -93,64 +104,108 @@ const UpdateBanner = () => {
     return () => {
       cancelled = true;
       clearInterval(interval);
-      clearTimeout(snoozeRef.current);
     };
   }, []);
 
   const handleUpdate = async () => {
-    const remote = await fetchBuildHash();
+    const remote = remoteHash.current || await fetchBuildHash();
     if (remote) localStorage.setItem(HASH_KEY, remote);
+    localStorage.removeItem(DISMISS_KEY);
     window.location.reload();
   };
 
+  // Collapse to the pill — it stays as the reminder until they update
   const handleDismiss = () => {
-    setShowBanner(false);
-    // Re-show in 30 min if they still haven't updated
-    clearTimeout(snoozeRef.current);
-    snoozeRef.current = setTimeout(() => setShowBanner(true), SNOOZE_MS);
+    if (remoteHash.current) localStorage.setItem(DISMISS_KEY, remoteHash.current);
+    setMode('pill');
   };
+
+  // Open the changelog viewer — it lives on Dashboard, so go home first
+  const handleReadUpdate = () => {
+    const open = () => window.dispatchEvent(new CustomEvent('listzy:open-changelog'));
+    if (pathname === '/') open();
+    else { navigate('/'); setTimeout(open, 350); }
+  };
+
+  if (navDrawerOpen) return null;
 
   return (
     <AnimatePresence>
-      {showBanner && (
+      {mode === 'card' && (
         <motion.div
-          initial={{ y: -80, opacity: 0 }}
+          key="card"
+          initial={{ y: 80, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -80, opacity: 0 }}
+          exit={{ y: 80, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] w-[calc(100%-24px)] max-w-lg"
+          className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[9999] w-[calc(100%-24px)] max-w-md"
         >
-          <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 text-white shadow-xl">
-            <RefreshCw className="h-5 w-5 shrink-0 animate-[spin_3s_linear_infinite]" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold">New version available</p>
-              {notes.length ? (
-                <ul className="text-xs text-indigo-100 leading-snug">
-                  {notes.slice(0, 3).map((n) => (
-                    <li key={n} className="truncate">• {n}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="truncate text-xs text-indigo-100">
-                  Listzy was updated — press Update now to get the latest.
-                </p>
-              )}
+          <div className="rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 text-white shadow-2xl">
+            <div className="flex items-start gap-3">
+              <RefreshCw className="mt-0.5 h-5 w-5 shrink-0 animate-[spin_3s_linear_infinite]" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold">New version available</p>
+                {notes.length ? (
+                  <ul className="mt-0.5 text-xs text-indigo-100 leading-snug">
+                    {notes.slice(0, 3).map((n) => (
+                      <li key={n} className="truncate">• {n}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-0.5 text-xs text-indigo-100">
+                    Tap Read update to see what changed.
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleDismiss}
+                className="shrink-0 rounded-lg p-1 transition-colors hover:bg-white/20"
+                title="Minimize — keeps a small reminder button"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <button
-              onClick={handleUpdate}
-              className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-indigo-700 transition-colors hover:bg-indigo-50"
-            >
-              Update now
-            </button>
-            <button
-              onClick={handleDismiss}
-              className="shrink-0 rounded-lg p-1.5 transition-colors hover:bg-white/20"
-              title="Remind me later"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={handleReadUpdate}
+                className="flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold transition-colors hover:bg-white/25"
+              >
+                <BookOpen className="h-4 w-4" />
+                Read update
+              </button>
+              <button
+                type="button"
+                onClick={handleUpdate}
+                className="flex-1 rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-indigo-700 transition-colors hover:bg-indigo-50"
+              >
+                Update now
+              </button>
+            </div>
           </div>
         </motion.div>
+      )}
+
+      {mode === 'pill' && (
+        <motion.button
+          key="pill"
+          type="button"
+          initial={{ y: 60, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 60, opacity: 0 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          onClick={() => setMode('card')}
+          className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-white shadow-xl"
+          title="A new version of Listzy is available — tap to view"
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+          </span>
+          <RefreshCw className="h-3.5 w-3.5" />
+          <span className="text-xs font-bold">Update</span>
+        </motion.button>
       )}
     </AnimatePresence>
   );
