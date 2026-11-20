@@ -130,6 +130,26 @@ ships move it to the Completed Log (newest first) with the commit hash.
   `confirmDeleteRecipe` → `DELETE /api/recipes/:id`. Both trash buttons (card + view modal)
   go through this same path.
 - Codacy: run `codacy_cli_analyze` after every file edit (`.windsurfrules`).
+- **ONE update UX for users: the `UpdateBanner` popup only.** The server-side
+  "Update Now" button was removed from `ChangelogViewer` (2026-11-20) and the
+  Dashboard badge no longer flips to "Update Available" — it just shows the version.
+  `/api/system/status` still returns `update_available`/`pending` for diagnostics
+  (Admin page + changelog info section); `/update/request` still exists for admins
+  via API, there is just no in-app button for it.
+- **"What changed" update notes (added `17821ba`):** commit messages ARE the notes —
+  the update scripts capture `git log BEFORE..AFTER` and distribute it:
+  - `version.json` `changes[]` → `/api/version` → `UpdateBanner` shows up to 3 lines
+  - `maintenance/changes.txt` → mounted into the maintenance nginx → `updating.html`
+    renders the "In this update" list while the stack rebuilds
+  - `/api/system/status` `pending[]` (`git log HEAD..origin/main` via the mounted repo)
+    → `ChangelogViewer` "Update Available" section
+  - `changelog.txt` (600-line `%H|%ai|%s|%an` export) → `/api/changelog` for the viewer
+  - Caveat: a manual `git pull && docker-compose up -d --build` writes none of these
+    files — detection still self-heals (repo HEAD), but "what it adds" stays generic
+    and NO maintenance page shows (users get a brief 502). Use `./update-manual.sh`
+    instead — same simple rebuild, but swaps in the updating page and writes all
+    the notes files automatically. (No migrations — schema changes still need
+    `./update-server.sh`.)
 
 ---
 

@@ -137,7 +137,7 @@ const Dashboard = () => {
     console.log('🎨 AVE Editor Mode:', isEditorActive ? 'ACTIVE' : 'INACTIVE');
   }, [isEditorActive]);
   const isRecoveringFromError = useRef(false);
-  const [versionInfo, setVersionInfo] = useState({ version: 'Loading...', updateAvailable: false });
+  const [versionInfo, setVersionInfo] = useState({ version: 'Loading...' });
   const { toasts, hideToast, success, error, warning, info } = useToast();
   const { notification, hideNotification, success: notifySuccess, error: notifyError, ask, confirm, confirmDelete } = useNotification();
 
@@ -313,8 +313,7 @@ const Dashboard = () => {
         if (response.ok) {
           const data = await response.json();
           setVersionInfo({
-            version: data.current_version?.substring(0, 7) || 'unknown',
-            updateAvailable: data.update_available || false
+            version: data.current_version?.substring(0, 7) || 'unknown'
           });
         }
       } catch (err) {
@@ -1727,29 +1726,17 @@ const Dashboard = () => {
             <button
               onClick={() => setShowChangelog(true)}
               className="flex items-center space-x-2 text-xs sm:text-sm hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-colors"
-              title={versionInfo.updateAvailable ? 'Update available — open the changelog to apply it' : 'View Changelog & Features'}
+              title="View Changelog & Features"
             >
-              {versionInfo.updateAvailable ? (
-                <div className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 animate-pulse">
-                  <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="font-medium hidden sm:inline">Update Available</span>
-                  <span className="font-medium sm:hidden">Update!</span>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
-                  <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="font-medium hidden sm:inline">Up to date</span>
-                  <span className="font-medium sm:hidden">✓</span>
-                </div>
-              )}
-              <span className="text-gray-500 dark:text-gray-400 font-mono hidden md:inline">
-                v{versionInfo.version}
-              </span>
+              <div className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
+                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="font-medium hidden sm:inline">v{versionInfo.version}</span>
+              </div>
             </button>
             )}
 
-            {/* Update action lives inside the changelog viewer — this badge
-                is the single entry point (admin-only Update Now is in there) */}
+            {/* User-facing updates are handled solely by the UpdateBanner
+                popup (build-hash change → "Update now" reload). */}
 
             {/* AVE (Admin Visual Editor) Toggle - Admin Only */}
             {user?.isAdmin && (
