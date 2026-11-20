@@ -1,6 +1,6 @@
 /* eslint-env worker */
 /* global globalThis */
-const CACHE_NAME = 'listzy-shell-v4';
+const CACHE_NAME = 'listzy-shell-v5';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -78,6 +78,13 @@ const offlineFallback = () =>
 
 const errorRedirect = (status) =>
   Response.redirect(`/down.html?code=${status}`, 302);
+
+// Status pages must NEVER redirect: /down.html?code=502 is itself a
+// navigation, and redirecting an error response for it loops forever —
+// that was the ERR_TOO_MANY_REDIRECTS bug. They always answer with the
+// network response or their own cached copy.
+const STATUS_PAGES = ['/updating.html', '/down.html', '/offline.html'];
+
 globalThis.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
@@ -94,6 +101,26 @@ globalThis.addEventListener('fetch', (event) => {
 
   // Full-page navigations (F5, deep links like /recipes, PWA launch)
   if (event.request.mode === 'navigate') {
+    // Status pages: no redirects, no error routing — just serve them.
+    // A maintenance-marked response is returned but never stored under
+    // this page's key (it would poison down.html with updating.html).
+    if (STATUS_PAGES.includes(url.pathname)) {
+      event.respondWith(
+        fetch(event.request)
+          .then((response) => {
+            if (response.ok) {
+              if (!response.headers.get(MAINTENANCE_HEADER)) {
+                caches.open(CACHE_NAME)
+                  .then((cache) => cache.put(url.pathname, response.clone()));
+              }
+              return response;
+            }
+            return caches.match(url.pathname, { ignoreSearch: true });
+          })
+          .catch(() => caches.match(url.pathname, { ignoreSearch: true }))
+      );
+      return;
+    }
     event.respondWith(
       fetch(event.request)
         .then((response) => {

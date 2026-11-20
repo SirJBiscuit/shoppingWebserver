@@ -123,6 +123,14 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Admin rail **Activity** button shows a live worst-status dot + popover with
   per-service badges; "Details" jumps to Admin › Services.
 
+### 15. ERR_TOO_MANY_REDIRECTS on down.html during deploys — FIXED
+
+- `/down.html?code=X` is itself a navigation; during a deploy it also got a
+  5xx, and the SW redirected it to itself forever → browser killed it.
+- Status pages now have their own navigate branch: never redirect, serve
+  network-or-cached-copy, and never store a maintenance-marked response
+  under a status-page key. SW cache bumped v4 → v5.
+
 ### 14. Services panel — false "offline" readings + rail overlap — FIXED
 
 - **Frontend "degraded":** probe hit `:3006`, but container nginx listens on
