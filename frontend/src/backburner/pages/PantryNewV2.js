@@ -20,6 +20,7 @@ import InventoryStats from '../../components/inventory/InventoryStats';
 import BulkActionBar from '../../components/inventory/BulkActionBar';
 import ExpiredItemsAlert from '../../components/ExpiredItemsAlert';
 import QuickCategoryModal, { INVENTORY_CATEGORIES } from '../../components/QuickCategoryModal';
+import IconPicker from '../../components/inventory/IconPicker';
 
 /**
  * PantryNewV2 - Home Inventory with new 3-panel layout
@@ -62,6 +63,7 @@ const PantryNewV2 = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [categoryPickerItem, setCategoryPickerItem] = useState(null);
+  const [iconPickerItem, setIconPickerItem] = useState(null);
 
   // Stats
   const [stats, setStats] = useState(null);
@@ -305,7 +307,21 @@ const PantryNewV2 = () => {
     );
   };
 
-  // One-tap category change: click an item's icon or category badge
+  // One-tap icon change: click an item's emoji icon
+  const handleApplyIcon = async (icon) => {
+    if (!iconPickerItem) return;
+    try {
+      await inventoryAPI.updateItem(iconPickerItem.id, { item_icon: icon });
+      success(`"${iconPickerItem.item_name}" icon updated`);
+      setIconPickerItem(null);
+      await loadItems();
+    } catch (err) {
+      console.error('Failed to update icon:', err);
+      showError('Failed to update icon');
+    }
+  };
+
+  // One-tap category change: click an item's category badge
   const handleApplyCategory = async (cat) => {
     if (!categoryPickerItem) return;
     try {
@@ -612,6 +628,7 @@ const PantryNewV2 = () => {
                     onToggleFavorite={handleToggleFavorite}
                     onQuickAction={handleQuickAction}
                     onCategoryChange={setCategoryPickerItem}
+                    onIconChange={setIconPickerItem}
                     selectionMode={selectionMode}
                     selectedItems={selectedItems}
                     onToggleSelection={handleToggleSelection}
@@ -625,6 +642,7 @@ const PantryNewV2 = () => {
                     onDelete={handleDeleteItem}
                     onToggleFavorite={handleToggleFavorite}
                     onCategoryChange={setCategoryPickerItem}
+                    onIconChange={setIconPickerItem}
                   />
                 )}
               </div>
@@ -669,7 +687,7 @@ const PantryNewV2 = () => {
           />
         )}
 
-        {/* Quick category picker — opened by clicking an item's icon/badge */}
+        {/* Quick category picker — opened by clicking an item's category badge */}
         <QuickCategoryModal
           isOpen={!!categoryPickerItem}
           title={categoryPickerItem ? `Type — ${categoryPickerItem.item_name}` : 'Change Type'}
@@ -677,6 +695,14 @@ const PantryNewV2 = () => {
           currentCategory={categoryPickerItem?.item_category}
           onSelect={handleApplyCategory}
           onClose={() => setCategoryPickerItem(null)}
+        />
+
+        {/* Icon picker — opened by clicking an item's emoji icon */}
+        <IconPicker
+          isOpen={!!iconPickerItem}
+          currentIcon={iconPickerItem?.item_icon}
+          onSelect={handleApplyIcon}
+          onClose={() => setIconPickerItem(null)}
         />
 
         {/* Custom Notification */}

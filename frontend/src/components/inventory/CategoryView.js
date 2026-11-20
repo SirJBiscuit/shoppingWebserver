@@ -18,7 +18,8 @@ const CategoryView = ({
   onEdit, 
   onDelete, 
   onToggleFavorite,
-  onCategoryChange
+  onCategoryChange,
+  onIconChange
 }) => {
   
   const [expandedCategories, setExpandedCategories] = React.useState(new Set(['food']));
@@ -142,8 +143,8 @@ const CategoryView = ({
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <button
                           type="button"
-                          onClick={() => onCategoryChange?.(item)}
-                          title={`Type: ${item.item_category || 'food'} — click to change`}
+                          onClick={() => onIconChange?.(item)}
+                          title="Change icon"
                           className="text-lg flex-shrink-0 hover:scale-110 transition-transform"
                         >
                           {item.item_icon || '📦'}
@@ -152,6 +153,14 @@ const CategoryView = ({
                         <h4 className="font-semibold text-sm text-gray-900 dark:text-white truncate">
                           {item.item_name}
                         </h4>
+                        <button
+                          type="button"
+                          onClick={() => onCategoryChange?.(item)}
+                          title={`Type: ${item.item_category || 'other'} — click to change`}
+                          className="text-sm flex-shrink-0 hover:scale-110 transition-transform"
+                        >
+                          {categories[item.item_category || 'other']?.icon || '🏷️'}
+                        </button>
                       </div>
                       <button
                         onClick={() => onToggleFavorite(item)}

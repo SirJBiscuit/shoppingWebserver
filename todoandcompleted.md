@@ -384,3 +384,12 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - **2026-09 `d0681a1`** — ntfy slide-out panel + push send log (migration 099).
 - **2026-09 `5a41350`** — Searchable categories, anchored icon picker, ntfy alerts,
   hidable widgets.
+
+## Categories unified + inventory icon picker fix (current)
+
+- [x] Canonical category set expanded 13 -> 29 across all three sources (`frontend/src/utils/categoryDetector.js`, `backend/src/utils/categories.js`, `backend/src/utils/canonicalCategory.js`) so every category feature offers the full set the Home Inventory picker has: Seasoning & Spices, Baking Supplies, Alcohol, Health & Medical, Baby & Kids, Pet Supplies, Cleaning, Laundry, Paper & Plastic, Tools & Hardware, Garden & Outdoor, Automotive, Office & School, Electronics, Holiday & Seasonal. `Other` still sorts last (order 29)
+- [x] Alias maps updated in all three files so legacy/free-text labels resolve to the finer-grained canonicals (`spices`/`seasoning` -> Seasoning & Spices, `baking` -> Baking Supplies, `alcohol`/`beer`/`wine` -> Alcohol, `pet` -> Pet Supplies, `medical`/`health` -> Health & Medical, `laundry` -> Laundry, `paper` -> Paper & Plastic, etc.) instead of collapsing into broad buckets
+- [x] Fixed inventory list icon button (`EnhancedListView` + `CategoryView`) — it opened the **category** popup; now opens `onIconChange` -> inventory `IconPicker` (writes `item_icon` via `inventoryAPI.updateItem`)
+- [x] `CategoryView` kept a category-change affordance — small category-icon chip beside the item name opens the category picker (icon button = icon picker, chip = category)
+- [x] `PantryNewV2` wires `iconPickerItem` state + `handleApplyIcon` and renders `IconPicker` alongside `QuickCategoryModal`
+- [x] eslint: 0 errors on all edited files; Codacy clean (only pre-existing warnings)

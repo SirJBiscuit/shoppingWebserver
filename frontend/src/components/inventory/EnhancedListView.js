@@ -20,6 +20,7 @@ const EnhancedListView = ({
   onToggleFavorite,
   onQuickAction,
   onCategoryChange,
+  onIconChange,
   selectionMode = false,
   selectedItems = [],
   onToggleSelection
@@ -143,8 +144,8 @@ const EnhancedListView = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => onCategoryChange?.(item)}
-                  title="Change category"
+                  onClick={() => onIconChange?.(item)}
+                  title="Change icon"
                   className="text-lg flex-shrink-0 hover:scale-110 transition-transform"
                 >{item.item_icon || '📦'}</button>
                 <span className="font-medium text-gray-900 dark:text-white truncate">
