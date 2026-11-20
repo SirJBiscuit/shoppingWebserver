@@ -123,6 +123,16 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Admin rail **Activity** button shows a live worst-status dot + popover with
   per-service badges; "Details" jumps to Admin › Services.
 
+### 16. Shopping-list header button overload — FIXED
+
+- Store row: badge is now the menu trigger — `Kroger - Lex ▾` opens
+  Change store / Configure aisles / My Stores (4 elements → 1)
+- Action row: `New List · Shortcuts · Learn Prices` left; view toggles
+  `Sort · Hide` right-aligned; `Recover completed lists` + `Delete this
+  list` moved into a `⋮` overflow menu (danger off the click path)
+- Shared `headerMenu` state + outside-click close; menus animated like
+  CustomDropdownList
+
 ### 15. ERR_TOO_MANY_REDIRECTS on down.html during deploys — FIXED
 
 - `/down.html?code=X` is itself a navigation; during a deploy it also got a

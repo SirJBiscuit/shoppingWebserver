@@ -11,7 +11,7 @@ import {
   AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, 
   ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, Eye, EyeOff, 
   StickyNote, Store, ChevronDown, ChevronUp, Save, ArrowRight, FileText, Zap, 
-  MapPin, List, Wand2, Grid, RefreshCw
+  MapPin, List, Wand2, Grid, RefreshCw, MoreVertical
 } from 'lucide-react';
 import EditorToolbar from '../components/editor/EditorToolbar';
 import EditorOverlay, { EditorModeIndicator, EditableContainer } from '../components/editor/EditorOverlay';
@@ -199,6 +199,17 @@ const Dashboard = () => {
   const [storeNicks, setStoreNicks] = useState({}); // per-user store aliases (MDL 'store_nicks' pref)
   const [showAisleConfig, setShowAisleConfig] = useState(false);
   const [showStoreManager, setShowStoreManager] = useState(false);
+  const [headerMenu, setHeaderMenu] = useState(null); // 'store' | 'more'
+
+  // Close the shopping-list header menus on outside click
+  useEffect(() => {
+    if (!headerMenu) return undefined;
+    const close = (e) => {
+      if (!e.target.closest('[data-header-menu]')) setHeaderMenu(null);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [headerMenu]);
   const [addItemsMinimized, setAddItemsMinimized] = useState(false);
   const [customStores, setCustomStores] = useState([]);
   const [showCopyItemModal, setShowCopyItemModal] = useState(false);
@@ -1925,47 +1936,65 @@ const Dashboard = () => {
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {activeList.store_name ? (
                         <>
-                          {/* Current Store Badge */}
-                          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                            <Store className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                            <span className="text-sm font-semibold text-blue-700 dark:text-blue-300" title={storeNicks[(activeList.store_name || '').toLowerCase()] ? `Nickname for ${activeList.store_name}` : undefined}>
-                              {storeNicks[(activeList.store_name || '').toLowerCase()] || activeList.store_name}
-                            </span>
+                          {/* Store menu — the badge is the trigger; the chevron
+                              signals it opens options instead of 3 loose buttons */}
+                          <div className="relative" data-header-menu>
+                            <button
+                              type="button"
+                              onClick={() => setHeaderMenu(headerMenu === 'store' ? null : 'store')}
+                              className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                              title="Store options"
+                            >
+                              <Store className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                              <span className="text-sm font-semibold text-blue-700 dark:text-blue-300" title={storeNicks[(activeList.store_name || '').toLowerCase()] ? `Nickname for ${activeList.store_name}` : undefined}>
+                                {storeNicks[(activeList.store_name || '').toLowerCase()] || activeList.store_name}
+                              </span>
+                              <ChevronDown className={`w-4 h-4 text-blue-500 dark:text-blue-400 transition-transform ${headerMenu === 'store' ? 'rotate-180' : ''}`} />
+                            </button>
+                            <AnimatePresence>
+                              {headerMenu === 'store' && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                                  exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                                  transition={{ duration: 0.12 }}
+                                  className="absolute left-0 z-50 mt-2 w-52 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setHeaderMenu(null);
+                                      setNewListName(activeList.name);
+                                      setNewListStore(activeList.store_name || '');
+                                      setNewStoreNick(storeNicks[(activeList.store_name || '').toLowerCase()] || '');
+                                      setEditingListName(true);
+                                    }}
+                                    className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                    Change store
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setHeaderMenu(null); setShowAisleConfig(true); }}
+                                    className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                                  >
+                                    <MapPin className="w-4 h-4" />
+                                    Configure aisles
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setHeaderMenu(null); setShowStoreManager(true); }}
+                                    className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                                  >
+                                    <Store className="w-4 h-4" />
+                                    My Stores
+                                  </button>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </div>
-                          
-                          {/* Change Store Button */}
-                          <button
-                            onClick={() => {
-                              setNewListName(activeList.name);
-                              setNewListStore(activeList.store_name || '');
-                              setNewStoreNick(storeNicks[(activeList.store_name || '').toLowerCase()] || '');
-                              setEditingListName(true);
-                            }}
-                            className="px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors flex items-center gap-1"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                            Change
-                          </button>
-                          
-                          {/* Configure Aisles Button */}
-                          <button
-                            onClick={() => setShowAisleConfig(true)}
-                            className="px-3 py-2 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded-lg text-sm font-medium text-purple-700 dark:text-purple-300 transition-colors flex items-center gap-1"
-                          >
-                            <MapPin className="w-3.5 h-3.5" />
-                            Configure Aisles
-                          </button>
-                          
-                          {/* My Stores Button - opens saved-store manager */}
-                          <button
-                            onClick={() => setShowStoreManager(true)}
-                            className="px-3 py-2 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg text-sm font-medium text-green-700 dark:text-green-300 transition-colors flex items-center gap-1"
-                            title="View and manage your saved stores"
-                          >
-                            <Store className="w-3.5 h-3.5" />
-                            My Stores
-                          </button>
-                          
+
                           {activeList.list_type && activeList.list_type !== 'general' && (
                             <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium">
                               {activeList.list_type}
@@ -2040,46 +2069,75 @@ const Dashboard = () => {
                     Learn Prices
                   </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={loadCompletedLists}
-                    className="btn-secondary text-sm flex items-center"
-                    title="Recover completed lists"
-                  >
-                    <History className="w-4 h-4 mr-1" />
-                    Recover
-                  </button>
-                  {lists.length > 1 && activeList && (
+                  {/* View toggles + rare/destructive actions, right-aligned */}
+                  <div className="ml-auto flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => deleteList(activeList.id)}
-                      className="btn-secondary text-sm flex items-center text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                      title="Delete this list"
+                      onClick={() => setSmartSort(!smartSort)}
+                      className={`btn-secondary text-sm flex items-center ${smartSort ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300' : ''}`}
+                      title={smartSort
+                        ? (activeList?.store_name ? `Sorted by ${activeList.store_name} aisles` : 'Sorted by store layout')
+                        : (activeList?.store_name ? `Sort by ${activeList.store_name} aisles` : 'Sort by store layout')
+                      }
                     >
-                      <Trash2 className="w-4 h-4 mr-1" />
-                      Delete
+                      <ArrowUpDown className="w-4 h-4 mr-1" />
+                      {smartSort ? (activeList?.store_name ? '🏪' : `${calculateEfficiency(items)}%`) : 'Sort'}
                     </button>
-                  )}
-                  <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
-                  <button
-                    onClick={() => setSmartSort(!smartSort)}
-                    className={`btn-secondary text-sm flex items-center ${smartSort ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300' : ''}`}
-                    title={smartSort 
-                      ? (activeList?.store_name ? `Sorted by ${activeList.store_name} aisles` : 'Sorted by store layout')
-                      : (activeList?.store_name ? `Sort by ${activeList.store_name} aisles` : 'Sort by store layout')
-                    }
-                  >
-                    <ArrowUpDown className="w-4 h-4 mr-1" />
-                    {smartSort ? (activeList?.store_name ? '🏪' : `${calculateEfficiency(items)}%`) : 'Sort'}
-                  </button>
-                  <button
-                    onClick={() => setHideCategories(!hideCategories)}
-                    className={`btn-secondary text-sm flex items-center ${hideCategories ? 'bg-gray-200 dark:bg-gray-700' : ''}`}
-                    title={hideCategories ? 'Show categories' : 'Hide categories'}
-                  >
-                    {hideCategories ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
-                    {hideCategories ? 'Show' : 'Hide'}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setHideCategories(!hideCategories)}
+                      className={`btn-secondary text-sm flex items-center ${hideCategories ? 'bg-gray-200 dark:bg-gray-700' : ''}`}
+                      title={hideCategories ? 'Show categories' : 'Hide categories'}
+                    >
+                      {hideCategories ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
+                      {hideCategories ? 'Show' : 'Hide'}
+                    </button>
+                    {/* Overflow menu — occasional/destructive list actions stay
+                        off the direct click path */}
+                    <div className="relative" data-header-menu>
+                      <button
+                        type="button"
+                        onClick={() => setHeaderMenu(headerMenu === 'more' ? null : 'more')}
+                        className="btn-secondary text-sm flex items-center px-2"
+                        title="More list actions"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                      <AnimatePresence>
+                        {headerMenu === 'more' && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                            transition={{ duration: 0.12 }}
+                            className="absolute right-0 z-50 mt-2 w-56 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => { setHeaderMenu(null); loadCompletedLists(); }}
+                              className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                            >
+                              <History className="w-4 h-4" />
+                              Recover completed lists
+                            </button>
+                            {lists.length > 1 && activeList && (
+                              <>
+                                <div className="border-t border-gray-200 dark:border-gray-700" />
+                                <button
+                                  type="button"
+                                  onClick={() => { setHeaderMenu(null); deleteList(activeList.id); }}
+                                  className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Delete this list
+                                </button>
+                              </>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
                 </div>
               </div>
               )}
