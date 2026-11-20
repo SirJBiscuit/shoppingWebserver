@@ -142,10 +142,16 @@
   // Show what's being deployed — update-server.sh writes changes.txt with
   // the commits in this update before swapping this page in.
   fetch('/changes.txt', { cache: 'no-store' })
-    .then(function (r) { return r.ok ? r.text() : null; })
+    .then(function (r) {
+      // try_files falls back to updating.html for missing files — only accept
+      // real text/plain so we never render the page's own markup as notes.
+      var ct = r.headers.get('content-type') || '';
+      return (r.ok && ct.indexOf('text/plain') !== -1) ? r.text() : null;
+    })
     .then(function (text) {
       if (!text) return;
-      var lines = text.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+      var lines = text.split('\n').map(function (l) { return l.trim(); })
+        .filter(function (l) { return l && l.charAt(0) !== '<'; });
       if (!lines.length) return;
       var ul = document.getElementById('changeList');
       lines.slice(0, 8).forEach(function (l) {
