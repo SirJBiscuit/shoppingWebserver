@@ -138,8 +138,8 @@ ships move it to the Completed Log (newest first) with the commit hash.
 - **2026-11-20 `3699ee3`** — Recipe delete second bug: slider passed recipe object not
   id (`DELETE /api/recipes/[object Object]` → 500). Trash buttons added to all card
   faces (slider front/back, rolodex top, shelf/grid/list), deck default `list`,
-  backend 400 on non-numeric id. **Local commit — NOT pushed at write time.**
-- **2026-11-20 (uncommitted)** — Update detection overhaul (bug #6):
+  backend 400 on non-numeric id. **Pushed 2026-11-20.**
+- **2026-11-20 `17821ba` (pushed)** — Update detection overhaul (bug #6):
   - `autoUpdaterSimple.js`: git HEAD/origin-main from mounted repo → flag self-heals
     after ANY host pull; tracks `pending` commits; `getStatus()` for `/status`.
   - `system.js`: `/check-updates` uses repo HEAD + real migration diff + `pending`;
