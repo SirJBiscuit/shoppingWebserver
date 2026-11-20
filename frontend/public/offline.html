@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="15">
+<title>Listzy — Can't connect</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #082f49 0%, #0c4a6e 45%, #164e63 100%);
+    color: #fff;
+    overflow: hidden;
+  }
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: .35;
+    animation: drift 12s ease-in-out infinite alternate;
+  }
+  .blob.a { width: 340px; height: 340px; background: #0ea5e9; top: -80px; left: -60px; }
+  .blob.b { width: 280px; height: 280px; background: #14b8a6; bottom: -60px; right: -40px; animation-delay: -6s; }
+  @keyframes drift {
+    from { transform: translate(0, 0) scale(1); }
+    to   { transform: translate(40px, 30px) scale(1.15); }
+  }
+  .card {
+    position: relative;
+    text-align: center;
+    padding: 48px 40px;
+    max-width: 460px;
+    width: calc(100% - 32px);
+    background: rgba(255, 255, 255, .07);
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 24px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
+  }
+  .cart {
+    font-size: 56px;
+    display: inline-block;
+    animation: bob 2.4s ease-in-out infinite;
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0) rotate(-3deg); }
+    50%      { transform: translateY(-12px) rotate(3deg); }
+  }
+  h1 { font-size: 26px; font-weight: 800; margin: 18px 0 8px; letter-spacing: -.02em; }
+  p.sub { font-size: 15px; line-height: 1.55; color: rgba(255, 255, 255, .75); }
+  .why {
+    margin-top: 18px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(255, 255, 255, .12);
+    text-align: left;
+    font-size: 13px;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, .8);
+  }
+  .why b { color: #7dd3fc; }
+  .why li { margin-left: 18px; margin-top: 6px; }
+  .bar {
+    margin: 26px auto 8px;
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .14);
+    overflow: hidden;
+  }
+  .bar::after {
+    content: '';
+    display: block;
+    height: 100%;
+    width: 40%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #38bdf8, #2dd4bf);
+    animation: slide 1.6s ease-in-out infinite;
+  }
+  @keyframes slide {
+    0%   { transform: translateX(-110%); }
+    100% { transform: translateX(280%); }
+  }
+  .timer { font-size: 12px; color: rgba(255, 255, 255, .5); margin-top: 10px; }
+  .retry {
+    margin-top: 22px;
+    display: inline-block;
+    padding: 11px 28px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0c4a6e;
+    background: #fff;
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+  }
+  .retry:hover  { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,.3); }
+  .retry:active { transform: translateY(0); }
+  .foot { margin-top: 26px; font-size: 11px; color: rgba(255,255,255,.4); }
+</style>
+</head>
+<body>
+  <div class="blob a"></div>
+  <div class="blob b"></div>
+  <div class="card">
+    <span class="cart">📡</span>
+    <h1>Can't reach Listzy</h1>
+    <p class="sub">We couldn't connect to the server at all.<br>
+    This usually means one of two things:</p>
+    <div class="why">
+      <ul>
+        <li><b>Your internet dropped</b> — check your connection and try again.</li>
+        <li><b>Our hosting is down</b> — the provider that serves Listzy (Cloudflare) may be having an outage.
+        That side is <b>outside the admin's control</b> — there's nothing to fix on our end, it comes back
+        on its own once the provider recovers. Please just wait a bit.</li>
+      </ul>
+    </div>
+    <div class="bar"></div>
+    <div class="timer">Retrying automatically in <b id="secs">15</b>s…</div>
+    <button class="retry" onclick="window.location.href='/'">Try again now</button>
+    <div class="foot">shop.cloudmc.online</div>
+  </div>
+<script>
+  // countdown then retry; meta refresh above is the no-JS fallback
+  var s = 15, el = document.getElementById('secs');
+  var t = setInterval(function () {
+    s -= 1;
+    if (s <= 0) { clearInterval(t); window.location.href = '/'; return; }
+    el.textContent = s;
+  }, 1000);
+</script>
+</body>
+</html>

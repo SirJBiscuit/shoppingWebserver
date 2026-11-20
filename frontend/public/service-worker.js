@@ -1,9 +1,12 @@
 /* eslint-env worker */
 /* global globalThis */
-const CACHE_NAME = 'listzy-shell-v2';
+const CACHE_NAME = 'listzy-shell-v3';
 const urlsToCache = [
   '/',
   '/index.html',
+  '/updating.html',
+  '/down.html',
+  '/offline.html',
   '/manifest.json',
   '/logo192.png',
 ];
@@ -44,7 +47,7 @@ globalThis.addEventListener('activate', (event) => {
 // Only successful responses go in the cache. Caching a 5xx would poison
 // later loads — this is what used to let a cloudflared Bad Gateway page
 // get stored and re-served forever.
-const cacheable = (response) => response && response.ok;
+const cacheable = (response) => response?.ok;
 
 const put = (request, response) => {
   const clone = response.clone();
@@ -53,13 +56,28 @@ const put = (request, response) => {
 
 // Fetch event — the key contract of this worker:
 //   /api        → NEVER intercepted (data calls must fail/succeed naturally)
-//   navigations → network first, but a FAILED or 5xx response falls back to
-//                 the cached shell. During a deploy the origin is briefly
-//                 gone and the tunnel returns a 502 PAGE — swallowing that
-//                 and serving the cached app is what keeps the user inside
-//                 Listzy with zero downtime.
+//   navigations → network first. The "Listzy is updating" placeholder is
+//                 served whenever the app can't be — the maintenance
+//                 container marks it with X-Listzy-Maintenance so we never
+//                 store it as the shell, and a failed/5xx nav falls back to
+//                 the cached copy instead of a half-broken home page.
 //   js/css/html → network first (fresh after updates), cache fallback
 //   other       → cache first, network fallback
+const MAINTENANCE_HEADER = 'x-listzy-maintenance';
+
+// Status-page routing for navigations:
+//   maintenance header      → updating.html  (deploy in progress, shows notes)
+//   HTTP error (>= 400)     → down.html?code=X (server answered but broke)
+//   fetch throws (no reply) → offline.html   (user offline or Cloudflare/tunnel
+//                                            down — the admin can't fix that side)
+const updatingFallback = () =>
+  caches.match('/updating.html').then((page) => page || caches.match('/index.html'));
+
+const offlineFallback = () =>
+  caches.match('/offline.html').then((page) => page || updatingFallback());
+
+const errorRedirect = (status) =>
+  Response.redirect(`/down.html?code=${status}`, 302);
 globalThis.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
@@ -79,16 +97,24 @@ globalThis.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
+          // Maintenance placeholder answering → show it and keep our cached
+          // copy fresh, but never store it as the app shell.
+          if (response.headers.get(MAINTENANCE_HEADER)) {
+            if (response.ok) put('/updating.html', response);
+            return response;
+          }
           // Origin reachable and healthy → refresh the shell cache
           if (cacheable(response)) {
             put('/index.html', response);
             return response;
           }
-          // Origin answered but it's an error page (e.g. tunnel 502 while
-          // the frontend container rebuilds) → serve the cached app instead
-          return caches.match('/index.html').then((cached) => cached || response);
+          // Server answered with an error (500/502/404/…) → the "something
+          // went wrong" page with the code, never a half-broken shell.
+          return errorRedirect(response.status);
         })
-        .catch(() => caches.match('/index.html'))
+        // No answer at all → the "can't reach Listzy" page (user offline or
+        // hosting/Cloudflare down — out of the admin's hands).
+        .catch(() => offlineFallback())
     );
     return;
   }
@@ -106,7 +132,9 @@ globalThis.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => caches.match(event.request))
+        // ignoreSearch: /down.html?code=502 must still match the precached
+        // /down.html when the network fetch fails
+        .catch(() => caches.match(event.request, { ignoreSearch: true }))
     );
   } else {
     // Cache-first strategy for images, fonts, etc.

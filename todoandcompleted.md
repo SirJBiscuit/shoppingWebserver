@@ -130,6 +130,15 @@ ships move it to the Completed Log (newest first) with the commit hash.
   `confirmDeleteRecipe` → `DELETE /api/recipes/:id`. Both trash buttons (card + view modal)
   go through this same path.
 - Codacy: run `codacy_cli_analyze` after every file edit (`.windsurfrules`).
+- **Status pages (`frontend/public/*.html`, SW-served on nav failures):**
+  `updating.html` = deploy in progress (marked by `X-Listzy-Maintenance` from the
+  maintenance nginx, shows changes.txt notes); `down.html` = server answered with
+  an error — `?code=` shows 500/502/404 etc., "admin is working on it";
+  `offline.html` = no answer at all — explains it may be the user's internet OR
+  Cloudflare/hosting down (outside the admin's control, just wait).
+  The canonical files live in `frontend/public/` — the maintenance container
+  mounts `updating.html` from there so there's ONE copy. SW cache is
+  `listzy-shell-v3`; bump it whenever these files change materially.
 - **ONE update UX for users: the `UpdateBanner` popup only.** The server-side
   "Update Now" button was removed from `ChangelogViewer` (2026-11-20) and the
   Dashboard badge no longer flips to "Update Available" — it just shows the version.
