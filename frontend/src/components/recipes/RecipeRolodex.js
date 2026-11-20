@@ -131,6 +131,14 @@ const RecipeRolodex = ({
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); onDeleteRecipe?.(recipe.id); }}
+                              className="p-1 text-gray-400 hover:text-red-500 hover:scale-110 transition-transform"
+                              title="Delete recipe"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                            <button
                               onClick={(e) => { e.stopPropagation(); onToggleFavorite?.(recipe); }}
                               className="hover:scale-110 transition-transform"
                             >

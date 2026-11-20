@@ -391,6 +391,11 @@ router.patch('/:id', authenticateToken, async (req, res) => {
 // shopping_list_items is always unlinked, never deleted — losing the item
 // off a live list just because a recipe was removed would be destructive.
 router.delete('/:id', authenticateToken, async (req, res) => {
+  // A non-numeric id (e.g. a serialized object) would fail deep inside the
+  // transaction as a 500 — reject it cheaply up front.
+  if (!/^\d+$/.test(String(req.params.id))) {
+    return res.status(400).json({ error: 'Invalid recipe id' });
+  }
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');

@@ -26,9 +26,9 @@ const Recipes = () => {
   const [iconTarget, setIconTarget] = useState(null);         // recipe getting a new icon
   const [showQuickTemplates, setShowQuickTemplates] = useState(false);
   const [showTeach, setShowTeach] = useState(false);
-  // Deck view persists across visits — rolodex | slider | list
+  // Deck view persists across visits — rolodex | slider | list (default: list)
   const [deckView, setDeckViewState] = useState(
-    () => localStorage.getItem('recipesDeckView') || 'rolodex'
+    () => localStorage.getItem('recipesDeckView') || 'list'
   );
   const setDeckView = (v) => { setDeckViewState(v); localStorage.setItem('recipesDeckView', v); };
   const [searchQuery, setSearchQuery] = useState('');
@@ -153,7 +153,9 @@ const Recipes = () => {
   const handleDeleteRecipe = (id) => setDeleteTarget(id);
 
   const confirmDeleteRecipe = async () => {
-    const id = deleteTarget;
+    // Accept either an id or a recipe object — a caller passing the whole
+    // object used to produce DELETE /recipes/[object Object] → 500.
+    const id = deleteTarget?.id ?? deleteTarget;
     setDeleteTarget(null);
     if (!id) return;
     try {
@@ -162,7 +164,8 @@ const Recipes = () => {
       checkCanMake();
     } catch (error) {
       console.error('Failed to delete recipe:', error);
-      setNotice({ ok: false, text: 'Delete failed — server unreachable, try again' });
+      const status = error.response?.status;
+      setNotice({ ok: false, text: status ? `Delete failed — server error ${status}` : 'Delete failed — server unreachable, try again' });
     }
   };
 
@@ -335,6 +338,7 @@ const Recipes = () => {
                       onOpen={openRecipe}
                       onToggleFavorite={handleToggleFavorite}
                       onAddToList={handleAddToShoppingList}
+                      onDelete={handleDeleteRecipe}
                     />
                   ))}
                 </div>
@@ -506,7 +510,7 @@ const RecipeListView = ({ recipes, onOpen, onEdit, onPickIcon, onToggleFavorite,
 );
 
 /** Compact shelf card — click opens the recipe editor, ⭐ toggles favorite, 🛒 adds to list. */
-const ShelfCard = ({ recipe, onOpen, onToggleFavorite, onAddToList }) => {
+const ShelfCard = ({ recipe, onOpen, onToggleFavorite, onAddToList, onDelete }) => {
   const mins = (recipe.total_time || (recipe.prep_time || 0) + (recipe.cook_time || 0));
   return (
     <div
@@ -536,12 +540,24 @@ const ShelfCard = ({ recipe, onOpen, onToggleFavorite, onAddToList }) => {
               <Clock className="w-3 h-3" />{mins}m
             </span>
           )}
-          <button
-            onClick={(e) => { e.stopPropagation(); onAddToList(recipe.id); }}
-            className="text-[10px] px-1.5 py-0.5 rounded-md bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 font-semibold flex items-center gap-0.5 hover:bg-primary-100 dark:hover:bg-primary-900/50"
-          >
-            <ShoppingCart className="w-3 h-3" /> List
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); onAddToList(recipe.id); }}
+              className="text-[10px] px-1.5 py-0.5 rounded-md bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 font-semibold flex items-center gap-0.5 hover:bg-primary-100 dark:hover:bg-primary-900/50"
+            >
+              <ShoppingCart className="w-3 h-3" /> List
+            </button>
+            {onDelete && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onDelete(recipe.id); }}
+                className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                title="Delete recipe"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -198,17 +198,30 @@ const RecipeCardSlider = ({
                           {recipe.recipe_name || recipe.name}
                         </h3>
                         {!isPlaceholder && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onToggleFavorite(recipe);
-                            }}
-                            className="ml-2 hover:scale-110 transition-transform"
-                          >
-                            <Heart 
-                              className={`w-6 h-6 ${recipe.is_favorite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
-                            />
-                          </button>
+                          <div className="flex items-center gap-1 ml-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteRecipe?.(recipe.id);
+                              }}
+                              className="hover:scale-110 transition-transform"
+                              title="Delete recipe"
+                            >
+                              <Trash2 className="w-5 h-5 text-gray-400 hover:text-red-500" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleFavorite(recipe);
+                              }}
+                              className="hover:scale-110 transition-transform"
+                            >
+                              <Heart 
+                                className={`w-6 h-6 ${recipe.is_favorite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+                              />
+                            </button>
+                          </div>
                         )}
                       </div>
 
@@ -293,7 +306,7 @@ const RecipeCardSlider = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onDeleteRecipe(recipe);
+                            onDeleteRecipe?.(recipe.id);
                           }}
                           className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
                         >
