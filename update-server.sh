@@ -49,19 +49,30 @@ fi
 # Save current commit hash to version file
 echo -e "${YELLOW}Saving version information...${NC}"
 CURRENT_COMMIT=$(git rev-parse HEAD)
-PREVIOUS_COMMIT=$(git rev-parse HEAD~1 2>/dev/null || echo "none")
+
+# Notes baseline — the commit that was actually DEPLOYED last (version.json
+# "current"), not HEAD: a `git pull` before this script leaves BEFORE==AFTER
+# and the "In this update" list would come out empty.
+LAST_DEPLOYED=$(grep -o '"current"[^,}]*' version.json 2>/dev/null | grep -o '[0-9a-f]\{7,\}' | head -1 || true)
+NOTES_FROM="$BEFORE_COMMIT"
+if [ -n "$LAST_DEPLOYED" ] && [ "$LAST_DEPLOYED" != "$CURRENT_COMMIT" ] \
+   && git cat-file -e "${LAST_DEPLOYED}^{commit}" 2>/dev/null; then
+    NOTES_FROM="$LAST_DEPLOYED"
+fi
 
 # What this update adds — shown on the maintenance page, in the update
-# banner, and via /api/version. Range is BEFORE..AFTER (what was deployed
-# vs what was just pulled), JSON-escaped for version.json.
-CHANGES=$(git log --no-merges --pretty=format:'%h %s' "$BEFORE_COMMIT..$CURRENT_COMMIT" 2>/dev/null | head -8 || true)
+# banner, and via /api/version. Range is last-deployed..HEAD, JSON-escaped
+# for version.json; still-empty range (fresh clone) → newest commits, which
+# is always better than the placeholder.
+CHANGES=$(git log --no-merges --pretty=format:'%h %s' "$NOTES_FROM..$CURRENT_COMMIT" 2>/dev/null | head -8 || true)
+[ -z "$CHANGES" ] && CHANGES=$(git log --no-merges --pretty=format:'%h %s' -8 HEAD 2>/dev/null || true)
 CHANGES_JSON=$(printf '%s\n' "$CHANGES" | tr -d '\\"' | awk 'NF{printf "%s\"%s\"", (NR>1?",":""), $0}')
 [ -z "$CHANGES_JSON" ] && CHANGES_JSON='"Latest improvements and fixes"'
 
 cat > version.json << EOF
 {
   "current": "${CURRENT_COMMIT}",
-  "previous": "${PREVIOUS_COMMIT}",
+  "previous": "${NOTES_FROM}",
   "updated": "$(date -Iseconds)",
   "changes": [${CHANGES_JSON}]
 }

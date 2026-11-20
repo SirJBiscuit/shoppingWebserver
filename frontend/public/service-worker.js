@@ -1,6 +1,6 @@
 /* eslint-env worker */
 /* global globalThis */
-const CACHE_NAME = 'listzy-shell-v3';
+const CACHE_NAME = 'listzy-shell-v4';
 const urlsToCache = [
   '/',
   '/index.html',

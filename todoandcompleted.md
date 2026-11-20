@@ -123,6 +123,19 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Admin rail **Activity** button shows a live worst-status dot + popover with
   per-service badges; "Details" jumps to Admin › Services.
 
+### 12. "Latest improvements and fixes" placeholder everywhere — FIXED
+
+- **Root cause:** update command is `git pull && ./update-server.sh` — the pull
+  ran BEFORE the script captured `BEFORE_COMMIT`, so `BEFORE..AFTER` was empty
+  and `changes`/`changes.txt` fell back to the placeholder.
+- **Fix (all 3 scripts):** notes baseline is `version.json` `"current"` — the
+  last *deployed* commit (`git cat-file -e` validated) — so the range is always
+  "everything since the last deploy". Still-empty → `git log -8 HEAD` real
+  subjects, never the placeholder unless git itself fails.
+- **UX:** down.html palette changed from alarm-red to muted plum/violet (same
+  family as updating.html, distinguishable but calm). SW cache bumped v3→v4 so
+  clients actually fetch the new page.
+
 ### 11. UpdateBanner showed generic text instead of commit messages — FIXED
 
 - Banner fired on the new build hash but `fetchUpdateNotes` only read

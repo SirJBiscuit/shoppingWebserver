@@ -51,8 +51,21 @@ else
 fi
 
 # What this update adds — shown in the update banner via /api/version.
-CHANGES_JSON=$(git log --no-merges --pretty=format:'%h %s' "$BEFORE_COMMIT..$AFTER_COMMIT" 2>/dev/null | head -8 \
+# Baseline is the last DEPLOYED commit (version.json "current"), not HEAD:
+# a `git pull` before this script leaves BEFORE==AFTER and the list would
+# come out empty.
+LAST_DEPLOYED=$(grep -o '"current"[^,}]*' version.json 2>/dev/null | grep -o '[0-9a-f]\{7,\}' | head -1 || true)
+NOTES_FROM="$BEFORE_COMMIT"
+if [ -n "$LAST_DEPLOYED" ] && [ "$LAST_DEPLOYED" != "$AFTER_COMMIT" ] \
+   && git cat-file -e "${LAST_DEPLOYED}^{commit}" 2>/dev/null; then
+    NOTES_FROM="$LAST_DEPLOYED"
+fi
+CHANGES_JSON=$(git log --no-merges --pretty=format:'%h %s' "$NOTES_FROM..$AFTER_COMMIT" 2>/dev/null | head -8 \
   | tr -d '\\"' | awk 'NF{printf "%s\"%s\"", (NR>1?",":""), $0}')
+if [ -z "$CHANGES_JSON" ]; then
+  CHANGES_JSON=$(git log --no-merges --pretty=format:'%h %s' -8 HEAD 2>/dev/null \
+    | tr -d '\\"' | awk 'NF{printf "%s\"%s\"", (NR>1?",":""), $0}')
+fi
 [ -z "$CHANGES_JSON" ] && CHANGES_JSON='"Latest improvements and fixes"'
 
 # Save version info (used by /api/system/check-updates)
