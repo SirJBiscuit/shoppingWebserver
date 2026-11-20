@@ -17,18 +17,21 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  // Shared session handoff — quick login verifies server-side then lands here
+  // with the same {token, user} shape the normal login produces.
+  const loginWithToken = (token, nextUser) => {
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(nextUser));
+    // Set user state immediately to prevent double reload
+    setUser(nextUser);
+    return nextUser;
+  };
+
   const login = async (username, password) => {
     try {
       const response = await authAPI.login({ username, password });
       const { token, user } = response.data;
-      
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      
-      // Set user state immediately to prevent double reload
-      setUser(user);
-      
-      return { success: true, user };
+      return { success: true, user: loginWithToken(token, user) };
     } catch (error) {
       return { 
         success: false, 
@@ -75,7 +78,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, loginWithToken, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

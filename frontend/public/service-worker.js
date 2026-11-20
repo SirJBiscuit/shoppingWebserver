@@ -1,6 +1,6 @@
 /* eslint-env worker */
 /* global globalThis */
-const CACHE_NAME = 'listzy-shell-v5';
+const CACHE_NAME = 'listzy-shell-v6';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -91,7 +91,9 @@ globalThis.addEventListener('fetch', (event) => {
   // NEVER intercept or cache API requests — always go to network.
   // Caching /api responses caused stale data (e.g. empty lists) to be
   // served indefinitely, which triggered runaway auto-create loops.
-  if (url.pathname.startsWith('/api')) {
+  // .txt is also live data: /changes.txt is rewritten every deploy and a
+  // cached copy was showing the PREVIOUS release's "In this update" list.
+  if (url.pathname.startsWith('/api') || url.pathname.endsWith('.txt')) {
     return;
   }
 

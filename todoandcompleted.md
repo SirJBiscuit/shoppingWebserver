@@ -123,6 +123,29 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Admin rail **Activity** button shows a live worst-status dot + popover with
   per-service badges; "Details" jumps to Admin › Services.
 
+### 18. Admin quick login (shoulder-surf resistant) — NEW
+
+- Symbol challenge: admin sets an 8-12 symbol sequence (Admin → Security);
+  each login sends a fresh shuffled 4×4 grid + 3 random POSITIONS of the
+  sequence — watching the screen teaches a watcher only a few taps on a
+  layout that won't exist next time
+- Backup codes: 10 generated codes, bcrypt-hashed, burn on use — dead the
+  second they're typed in front of anyone
+- Server-verified only: challenge positions+grid signed into a 2-min JWT,
+  AES-256-GCM encrypted sequence (partial checks need positions), 5 fails
+  → 15-min lockout shared by both methods; admin-only (is_admin on every
+  endpoint, generic errors so no admin enumeration)
+- Login page: "Quick Access" button → QuickLoginModal (grid/code tabs)
+- Migration 102; future idea: authenticator/TOTP as a third method
+
+### 17. Updating page showed the PREVIOUS release's notes — FIXED
+
+- `/changes.txt` fell into the SW's cache-first branch → once cached,
+  every deploy served last release's list. `cache: 'no-store'` on the
+  page's fetch can't help — the SW never reached the network.
+- `.txt` now bypasses the SW like `/api` does; cache v5 → v6 flushes the
+  stale entry.
+
 ### 16. Shopping-list header button overload — FIXED
 
 - Store row: badge is now the menu trigger — `Kroger - Lex ▾` opens

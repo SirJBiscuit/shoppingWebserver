@@ -4,7 +4,7 @@ import {
   Settings, RefreshCw, Download, Server, Database, 
   GitBranch, Package, ShoppingCart, ChefHat, LogOut,
   CheckCircle, XCircle, AlertCircle, Terminal, Play, Flag,
-  Crown, Users, Layout, Volume2, Folder, Sparkles, ShieldAlert
+  Crown, Users, Layout, Volume2, Folder, Sparkles, ShieldAlert, KeyRound
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -17,6 +17,7 @@ import MDLProductsPanel from '../components/admin/MDLProductsPanel';
 import ChangelogPanel from '../components/admin/ChangelogPanel';
 import PriceReviewPanel from '../components/admin/PriceReviewPanel';
 import ServiceStatus from '../components/admin/ServiceStatus';
+import QuickLoginSetup from '../components/admin/QuickLoginSetup';
 // import UserManagement from '../backburner/components/UserManagement'; // Disabled - will rebuild with CFS
 // import DashboardEditor from '../backburner/components/DashboardEditor'; // Disabled - replaced by AES
 import SoundSettings from '../components/SoundSettings';
@@ -220,6 +221,7 @@ const AdminNew = () => {
     { id: 'features', name: 'Feature Management', icon: Flag },
     { id: 'users', name: 'User Management', icon: Users },
     { id: 'services', name: 'Services', icon: Server },
+    { id: 'security', name: 'Security', icon: KeyRound },
     { id: 'storage', name: 'Storage Management', icon: Folder },
     { id: 'mdl', name: 'Product Database (MDL)', icon: Database },
     { id: 'review', name: 'Price Review', icon: ShieldAlert },
@@ -516,6 +518,11 @@ const AdminNew = () => {
                 of the stack (containers, DB, ntfy, public URL, webhook) */}
             {activeTab === 'services' && (
               <ServiceStatus />
+            )}
+
+            {/* Security Tab — admin quick login (symbol challenge + backup codes) */}
+            {activeTab === 'security' && (
+              <QuickLoginSetup />
             )}
 
             {/* Storage Management Tab */}

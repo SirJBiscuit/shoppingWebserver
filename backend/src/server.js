@@ -72,6 +72,7 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 app.use('/api/auth', authRoutes);
+app.use('/api/auth/quick-login', require('./routes/quickLogin'));
 app.use('/api/shopping', shoppingRoutes);
 app.use('/api/items', itemsRoutes);
 app.use('/api/suggestions', suggestionsRoutes);

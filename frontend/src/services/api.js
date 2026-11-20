@@ -50,6 +50,17 @@ export const authAPI = {
   login: (data) => api.post('/auth/login', data),
 };
 
+// Admin quick login — symbol challenge + one-time backup codes
+export const quickLoginAPI = {
+  challenge: (username) => api.post('/auth/quick-login/challenge', { username }),
+  verify: (data) => api.post('/auth/quick-login/verify', data),
+  code: (data) => api.post('/auth/quick-login/code', data),
+  status: () => api.get('/auth/quick-login/status'),
+  setup: (sequence) => api.post('/auth/quick-login/setup', { sequence }),
+  disable: () => api.delete('/auth/quick-login'),
+  generateCodes: () => api.post('/auth/quick-login/codes/generate'),
+};
+
 export const shoppingAPI = {
   getLists: () => api.get('/shopping/lists'),
   getList: (id) => api.get(`/shopping/lists/${id}`),

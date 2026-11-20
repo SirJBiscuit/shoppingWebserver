@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ShoppingCart, FlaskConical } from 'lucide-react';
+import { ShoppingCart, FlaskConical, KeyRound } from 'lucide-react';
 import api from '../services/api';
 import BetaAccessModal from '../components/beta/BetaAccessModal';
+import QuickLoginModal from '../components/auth/QuickLoginModal';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -11,7 +12,8 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showBetaModal, setShowBetaModal] = useState(false);
-  const { login } = useAuth();
+  const [showQuickLogin, setShowQuickLogin] = useState(false);
+  const { login, loginWithToken } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -109,6 +111,19 @@ const Login = () => {
           <p className="text-xs text-center mt-2 text-gray-500 dark:text-gray-400">
             Have a beta code? Click here to register or sign in!
           </p>
+
+          {/* Admin quick access — symbol challenge / one-time code */}
+          <button
+            type="button"
+            onClick={() => setShowQuickLogin(true)}
+            className="w-full mt-2 flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+          >
+            <KeyRound className="w-5 h-5 mr-2" />
+            Quick Access
+          </button>
+          <p className="text-xs text-center mt-2 text-gray-400 dark:text-gray-500">
+            Admin sign-in that's safe while someone's watching your screen
+          </p>
         </div>
         
         {/* Signup temporarily disabled */}
@@ -127,6 +142,20 @@ const Login = () => {
           onClose={() => setShowBetaModal(false)}
           onSuccess={() => {
             setShowBetaModal(false);
+            navigate('/');
+          }}
+        />
+      )}
+
+      {/* Quick Login Modal */}
+      {showQuickLogin && (
+        <QuickLoginModal
+          isOpen={showQuickLogin}
+          onClose={() => setShowQuickLogin(false)}
+          initialUsername={username}
+          onSuccess={(token, user) => {
+            loginWithToken(token, user);
+            setShowQuickLogin(false);
             navigate('/');
           }}
         />
