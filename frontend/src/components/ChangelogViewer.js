@@ -24,6 +24,7 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
   const [userView, setUserView] = useState(true); // true = user-friendly, false = admin detailed
   const [isAdmin, setIsAdmin] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [pendingCommits, setPendingCommits] = useState([]);
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
   const [updateRequested, setUpdateRequested] = useState(false);
 
@@ -35,6 +36,7 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
       if (res.ok) {
         const data = await res.json();
         setUpdateAvailable(!!data.update_available);
+        setPendingCommits(Array.isArray(data.pending) ? data.pending : []);
       }
     } catch {
       // non-critical
@@ -368,6 +370,27 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
 
         {/* Changelog Content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+          {/* Update available — what it adds, so users know why to update */}
+          {updateAvailable && (
+            <div className="mb-6 rounded-xl border-2 border-yellow-300 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <RefreshCw className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                <h3 className="text-lg font-bold text-yellow-900 dark:text-yellow-200">Update Available</h3>
+              </div>
+              {pendingCommits.length > 0 ? (
+                <ul className="space-y-1 ml-1">
+                  {pendingCommits.map((c) => (
+                    <li key={c} className="text-sm text-yellow-800 dark:text-yellow-200/90">• {c}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-yellow-800 dark:text-yellow-200/90">A newer version is ready to deploy.</p>
+              )}
+              <p className="text-xs text-yellow-700 dark:text-yellow-300/70 mt-2">
+                {isAdmin ? 'Press "Update Now" above to apply it.' : 'The app will refresh itself once the update is deployed.'}
+              </p>
+            </div>
+          )}
           {/* Coming Soon — admin-announced upcoming features */}
           {upcoming.length > 0 && (
             <div className="mb-6 rounded-xl border-2 border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 p-4">

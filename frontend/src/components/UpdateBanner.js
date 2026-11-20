@@ -33,8 +33,23 @@ const fetchBuildHash = async () => {
   }
 };
 
+// "What it adds" — update-server.sh writes the deployed commit range into
+// version.json; /api/version serves it. Best-effort: banner still shows
+// the generic line if the backend is mid-restart or the field is absent.
+const fetchUpdateNotes = async () => {
+  try {
+    const res = await fetch('/api/version', { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.changes) ? data.changes : [];
+  } catch {
+    return [];
+  }
+};
+
 const UpdateBanner = () => {
   const [showBanner, setShowBanner] = useState(false);
+  const [notes, setNotes] = useState([]);
   const snoozeRef = useRef(null);
 
   useEffect(() => {
@@ -50,7 +65,10 @@ const UpdateBanner = () => {
         localStorage.setItem(HASH_KEY, remote);
         return;
       }
-      if (remote !== seen) setShowBanner(true);
+      if (remote !== seen) {
+        setShowBanner(true);
+        fetchUpdateNotes().then((n) => { if (!cancelled && n.length) setNotes(n); });
+      }
     };
 
     check();
@@ -89,9 +107,17 @@ const UpdateBanner = () => {
             <RefreshCw className="h-5 w-5 shrink-0 animate-[spin_3s_linear_infinite]" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold">New version available</p>
-              <p className="truncate text-xs text-indigo-100">
-                Listzy was updated — refresh to get the latest.
-              </p>
+              {notes.length ? (
+                <ul className="text-xs text-indigo-100 leading-snug">
+                  {notes.slice(0, 3).map((n) => (
+                    <li key={n} className="truncate">• {n}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="truncate text-xs text-indigo-100">
+                  Listzy was updated — press Update now to get the latest.
+                </p>
+              )}
             </div>
             <button
               onClick={handleUpdate}

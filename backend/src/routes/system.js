@@ -81,54 +81,62 @@ router.get('/check-updates', authenticateToken, isAdmin, async (req, res) => {
     const latestCommitFull = response.data.sha;
     const latestCommit = latestCommitFull.substring(0, 7);
     
-    // Read version from version.json file
+    // Deployed commit — prefer the mounted repo's HEAD (accurate after ANY
+    // host-side pull, even without update-server.sh), then version.json.
     let currentCommit = 'unknown';
     let previousCommit = 'unknown';
     let lastUpdated = null;
-    
+
     try {
-      const versionPath = path.join(__dirname, '../../version.json');
-      const versionData = await fs.readFile(versionPath, 'utf8');
-      const version = JSON.parse(versionData);
-      currentCommit = version.current || 'unknown';
-      previousCommit = version.previous || 'unknown';
-      lastUpdated = version.updated || null;
-    } catch (err) {
-      console.log('Could not read version.json:', err.message);
-      // Try reading from mounted directory as fallback
+      const { execSync } = require('child_process');
+      currentCommit = execSync(
+        "git -c safe.directory='*' -C /opt/cloudmc-shop rev-parse HEAD",
+        { timeout: 5000 }
+      ).toString().trim() || 'unknown';
+    } catch { /* repo not mounted — fall through to version.json */ }
+
+    for (const versionPath of ['/opt/cloudmc-shop/version.json', path.join(__dirname, '../../version.json')]) {
       try {
-        const mountedVersionPath = '/opt/cloudmc-shop/version.json';
-        const versionData = await fs.readFile(mountedVersionPath, 'utf8');
-        const version = JSON.parse(versionData);
-        currentCommit = version.current || 'unknown';
+        const version = JSON.parse(await fs.readFile(versionPath, 'utf8'));
+        if (currentCommit === 'unknown') currentCommit = version.current || 'unknown';
         previousCommit = version.previous || 'unknown';
         lastUpdated = version.updated || null;
-      } catch (err2) {
-        console.log('Could not read mounted version.json either:', err2.message);
-      }
+        break;
+      } catch { /* file missing — try next */ }
     }
-    
-    // Compare full hashes (currentCommit is full hash from version.json)
-    const hasUpdates = currentCommit !== 'unknown' && currentCommit !== latestCommitFull;
-    
-    // Get recent commits
+
+    // Short-sha compare: HEAD may be 7 or 40 chars depending on the source
+    const hasUpdates = currentCommit !== 'unknown' &&
+      latestCommitFull.substring(0, currentCommit.length) !== currentCommit;
+
+    // Commits the update would bring — from the same git state the
+    // auto-updater sees; falls back to recent GitHub history.
+    const updater = require('../services/autoUpdaterSimple');
+    let pending = updater.getStatus().pending;
     const commitsResponse = await axios.get('https://api.github.com/repos/SirJBiscuit/shoppingWebserver/commits?per_page=10');
     const commits = commitsResponse.data.map(c => `${c.sha.substring(0, 7)} ${c.commit.message.split('\n')[0]}`);
-    
-    // Check for pending migrations
-    const migrationFiles = await fs.readdir(path.join(__dirname, '../database'));
-    const schemaMigrations = migrationFiles
-      .filter(f => f.startsWith('schema-v') && f.endsWith('.sql'))
-      .map(f => f.replace('schema-v', '').replace('.sql', ''))
-      .sort((a, b) => parseInt(b) - parseInt(a));
-    
+    if (!pending.length) pending = commits.slice(0, 5);
+
+    // Real pending migrations: files in backend/migrations minus the
+    // schema_migrations table (the old check scanned the wrong directory).
+    let pendingMigrations = [];
+    try {
+      const migrationDir = path.join(__dirname, '../../migrations');
+      const files = (await fs.readdir(migrationDir)).filter(f => f.endsWith('.sql'));
+      const applied = await db.query('SELECT file FROM schema_migrations').then(r => r.rows.map(x => x.file)).catch(() => null);
+      pendingMigrations = applied === null
+        ? files // table not created yet — everything is pending
+        : files.filter(f => !applied.includes(f));
+    } catch { /* no migrations dir */ }
+
     res.json({
       hasUpdates,
       currentCommit: currentCommit === 'unknown' ? 'unknown' : currentCommit.substring(0, 7),
       previousCommit: previousCommit === 'unknown' || previousCommit === 'none' ? 'N/A' : previousCommit.substring(0, 7),
       latestCommit,
       commits: commits.slice(0, 10),
-      pendingMigrations: schemaMigrations,
+      pending,
+      pendingMigrations,
       lastUpdated,
       lastChecked: new Date().toISOString()
     });
@@ -369,10 +377,19 @@ router.get('/status', authenticateToken, async (req, res) => {
     // Get version info from database
     const statusResult = await db.query('SELECT current_version, update_available FROM system_status WHERE id = 1');
     const status = statusResult.rows[0] || { current_version: 'unknown', update_available: false };
-    
+
+    // The live checker knows more than the DB row — repo HEAD + what the
+    // pending update adds. DB stays the fallback when it hasn't run yet.
+    let updaterStatus = null;
+    try {
+      updaterStatus = require('../services/autoUpdaterSimple').getStatus();
+    } catch { /* checker not initialized */ }
+
     res.json({
-      current_version: status.current_version || 'unknown',
-      update_available: status.update_available || false
+      current_version: updaterStatus?.current || status.current_version || 'unknown',
+      update_available: updaterStatus?.updateAvailable ?? (status.update_available || false),
+      pending: updaterStatus?.pending || [],
+      last_checked: updaterStatus?.lastCheck || null
     });
   } catch (error) {
     console.error('Get system status error:', error);

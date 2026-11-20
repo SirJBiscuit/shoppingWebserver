@@ -1,6 +1,6 @@
 const axios = require('axios');
 const fs = require('fs').promises;
-const path = require('path');
+const { execSync } = require('child_process');
 const db = require('../database/db');
 
 class SimpleAutoUpdater {
@@ -13,8 +13,25 @@ class SimpleAutoUpdater {
     // Host-side flag file consumed by update-server.sh (see docker-compose
     // volume mount). Configurable so non-/opt/cloudmc-shop deploys still work.
     this.updateFlagPath = process.env.UPDATE_FLAG_PATH || '/opt/cloudmc-shop/.update-requested';
+    // The host checkout is bind-mounted in — reading its HEAD reflects ANY
+    // pull (update-server.sh or a manual `git pull && docker-compose up`),
+    // unlike the DB row which only update-server.sh writes back.
+    this.repoDir = process.env.REPO_DIR || '/opt/cloudmc-shop';
     // Commit already flagged this boot — prevents writing/logging every cycle.
     this.requestedCommit = null;
+    // Latest check result, served by /api/system/status
+    this.lastStatus = { updateAvailable: false, pending: [], current: null, latest: null, lastCheck: null };
+  }
+
+  // Run git inside the mounted host checkout. `-c safe.directory=*` silences
+  // the dubious-ownership error when the host repo is owned by another uid.
+  git(args) {
+    return execSync(`git -c safe.directory='*' -C "${this.repoDir}" ${args}`, { timeout: 8000 })
+      .toString().trim();
+  }
+
+  getStatus() {
+    return this.lastStatus;
   }
 
   async initialize() {
@@ -42,25 +59,41 @@ class SimpleAutoUpdater {
     this.isChecking = true;
     
     try {
-      // Get current commit from database
+      // Get deployed commit — mounted repo HEAD first, DB as fallback
       const currentVersion = await this.getCurrentVersion();
-      
-      // Get latest commit from GitHub
-      const latestCommit = await this.getLatestGitHubCommit();
-      
+
+      // Refresh origin/main so the comparison is as fresh as the last host
+      // pull even when the GitHub API is rate-limited. Best-effort only.
+      try { this.git('fetch --quiet origin main'); } catch { /* offline/ratelimited — keep old ref */ }
+
+      // Latest: the fetched origin/main ref, GitHub API as fallback.
+      const latestCommit = this.getLatestFromRepo() || await this.getLatestGitHubCommit();
+
       if (!latestCommit) {
-        console.log('⚠️  Could not fetch latest commit from GitHub');
+        console.log('⚠️  Could not determine latest commit');
         return;
       }
-      
+
       // Compare on short-sha prefix — the DB stores 7 chars while the
       // GitHub sha is 40, so a strict !== would report "update available"
       // forever (and leave the Update Now button stuck on).
       const cur = (currentVersion || '').substring(0, 7);
       const lat = latestCommit.sha.substring(0, 7);
-      if (cur !== lat) {
+      const hasUpdate = !!cur && cur !== lat;
+
+      // What the update adds — commits between deployed HEAD and origin/main
+      const pending = hasUpdate ? this.getPendingCommits() : [];
+      this.lastStatus = {
+        updateAvailable: hasUpdate,
+        pending,
+        current: currentVersion,
+        latest: latestCommit.sha,
+        lastCheck: new Date().toISOString()
+      };
+
+      if (hasUpdate) {
         console.log('🆕 Update available!');
-        console.log(`   Current: ${cur || 'unknown'}`);
+        console.log(`   Current: ${cur}`);
         console.log(`   Latest:  ${lat}`);
         console.log(`   Message: ${latestCommit.message}`);
 
@@ -86,25 +119,39 @@ class SimpleAutoUpdater {
   }
 
   async getCurrentVersion() {
-    // Prefer real git HEAD — a host-side update pulls the repo but only the
-    // container's own perform path writes current_version back, so the DB row
-    // can go permanently stale after an update.
+    // Prefer the mounted repo's HEAD — a host-side update pulls the repo but
+    // only update-server.sh writes current_version back, so the DB row goes
+    // permanently stale after a manual `git pull && docker-compose up -d`.
     try {
-      const { execSync } = require('child_process');
-      const sha = execSync('git rev-parse HEAD', { timeout: 5000 }).toString().trim();
+      const sha = this.git('rev-parse HEAD');
       if (sha) {
         // Keep the row in sync so /api/system/status reports the same value
         db.query('UPDATE system_status SET current_version = $1 WHERE id = 1', [sha]).catch(() => {});
         return sha;
       }
-    } catch { /* git unavailable inside this container — fall back to DB */ }
+    } catch { /* repo not mounted / git unavailable — fall back to DB */ }
     try {
       const result = await db.query('SELECT current_version FROM system_status WHERE id = 1');
       return result?.rows?.[0]?.current_version || null;
-    } catch (error) {
+    } catch {
       console.warn('Could not get current version from database');
       return null;
     }
+  }
+
+  getLatestFromRepo() {
+    try {
+      const sha = this.git(`rev-parse origin/${this.githubBranch}`);
+      if (!sha) return null;
+      return { sha, message: this.getPendingCommits()[0] || 'Update available' };
+    } catch { return null; }
+  }
+
+  getPendingCommits() {
+    try {
+      const log = this.git(`log --no-merges --pretty=format:'%h %s' HEAD..origin/${this.githubBranch}`);
+      return log ? log.split('\n').slice(0, 8) : [];
+    } catch { return []; }
   }
 
   async getLatestGitHubCommit() {

@@ -52,11 +52,25 @@ ships move it to the Completed Log (newest first) with the commit hash.
   the query from what exists; fall back to a plain `inventory.item_name` pantry query on `42703`.
 - **File:** `backend/src/routes/recipes.js` (~line 445).
 
-### 3. `GET /api/version` always returns `current: "unknown"`
+### 3. ~~`GET /api/version` always returns `current: "unknown"`~~ FIXED (uncommitted)
 
-- Path bug: `backend/src/routes/version.js` reads `../../../version.json` → `/version.json`
-  inside the container, but the file is mounted at `/opt/cloudmc-shop/version.json`
-  (`system.js` reads the mounted path correctly). Harmless but breaks version checking.
+- Was a path bug: `version.js` read `/version.json` inside the container; the file
+  lives at `/opt/cloudmc-shop/version.json` (bind mount). Now tries the mounted path
+  first, repo root second, and passes through the new `changes` array.
+
+### 6. "Update available" flag stuck ON — FIXED (uncommitted)
+
+- **Symptom:** update button always said an update was available.
+- **Root cause:** `autoUpdaterSimple.getCurrentVersion()` ran `git rev-parse HEAD` in
+  `/app` (no `.git` → always failed) → fell back to `system_status.current_version`,
+  which only `update-server.sh` writes. A manual `git pull && docker-compose up -d
+  --build` left the row stale → `update_available` stayed true forever.
+- **Fix:** read `git -C /opt/cloudmc-shop` HEAD + `origin/main` from the mounted
+  checkout (backend image has git; `safe.directory='*'` handles ownership). Any
+  host pull now self-heals the flag every 60s. GitHub API kept as fallback.
+- **Also:** `/check-updates` now uses repo HEAD first + real `schema_migrations` diff
+  (was scanning the wrong dir for `schema-v*.sql`); `/status` returns `pending` —
+  the actual commits the update adds (`git log HEAD..origin/main`).
 
 ### 4. Stray file: `frontend/src/components/recipes/1795198680605-RecipeViewModal.js`
 
@@ -79,7 +93,9 @@ ships move it to the Completed Log (newest first) with the commit hash.
 - [ ] Verify smart suggestions show price / exact name / MDL training data + 3d scrollbar
 - [ ] Fix or accept Codacy warnings: `SmartSuggestionsContent` (15 params, NLOC 55),
       smart-suggestions route (NLOC 124)
-- [ ] Fix `/api/version` path bug (bug #3)
+- [x] Fix `/api/version` path bug (bug #3) — done in update-detection work
+- [ ] After deploy: verify update flag clears itself (admin manual pull path) and the
+      UpdateBanner/changelog/maintenance page show real commit subjects
 
 ---
 
@@ -119,6 +135,21 @@ ships move it to the Completed Log (newest first) with the commit hash.
 
 ## ✅ Completed log (newest first)
 
+- **2026-11-20 `3699ee3`** — Recipe delete second bug: slider passed recipe object not
+  id (`DELETE /api/recipes/[object Object]` → 500). Trash buttons added to all card
+  faces (slider front/back, rolodex top, shelf/grid/list), deck default `list`,
+  backend 400 on non-numeric id. **Local commit — NOT pushed at write time.**
+- **2026-11-20 (uncommitted)** — Update detection overhaul (bug #6):
+  - `autoUpdaterSimple.js`: git HEAD/origin-main from mounted repo → flag self-heals
+    after ANY host pull; tracks `pending` commits; `getStatus()` for `/status`.
+  - `system.js`: `/check-updates` uses repo HEAD + real migration diff + `pending`;
+    `/status` returns `update_available` + `pending` from the live checker.
+  - `version.js`: mounted path first; serves `changes` array.
+  - `update-server.sh` + `update-quick.sh`: write `changes` into version.json +
+    `changelog.txt` export + `maintenance/changes.txt`.
+  - `maintenance/updating.html` + `changes.txt` mount: shows "In this update" list.
+  - `UpdateBanner.js`: shows what the update adds (up to 3 lines from version.json).
+  - `ChangelogViewer.js`: "Update Available" section lists pending commits.
 - **2026-11-20** — Verified `efe9c80` deployed to listzy.app: live `service-worker.js`
   byte-identical to local. Recipe-delete fix is live; awaiting user retest.
 - **2026-11-18 `526acfa`** — `RecipeCard` renders `emoji:` icons as glyph instead of broken

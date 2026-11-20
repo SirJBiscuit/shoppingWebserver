@@ -50,13 +50,31 @@ fi
 echo -e "${YELLOW}Saving version information...${NC}"
 CURRENT_COMMIT=$(git rev-parse HEAD)
 PREVIOUS_COMMIT=$(git rev-parse HEAD~1 2>/dev/null || echo "none")
+
+# What this update adds — shown on the maintenance page, in the update
+# banner, and via /api/version. Range is BEFORE..AFTER (what was deployed
+# vs what was just pulled), JSON-escaped for version.json.
+CHANGES=$(git log --no-merges --pretty=format:'%h %s' "$BEFORE_COMMIT..$CURRENT_COMMIT" 2>/dev/null | head -8 || true)
+CHANGES_JSON=$(printf '%s\n' "$CHANGES" | tr -d '\\"' | awk 'NF{printf "%s\"%s\"", (NR>1?",":""), $0}')
+[ -z "$CHANGES_JSON" ] && CHANGES_JSON='"Latest improvements and fixes"'
+
 cat > version.json << EOF
 {
   "current": "${CURRENT_COMMIT}",
   "previous": "${PREVIOUS_COMMIT}",
-  "updated": "$(date -Iseconds)"
+  "updated": "$(date -Iseconds)",
+  "changes": [${CHANGES_JSON}]
 }
 EOF
+
+# Plain-text copy for the maintenance page while the stack rebuilds
+printf '%s\n' "$CHANGES" | grep . > maintenance/changes.txt 2>/dev/null \
+  || echo "Latest improvements and fixes" > maintenance/changes.txt
+
+# Export commit history for the changelog viewer — git exists on the host but
+# not reliably inside the backend container, which is why /api/changelog
+# reads this file. (update-quick.sh already does this; the full script didn't.)
+git log --no-merges -n 600 --pretty=format:'%H|%ai|%s|%an' > changelog.txt 2>/dev/null || true
 
 # Update database with new version
 echo -e "${YELLOW}Updating system_status table...${NC}"

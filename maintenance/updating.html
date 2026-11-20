@@ -77,6 +77,26 @@
     100% { transform: translateX(280%); }
   }
   .timer { font-size: 12px; color: rgba(255, 255, 255, .5); margin-top: 10px; }
+  /* what's in this update — populated from changes.txt written by update-server.sh */
+  .changes {
+    display: none;
+    margin-top: 18px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(255, 255, 255, .12);
+    text-align: left;
+  }
+  .changes h2 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,.55); margin-bottom: 7px; }
+  .changes ul { list-style: none; }
+  .changes li {
+    font-size: 12.5px;
+    color: rgba(255, 255, 255, .82);
+    padding: 3px 0 3px 16px;
+    position: relative;
+    line-height: 1.4;
+  }
+  .changes li::before { content: '•'; position: absolute; left: 4px; color: #a5b4fc; }
   .retry {
     margin-top: 22px;
     display: inline-block;
@@ -105,6 +125,7 @@
     <p class="sub">We're rolling out something new.<br>
     Please be patient — the app will be back up within minutes.</p>
     <div class="bar"></div>
+    <div class="changes" id="changes"><h2>In this update</h2><ul id="changeList"></ul></div>
     <div class="timer">Retrying automatically in <b id="secs">15</b>s…</div>
     <button class="retry" onclick="window.location.reload()">Check now</button>
     <div class="foot">shop.cloudmc.online</div>
@@ -117,6 +138,24 @@
     if (s <= 0) { clearInterval(t); window.location.reload(); return; }
     el.textContent = s;
   }, 1000);
+
+  // Show what's being deployed — update-server.sh writes changes.txt with
+  // the commits in this update before swapping this page in.
+  fetch('/changes.txt', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.text() : null; })
+    .then(function (text) {
+      if (!text) return;
+      var lines = text.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+      if (!lines.length) return;
+      var ul = document.getElementById('changeList');
+      lines.slice(0, 8).forEach(function (l) {
+        var li = document.createElement('li');
+        li.textContent = l;
+        ul.appendChild(li);
+      });
+      document.getElementById('changes').style.display = 'block';
+    })
+    .catch(function () { /* no file — page still works without the list */ });
 </script>
 </body>
 </html>

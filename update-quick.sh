@@ -50,12 +50,18 @@ else
     git log --oneline --no-decorate "$BEFORE_COMMIT..$AFTER_COMMIT" | head -5
 fi
 
+# What this update adds — shown in the update banner via /api/version.
+CHANGES_JSON=$(git log --no-merges --pretty=format:'%h %s' "$BEFORE_COMMIT..$AFTER_COMMIT" 2>/dev/null | head -8 \
+  | tr -d '\\"' | awk 'NF{printf "%s\"%s\"", (NR>1?",":""), $0}')
+[ -z "$CHANGES_JSON" ] && CHANGES_JSON='"Latest improvements and fixes"'
+
 # Save version info (used by /api/system/check-updates)
 cat > version.json << EOF
 {
   "current": "${AFTER_COMMIT}",
   "previous": "${BEFORE_COMMIT}",
-  "updated": "$(date -Iseconds)"
+  "updated": "$(date -Iseconds)",
+  "changes": [${CHANGES_JSON}]
 }
 EOF
 
