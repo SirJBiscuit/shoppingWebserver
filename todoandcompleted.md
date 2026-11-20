@@ -123,6 +123,14 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Admin rail **Activity** button shows a live worst-status dot + popover with
   per-service badges; "Details" jumps to Admin › Services.
 
+### 11. UpdateBanner showed generic text instead of commit messages — FIXED
+
+- Banner fired on the new build hash but `fetchUpdateNotes` only read
+  `version.json` `changes` — absent on any deploy that ran before the script
+  wrote them (or a plain `docker-compose up` rebuild) → generic fallback.
+- Now falls back to `/api/changelog` newest commit subjects (`hash + message`)
+  so the popup always names real changes when available.
+
 ### 8. ntfy — downtime/offline alerts (admin topic)
 
 - `watchdog.sh` (host cron `* * * * *`) pings public URL then localhost:3006 to

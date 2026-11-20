@@ -34,17 +34,34 @@ const fetchBuildHash = async () => {
 };
 
 // "What it adds" — update-server.sh writes the deployed commit range into
-// version.json; /api/version serves it. Best-effort: banner still shows
-// the generic line if the backend is mid-restart or the field is absent.
+// version.json; /api/version serves it. If that's absent (deploy ran with
+// an older script, or a plain docker-compose rebuild), fall back to the
+// newest commit subjects from /api/changelog so the popup always names a
+// real change instead of the generic line.
 const fetchUpdateNotes = async () => {
   try {
     const res = await fetch('/api/version', { cache: 'no-store' });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return Array.isArray(data.changes) ? data.changes : [];
-  } catch {
-    return [];
-  }
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.changes) && data.changes.length) return data.changes;
+    }
+  } catch { /* backend mid-restart — try the changelog source */ }
+
+  try {
+    const res = await fetch('/api/changelog', {
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const msgs = (data.commits || [])
+        .map((c) => (c.hash ? `${c.hash.slice(0, 7)} ` : '') + c.message)
+        .filter(Boolean)
+        .slice(0, 3);
+      if (msgs.length) return msgs;
+    }
+  } catch { /* nothing available */ }
+  return [];
 };
 
 const UpdateBanner = () => {
