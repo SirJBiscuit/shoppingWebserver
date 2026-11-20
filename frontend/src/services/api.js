@@ -100,6 +100,7 @@ export const inventoryAPI = {
 
 export const categoriesAPI = {
   getCategories: () => api.get('/categories'),
+  createCategory: (data) => api.post('/categories', data),
   getCommonItems: () => api.get('/categories/common-items'),
   searchItems: (query) => api.get('/categories/search-items', { params: { q: query } }),
   lookupItem: (params) => api.get('/categories/item-lookup', { params }),

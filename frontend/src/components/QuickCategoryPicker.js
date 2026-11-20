@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Wand2 } from 'lucide-react';
+import { Plus, X, Wand2 } from 'lucide-react';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
 import { Portal, useAnchoredPopup } from '../utils/autoPlacement';
+import { mergeDbCategories } from '../utils/categories';
+import { categoriesAPI } from '../services/api';
 import {
   CANONICAL_CATEGORIES,
   canonicalizeCategory,
@@ -19,12 +21,47 @@ import {
  */
 const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onClose }) => {
   const [query, setQuery] = useState('');
+  const [dbRows, setDbRows] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newIcon, setNewIcon] = useState('🏷️');
+  const [saving, setSaving] = useState(false);
   const canonical = canonicalizeCategory(currentCategory);
   const detected = detectCategory(itemName || '');
 
+  // Merge user-created categories from the DB `categories` table into the
+  // unified list so this picker and the inventory pickers always agree.
+  useEffect(() => {
+    let cancelled = false;
+    categoriesAPI.getCategories()
+      .then((r) => { if (!cancelled) setDbRows(Array.isArray(r.data) ? r.data : []); })
+      .catch(() => { if (!cancelled) setDbRows([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const allCats = (dbRows ? mergeDbCategories(dbRows) : CANONICAL_CATEGORIES.map((c) => ({ label: c.name, icon: c.icon })))
+    .map((c) => ({ name: c.label, icon: c.icon }));
+
   const list = query.trim()
-    ? CANONICAL_CATEGORIES.filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase()))
-    : CANONICAL_CATEGORIES;
+    ? allCats.filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase()))
+    : allCats;
+
+  const handleCreate = async () => {
+    const name = newName.trim();
+    if (!name || saving) return;
+    setSaving(true);
+    try {
+      const r = await categoriesAPI.createCategory({ name, icon: newIcon || '🏷️' });
+      setDbRows((rows) => [...(rows || []), r.data]);
+      setCreating(false);
+      onSelect(name);
+      onClose();
+    } catch {
+      // leave the form open so the user can retry
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Anchored placement via the shared auto-placement API: below the chip
   // when it fits, above when there's more room, height-capped on short
@@ -135,6 +172,45 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
             </div>
           </div>
         </AnimatedScrollbar3D>
+
+        {/* Custom category creator — saved to the shared categories table */}
+        <div className="px-3 pb-3 pt-1.5 border-t border-gray-100 dark:border-gray-700">
+          {creating ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                value={newIcon}
+                onChange={(e) => setNewIcon(e.target.value)}
+                maxLength={4}
+                className="w-10 px-1.5 py-1.5 text-center text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700"
+                title="Emoji icon"
+              />
+              <input
+                autoFocus
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                placeholder="Category name"
+                className="flex-1 px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-primary-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleCreate}
+                disabled={!newName.trim() || saving}
+                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-primary-600 text-white disabled:opacity-50"
+              >
+                Add
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> New category
+            </button>
+          )}
+        </div>
       </motion.div>
     </Portal>
   );

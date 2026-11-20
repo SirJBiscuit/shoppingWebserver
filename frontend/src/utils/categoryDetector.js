@@ -1,3 +1,5 @@
+import CATEGORIES from './categories';
+
 // Icon mapping for common items
 const itemIcons = {
   // Bread & Bakery
@@ -377,36 +379,13 @@ const itemIcons = {
 // Canonical categories — these exactly match the `categories` table
 // (schema-v2.sql). Anything the detector emits must be one of these so
 // shopping_list_items.category joins cleanly for icons + shopping order.
-export const CANONICAL_CATEGORIES = [
-  { name: 'Produce',              icon: '🥬', shopping_order: 8 },
-  { name: 'Meat & Seafood',       icon: '🥩', shopping_order: 9 },
-  { name: 'Dairy & Eggs',         icon: '🥛', shopping_order: 10 },
-  { name: 'Frozen',               icon: '🧊', shopping_order: 11 },
-  { name: 'Bakery',               icon: '🍞', shopping_order: 12 },
-  { name: 'Pantry Staples',       icon: '🥫', shopping_order: 1 },
-  { name: 'Snacks',               icon: '🍿', shopping_order: 2 },
-  { name: 'Beverages',            icon: '🥤', shopping_order: 3 },
-  { name: 'Condiments & Sauces',  icon: '🍯', shopping_order: 4 },
-  { name: 'Breakfast',            icon: '🥞', shopping_order: 5 },
-  { name: 'Household',            icon: '🧹', shopping_order: 6 },
-  { name: 'Personal Care',        icon: '🧴', shopping_order: 7 },
-  { name: 'Seasoning & Spices',   icon: '🧂', shopping_order: 14 },
-  { name: 'Baking Supplies',      icon: '🧁', shopping_order: 15 },
-  { name: 'Alcohol',              icon: '🍷', shopping_order: 16 },
-  { name: 'Health & Medical',     icon: '💊', shopping_order: 17 },
-  { name: 'Baby & Kids',          icon: '👶', shopping_order: 18 },
-  { name: 'Pet Supplies',         icon: '🐾', shopping_order: 19 },
-  { name: 'Cleaning',             icon: '🧽', shopping_order: 20 },
-  { name: 'Laundry',              icon: '🧺', shopping_order: 21 },
-  { name: 'Paper & Plastic',      icon: '🧻', shopping_order: 22 },
-  { name: 'Tools & Hardware',     icon: '🔧', shopping_order: 23 },
-  { name: 'Garden & Outdoor',     icon: '🌱', shopping_order: 24 },
-  { name: 'Automotive',           icon: '🚗', shopping_order: 25 },
-  { name: 'Office & School',      icon: '📎', shopping_order: 26 },
-  { name: 'Electronics',          icon: '🔌', shopping_order: 27 },
-  { name: 'Holiday & Seasonal',   icon: '🎄', shopping_order: 28 },
-  { name: 'Other',                icon: '📦', shopping_order: 29 },
-];
+// Canonical list is derived from the single shared source in
+// utils/categories.js — pickers/detector can't drift apart.
+export const CANONICAL_CATEGORIES = CATEGORIES.map((c) => ({
+  name: c.label,
+  icon: c.icon,
+  shopping_order: c.shopping_order,
+}));
 
 const CANONICAL_SET = new Set(CANONICAL_CATEGORIES.map(c => c.name));
 const CANONICAL_BY_NAME = Object.fromEntries(CANONICAL_CATEGORIES.map(c => [c.name, c]));
@@ -418,9 +397,10 @@ const CATEGORY_ALIASES = {
   'fish': 'Meat & Seafood', 'meat & fish': 'Meat & Seafood', 'meat & seafood': 'Meat & Seafood',
   'dairy': 'Dairy & Eggs', 'eggs': 'Dairy & Eggs', 'dairy & eggs': 'Dairy & Eggs',
   'ice cream': 'Frozen',
+  'fridge': 'Fridge', 'refrigerated': 'Fridge', 'chilled': 'Fridge',
   'pantry': 'Pantry Staples', 'canned': 'Pantry Staples', 'canned goods': 'Pantry Staples',
   'dry goods': 'Pantry Staples', 'grains': 'Pantry Staples', 'lunch': 'Pantry Staples',
-  'dinner': 'Pantry Staples', 'pantry staples': 'Pantry Staples', 'food': 'Pantry Staples',
+  'dinner': 'Pantry Staples', 'pantry staples': 'Pantry Staples', 'food': 'Food',
   'spices': 'Seasoning & Spices', 'seasoning': 'Seasoning & Spices',
   'seasoning & spices': 'Seasoning & Spices',
   'baking': 'Baking Supplies', 'baking supplies': 'Baking Supplies',

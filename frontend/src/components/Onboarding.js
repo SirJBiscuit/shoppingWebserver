@@ -6,7 +6,7 @@ import api from '../services/api';
 
 // Bump this when the tutorial content changes — re-fires the tour once for
 // users who already completed the previous version.
-const ONBOARDING_VERSION = 'v3';
+const ONBOARDING_VERSION = 'v4';
 const onboardingKey = (userId) => `onboarding_${ONBOARDING_VERSION}_${userId}`;
 // Permanent opt-out — NOT versioned, so bumping the tutorial version never
 // re-fires for users who explicitly asked not to see it.
@@ -497,7 +497,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className={`fixed inset-0 flex items-center justify-center z-[70] p-2 sm:p-4${spot && tutorialMode && !showSkipMessage ? '' : ' bg-black/10 backdrop-blur-sm'}`}
+        className={`fixed inset-0 flex items-center justify-center z-[70] p-2 sm:p-4${spot && tutorialMode && !showSkipMessage ? ' pointer-events-none' : ' bg-black/10 backdrop-blur-sm'}`}
         onClick={(e) => {
           // Close on backdrop click
           if (e.target === e.currentTarget) {
@@ -526,7 +526,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className={`card ${spot ? '' : 'max-w-2xl w-full'} max-h-[90vh] overflow-y-auto shadow-2xl`}
+          className={`card pointer-events-auto ${spot ? '' : 'max-w-2xl w-full'} max-h-[90vh] overflow-y-auto shadow-2xl`}
           style={cardStyle}
         >
           {/* Header */}

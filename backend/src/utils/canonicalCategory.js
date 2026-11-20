@@ -8,13 +8,13 @@
 const CANONICAL = new Set([
   'Produce', 'Meat & Seafood', 'Dairy & Eggs', 'Frozen', 'Bakery',
   'Pantry Staples', 'Snacks', 'Beverages', 'Condiments & Sauces',
-  'Breakfast', 'Household', 'Personal Care',
+  'Breakfast', 'Household', 'Personal Care', 'Fridge',
   'Seasoning & Spices', 'Baking Supplies', 'Alcohol',
   'Health & Medical', 'Baby & Kids', 'Pet Supplies',
   'Cleaning', 'Laundry', 'Paper & Plastic',
   'Tools & Hardware', 'Garden & Outdoor', 'Automotive',
   'Office & School', 'Electronics', 'Holiday & Seasonal',
-  'Other'
+  'Food', 'Other'
 ]);
 
 const ALIASES = {
@@ -23,9 +23,10 @@ const ALIASES = {
   'fish': 'Meat & Seafood', 'meat & fish': 'Meat & Seafood', 'meat & seafood': 'Meat & Seafood',
   'dairy': 'Dairy & Eggs', 'eggs': 'Dairy & Eggs', 'dairy & eggs': 'Dairy & Eggs',
   'ice cream': 'Frozen',
+  'fridge': 'Fridge', 'refrigerated': 'Fridge', 'chilled': 'Fridge',
   'pantry': 'Pantry Staples', 'canned': 'Pantry Staples', 'canned goods': 'Pantry Staples',
   'dry goods': 'Pantry Staples', 'grains': 'Pantry Staples', 'lunch': 'Pantry Staples',
-  'dinner': 'Pantry Staples', 'pantry staples': 'Pantry Staples', 'food': 'Pantry Staples',
+  'dinner': 'Pantry Staples', 'pantry staples': 'Pantry Staples', 'food': 'Food',
   'spices': 'Seasoning & Spices', 'seasoning': 'Seasoning & Spices',
   'seasoning & spices': 'Seasoning & Spices',
   'baking': 'Baking Supplies', 'baking supplies': 'Baking Supplies',

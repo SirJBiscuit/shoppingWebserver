@@ -1,8 +1,46 @@
 const express = require('express');
 const db = require('../database/db');
 const { authenticateToken } = require('../middleware/auth');
+const { addCustomCategory } = require('../utils/categories');
 
 const router = express.Router();
+
+// Seed the custom-category registry from the DB so canonicalizeCategory
+// keeps user-created names on the write path (no folding into 'Other').
+(async () => {
+  try {
+    const r = await db.query('SELECT name FROM categories');
+    for (const row of r.rows) {
+      addCustomCategory(row.name);
+    }
+  } catch {
+    // registry stays empty — canonical names + aliases still apply
+  }
+})();
+
+// Create a custom category — stored in the shared `categories` table so
+// every picker (shopping, inventory, recipes) offers it.
+router.post('/', authenticateToken, async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    const icon = String(req.body?.icon || '').trim() || '🏷️';
+    if (!name) return res.status(400).json({ error: 'Category name is required' });
+    if (name.length > 100) return res.status(400).json({ error: 'Category name too long (max 100 chars)' });
+    if (icon.length > 50) return res.status(400).json({ error: 'Icon too long' });
+    const r = await db.query(
+      `INSERT INTO categories (name, icon, sort_order, shopping_order)
+       VALUES ($1, $2, 90, 90)
+       ON CONFLICT (name) DO UPDATE SET icon = EXCLUDED.icon
+       RETURNING *`,
+      [name, icon]
+    );
+    addCustomCategory(r.rows[0].name);
+    res.status(201).json(r.rows[0]);
+  } catch (error) {
+    console.error('Create category error:', error);
+    res.status(500).json({ error: 'Failed to create category' });
+  }
+});
 
 // Get all categories with shopping order
 router.get('/', authenticateToken, async (req, res) => {

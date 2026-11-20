@@ -5,13 +5,13 @@
 const CANONICAL = [
   'Produce', 'Meat & Seafood', 'Dairy & Eggs', 'Frozen', 'Bakery',
   'Pantry Staples', 'Snacks', 'Beverages', 'Condiments & Sauces',
-  'Breakfast', 'Household', 'Personal Care',
+  'Breakfast', 'Household', 'Personal Care', 'Fridge',
   'Seasoning & Spices', 'Baking Supplies', 'Alcohol',
   'Health & Medical', 'Baby & Kids', 'Pet Supplies',
   'Cleaning', 'Laundry', 'Paper & Plastic',
   'Tools & Hardware', 'Garden & Outdoor', 'Automotive',
   'Office & School', 'Electronics', 'Holiday & Seasonal',
-  'Other',
+  'Food', 'Other',
 ];
 
 const SET = new Set(CANONICAL);
@@ -24,9 +24,10 @@ const ALIASES = {
   fish: 'Meat & Seafood', 'meat & seafood': 'Meat & Seafood',
   dairy: 'Dairy & Eggs', eggs: 'Dairy & Eggs', 'dairy & eggs': 'Dairy & Eggs',
   'ice cream': 'Frozen',
+  fridge: 'Fridge', refrigerated: 'Fridge', chilled: 'Fridge',
   pantry: 'Pantry Staples', canned: 'Pantry Staples', 'canned goods': 'Pantry Staples',
   'dry goods': 'Pantry Staples', grains: 'Pantry Staples', lunch: 'Pantry Staples',
-  dinner: 'Pantry Staples', 'pantry staples': 'Pantry Staples', food: 'Pantry Staples',
+  dinner: 'Pantry Staples', 'pantry staples': 'Pantry Staples', food: 'Food',
   spices: 'Seasoning & Spices', seasoning: 'Seasoning & Spices',
   'seasoning & spices': 'Seasoning & Spices',
   baking: 'Baking Supplies', 'baking supplies': 'Baking Supplies',
@@ -57,6 +58,21 @@ const ALIASES = {
 };
 
 /**
+ * User-created categories from the DB `categories` table — exact/lowercase
+ * lookups win over legacy aliases so a user-named category is never folded
+ * into a canonical bucket. Populated by addCustomCategory / the boot load
+ * in routes/categories.js.
+ */
+const CUSTOM_BY_LOWER = new Map();
+
+const addCustomCategory = (name) => {
+  if (!name || typeof name !== 'string') return;
+  const trimmed = name.trim();
+  if (!trimmed || SET.has(trimmed)) return;
+  CUSTOM_BY_LOWER.set(trimmed.toLowerCase(), trimmed);
+};
+
+/**
  * Normalize any category label to a canonical name. Returns 'Other' when
  * unsure (or given nothing), so the value always joins categories.name.
  */
@@ -65,6 +81,7 @@ const canonicalizeCategory = (category) => {
   const trimmed = category.trim();
   if (SET.has(trimmed)) return trimmed;
   const lower = trimmed.toLowerCase();
+  if (CUSTOM_BY_LOWER.has(lower)) return CUSTOM_BY_LOWER.get(lower);
   if (ALIASES[lower]) return ALIASES[lower];
   return BY_LOWER[lower] || 'Other';
 };
@@ -106,4 +123,4 @@ const resolveCategory = (category, itemName) => {
   return detectCategoryForName(itemName) || 'Other';
 };
 
-module.exports = { CANONICAL, canonicalizeCategory, detectCategoryForName, resolveCategory };
+module.exports = { CANONICAL, canonicalizeCategory, detectCategoryForName, resolveCategory, addCustomCategory };

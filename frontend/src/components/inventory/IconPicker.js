@@ -1,14 +1,45 @@
-import React, { useState, useEffect } from 'react';
-import { X, Search } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Search, ImagePlus, Loader2 } from 'lucide-react';
 import { Portal } from '../../utils/autoPlacement';
+import { normalizeIconFile, uploadIcon, fetchCustomIcons } from '../../utils/iconUpload';
 
 /**
  * IconPicker - Modal for selecting item icons
- * Shows all available icons in a searchable grid
+ * Shows all available icons in a searchable grid, plus the user's uploaded
+ * custom icons and an upload control (any image; >128×128 auto-downscales).
  */
 const IconPicker = ({ isOpen, onClose, onSelect, currentIcon }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [customIcons, setCustomIcons] = useState([]);
+  const [upload, setUpload] = useState({ state: 'idle', msg: '' });
+  const fileRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen) fetchCustomIcons().then(setCustomIcons);
+  }, [isOpen]);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUpload({ state: 'uploading', msg: '' });
+    try {
+      const payload = await normalizeIconFile(file);
+      const img = await uploadIcon(
+        payload,
+        file.name.replace(/\.[a-z]+$/i, '') + '.png',
+        () => {}
+      );
+      setCustomIcons((prev) => [img, ...prev]);
+      setUpload({ state: 'idle', msg: '' });
+      onSelect(img.image_url);
+      onClose();
+    } catch (err) {
+      setUpload({ state: 'error', msg: err.message || 'Upload failed' });
+    } finally {
+      e.target.value = '';
+    }
+  };
 
   // Comprehensive icon library organized by category
   const iconLibrary = {
@@ -202,6 +233,45 @@ const IconPicker = ({ isOpen, onClose, onSelect, currentIcon }) => {
                 {category}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Custom uploaded icons + upload control */}
+        <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={upload.state === 'uploading'}
+              className="w-10 h-10 flex items-center justify-center rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-400 hover:border-blue-500 hover:text-blue-500 flex-shrink-0 transition-colors disabled:opacity-50"
+              title="Upload a custom icon — any image ≤128×128 works, larger images are auto-downscaled"
+            >
+              {upload.state === 'uploading'
+                ? <Loader2 size={18} className="animate-spin" />
+                : <ImagePlus size={18} />}
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+            {customIcons.map((img) => (
+              <button
+                key={img.id}
+                type="button"
+                onClick={() => { onSelect(img.image_url); onClose(); }}
+                title="Custom icon you uploaded"
+                className={`w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 ring-1 transition-transform hover:scale-110 ${
+                  currentIcon === img.image_url ? 'ring-blue-500' : 'ring-gray-200 dark:ring-gray-600'
+                }`}
+              >
+                <img src={img.thumbnail_url || img.image_url} alt="custom icon" className="w-full h-full object-cover" />
+              </button>
+            ))}
+            {customIcons.length === 0 && upload.state !== 'error' && (
+              <span className="text-xs text-gray-400 dark:text-gray-500">
+                Upload your own icon — it becomes available in every picker
+              </span>
+            )}
+            {upload.state === 'error' && (
+              <span className="text-xs text-red-500">{upload.msg}</span>
+            )}
           </div>
         </div>
 

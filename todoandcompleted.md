@@ -402,3 +402,14 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - [x] Applied `tap-target` to ambiguous triggers: inventory item-icon button, category-type badge, favorite stars (list + category views), shopping-list item icon, per-list delete X in the list dropdown
 - [x] Missing `type="button"`/`title` added to the favorite-star buttons while there
 - [x] eslint: 0 errors; Codacy: only pre-existing warnings
+
+## Unified category system + custom categories + icon upload + tutorial fix (current)
+
+- [x] Single source of truth: `frontend/src/utils/categories.js` — one list ({value, label, icon, color, shopping_order}) feeds every picker. `INVENTORY_CATEGORIES` (QuickCategoryModal) and `CANONICAL_CATEGORIES` (categoryDetector) are both derived from it — can't drift
+- [x] Shopping stores the label ('Dairy & Eggs'), inventory stores the key ('dairy_eggs') — same list, each system keeps its own write format
+- [x] 'Fridge' + 'Food' categories added everywhere; backend CANONICAL lists updated (aliases: food->Food, fridge/refrigerated->Fridge)
+- [x] Custom user categories: `POST /api/categories` upserts into the shared `categories` table; boot + post-create registry in `utils/categories.js` keeps custom names out of 'Other' on the write path
+- [x] "+ New category" inline creator (name + emoji) in BOTH QuickCategoryPicker (shopping) and QuickCategoryModal (inventory); DB rows merge into pickers at open via `mergeDbCategories`
+- [x] Custom icon upload ported into inventory `IconPicker`: shared `utils/iconUpload.js` extracted from QuickIconPicker (normalize <=128x128, auto downscale/cover-crop, real progress), custom-icons strip + upload button
+- [x] Tutorial: ONBOARDING_VERSION v3->v4 (spotlight tour never bumped -> returning users never auto-saw it); spotlight overlay is now pointer-events-none during focused steps so clicks pass through to the highlighted element instead of instantly skipping the tour (card stays pointer-events-auto)
+- [x] eslint/node --check clean; Codacy run on every edited file (only pre-existing warnings)
