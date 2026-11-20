@@ -162,6 +162,31 @@
     }
   }
   
+  /* "Tap me" affordance — a soft ring that breathes a few times then
+     stops, so trigger-style buttons read as interactive without flashing
+     forever. -loop keeps breathing until the user acts. */
+  @keyframes tap-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.45); }
+    70%  { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+  }
+
+  .tap-affordance {
+    animation: tap-pulse 1.6s ease-out 3;
+    animation-delay: 0.5s;
+  }
+
+  .tap-affordance-loop {
+    animation: tap-pulse 1.6s ease-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tap-affordance,
+    .tap-affordance-loop {
+      animation: none;
+    }
+  }
+
   /* Toast animations */
   @keyframes slideIn {
     from {

@@ -136,7 +136,7 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - list_type chip only shows for behavioral types ('lab' w/ flask icon) —
   'store'/'general' were noise next to the store dropdown
 - Per-list `✕` delete inside the list dropdown rows (role=button span —
-  nested <button> is invalid HTML; stopPropagation + confirm modal)
+  nested `<button>` is invalid HTML; stopPropagation + confirm modal)
 
 ### 19. Shopping-list header round 2 — live counts, delete X, meta row
 

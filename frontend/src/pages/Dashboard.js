@@ -2073,7 +2073,7 @@ const Dashboard = () => {
                               setNewStoreNick('');
                               setEditingListName(true);
                             }}
-                            className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
+                            className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-sm tap-affordance"
                           >
                             <Store className="w-4 h-4" />
                             Set Store Location
@@ -2491,11 +2491,16 @@ const Dashboard = () => {
                       setAddCatAnchor({ cx: r.left + r.width / 2, top: r.top, bottom: r.bottom });
                     }}
                     title="Pick category"
-                    className="input-field flex items-center justify-center gap-1 whitespace-nowrap"
+                    className={`input-field flex items-center justify-between gap-1 whitespace-nowrap cursor-pointer hover:border-primary-400 dark:hover:border-primary-500 transition-colors ${
+                      newItemCategory ? '' : 'tap-affordance'
+                    }`}
                   >
-                    {newItemCategory
-                      ? <>{getCategoryIcon(newItemCategory)} {newItemCategory}</>
-                      : 'Category'}
+                    {newItemCategory ? (
+                      <span className="truncate">{getCategoryIcon(newItemCategory)} {newItemCategory}</span>
+                    ) : (
+                      <span className="text-gray-400 dark:text-gray-500">Category</span>
+                    )}
+                    <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   </button>
                   <button 
                     ref={addButtonRef}
