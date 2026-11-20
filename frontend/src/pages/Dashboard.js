@@ -1913,7 +1913,7 @@ const Dashboard = () => {
                                       deleteList(list.id);
                                     }
                                   }}
-                                  className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/30 transition-colors flex-shrink-0"
+                                  className="tap-target p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/30 transition-colors flex-shrink-0"
                                   title={`Delete "${list.name}"`}
                                 >
                                   <X className="w-3.5 h-3.5" />

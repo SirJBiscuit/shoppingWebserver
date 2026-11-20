@@ -135,8 +135,10 @@ const EnhancedListView = ({
               {/* Item Name */}
               <div className="col-span-3 flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => onToggleFavorite(item)}
-                  className="hover:scale-110 transition-transform"
+                  title="Toggle favorite"
+                  className="tap-target hover:scale-110 transition-transform"
                 >
                   <Star 
                     className={`w-4 h-4 ${item.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} 
@@ -146,7 +148,7 @@ const EnhancedListView = ({
                   type="button"
                   onClick={() => onIconChange?.(item)}
                   title="Change icon"
-                  className="text-lg flex-shrink-0 hover:scale-110 transition-transform"
+                  className="tap-target text-lg flex-shrink-0 hover:scale-110 transition-transform"
                 >{item.item_icon || '📦'}</button>
                 <span className="font-medium text-gray-900 dark:text-white truncate">
                   {item.item_name}
@@ -158,7 +160,7 @@ const EnhancedListView = ({
                 <button
                   type="button"
                   onClick={() => onCategoryChange?.(item)}
-                  className="text-2xl hover:scale-125 transition-transform"
+                  className="tap-target text-2xl hover:scale-125 transition-transform"
                   title={`Type: ${item.item_category || 'food'} — click to change`}
                 >
                   {getCategoryIcon(item.item_category)}

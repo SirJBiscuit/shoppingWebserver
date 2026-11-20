@@ -171,13 +171,39 @@
     100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
   }
 
+  /* Persistent affordance for controls that don't look like buttons
+     (emoji icons, chips, role="button" spans): a faint ring at rest,
+     clearer on hover, with press feedback. */
+  .tap-target {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.22);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, transform 0.15s ease;
+  }
+
+  .tap-target:hover {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
+    transform: scale(1.06);
+  }
+
+  .tap-target:active {
+    transform: scale(0.96);
+  }
+
   .tap-affordance {
     animation: tap-pulse 1.6s ease-out 3;
     animation-delay: 0.5s;
+    /* faint ring stays after the pulse so it still reads as tappable */
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.22);
+    border-radius: 0.5rem;
   }
 
   .tap-affordance-loop {
     animation: tap-pulse 1.6s ease-out infinite;
+  }
+
+  [role="button"] {
+    cursor: pointer;
   }
 
   @media (prefers-reduced-motion: reduce) {

@@ -393,3 +393,12 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - [x] `CategoryView` kept a category-change affordance — small category-icon chip beside the item name opens the category picker (icon button = icon picker, chip = category)
 - [x] `PantryNewV2` wires `iconPickerItem` state + `handleApplyIcon` and renders `IconPicker` alongside `QuickCategoryModal`
 - [x] eslint: 0 errors on all edited files; Codacy clean (only pre-existing warnings)
+
+## Persistent interactable affordance (current)
+
+- [x] New `.tap-target` utility in `index.css` — permanent faint blue ring at rest, brighter ring + grow on hover, shrink on press. For controls that don't look like buttons (emoji icons, chips, `role="button"` spans)
+- [x] `.tap-affordance` now keeps the faint ring after the pulse ends instead of vanishing — "still looks interactable" after the hint settles
+- [x] Global `[role="button"] { cursor: pointer }` so non-button click targets get the pointer cursor
+- [x] Applied `tap-target` to ambiguous triggers: inventory item-icon button, category-type badge, favorite stars (list + category views), shopping-list item icon, per-list delete X in the list dropdown
+- [x] Missing `type="button"`/`title` added to the favorite-star buttons while there
+- [x] eslint: 0 errors; Codacy: only pre-existing warnings

@@ -145,7 +145,7 @@ const CategoryView = ({
                           type="button"
                           onClick={() => onIconChange?.(item)}
                           title="Change icon"
-                          className="text-lg flex-shrink-0 hover:scale-110 transition-transform"
+                          className="tap-target text-lg flex-shrink-0 hover:scale-110 transition-transform"
                         >
                           {item.item_icon || '📦'}
                         </button>
@@ -157,14 +157,16 @@ const CategoryView = ({
                           type="button"
                           onClick={() => onCategoryChange?.(item)}
                           title={`Type: ${item.item_category || 'other'} — click to change`}
-                          className="text-sm flex-shrink-0 hover:scale-110 transition-transform"
+                          className="tap-target text-sm flex-shrink-0 hover:scale-110 transition-transform"
                         >
                           {categories[item.item_category || 'other']?.icon || '🏷️'}
                         </button>
                       </div>
                       <button
+                        type="button"
+                        title="Toggle favorite"
                         onClick={() => onToggleFavorite(item)}
-                        className="hover:scale-110 transition-transform flex-shrink-0"
+                        className="tap-target hover:scale-110 transition-transform flex-shrink-0"
                       >
                         <Star 
                           className={`w-4 h-4 ${item.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} 

@@ -762,7 +762,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   {/* Icon */}
                   <div
                     ref={iconRef}
-                    className="text-2xl mr-2 relative cursor-pointer"
+                    className="tap-target text-2xl mr-2 relative cursor-pointer"
                     onClick={(e) => { e.stopPropagation(); if (onQuickIcon) onQuickIcon(item, e); }}
                     title="Click to change icon"
                   >
