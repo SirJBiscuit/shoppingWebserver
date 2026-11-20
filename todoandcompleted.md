@@ -123,6 +123,20 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Admin rail **Activity** button shows a live worst-status dot + popover with
   per-service badges; "Details" jumps to Admin › Services.
 
+### 19. Shopping-list header round 2 — live counts, delete X, meta row
+
+- `lists[].item_count` now syncs from `items` on every change — the
+  dropdown count is live instead of stale until page change (with a guard
+  so a stale `items` array isn't stamped onto a newly selected list)
+- `X` delete button next to the list dropdown (confirm still goes through
+  deleteList's existing ConfirmModal flow)
+- Counter chip → right-aligned `checked/total` progress pill (bigger,
+  colored, titled); pencil is a bordered "Rename list" button; the
+  `list_type` chip moved from the store row into this meta row
+- `⋮` icon button is now a labeled "List actions" button — users were
+  missing it entirely
+- "Add Items to Your List" → "Add items" + clearer subtitle
+
 ### 18. Admin quick login (shoulder-surf resistant) — NEW
 
 - Symbol challenge: admin sets an 8-12 symbol sequence (Admin → Security);

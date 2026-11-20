@@ -210,6 +210,18 @@ const Dashboard = () => {
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [headerMenu]);
+
+  // Keep the list dropdown's item count live for the active list —
+  // previously it only refreshed on a full loadLists()/page change.
+  useEffect(() => {
+    if (!activeList?.id) return;
+    // Guard: don't stamp another list's items onto the new selection
+    // during the switch fetch.
+    if (items.length > 0 && items[0]?.list_id && items[0].list_id !== activeList.id) return;
+    setLists(prev => prev.map(l =>
+      l.id === activeList.id ? { ...l, item_count: items.length } : l
+    ));
+  }, [items, activeList?.id]);
   const [addItemsMinimized, setAddItemsMinimized] = useState(false);
   const [customStores, setCustomStores] = useState([]);
   const [showCopyItemModal, setShowCopyItemModal] = useState(false);
@@ -1888,6 +1900,18 @@ const Dashboard = () => {
                         />
                       </div>
                     )}
+                    {/* Quick delete for the current list — confirm happens
+                        inside deleteList via the custom modal */}
+                    {activeList && lists.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => deleteList(activeList.id)}
+                        className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-400 hover:text-red-600 hover:border-red-300 hover:bg-red-50 dark:hover:text-red-400 dark:hover:border-red-700 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
+                        title={`Delete "${activeList.name}"`}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
                 )}
@@ -1898,31 +1922,41 @@ const Dashboard = () => {
                     <div className="flex items-center gap-2">
                       <span className="text-xl flex-shrink-0">📋</span>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
                           <span className="text-base sm:text-lg font-bold text-primary-600 dark:text-primary-400 truncate">
                             {activeList.name}
                           </span>
-                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
-                            checkedCount === items.length && items.length > 0
-                              ? 'bg-green-500 text-white'
-                              : checkedCount > 0
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-gray-400 text-white'
-                          }`}>
-                            {checkedCount}/{items.length}
-                          </span>
                           <button
+                            type="button"
                             onClick={() => {
                               setNewListName(activeList.name);
                               setNewListStore(activeList.store_name || '');
                               setNewStoreNick(storeNicks[(activeList.store_name || '').toLowerCase()] || '');
                               setEditingListName(true);
                             }}
-                            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex-shrink-0"
-                            title="Edit list name"
+                            className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-primary-600 hover:border-primary-300 dark:hover:text-primary-400 dark:hover:border-primary-600 transition-colors flex-shrink-0"
+                            title="Rename list"
                           >
-                            <Edit2 className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                            <Edit2 className="w-4 h-4" />
                           </button>
+                          {activeList.list_type && activeList.list_type !== 'general' && (
+                            <span className="flex-shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700">
+                              {activeList.list_type}
+                            </span>
+                          )}
+                          {/* Progress pill — big, right-aligned, reads at a glance */}
+                          <span
+                            className={`ml-auto flex-shrink-0 text-sm font-bold px-3 py-1 rounded-full border ${
+                              checkedCount === items.length && items.length > 0
+                                ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700'
+                                : checkedCount > 0
+                                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border-gray-300 dark:border-gray-600'
+                            }`}
+                            title={`${checkedCount} of ${items.length} items checked off`}
+                          >
+                            {checkedCount}/{items.length}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1994,12 +2028,6 @@ const Dashboard = () => {
                               )}
                             </AnimatePresence>
                           </div>
-
-                          {activeList.list_type && activeList.list_type !== 'general' && (
-                            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium">
-                              {activeList.list_type}
-                            </span>
-                          )}
                         </>
                       ) : (
                         <>
@@ -2098,10 +2126,11 @@ const Dashboard = () => {
                       <button
                         type="button"
                         onClick={() => setHeaderMenu(headerMenu === 'more' ? null : 'more')}
-                        className="btn-secondary text-sm flex items-center px-2"
-                        title="More list actions"
+                        className="btn-secondary text-sm flex items-center gap-1"
+                        title="Recover completed lists or delete this list"
                       >
                         <MoreVertical className="w-4 h-4" />
+                        List actions
                       </button>
                       <AnimatePresence>
                         {headerMenu === 'more' && (
@@ -2150,8 +2179,8 @@ const Dashboard = () => {
                       <Plus className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">Add Items to Your List</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Start typing to add items with smart suggestions</p>
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">Add items</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Type a name — smart suggestions fill in price, size and icon</p>
                     </div>
                   </div>
                   <button
