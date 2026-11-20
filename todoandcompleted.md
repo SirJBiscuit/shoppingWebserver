@@ -83,9 +83,33 @@ ships move it to the Completed Log (newest first) with the commit hash.
 - `.github/instructions/codacy.instructions.md` (untracked)
 - `shopWebserver.code-workspace` (untracked)
 
+### 7. ntfy — only beta alerts arriving (user-side pushes broken)
+
+- **Likely cause:** prod partial migration — if `ntfy_user_settings` is missing
+  `types`/`last_expiry_alert_at` columns, every user-side ntfy query fails silently.
+- **Fixes (committed):** migration `101_ntfy_schema_repair.sql` re-asserts the whole
+  ntfy schema defensively; `getUserSettings`/`notifyUsers` retry slim queries on
+  `42703` so a missing `types` column can't kill user pushes.
+- **Verify on prod:** `docker exec -i shop_postgres psql -U shopuser -d shopdb \
+  -c "\d ntfy_user_settings"` after deploy.
+
+### 8. ntfy — downtime/offline alerts (admin topic)
+
+- `watchdog.sh` (host cron `* * * * *`) pings public URL then localhost:3006 to
+  distinguish **app down** vs **Cloudflare/provider down** → sends admin ntfy alert.
+- Topic read from `.ntfy-watchdog.json` (gitignored) — written by backend whenever the
+  admin saves ntfy settings, so it works with the DB/backend dead. Respects the new
+  `downtime` admin toggle type.
+- Skips during maintenance (shop_maintenance up, update lock, or `.update-requested`).
+- `--alert` mode wired into `update-server.sh`/`update-manual.sh` → deploy start/finish pings.
+- **Host setup still needed:** `crontab -e` →
+  `* * * * * /opt/cloudmc-shop/watchdog.sh >> /tmp/listzy-watchdog.log 2>&1`
+
 ---
 
 ## 🟡 Open — Tasks / Verify
+
+- [ ] Retest recipe delete on live site (see bug #1)
 
 - [ ] Retest recipe delete on live site (see bug #1)
 - [ ] Confirm migration `100_list_item_removal_log` ran: `docker exec -i shop_postgres psql -U shopuser -d shopdb -c "\d list_item_removal_log"`
@@ -96,6 +120,10 @@ ships move it to the Completed Log (newest first) with the commit hash.
 - [x] Fix `/api/version` path bug (bug #3) — done in update-detection work
 - [ ] After deploy: verify update flag clears itself (admin manual pull path) and the
       UpdateBanner/changelog/maintenance page show real commit subjects
+- [ ] ntfy: verify user-side test push + feature_release/broadcast reach non-beta users
+      (was silently broken — see bug #7)
+- [ ] ntfy: install watchdog.sh in host crontab (bug #8); verify admin `downtime`
+      toggle writes `.ntfy-watchdog.json` with `downtime:false` when off
 
 ---
 

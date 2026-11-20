@@ -97,6 +97,9 @@ fi
 echo -e "${YELLOW}Setting up production configuration...${NC}"
 cp docker-compose.prod.yml docker-compose.yml
 
+# Push "update started" via the same watchdog channel (best-effort)
+./watchdog.sh --alert "Listzy is updating 🔧" "Deploying ${BEFORE_COMMIT:0:7} → ${AFTER_COMMIT:0:7} — users see the updating page for a few minutes." "hammer" 3 2>/dev/null || true
+
 # Hand :3006 to the maintenance placeholder so visitors get the branded
 # "Listzy is updating" page instead of a bad gateway while the frontend
 # container is down for its rebuild. Separate compose project — the main
@@ -145,6 +148,8 @@ echo ""
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  Update Complete!${NC}"
 echo -e "${GREEN}========================================${NC}"
+
+./watchdog.sh --alert "Listzy update complete ✅" "Now running ${AFTER_COMMIT:0:7}." "white_check_mark" 3 2>/dev/null || true
 echo ""
 echo -e "${CYAN}Access your app at:${NC}"
 echo -e "  - Frontend: http://localhost:3006"

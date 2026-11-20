@@ -7,7 +7,7 @@ const ntfy = require('../services/ntfyService');
 // Notification types a user can toggle. Anything missing counts as ON.
 const USER_TYPES = ['expiry', 'feature_release', 'broadcast'];
 // Alert types the admin topic can receive.
-const ADMIN_TYPES = ['changelog', 'beta_signup', 'beta_feedback'];
+const ADMIN_TYPES = ['changelog', 'beta_signup', 'beta_feedback', 'downtime'];
 
 const cleanTypes = (obj, allowed) => {
   const out = {};
@@ -137,7 +137,11 @@ router.put('/admin/settings', authenticateToken, isAdmin, async (req, res) => {
        RETURNING topic, enabled, types`,
       [safeTopic, enabled === true, JSON.stringify(cleanTypes(types, ADMIN_TYPES))]
     );
-    res.json(result.rows[0]);
+    // Mirror to the mounted repo dir so watchdog.sh can alert on downtime
+    // even when the backend/DB themselves are the thing that's down.
+    const row = result.rows[0];
+    ntfy.writeWatchdogFile(row.topic, row.enabled, row.types).catch(() => {});
+    res.json(row);
   } catch (error) {
     console.error('Error saving admin ntfy settings:', error);
     res.status(500).json({ error: 'Failed to save admin ntfy settings' });

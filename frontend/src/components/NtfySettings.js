@@ -19,6 +19,7 @@ const ADMIN_TYPE_LABELS = {
   changelog: 'Changelog publishes',
   beta_signup: 'New beta signups',
   beta_feedback: 'Beta feedback activity',
+  downtime: 'Server down / unreachable alerts',
 };
 
 const TopicSection = ({ title, icon: Icon, settings, onChange, onSave, onTest, saving, testing, message }) => {
@@ -68,6 +69,25 @@ const TopicSection = ({ title, icon: Icon, settings, onChange, onSave, onTest, s
       </div>
 
       <div className="space-y-1.5">
+        {/* Master toggle — enables/disables every type while each saved
+            choice in `types` is remembered (missing key still counts ON) */}
+        <label className="flex items-center gap-2 cursor-pointer text-sm pb-1 border-b border-gray-200 dark:border-gray-700">
+          <input
+            type="checkbox"
+            checked={Object.keys(settings.typeLabels).every((k) => settings.types[k] !== false)}
+            onChange={(e) => onChange({
+              ...settings,
+              types: Object.fromEntries(
+                Object.keys(settings.typeLabels).map((k) => [k, e.target.checked])
+              ),
+            })}
+            disabled={!settings.enabled}
+            className="w-4 h-4 rounded accent-primary-600"
+          />
+          <span className={`font-semibold ${settings.enabled ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'}`}>
+            All notifications
+          </span>
+        </label>
         {Object.entries(settings.typeLabels).map(([key, label]) => (
           <label key={key} className="flex items-center gap-2 cursor-pointer text-sm">
             <input
@@ -127,7 +147,7 @@ const NtfySettings = () => {
         const d = await res.json();
         setUserCfg({ topic: d.topic || '', enabled: d.enabled === true, types: d.types || {}, typeLabels: USER_TYPE_LABELS });
       }
-      if (user?.isAdmin) {
+      if (user?.isAdmin || user?.is_admin) {
         const ares = await fetch(`${API_URL}/api/ntfy/admin/settings`, { headers: authHeaders() });
         if (ares.ok) {
           const ad = await ares.json();
@@ -213,7 +233,7 @@ const NtfySettings = () => {
         message={userMsg}
       />
 
-      {user?.isAdmin && (
+      {(user?.isAdmin || user?.is_admin) && (
         <TopicSection
           title="Admin alerts (all server events)"
           icon={ShieldCheck}

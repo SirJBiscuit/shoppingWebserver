@@ -229,7 +229,7 @@ const NtfyPanel = ({ isOpen, onClose }) => {
             {recent.length === 0 ? (
               <p className="text-xs text-gray-400 dark:text-gray-500 py-3 text-center">Nothing sent yet</p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="space-y-2 max-h-64 overflow-y-auto scrollbar-3d pr-1">
                 {recent.map((n) => (
                   <li key={n.id} className="p-2.5 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700">
                     <div className="flex items-center gap-2">

@@ -55,13 +55,25 @@ async function publish(topic, title, message, { tags = 'listzy', priority = 3 } 
   }
 }
 
-/** Load one user's ntfy settings row (may not exist). */
+/** Load one user's ntfy settings row (may not exist). On a partially
+ *  migrated schema (missing types/last_expiry_alert_at) we retry with the
+ *  base columns instead of failing every user-side push — prod repairs
+ *  are in migration 101. */
 async function getUserSettings(userId) {
-  const { rows } = await db.query(
-    'SELECT topic, enabled, types, last_expiry_alert_at FROM ntfy_user_settings WHERE user_id = $1',
-    [userId]
-  );
-  return rows[0] || null;
+  try {
+    const { rows } = await db.query(
+      'SELECT topic, enabled, types, last_expiry_alert_at FROM ntfy_user_settings WHERE user_id = $1',
+      [userId]
+    );
+    return rows[0] || null;
+  } catch (err) {
+    if (err.code !== '42703') throw err; // undefined_column → slim retry only
+    const { rows } = await db.query(
+      'SELECT topic, enabled FROM ntfy_user_settings WHERE user_id = $1',
+      [userId]
+    );
+    return rows[0] ? { ...rows[0], types: {}, last_expiry_alert_at: null } : null;
+  }
 }
 
 /** Load the admin ntfy settings row (may not exist). */
@@ -79,7 +91,7 @@ async function getAdminSettings() {
 async function notifyUser(userId, type, title, message, opts = {}) {
   try {
     const s = await getUserSettings(userId);
-    if (!s || !s.enabled || !s.topic) return false;
+    if (!s?.enabled || !s.topic) return false;
     if (s.types?.[type] === false) return false;
     const ok = await publish(s.topic, title, message, opts);
     await logSend(userId, type, title, message, ok);
@@ -96,14 +108,26 @@ async function notifyUser(userId, type, title, message, opts = {}) {
  */
 async function notifyUsers(type, title, message, { betaOnly = false, tags = 'listzy', priority = 3 } = {}) {
   try {
-    const { rows } = await db.query(
-      `SELECT s.user_id, s.topic FROM ntfy_user_settings s
-       JOIN users u ON u.id = s.user_id
-       WHERE s.enabled = TRUE AND s.topic <> ''
-         AND (s.types->>$1)::boolean IS DISTINCT FROM FALSE
-         ${betaOnly ? 'AND u.is_beta_tester = TRUE' : ''}`,
-      [type]
-    );
+    let rows;
+    try {
+      ({ rows } = await db.query(
+        `SELECT s.user_id, s.topic FROM ntfy_user_settings s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.enabled = TRUE AND s.topic <> ''
+           AND (s.types->>$1)::boolean IS DISTINCT FROM FALSE
+           ${betaOnly ? 'AND u.is_beta_tester = TRUE' : ''}`,
+        [type]
+      ));
+    } catch (err) {
+      if (err.code !== '42703') throw err;
+      // No types column — treat everyone enabled as opted in
+      ({ rows } = await db.query(
+        `SELECT s.user_id, s.topic FROM ntfy_user_settings s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.enabled = TRUE AND s.topic <> ''
+           ${betaOnly ? 'AND u.is_beta_tester = TRUE' : ''}`
+      ));
+    }
     const results = await Promise.allSettled(
       rows.map((r) => publish(r.topic, title, message, { tags, priority }))
     );
@@ -120,7 +144,7 @@ async function notifyUsers(type, title, message, { betaOnly = false, tags = 'lis
 async function notifyAdmin(type, title, message, opts = {}) {
   try {
     const s = await getAdminSettings();
-    if (!s || !s.enabled || !s.topic) return false;
+    if (!s?.enabled || !s.topic) return false;
     if (s.types?.[type] === false) return false;
     const ok = await publish(s.topic, title, message, opts);
     await logSend(null, type, title, message, ok, 'admin');
@@ -138,7 +162,7 @@ async function notifyAdmin(type, title, message, opts = {}) {
 async function maybeNotifyExpiring(userId) {
   try {
     const s = await getUserSettings(userId);
-    if (!s || !s.enabled || !s.topic) return;
+    if (!s?.enabled || !s.topic) return;
     if (s.types?.expiry === false) return;
     if (s.last_expiry_alert_at && Date.now() - new Date(s.last_expiry_alert_at).getTime() < 20 * 3600 * 1000) return;
 
@@ -176,6 +200,30 @@ async function maybeNotifyExpiring(userId) {
   }
 }
 
+/**
+ * Persist the admin alert topic to the mounted repo dir so the host-side
+ * watchdog (watchdog.sh) can still send "site down" pings when the backend
+ * and even the database are unreachable. Best-effort, never throws.
+ */
+async function writeWatchdogFile(topic, enabled, types = {}) {
+  try {
+    const fs = require('fs').promises;
+    const path = require('path');
+    const file = {
+      topic: sanitizeTopic(topic) || '',
+      enabled: enabled === true,
+      downtime: types?.downtime !== false, // missing counts as ON
+      updated: new Date().toISOString()
+    };
+    await fs.writeFile(
+      path.join(process.env.REPO_DIR || '/opt/cloudmc-shop', '.ntfy-watchdog.json'),
+      JSON.stringify(file, null, 2)
+    );
+  } catch (err) {
+    console.warn('ntfy watchdog file write skipped:', err.message);
+  }
+}
+
 module.exports = {
   publish,
   logSend,
@@ -186,4 +234,5 @@ module.exports = {
   notifyUsers,
   notifyAdmin,
   maybeNotifyExpiring,
+  writeWatchdogFile,
 };

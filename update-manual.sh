@@ -58,6 +58,7 @@ docker exec -i shop_postgres psql -U shopuser -d shopdb -c \
 # Maintenance container must release :3006 before `up` recreates frontend —
 # the gap between down and up is a few seconds (same as update-server.sh).
 cp docker-compose.prod.yml docker-compose.yml 2>/dev/null || true
+./watchdog.sh --alert "Listzy is updating 🔧" "Manual deploy ${BEFORE_COMMIT:0:7} → ${AFTER_COMMIT:0:7} in progress." "hammer" 3 2>/dev/null || true
 echo -e "${YELLOW}Swapping in the updating page on :3006...${NC}"
 docker compose stop frontend || true
 docker compose -f docker-compose.maintenance.yml up -d || true
@@ -71,4 +72,5 @@ docker compose up -d
 
 echo ""
 echo -e "${GREEN}Done — ${BEFORE_COMMIT:0:7} -> ${AFTER_COMMIT:0:7}${NC}"
+./watchdog.sh --alert "Listzy update complete ✅" "Now running ${AFTER_COMMIT:0:7}." "white_check_mark" 3 2>/dev/null || true
 echo -e "${YELLOW}Reminder:${NC} schema changes still need ./update-server.sh (runs migrations)"

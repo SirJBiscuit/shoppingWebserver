@@ -23,3 +23,8 @@ postgres_data/
 
 #Ignore windsurf AI rules
 .windsurfrules
+
+
+#Ignore vscode AI rules
+.github\instructions\codacy.instructions.md
+.ntfy-watchdog.json
