@@ -11,6 +11,11 @@ new problems go under Open, finished work moves to the Completed Log with date +
 **How to use:** check `Open` sections first, update statuses as you go, and when something
 ships move it to the Completed Log (newest first) with the commit hash.
 
+**Deploy convention:** every time we are about to run the update command
+(`./update-server.sh`, `update-manual.sh`, or the Admin update path), first produce a
+commit message summarizing everything included in that deploy — it doubles as the
+release note. No Devin/Windsurf attribution in commits, ever.
+
 ---
 
 ## 🔴 Open — Bugs / Errors
