@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ImagePlus, Loader2, Check, AlertCircle, RotateCw } from 'lucide-react';
 import { ICON_DATA } from './IconPicker';
-import { Portal } from '../utils/autoPlacement';
+import { Portal, useAnchoredPopup } from '../utils/autoPlacement';
 
 const ALL_ICONS = [...new Set(ICON_DATA.map((d) => d.icon))];
 const GRID_LIMIT = 30;
@@ -156,38 +156,42 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex 
     }
   };
 
-  // Anchored placement near the clicked icon (desktop); centered fallback.
-  const pos = (() => {
-    if (!anchor || window.innerWidth < 640) return null;
-    const M = 8;
-    const W = 288; // w-72
-    const H = 380; // approx panel height
-    const left = Math.min(Math.max(anchor.cx - W / 2, M), window.innerWidth - W - M);
-    if (anchor.bottom + 8 + H <= window.innerHeight - M) return { left, top: anchor.bottom + 8 };
-    if (anchor.top - 8 - H >= M) return { left, bottom: window.innerHeight - anchor.top + 8 };
-    return { left, top: M };
-  })();
+  // Shared auto-placement: below the clicked icon when it fits, above when
+  // there's more room, height-capped on short screens; bottom sheet on mobile.
+  const { pos, ref: anchorRef, maxHeight, isMobile } = useAnchoredPopup(anchor, { width: 288, height: 380 });
+
+  // Chrome (header+search+suggestions+upload row) ≈ 200px — cap the icon grid
+  const gridMax = `${Math.max(96, maxHeight - 200)}px`;
 
   const pick = (icon) => {
     onSelect(icon);
     onClose();
   };
 
+  const panelStyle = isMobile
+    ? { zIndex: zIndex + 1 }
+    : { zIndex: zIndex + 1, left: pos?.left ?? -9999, top: pos?.top ?? -9999, maxHeight };
+
   return (
     <Portal>
       {/* transparent backdrop — no dim, click outside closes */}
       <div className="fixed inset-0" style={{ zIndex }} onClick={onClose} />
       <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: 8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: 8 }}
+        ref={anchorRef}
+        initial={isMobile ? { opacity: 0, y: 60 } : { opacity: 0, scale: 0.9, y: 8 }}
+        animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, scale: 1, y: 0 }}
+        exit={isMobile ? { opacity: 0, y: 60 } : { opacity: 0, scale: 0.9, y: 8 }}
         transition={{ type: 'spring', damping: 24, stiffness: 320 }}
-        className="fixed w-72 max-w-[calc(100vw-16px)] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
-        style={{
-          zIndex: zIndex + 1,
-          ...(pos ? { left: pos.left, top: pos.top, bottom: pos.bottom } : { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }),
-        }}
+        className={`fixed bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden ${
+          isMobile
+            ? 'inset-x-0 bottom-0 rounded-t-2xl max-h-[72vh] border-b-0'
+            : 'w-72 max-w-[calc(100vw-16px)] rounded-2xl'
+        }`}
+        style={panelStyle}
       >
+        {isMobile && (
+          <div className="mx-auto mt-2 mb-1 h-1.5 w-10 rounded-full bg-gray-300 dark:bg-gray-600" />
+        )}
         {/* header */}
         <div className="flex items-center justify-between px-3 pt-2.5 pb-2 border-b border-gray-100 dark:border-gray-700">
           <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 truncate">
@@ -231,7 +235,7 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex 
         )}
 
         {/* icon grid */}
-        <div className="px-3 py-2 max-h-44 overflow-y-auto">
+        <div className="px-3 py-2 overflow-y-auto" style={{ maxHeight: gridMax }}>
           <div className="grid grid-cols-6 gap-1.5">
             {filtered.map((icon, i) => (
               <motion.button

@@ -123,6 +123,21 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Admin rail **Activity** button shows a live worst-status dot + popover with
   per-service badges; "Details" jumps to Admin › Services.
 
+### 20. Auto-placement API for anchored popups — NEW
+
+- `autoPlacement.js` gained `anchoredPopupPos` + `useAnchoredPopup`:
+  positions against an anchor RECT, opens below when it fits, flips above
+  when there's more room, clamps in-viewport, and returns `maxHeight` so
+  tall pickers cap their scroll region on short screens. Measures the real
+  element in a layout pass and recomputes on resize.
+- `QuickCategoryPicker` + `QuickIconPicker` migrated: anchored on desktop/
+  tablet, **bottom sheet** on mobile (<768px) instead of a floating
+  dead-center modal; scroll areas height-capped per side.
+- list_type chip only shows for behavioral types ('lab' w/ flask icon) —
+  'store'/'general' were noise next to the store dropdown
+- Per-list `✕` delete inside the list dropdown rows (role=button span —
+  nested <button> is invalid HTML; stopPropagation + confirm modal)
+
 ### 19. Shopping-list header round 2 — live counts, delete X, meta row
 
 - `lists[].item_count` now syncs from `items` on every change — the

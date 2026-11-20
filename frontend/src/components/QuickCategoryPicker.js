@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Wand2 } from 'lucide-react';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
-import { Portal } from '../utils/autoPlacement';
+import { Portal, useAnchoredPopup } from '../utils/autoPlacement';
 import {
   CANONICAL_CATEGORIES,
   canonicalizeCategory,
@@ -26,38 +26,54 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
     ? CANONICAL_CATEGORIES.filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase()))
     : CANONICAL_CATEGORIES;
 
-  // Anchored placement near the clicked chip; centered fallback on mobile.
-  const pos = (() => {
-    if (!anchor || typeof window === 'undefined' || window.innerWidth < 640) return null;
-    const M = 8;
-    const W = 288; // w-72
-    const H = 340;
-    const left = Math.min(Math.max(anchor.cx - W / 2, M), window.innerWidth - W - M);
-    if (anchor.bottom + 8 + H <= window.innerHeight - M) return { left, top: anchor.bottom + 8 };
-    if (anchor.top - 8 - H >= M) return { left, bottom: window.innerHeight - anchor.top + 8 };
-    return { left, top: M };
-  })();
+  // Anchored placement via the shared auto-placement API: below the chip
+  // when it fits, above when there's more room, height-capped on short
+  // screens. On mobile it's a bottom sheet — always reachable.
+  const { pos, ref, maxHeight, side, isMobile } = useAnchoredPopup(anchor, { width: 288, height: 340 });
 
   const pick = (name) => {
     onSelect(name);
     onClose();
   };
 
+  // Header (~40px) + detected-pill (~40px) + search (~48px) + padding
+  const scrollMax = `${Math.max(120, maxHeight - 130)}px`;
+
+  const panelStyle = isMobile
+    ? { transformStyle: 'preserve-3d' }
+    : {
+        left: pos?.left ?? -9999,
+        top: pos?.top ?? -9999,
+        maxHeight,
+        transformOrigin: side === 'above' ? 'bottom center' : 'top center',
+        transformStyle: 'preserve-3d',
+      };
+
   return (
     <Portal>
       <div className="fixed inset-0 z-[70]" onClick={onClose} />
       <motion.div
-        initial={{ opacity: 0, scale: 0.85, rotateX: -25, y: 8 }}
-        animate={{ opacity: 1, scale: 1, rotateX: 0, y: 0 }}
-        exit={{ opacity: 0, scale: 0.85, rotateX: -25, y: 8 }}
+        ref={ref}
+        initial={isMobile
+          ? { opacity: 0, y: 60 }
+          : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }}
+        animate={isMobile
+          ? { opacity: 1, y: 0 }
+          : { opacity: 1, scale: 1, rotateX: 0, y: 0 }}
+        exit={isMobile
+          ? { opacity: 0, y: 60 }
+          : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }}
         transition={{ type: 'spring', damping: 22, stiffness: 320 }}
-        style={{
-          ...(pos ? { left: pos.left, top: pos.top, bottom: pos.bottom } : { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }),
-          transformOrigin: 'top center',
-          transformStyle: 'preserve-3d',
-        }}
-        className="fixed z-[71] w-72 max-w-[calc(100vw-16px)] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+        style={panelStyle}
+        className={`fixed z-[71] bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden ${
+          isMobile
+            ? 'inset-x-0 bottom-0 rounded-t-2xl max-h-[72vh] border-b-0'
+            : 'w-72 max-w-[calc(100vw-16px)] rounded-2xl'
+        }`}
       >
+        {isMobile && (
+          <div className="mx-auto mt-2 mb-1 h-1.5 w-10 rounded-full bg-gray-300 dark:bg-gray-600" />
+        )}
         <div className="flex items-center justify-between px-3 pt-2.5 pb-2 border-b border-gray-100 dark:border-gray-700">
           <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 truncate">
             Category for “{itemName || 'item'}”
@@ -89,7 +105,7 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
         </div>
 
         <AnimatedScrollbar3D
-          maxHeight="14rem"
+          maxHeight={scrollMax}
           thumbColor="bg-gradient-to-b from-primary-400 to-primary-600"
           glowColor="primary"
           autoHide={false}

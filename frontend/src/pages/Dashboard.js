@@ -11,7 +11,7 @@ import {
   AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, 
   ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, Eye, EyeOff, 
   StickyNote, Store, ChevronDown, ChevronUp, Save, ArrowRight, FileText, Zap, 
-  MapPin, List, Wand2, Grid, RefreshCw, MoreVertical
+  MapPin, List, Wand2, Grid, RefreshCw, MoreVertical, FlaskConical
 } from 'lucide-react';
 import EditorToolbar from '../components/editor/EditorToolbar';
 import EditorOverlay, { EditorModeIndicator, EditableContainer } from '../components/editor/EditorOverlay';
@@ -1887,11 +1887,38 @@ const Dashboard = () => {
                           onChange={(list) => setActiveList(list)}
                           renderValue={(list) => `${list.name} (${list.item_count || 0} items)`}
                           renderItem={(list) => (
-                            <div className="flex flex-col">
-                              <span className="font-medium">{list.name}</span>
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
-                                {list.item_count || 0} items
-                              </span>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-medium truncate">{list.name}</span>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  {list.item_count || 0} items
+                                </span>
+                              </div>
+                              {/* role="button" span, not <button>: renderItem sits
+                                  inside the dropdown's own <button> — nesting a real
+                                  one is invalid HTML. stopPropagation keeps the row
+                                  from also selecting the list. */}
+                              {lists.length > 1 && (
+                                <span
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteList(list.id);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      deleteList(list.id);
+                                    }
+                                  }}
+                                  className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/30 transition-colors flex-shrink-0"
+                                  title={`Delete "${list.name}"`}
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </span>
+                              )}
                             </div>
                           )}
                           searchable={lists.length > 5}
@@ -1939,9 +1966,16 @@ const Dashboard = () => {
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          {activeList.list_type && activeList.list_type !== 'general' && (
-                            <span className="flex-shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700">
-                              {activeList.list_type}
+                          {/* Only flag types that change how the list behaves —
+                              'general'/'store' are already obvious from the store
+                              dropdown below, so they earn no chip. */}
+                          {activeList.list_type && !['general', 'store'].includes(activeList.list_type) && (
+                            <span
+                              className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700"
+                              title={`This is a ${activeList.list_type} list`}
+                            >
+                              {activeList.list_type === 'lab' && <FlaskConical className="w-3 h-3" />}
+                              {activeList.list_type === 'lab' ? 'Lab list' : activeList.list_type}
                             </span>
                           )}
                           {/* Progress pill — big, right-aligned, reads at a glance */}

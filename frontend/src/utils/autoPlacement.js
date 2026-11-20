@@ -113,6 +113,79 @@ export const useAutoPlacement = (x, y, opts = {}) => {
 };
 
 /**
+ * Position a popup against an anchor RECT (not a point) — the shape the
+ * icon/category pickers pass around: { left, right, top, bottom, cx? }.
+ *
+ * Prefers opening BELOW the anchor (where the user expects it), flips above
+ * when there's more room, always clamps inside the viewport, and reports
+ * `maxHeight` — the real space on the chosen side — so tall pickers can cap
+ * their scroll region on short screens instead of overflowing.
+ */
+export const anchoredPopupPos = (anchor, opts = {}) => {
+  const { width = 288, height = 340, margin = 8, gap = 8 } = opts;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const cx = anchor.cx ?? (anchor.left + anchor.right) / 2;
+
+  // Horizontal: center on the anchor, clamp inside the viewport.
+  const left = Math.round(
+    Math.min(Math.max(cx - width / 2, margin), Math.max(margin, vw - width - margin))
+  );
+
+  // Vertical: pick the side that fits, or the side with more room.
+  const belowTop = anchor.bottom + gap;
+  const spaceBelow = vh - margin - belowTop;
+  const spaceAbove = anchor.top - gap - margin;
+  const side = spaceBelow >= height || spaceBelow >= spaceAbove ? 'below' : 'above';
+
+  const usable = side === 'below' ? spaceBelow : spaceAbove;
+  const shownHeight = Math.min(height, Math.max(usable, 160));
+
+  let top = side === 'below' ? belowTop : anchor.top - gap - shownHeight;
+  top = Math.min(Math.max(top, margin), Math.max(margin, vh - shownHeight - margin));
+
+  return { left, top: Math.round(top), maxHeight: Math.round(shownHeight), side };
+};
+
+/**
+ * Hook form of anchoredPopupPos. Measures the real popup after mount and
+ * re-clamps in the same layout pass (no visible jump); recalculates on
+ * resize and whenever the anchor moves.
+ *
+ * Returns { pos, ref, maxHeight, side, isMobile } — `pos` is null on mobile
+ * (callers render a bottom sheet instead).
+ */
+export const useAnchoredPopup = (anchor, opts = {}) => {
+  const ref = useRef(null);
+  const isMobile = useIsMobile(opts.breakpoint);
+  const [pos, setPos] = useState(() => (anchor && !isMobile ? anchoredPopupPos(anchor, opts) : null));
+  const args = useRef({ anchor, opts });
+  args.current = { anchor, opts };
+
+  useLayoutEffect(() => {
+    if (!ref.current || !anchor || isMobile) {
+      setPos(null);
+      return undefined;
+    }
+    const measure = () => {
+      const r = ref.current?.getBoundingClientRect();
+      if (!r) return;
+      const { anchor: a, opts: o } = args.current;
+      const next = anchoredPopupPos(a, { ...o, width: r.width, height: r.height });
+      setPos((prev) =>
+        prev && prev.left === next.left && prev.top === next.top &&
+        prev.maxHeight === next.maxHeight && prev.side === next.side ? prev : next
+      );
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [anchor, isMobile]);
+
+  return { pos, ref, maxHeight: pos?.maxHeight ?? opts.height ?? 340, side: pos?.side ?? 'below', isMobile };
+};
+
+/**
  * All-in-one fixed-position popup: portal + placement + ref measurement.
  * On small screens (or when `sheet` is forced) it becomes a bottom sheet
  * instead of a pointer-anchored popup.
