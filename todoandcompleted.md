@@ -440,3 +440,9 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - 3D animation layer: chooser + step boxes enter with rotateX perspective flips; step emoji does a rotateY spin; demo cursor tilts and pulses an isometric "floor tap" ellipse. All gated on prefers-reduced-motion. Fixed framer-motion transform clobbering Tailwind centering (positioning moved to static wrappers).
 - Custom API for the opt-out checkbox: POST /users/onboarding now accepts {never}; GET returns it — "don't show automatically" follows the account across devices (migration 103 adds users.onboarding_never).
 - Smart Suggestions richer rows: item icon (emoji or uploaded image), category chip, and "Have X unit" badge from Home Inventory — the enrich query now joins inventory + preferred_icon/category.
+
+## Tutorial v5.1 — pointing polish + autoplay (committed)
+- Connector line draws itself from the tutorial box edge to the element center (animated SVG path + target dot) so it is obvious what each box explains.
+- Spotlight upgraded: primary ring + a second breathing halo ring pulsing around the element.
+- Click-anywhere removed: stray clicks now just flash the Next button; advancing is via Next/Back/ESC/arrows.
+- Autoplay "video" mode: Play/Pause button in the box footer auto-advances (3.5s + 1.4s per bullet) with a top progress bar — watches like a video.

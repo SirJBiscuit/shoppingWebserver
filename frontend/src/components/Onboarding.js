@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, ChevronRight, ChevronLeft, Check, MousePointer2, Zap, BookOpen } from 'lucide-react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { X, ChevronRight, ChevronLeft, Check, MousePointer2, Zap, BookOpen, Play, Pause } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Portal, anchoredPopupPos } from '../utils/autoPlacement';
 import api from '../services/api';
@@ -24,7 +24,7 @@ const WALKTHROUGH_STEPS = [
     instructions: [
       '🔁 The loop: make a list → shop and check off → Unpack into Home Inventory → cook with Recipes and the Homemade Lab',
       '🖱️ Watch the cursor — it points at each control and shows you how it works',
-      '👆 Tap anywhere (or Next) to continue · ESC skips',
+      '👆 Press Next to continue — ▶ plays it like a video · ESC skips',
     ],
   },
   {
@@ -161,6 +161,9 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
   const [targetRect, setTargetRect] = useState(null); // focused element bounds
   const [cursor, setCursor] = useState(null); // demo cursor target point
   const [pulseKey, setPulseKey] = useState(0); // retrigger the tap ripple per step
+  const [autoPlay, setAutoPlay] = useState(false); // "video" mode — auto-advances
+  const [nudge, setNudge] = useState(0); // flashes the Next button on stray clicks
+  const [boxRect, setBoxRect] = useState(null); // measured box for the connector line
   const boxRef = useRef(null);
   const reduceMotion = useReducedMotion();
 
@@ -322,6 +325,23 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
     setPulseKey(k => k + 1);
   }, [targetRect]);
 
+  // Autoplay ("video") mode — advance on a timer scaled to step content.
+  const stepMs = 3500 + (step?.instructions?.length || 0) * 1400;
+  useEffect(() => {
+    if (!autoPlay || !mode || showSkipMessage || !step) return undefined;
+    const t = setTimeout(nextStep, stepMs);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPlay, currentStep, mode, showSkipMessage, nextStep]);
+
+  // Measure the rendered box so the connector line anchors to its real edge.
+  useLayoutEffect(() => {
+    if (!boxRef.current || !targetRect) { setBoxRect(null); return; }
+    const r = boxRef.current.getBoundingClientRect();
+    setBoxRect({ left: r.left, top: r.top, width: r.width, height: r.height });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, targetRect]);
+
   if (!isOpen) return null;
 
   // Floating box placement — anchored to the element when one is focused,
@@ -420,31 +440,100 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
           </motion.div>
         ) : (
           <>
-            {/* Click-anywhere-to-continue layer — fully transparent, page stays visible. */}
+            {/* Stray-click shield — keeps the demo safe; flashes Next to guide. */}
             <div
-              className="fixed inset-0 z-[10000] cursor-pointer"
-              onClick={nextStep}
+              className="fixed inset-0 z-[10000]"
+              onClick={() => setNudge(n => n + 1)}
               role="presentation"
-              aria-label="Continue tutorial"
+              aria-hidden="true"
             />
 
-            {/* Soft ring around the focused element — points at it without dimming. */}
+            {/* Spotlight ring — breathes so the eye keeps finding the target. */}
             {targetRect && (
-              <motion.div
-                key={`ring-${currentStep}`}
-                className="fixed z-[10001] pointer-events-none rounded-xl"
-                initial={{ opacity: 0 }}
-                animate={{
-                  opacity: 1,
-                  left: targetRect.left - 6,
-                  top: targetRect.top - 6,
-                  width: targetRect.width + 12,
-                  height: targetRect.height + 12,
-                }}
-                transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-                style={{ boxShadow: '0 0 0 3px rgba(59,130,246,0.85), 0 0 22px 4px rgba(59,130,246,0.35)' }}
-              />
+              <>
+                <motion.div
+                  key={`ring-${currentStep}`}
+                  className="fixed z-[10001] pointer-events-none rounded-xl"
+                  initial={{ opacity: 0 }}
+                  animate={{
+                    opacity: 1,
+                    left: targetRect.left - 6,
+                    top: targetRect.top - 6,
+                    width: targetRect.width + 12,
+                    height: targetRect.height + 12,
+                  }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+                  style={{ boxShadow: '0 0 0 3px rgba(59,130,246,0.9), 0 0 24px 6px rgba(59,130,246,0.4)' }}
+                />
+                {!reduceMotion && (
+                  <motion.div
+                    key={`halo-${currentStep}`}
+                    className="fixed z-[10000] pointer-events-none rounded-xl"
+                    animate={{
+                      left: targetRect.left - 6,
+                      top: targetRect.top - 6,
+                      width: targetRect.width + 12,
+                      height: targetRect.height + 12,
+                      scale: [1, 1.06, 1],
+                      opacity: [0.5, 0.9, 0.5],
+                    }}
+                    transition={{
+                      left: { type: 'spring', stiffness: 300, damping: 28 },
+                      top: { type: 'spring', stiffness: 300, damping: 28 },
+                      width: { type: 'spring', stiffness: 300, damping: 28 },
+                      height: { type: 'spring', stiffness: 300, damping: 28 },
+                      scale: { duration: 1.6, repeat: Infinity, ease: 'easeInOut' },
+                      opacity: { duration: 1.6, repeat: Infinity, ease: 'easeInOut' },
+                    }}
+                    style={{ boxShadow: '0 0 0 2px rgba(147,197,253,0.8)' }}
+                  />
+                )}
+              </>
             )}
+
+            {/* Connector line — draws itself from the box edge to the element. */}
+            {targetRect && boxRect && (() => {
+              const ex = targetRect.left + targetRect.width / 2;
+              const ey = targetRect.top + targetRect.height / 2;
+              let bx, by;
+              if (ey < boxRect.top) {
+                by = boxRect.top;
+                bx = Math.min(Math.max(ex, boxRect.left + 12), boxRect.left + boxRect.width - 12);
+              } else if (ey > boxRect.top + boxRect.height) {
+                by = boxRect.top + boxRect.height;
+                bx = Math.min(Math.max(ex, boxRect.left + 12), boxRect.left + boxRect.width - 12);
+              } else {
+                by = Math.min(Math.max(ey, boxRect.top + 12), boxRect.top + boxRect.height - 12);
+                bx = ex < boxRect.left ? boxRect.left : boxRect.left + boxRect.width;
+              }
+              const mx = (bx + ex) / 2, my = (by + ey) / 2 - Math.min(28, Math.abs(ey - by) / 3);
+              return (
+                <svg className="fixed inset-0 z-[10002] pointer-events-none w-full h-full" aria-hidden="true">
+                  <motion.path
+                    key={`conn-${currentStep}`}
+                    d={`M ${bx} ${by} Q ${mx} ${my} ${ex} ${ey}`}
+                    fill="none"
+                    stroke="rgba(59,130,246,0.85)"
+                    strokeWidth="2"
+                    strokeDasharray="1 0"
+                    strokeLinecap="round"
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: reduceMotion ? 0 : 0.5, ease: 'easeOut', delay: 0.15 }}
+                  />
+                  <motion.circle
+                    key={`dot-${currentStep}`}
+                    cx={ex} cy={ey} r="4"
+                    fill="rgba(59,130,246,0.95)"
+                    stroke="white" strokeWidth="1.5"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: reduceMotion ? 0 : 0.6 }}
+                  />
+                  <circle cx={bx} cy={by} r="3" fill="rgba(59,130,246,0.9)" />
+                </svg>
+              );
+            })()}
 
             {/* Animated demo cursor — glides to the element and pulses an
                 isometric "floor tap" ripple (elliptical = depth cue). */}
@@ -485,6 +574,16 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
               role="dialog"
               aria-label={`Tutorial step ${currentStep + 1} of ${steps.length}`}
             >
+              {autoPlay && (
+                <motion.div
+                  key={`autoplay-${currentStep}`}
+                  className="h-1 bg-primary-500"
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ duration: stepMs / 1000, ease: 'linear' }}
+                  style={{ transformOrigin: 'left' }}
+                />
+              )}
               <div className="p-3.5 pb-2.5">
                 <div className="flex items-start justify-between mb-1">
                   <div className="flex items-center gap-2 min-w-0">
@@ -538,6 +637,15 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
                       <ChevronLeft className="w-4 h-4 text-gray-500" />
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setAutoPlay(a => !a)}
+                    className={`p-1 rounded-lg transition-colors ${autoPlay ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-600' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400'}`}
+                    aria-label={autoPlay ? 'Pause auto tour' : 'Auto-play tour'}
+                    title={autoPlay ? 'Pause the auto tour' : 'Auto-play — walks through like a video'}
+                  >
+                    {autoPlay ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                  </button>
                   <div className="flex gap-1">
                     {steps.map((_, i) => (
                       <span key={i} className={`w-1.5 h-1.5 rounded-full ${i === currentStep ? 'bg-primary-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
@@ -545,22 +653,25 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
                   </div>
                   <span className="text-[10px] text-gray-400">{currentStep + 1}/{steps.length}</span>
                 </div>
-                <button
+                <motion.button
+                  key={`next-${nudge}`}
                   type="button"
                   onClick={nextStep}
+                  animate={nudge > 0 ? { scale: [1, 1.14, 1] } : false}
+                  transition={{ duration: 0.35 }}
                   className="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold flex items-center gap-1"
                 >
                   {currentStep === steps.length - 1 ? 'Done' : 'Next'}
                   {currentStep === steps.length - 1 ? <Check className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                </button>
+                </motion.button>
               </div>
             </motion.div>
             </div>
 
-            {/* Hint — tap anywhere to continue */}
+            {/* Hint */}
             <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[10001] pointer-events-none">
               <span className="text-[11px] px-2.5 py-1 rounded-full bg-black/55 text-white backdrop-blur-sm">
-                tap anywhere to continue · ESC to skip
+                Next to continue · ▶ auto tour · ESC to skip
               </span>
             </div>
           </>
