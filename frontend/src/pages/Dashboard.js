@@ -27,6 +27,7 @@ import PageTransition from '../components/PageTransition';
 import AnimatedCart from '../components/AnimatedCart';
 import BudgetTracker from '../components/BudgetTracker';
 import FloatingButtons from '../components/FloatingButtons';
+import { isImageIcon } from '../utils/iconUpload';
 import NtfyPanel from '../components/NtfyPanel';
 import ShareList from '../components/ShareList';
 import LevelingSystem, { XP_REWARDS } from '../components/LevelingSystem';
@@ -2243,13 +2244,17 @@ const Dashboard = () => {
                     {newItemIcon && (
                       <motion.span
                         key={newItemIcon}
-                        initial={{ scale: 0, rotate: -90 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        exit={{ scale: 0, opacity: 0 }}
+                        // framer-motion owns transform — centering must be a
+                        // motion value (y:'-50%'), not a Tailwind translate.
+                        initial={{ scale: 0, rotate: -90, y: '-50%' }}
+                        animate={{ scale: 1, rotate: 0, y: '-50%' }}
+                        exit={{ scale: 0, opacity: 0, y: '-50%' }}
                         transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-2xl pointer-events-none z-10"
+                        className="absolute left-3 top-1/2 text-2xl pointer-events-none z-10 leading-none"
                       >
-                        {newItemIcon}
+                        {isImageIcon(newItemIcon) ? (
+                          <img src={newItemIcon} alt="" className="w-7 h-7 rounded object-cover" />
+                        ) : newItemIcon}
                       </motion.span>
                     )}
                     </AnimatePresence>

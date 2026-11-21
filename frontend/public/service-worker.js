@@ -1,6 +1,6 @@
 /* eslint-env worker */
 /* global globalThis */
-const CACHE_NAME = 'listzy-shell-v6';
+const CACHE_NAME = 'listzy-shell-v7';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -79,6 +79,12 @@ const offlineFallback = () =>
 const errorRedirect = (status) =>
   Response.redirect(`/down.html?code=${status}`, 302);
 
+// Deploy window — a maintenance-marked response arms this for 12 minutes.
+// While it's live, error/unreachable navigations are almost certainly the
+// port handoff gap (maintenance down -> app still booting), so we keep
+// showing updating.html instead of falsely landing on down.html.
+let deployUntil = 0;
+
 // Status pages must NEVER redirect: /down.html?code=502 is itself a
 // navigation, and redirecting an error response for it loops forever —
 // that was the ERR_TOO_MANY_REDIRECTS bug. They always answer with the
@@ -129,21 +135,26 @@ globalThis.addEventListener('fetch', (event) => {
           // Maintenance placeholder answering → show it and keep our cached
           // copy fresh, but never store it as the app shell.
           if (response.headers.get(MAINTENANCE_HEADER)) {
+            deployUntil = Date.now() + 12 * 60 * 1000;
             if (response.ok) put('/updating.html', response);
             return response;
           }
           // Origin reachable and healthy → refresh the shell cache
           if (cacheable(response)) {
+            deployUntil = 0;
             put('/index.html', response);
             return response;
           }
+          // Still inside the deploy window → the app is mid handoff; keep
+          // the updating page, not the error page.
+          if (Date.now() < deployUntil) return updatingFallback();
           // Server answered with an error (500/502/404/…) → the "something
           // went wrong" page with the code, never a half-broken shell.
           return errorRedirect(response.status);
         })
-        // No answer at all → the "can't reach Listzy" page (user offline or
-        // hosting/Cloudflare down — out of the admin's hands).
-        .catch(() => offlineFallback())
+        // No answer at all → during a deploy that's the swap gap (updating);
+        // otherwise the "can't reach Listzy" page (user offline or tunnel down).
+        .catch(() => (Date.now() < deployUntil ? updatingFallback() : offlineFallback()))
     );
     return;
   }

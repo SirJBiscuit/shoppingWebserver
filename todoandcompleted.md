@@ -451,3 +451,8 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - update-server.sh writes "step|6|label" to maintenance/progress.txt at each deploy phase (swap → stop → build → start → migrations → almost done), mounted read-only into the placeholder nginx.
 - updating.html polls /progress.txt every 2s — swaps the indeterminate slider for a real fill % + "Building the new version — step 3 of 6" label; falls back to the slider when the file is absent or at step 0. Script resets the file to waiting after completion.
 - update-quick.sh doesn't swap the placeholder — no progress there (by design).
+
+## Icon overlap fix + updating page fit + down.html fix (committed)
+- Add-item icon: framer-motion was clobbering the Tailwind -translate-y-1/2 so the emoji sat low over the input — centering is now a motion value (y:'-50%'); uploaded-image icons render as <img> instead of raw URL text.
+- updating.html: card capped at viewport height; "In this update" list scrolls in a compact 3d-styled scrollbar (168px).
+- down.html after deploy: SW now arms a 12-minute deploy window when it sees the maintenance header — 5xx/unreachable navs during the gap keep showing updating.html instead of the error page. Cache bump v7.
