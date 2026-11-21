@@ -58,7 +58,25 @@ const PORT = process.env.PORT || 3007;
 app.set('trust proxy', 1);
 
 app.use(helmet());
-app.use(cors());
+
+// CORS — the frontend calls /api same-origin through the nginx proxy, so
+// browsers need no cross-origin access at all. A strict allowlist blocks
+// malicious cross-origin fetches (CSRF-by-XHR, token exfil attempts) while
+// origin-less requests (curl, server-to-server, same-origin navs) pass.
+// Extra origins (tunnel hostnames, LAN IPs) via CORS_ORIGINS="a,b".
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',').map((s) => s.trim()).filter(Boolean);
+if (allowedOrigins.length === 0) {
+  allowedOrigins.push(
+    'https://listzy.app',
+    'http://localhost:3000', 'http://localhost:3006',
+    'http://127.0.0.1:3000', 'http://127.0.0.1:3006'
+  );
+}
+app.use(cors({
+  origin: (origin, cb) => cb(null, !origin || allowedOrigins.includes(origin)),
+}));
+
 app.use(express.json({ limit: '5mb' }));
 
 const limiter = rateLimit({
@@ -69,7 +87,20 @@ const limiter = rateLimit({
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 
+// Credential endpoints get a much tighter bucket — 30 failed attempts per
+// 15 min per IP makes password spraying pointless, while successful
+// logins/registers never count against the user (skipSuccessfulRequests).
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  skipSuccessfulRequests: true,
+  message: 'Too many login attempts from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use('/api/', limiter);
+app.use('/api/auth', authLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/auth/quick-login', require('./routes/quickLogin'));
@@ -138,7 +169,7 @@ app.use((err, req, res, next) => {
 // schema_migrations (see src/database/runMigrations.js).
 const { runMigrations: runTrackedMigrations } = require('./database/runMigrations');
 const runMigrations = () => runTrackedMigrations();
-app.listen(PORT, '0.0.0.0', async () => {
+const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   
@@ -167,3 +198,10 @@ app.listen(PORT, '0.0.0.0', async () => {
     console.log('ℹ️  Auto-updater disabled in development mode');
   }
 });
+
+// Slow-request hardening — keepAlive stays above nginx's proxy idle (60s)
+// so the proxy wins the close race; headers/request timeouts kill stalled
+// connections that would otherwise pin a worker (slowloris-style).
+server.keepAliveTimeout = 65_000;
+server.headersTimeout = 66_000;
+server.requestTimeout = 60_000;

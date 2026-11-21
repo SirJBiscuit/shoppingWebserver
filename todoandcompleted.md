@@ -485,3 +485,10 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - api.js: maintenance detector on BOTH axios layers (shared api instance + default axios for inventoryAPI et al). Any API response with X-Listzy-Maintenance or a text/html body redirects to /updating.html and returns a never-settling promise so callers can't .map() the HTML and crash.
 - ErrorBoundary.js: on crash, if __listzyDeploy is set or a /api/system/status probe comes back with the maintenance header / text/html, it swaps to updating.html instead of "Oops something went wrong".
 - index.js: SW update() rejection (maintenance serves HTML for service-worker.js -> MIME SecurityError) is now caught and retried on the next 60s tick instead of an uncaught console error.
+
+## Security hardening pass (committed)
+- server.js: /api/auth strict limiter — 30 failed attempts per 15min/IP, successful logins don't count (stops password spraying without locking real users out).
+- server.js: CORS was wide open (reflects any origin) — now an allowlist (listzy.app + localhost dev), extendable via CORS_ORIGINS env; origin-less requests (curl, server-to-server) still pass.
+- server.js: slow-request defense — keepAliveTimeout 65s, headersTimeout 66s, requestTimeout 60s kills stalled/slowloris-style connections.
+- auth.js: failed logins log username + IP so brute-force waves are visible in container logs.
+- maintenance/nginx.conf (prev commit): nosniff / DENY framing / no-referrer / permissions-policy on the deploy placeholder.

@@ -92,6 +92,9 @@ router.post('/login',
       const isValidPassword = await bcrypt.compare(password, user.password_hash);
 
       if (!isValidPassword) {
+        // Log failed attempts so brute-force waves show up in the logs —
+        // username only, never the password.
+        console.warn(`Failed login for "${username}" from ${req.ip}`);
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
