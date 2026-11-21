@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { KeyRound, ShieldCheck, RotateCcw, Copy, Check, Trash2, Grid3X3, Loader2 } from 'lucide-react';
+import { KeyRound, ShieldCheck, RotateCcw, Copy, Check, Trash2, Grid3X3, Loader2, Undo2 } from 'lucide-react';
 import { quickLoginAPI } from '../../services/api';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
 
@@ -129,6 +129,13 @@ const QuickLoginSetup = () => {
         </div>
       )}
 
+      {status?.needsReset && (
+        <div className="mb-4 px-3 py-2 rounded-lg text-sm bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300">
+          Your saved sequence can't be read (it may predate a security update).
+          Tap {SEQ_MIN}–{SEQ_MAX} symbols below and save a new one.
+        </div>
+      )}
+
       {/* Sequence builder */}
       <div className="mb-5">
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-2">
@@ -163,17 +170,19 @@ const QuickLoginSetup = () => {
           })}
         </div>
         <div className="flex items-center gap-2 mb-3">
-          <div className="flex gap-1 min-h-[24px]">
+          <div className="flex gap-1 min-h-[24px] flex-wrap">
             {seq.map((s, i) => (
-              <motion.span
+              <motion.button
                 key={`${s}-${i}`}
+                type="button"
+                onClick={() => setSeq(seq.filter((_, j) => j !== i))}
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="w-7 h-7 bg-primary-100 dark:bg-primary-900/40 border border-primary-300 dark:border-primary-700 rounded-md flex items-center justify-center text-sm"
-                title={`Position ${i + 1}`}
+                className="w-7 h-7 bg-primary-100 dark:bg-primary-900/40 border border-primary-300 dark:border-primary-700 rounded-md flex items-center justify-center text-sm hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+                title={`Position ${i + 1} — click to remove`}
               >
                 {s}
-              </motion.span>
+              </motion.button>
             ))}
           </div>
           <span className={`text-xs ${seq.length >= SEQ_MIN ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
@@ -181,6 +190,14 @@ const QuickLoginSetup = () => {
           </span>
         </div>
         <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setSeq(seq.slice(0, -1))}
+            disabled={seq.length === 0}
+            className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <Undo2 className="w-4 h-4" /> Undo
+          </button>
           <button
             type="button"
             onClick={() => setSeq([])}

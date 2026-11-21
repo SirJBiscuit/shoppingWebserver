@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, KeyRound, Grid3X3, RotateCcw, Loader2, ShieldCheck } from 'lucide-react';
+import { X, KeyRound, Grid3X3, RotateCcw, Loader2, ShieldCheck, Undo2 } from 'lucide-react';
 import { quickLoginAPI } from '../../services/api';
 
 /**
@@ -65,10 +65,12 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
   };
 
   const tap = (idx) => {
-    if (taps.length >= (challenge?.positions.length || 0)) return;
+    if (loading || taps.length >= (challenge?.positions?.length || 0)) return;
     setTaps((t) => [...t, idx]);
     setError('');
   };
+
+  const undoTap = () => setTaps((t) => t.slice(0, -1));
 
   const submitSymbols = async () => {
     setLoading(true);
@@ -98,7 +100,7 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
     }
   };
 
-  const needed = challenge?.positions.length || 0;
+  const needed = challenge?.positions?.length || 0;
   const tappedOrder = new Map(taps.map((gridIdx, i) => [gridIdx, i + 1]));
 
   return (
@@ -175,12 +177,37 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
               ) : (
                 <div className="space-y-4">
                   <p className="text-sm text-gray-700 dark:text-gray-300 text-center">
-                    Tap the{' '}
-                    <span className="font-bold text-primary-600 dark:text-primary-400">
-                      {challenge.positions.map(ordinal).join(', ')}
-                    </span>{' '}
-                    symbols of your sequence
+                    {taps.length < needed ? (
+                      <>
+                        Tap your{' '}
+                        <span className="font-bold text-primary-600 dark:text-primary-400">
+                          {ordinal(challenge.positions[taps.length])}
+                        </span>{' '}
+                        symbol
+                        <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                          {taps.length + 1} of {needed} · in this order
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-green-600 dark:text-green-400 font-medium">
+                        All {needed} entered — sign in below
+                      </span>
+                    )}
                   </p>
+                  <div className="flex items-center justify-center gap-1.5">
+                    {challenge.positions.map((pos, i) => (
+                      <span
+                        key={pos}
+                        className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                          i < taps.length
+                            ? 'bg-primary-500'
+                            : i === taps.length
+                              ? 'bg-primary-300 dark:bg-primary-600 animate-pulse'
+                              : 'bg-gray-200 dark:bg-gray-600'
+                        }`}
+                      />
+                    ))}
+                  </div>
                   <div className="grid grid-cols-4 gap-2">
                     {challenge.grid.map((symbol, idx) => {
                       const order = tappedOrder.get(idx);
@@ -206,11 +233,23 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                       );
                     })}
                   </div>
+                  <p className="text-xs text-center text-gray-400 dark:text-gray-500">
+                    Positions needed: {challenge.positions.map(ordinal).join(', ')}
+                  </p>
                   <div className="flex gap-2">
                     <button
                       type="button"
+                      onClick={undoTap}
+                      disabled={taps.length === 0 || loading}
+                      className="btn-secondary text-sm flex items-center justify-center gap-1 disabled:opacity-50 px-3"
+                      title="Undo last tap"
+                    >
+                      <Undo2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setTaps([])}
-                      disabled={taps.length === 0}
+                      disabled={taps.length === 0 || loading}
                       className="flex-1 btn-secondary text-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
                     >
                       <RotateCcw className="w-4 h-4" /> Clear

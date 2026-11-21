@@ -55,6 +55,21 @@ const decryptSeq = (blob) => {
   return JSON.parse(plain.toString('utf8'));
 };
 
+// Returns the decoded sequence or null when the stored blob is unreadable
+// (key rotation, partial/legacy write). Callers treat null like "not set up"
+// but tell the admin to re-save instead of erroring the whole request.
+const tryDecryptSeq = (blob) => {
+  if (!blob) return null;
+  try {
+    const seq = decryptSeq(blob);
+    return Array.isArray(seq) && seq.every((s) => SYMBOL_SET.includes(s)) ? seq : null;
+  } catch {
+    return null;
+  }
+};
+
+const RESETUP_MSG = 'Sequence data unreadable — save a new sequence in Admin → Security';
+
 const shuffle = (arr) => {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -127,9 +142,11 @@ router.get('/status', authenticateToken, isAdmin, async (req, res) => {
       'SELECT COUNT(*)::int AS n FROM quick_login_codes WHERE user_id = $1 AND used_at IS NULL',
       [req.user.id]
     );
+    const seq = tryDecryptSeq(row.quick_seq);
     res.json({
-      enabled: !!row.quick_seq,
-      seqLength: row.quick_seq ? decryptSeq(row.quick_seq).length : 0,
+      enabled: !!seq,
+      needsReset: !!row.quick_seq && !seq,
+      seqLength: seq ? seq.length : 0,
       codesLeft: codes.rows[0]?.n || 0,
       lockedUntil: isLocked(row) ? row.quick_locked_until : null,
     });
@@ -149,10 +166,13 @@ router.post('/setup', authenticateToken, isAdmin, async (req, res) => {
     });
   }
   try {
-    await db.query(
+    const result = await db.query(
       'UPDATE users SET quick_seq = $1, quick_failed = 0, quick_locked_until = NULL WHERE id = $2 AND is_admin = true',
       [encryptSeq(sequence), req.user.id]
     );
+    if (result.rowCount === 0) {
+      return res.status(403).json({ error: 'Quick login requires an admin account' });
+    }
     res.json({ message: 'Quick login enabled' });
   } catch (error) {
     console.error('Quick login setup error:', error);
@@ -202,7 +222,7 @@ router.post('/challenge', async (req, res) => {
   }
   try {
     const result = await db.query(
-      'SELECT id, quick_seq, quick_locked_until FROM users WHERE username = $1 AND is_admin = true',
+      'SELECT id, quick_seq, quick_locked_until FROM users WHERE LOWER(username) = LOWER($1) AND is_admin = true',
       [username.trim()]
     );
     const user = result.rows[0];
@@ -212,7 +232,10 @@ router.post('/challenge', async (req, res) => {
     }
     if (isLocked(user)) return lockedResponse(res, user);
 
-    const seqLen = decryptSeq(user.quick_seq).length;
+    const seqLen = tryDecryptSeq(user.quick_seq)?.length;
+    if (!seqLen) {
+      return res.status(400).json({ error: RESETUP_MSG });
+    }
     const positions = pickPositions(seqLen);
     const grid = shuffle(SYMBOL_SET);
     const challengeToken = jwt.sign(
@@ -251,7 +274,10 @@ router.post('/verify', async (req, res) => {
     }
     if (isLocked(user)) return lockedResponse(res, user);
 
-    const seq = decryptSeq(user.quick_seq);
+    const seq = tryDecryptSeq(user.quick_seq);
+    if (!seq) {
+      return res.status(400).json({ error: RESETUP_MSG });
+    }
     const { pos, grid } = payload;
     const validShape =
       Array.isArray(pos) && Array.isArray(grid) &&
@@ -288,7 +314,7 @@ router.post('/code', async (req, res) => {
   }
   try {
     const result = await db.query(
-      'SELECT id, username, is_beta_tester, quick_failed, quick_locked_until FROM users WHERE username = $1 AND is_admin = true',
+      'SELECT id, username, is_beta_tester, quick_failed, quick_locked_until FROM users WHERE LOWER(username) = LOWER($1) AND is_admin = true',
       [username.trim()]
     );
     const user = result.rows[0];

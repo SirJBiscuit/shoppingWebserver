@@ -498,3 +498,11 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Banned IPs get 403 on every /api path via banMiddleware mounted before all routes.
 - ntfy notifyAdmin on each new ban ("IP blocked — brute force detected", priority 4).
 - Admin API /api/admin/security: GET /bans, POST /bans {ip, reason?, hours?}, DELETE /bans/:ip.
+
+## Quick login — sequence input fix (committed)
+- Root cause: verify needs taps in the EXACT sorted position order (tap N must equal the symbol at position N of the secret). The old UI showed "tap the 2nd, 5th, 7th" as one list — tapping them as you spotted them in the grid (e.g. 7th first) silently failed every time with "Incorrect sequence".
+- QuickLoginModal.js: step-by-step prompt — "Tap your 2nd symbol — 1 of 3, in this order" — advancing per tap, plus progress dots; full position list kept as a reference line; new Undo button removes just the last tap; taps locked during submit; positions length access hardened (?.length) so a missing field can't crash the modal.
+- QuickLoginSetup.js: sequence chips are click-to-remove (was Clear-all only for a mis-tap), added Undo button, and a needsReset banner when the stored sequence can't be decrypted (e.g. after secret rotation).
+- quickLogin.js (backend): tryDecryptSeq() wrapper — unreadable quick_seq blob now returns a clear "save a new sequence in Admin -> Security" 400 instead of a 500 on /challenge, /verify and /status (status also reports needsReset).
+- /setup now checks rowCount — a non-admin account no longer gets a fake "Quick login enabled" success on a 0-row update.
+- /challenge and /code username lookup is now case-insensitive (LOWER = LOWER) — "Guy69" vs "guy69" no longer fails the challenge.
