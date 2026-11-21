@@ -492,3 +492,9 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - server.js: slow-request defense — keepAliveTimeout 65s, headersTimeout 66s, requestTimeout 60s kills stalled/slowloris-style connections.
 - auth.js: failed logins log username + IP so brute-force waves are visible in container logs.
 - maintenance/nginx.conf (prev commit): nosniff / DENY framing / no-referrer / permissions-policy on the deploy placeholder.
+
+## ipGuard — auto IP banning + ntfy alerts (committed, migration 104)
+- services/ipGuard.js: 10 failures inside 10min -> 24h ban; failures counted from failed logins (/auth/login), admin quick-login + backup code, and 404s on unknown /api paths. Exploit probes (/.env, wp-admin, .php, cmd=, union select) -> instant ban. Bans persisted to ip_bans table + restored on boot; LAN/loopback/docker ranges are never bannable so the proxy can't lock the site out.
+- Banned IPs get 403 on every /api path via banMiddleware mounted before all routes.
+- ntfy notifyAdmin on each new ban ("IP blocked — brute force detected", priority 4).
+- Admin API /api/admin/security: GET /bans, POST /bans {ip, reason?, hours?}, DELETE /bans/:ip.

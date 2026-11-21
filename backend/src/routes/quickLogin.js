@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const db = require('../database/db');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+const ipGuard = require('../services/ipGuard');
 
 const router = express.Router();
 
@@ -268,6 +269,7 @@ router.post('/verify', async (req, res) => {
     }
 
     const locked = await recordFail(user.id, user.quick_failed || 0);
+    ipGuard.recordFailure(req.ip, 'failed admin quick-login');
     res.status(401).json({
       error: locked
         ? `Too many attempts — locked for ${LOCK_MINUTES} minutes`
@@ -314,6 +316,7 @@ router.post('/code', async (req, res) => {
     }
 
     const locked = await recordFail(user.id, user.quick_failed || 0);
+    ipGuard.recordFailure(req.ip, 'failed admin backup-code');
     res.status(401).json({
       error: locked
         ? `Too many attempts — locked for ${LOCK_MINUTES} minutes`

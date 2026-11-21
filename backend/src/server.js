@@ -102,6 +102,13 @@ const authLimiter = rateLimit({
 app.use('/api/', limiter);
 app.use('/api/auth', authLimiter);
 
+// Brute-force / bot guard — banned IPs get 403 on every API path, exploit
+// probes (/.env, wp-admin, .php, cmd=…) are banned instantly, and unknown
+// /api paths count toward the ban threshold.
+const ipGuard = require('./services/ipGuard');
+app.use('/api/', ipGuard.banMiddleware);
+app.use('/api/', ipGuard.probeGuard);
+
 app.use('/api/auth', authRoutes);
 app.use('/api/auth/quick-login', require('./routes/quickLogin'));
 app.use('/api/shopping', shoppingRoutes);
@@ -154,10 +161,15 @@ app.use('/api/ntfy', ntfyRoutes);
 app.use('/api/price-review', priceReviewRoutes);
 app.use('/api/spices', spicesRoutes);
 app.use('/api/plate', plateRoutes);
+app.use('/api/admin/security', require('./routes/security'));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Unknown /api path — counts toward the scan ban (bots probing random
+// endpoints rack up failures fast; one legit typo won't).
+app.use('/api', ipGuard.notFoundGuard);
 
 app.use((err, req, res, next) => {
   console.error('Error:', err);
@@ -172,9 +184,12 @@ const runMigrations = () => runTrackedMigrations();
 const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  
+
   // Run migrations after server starts
   await runMigrations();
+
+  // Restore active IP bans written before the last restart
+  ipGuard.loadBans();
 
   // Daily MDL training-data backups (first run ~30s after boot)
   try {

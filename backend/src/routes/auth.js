@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const db = require('../database/db');
+const ipGuard = require('../services/ipGuard');
 
 const router = express.Router();
 
@@ -85,6 +86,7 @@ router.post('/login',
       );
 
       if (result.rows.length === 0) {
+        ipGuard.recordFailure(req.ip, 'failed logins');
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
@@ -95,6 +97,7 @@ router.post('/login',
         // Log failed attempts so brute-force waves show up in the logs —
         // username only, never the password.
         console.warn(`Failed login for "${username}" from ${req.ip}`);
+        ipGuard.recordFailure(req.ip, 'failed logins');
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
