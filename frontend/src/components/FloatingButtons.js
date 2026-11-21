@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Grid, List, MoveHorizontal, BookOpen, BellRing } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -24,7 +24,6 @@ const FloatingButtons = ({
   // Bottom-right column by default — the beta pin stack sits at the
   // corner bottom and this column floats above it (see --bp-stack-h).
   position: positionProp = 'right',
-  buttonColor = '#6366f1',
   spacing = 16,
   showAppsMenu,
   setShowAppsMenu,
@@ -59,16 +58,19 @@ const FloatingButtons = ({
     return () => setPanelShift('list', 0);
   }, [showListPanel, position, isMobile]);
 
-  // The column sits directly above whatever the beta stack currently
-  // occupies on the shared side — hidden beta controls publish 0 and the
-  // column drops to the corner.
-  const bottom = belowPx + spacing;
+  // Side-by-side corner layout: the beta stack / admin rail / restore tab
+  // own the outer column, and this column sits one button-width inside it
+  // on the same baseline. When nothing occupies the outer column (regular
+  // users), we snap back to the corner itself.
+  const bottom = spacing;
+  const colShift = belowPx > 0 ? 66 : 0;
+  const tx = position === 'right' ? -(panelShift + colShift) : colShift;
 
   return (
     <Portal>
       <div
         className={`fixed ${side} z-50 flex flex-col gap-3 transition-all duration-300 ${navDrawerOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
-        style={{ bottom, transform: `translateX(${-panelShift}px)` }}
+        style={{ bottom, transform: `translateX(${tx}px)` }}
       >
         {/* Apps menu */}
         {showApps && (
@@ -156,10 +158,9 @@ const FloatingButtons = ({
           <div className="flex flex-col w-12 items-center gap-1">
             <motion.button
               onClick={() => setShowListPanel((v) => !v)}
-              className={`relative w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition text-white ${
+              className={`relative w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition text-white bg-gradient-to-br from-emerald-400 to-green-600 ${
                 showListPanel ? 'ring-2 ring-white/70' : ''
               }`}
-              style={{ background: `linear-gradient(to bottom right, ${buttonColor}, ${buttonColor}dd)` }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               title={showListPanel ? 'Close Active List' : 'Open Active List'}

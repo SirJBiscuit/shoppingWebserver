@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, ChevronRight, ChevronLeft, Check, Zap, BookOpen, Plus, ShoppingCart, Package, ChefHat, Settings as SettingsIcon, HelpCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, ChevronRight, ChevronLeft, Check, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Portal } from '../utils/autoPlacement';
 import api from '../services/api';
@@ -14,7 +14,6 @@ const neverKey = (userId) => `onboarding_never_${userId || 'guest'}`;
 
 const Onboarding = ({ userId, forceOpen, onClose }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [tutorialMode, setTutorialMode] = useState(null); // 'quick' or 'full'
   const [currentStep, setCurrentStep] = useState(0);
   const [showSkipMessage, setShowSkipMessage] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
@@ -22,221 +21,149 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
   const modalRef = useRef(null);
   const nextButtonRef = useRef(null);
 
-  // Quick Guide - Essential features only (5 steps)
-  const quickSteps = [
+  // One walkthrough — every step spotlights the real control and explains
+  // what it does. Overlay is click-through during focused steps so the user
+  // can try each control while the tour is open.
+  const walkthroughSteps = [
     {
       title: 'Welcome to Listzy! 🎉',
-      description: 'Let\'s get you started with the essentials',
+      description: 'Your groceries, from list to pantry to plate',
       image: '🛒',
       focusElement: null,
       instructions: [
-        '✨ This quick guide takes 2 minutes',
-        '📝 Learn the core features you need',
-        '🚀 Start shopping smarter right away',
+        '🔁 The loop: make a list → shop and check off → Unpack into Home Inventory → cook with Recipes and the Homemade Lab',
+        '✨ Each step dims the page and spotlights one control',
+        '🖱️ You can click the highlighted control as we go',
+        '⌨️ ESC skips anytime — the Help button brings this back',
       ],
     },
     {
-      title: 'Create Your First List 📝',
-      description: 'Click "+ New List" to start',
-      image: '➕',
-      focusElement: '[data-tutorial="new-list-button"]',
-      instructions: [
-        'Click the green "+ New List" button at the top',
-        'Give your list a name (e.g., "Weekly Groceries")',
-        'Optional: Set a store location for smart sorting',
-      ],
-      handHold: 'Look for the green button with a plus icon near the top of the page.',
-    },
-    {
-      title: 'Add Items to Your List ✍️',
-      description: 'Type item names in the input box',
-      image: '✍️',
-      focusElement: '[data-tutorial="add-item-input"]',
-      instructions: [
-        'Type an item name (e.g., "Milk", "Bread")',
-        'Press Enter or click Add to save',
-        'Auto-suggestions will help you type faster',
-      ],
-      handHold: 'Find the text box that says "Add new item..." and start typing.',
-    },
-    {
-      title: 'Know Your Sidebar 🎯',
-      description: 'Three main buttons for navigation',
+      title: 'The Sidebar 🧭',
+      description: 'Your way around the app',
       image: '📱',
       focusElement: '[data-tutorial="sidebar"]',
       instructions: [
-        '🛒 Shopping - Your lists and items (main page)',
-        '📦 Pantry - Track what you have at home',
-        '🍳 Recipes - Discover meals and meal planning',
+        '🏠 Home — your shopping lists (you are here)',
+        '📦 Unpack — sort your haul after a shop',
+        '🏪 Home Inventory — what you have at home',
+        '🍳 Recipe Book — meals built from your inventory',
+        '🧪 Homemade Lab — your own recipes and experiments',
       ],
-      handHold: 'The sidebar on the left has three colorful icons. Click them to switch between sections.',
+      handHold: 'Click any icon to jump to that section — the tour stays open.',
     },
     {
-      title: 'Dashboard Sections 📋',
-      description: 'Everything you need in one place',
-      image: '✅',
-      focusElement: null,
-      instructions: [
-        '📋 Left: Your shopping list with checkboxes',
-        '🎯 Right: Smart suggestions and nearby items',
-        '💰 Bottom: Budget tracker and cart summary',
-      ],
-      handHold: 'The main area shows your list on the left and helpful suggestions on the right. Check off items as you shop!',
-    },
-  ];
-
-  // Full Guide - Comprehensive walkthrough (12 steps)
-  const fullSteps = [
-    {
-      title: 'Welcome to Listzy! 🎉',
-      description: 'Your complete guide to smart shopping',
-      image: '🛒',
-      focusElement: null,
-      instructions: [
-        '📚 This full guide covers everything',
-        '🎓 Perfect for first-time users',
-        '⏱️ Takes about 5 minutes',
-      ],
-    },
-    {
-      title: 'The Top Toolbar 🔝',
-      description: 'Important controls at your fingertips',
-      image: '⚡',
+      title: 'Top Toolbar 🛠️',
+      description: 'Help and quick settings',
+      image: '🔧',
       focusElement: '[data-tutorial="top-toolbar"]',
       instructions: [
-        '⚡ Optimization Mode - Toggle for faster performance on tablets',
-        '🔔 Notifications - See your XP gains and updates',
-        '🚪 Logout - Sign out when you\'re done',
+        '❓ Help — reopens this tour',
+        '🏪 Store and list controls sit here too',
       ],
-      handHold: 'Look at the very top of the page. You\'ll see a yellow lightning bolt (Optimization), a bell (Notifications), and a red logout button.',
+      handHold: 'The Help button in this toolbar reopens the walkthrough.',
     },
     {
-      title: 'Create Your First List 📝',
-      description: 'Let\'s make a shopping list',
+      title: 'Create a List 📝',
+      description: '"+ New List" starts a new shopping list',
       image: '➕',
       focusElement: '[data-tutorial="new-list-button"]',
       instructions: [
-        'Click the green "+ New List" button',
-        'Enter a name like "Weekly Groceries" or "Party Supplies"',
-        'Optionally set a store (helps with smart sorting)',
-        'Click Create to save your list',
+        'Click it and name your list — "Weekly Groceries"',
+        'Each list keeps its own items, store and totals',
       ],
-      handHold: 'Find the bright green button near the top that says "+ New List". Click it, type a name, and press Create. Easy!',
+      handHold: 'Green button — try it, lists are free.',
     },
     {
-      title: 'Switch Between Lists 🔄',
-      description: 'Manage multiple shopping lists',
+      title: 'Your Lists 🗂️',
+      description: 'Switch, rename and delete lists',
       image: '📋',
       focusElement: '[data-tutorial="list-dropdown"]',
       instructions: [
-        'Use the dropdown menu to switch lists',
-        'Each list can have a different store',
-        'Lists are saved automatically',
+        'The dropdown switches between lists with live item counts',
+        '✏️ renames — ✕ in the menu deletes a list',
       ],
-      handHold: 'See the dropdown menu showing your current list name? Click it to see all your lists and switch between them.',
+      handHold: 'Open it — every list shows its item count.',
     },
     {
-      title: 'Add Items - Multiple Ways! ✍️',
-      description: 'Choose your preferred method',
-      image: '🛍️',
+      title: 'Add Items ✍️',
+      description: 'Type a name — suggestions fill in the rest',
+      image: '⌨️',
       focusElement: '[data-tutorial="add-item-input"]',
       instructions: [
-        '⌨️ Type manually - Just start typing',
-        '🎤 Voice input - Click the microphone icon',
-        '📷 Barcode scan - Click the scan icon',
-        '💡 Auto-suggestions appear as you type',
+        'Type "Milk" — Smart Suggestions complete name, price and icon',
+        'Enter or the Add button saves it to the list',
+        'The Category pill sets the store aisle automatically',
       ],
-      handHold: 'The input box says "Add new item...". Type anything and watch suggestions appear! Or try the microphone/camera icons for hands-free adding.',
+      handHold: 'Try typing an item right now — the tour waits for you.',
     },
     {
-      title: 'Item Details & Options 🎨',
-      description: 'Customize each item',
-      image: '⚙️',
+      title: 'Item Rows 🛒',
+      description: 'Every row is interactive',
+      image: '✅',
       focusElement: '[data-tutorial="item-row"]',
       instructions: [
-        '✏️ Edit - Change name, quantity, price, notes',
-        '🎨 Color code - Organize by category',
-        '📍 Store location - Set which aisle',
-        '🗑️ Delete - Remove items you don\'t need',
+        'Tap the emoji — pick a new icon or upload your own',
+        'The category chip changes where it lives in the store',
+        'Check the box when it is in the cart — long-press for more',
       ],
-      handHold: 'Each item has small icons on the right. Click the pencil to edit, the palette for colors, or the trash to delete.',
+      handHold: 'Check everything off and the app walks you to Unpack next.',
     },
     {
-      title: 'Looking For Next 🔍',
-      description: 'Your smart shopping assistant',
-      image: '👀',
+      title: 'Looking For Next 🔁',
+      description: 'Quick re-adds and regulars',
+      image: '🔍',
       focusElement: '[data-tutorial="looking-for-next"]',
       instructions: [
-        '✅ Shows the next unchecked item',
-        '🏪 Displays "Grab These Too" - nearby items',
-        '⏭️ Skip button - Move to next item',
-        '✏️ Quick edit - Change details on the fly',
+        'Recently removed and frequently bought items live here',
+        'One tap puts them straight back on the list',
       ],
-      handHold: 'The green box at the top right shows what to look for next. It even suggests other items in the same aisle!',
+      handHold: 'Great for the staples you buy every week.',
     },
     {
-      title: 'The Sidebar Navigation 🗺️',
-      description: 'Three main sections',
-      image: '🗺️',
-      focusElement: '[data-tutorial="sidebar"]',
-      instructions: [
-        '🛒 Shopping - Your lists (where you are now)',
-        '📦 Pantry - Track home inventory',
-        '🍳 Recipes - Meal planning and discovery',
-      ],
-      handHold: 'The colorful sidebar on the left lets you switch between Shopping, Pantry, and Recipes. Click any icon to explore!',
-    },
-    {
-      title: 'Smart Suggestions 💡',
-      description: 'AI learns your shopping habits',
-      image: '🤖',
+      title: 'Smart Suggestions 🧠',
+      description: 'Learns what you buy',
+      image: '💡',
       focusElement: '[data-tutorial="suggestions"]',
       instructions: [
-        '📊 Based on your purchase history',
-        '📅 Considers time since last purchase',
-        '🏪 Suggests items you might need',
-        '➕ One-click to add to your list',
+        'Suggests items from your history with learned prices',
+        'Tap one to add it — it gets smarter every shop',
       ],
-      handHold: 'Scroll down to see "Smart Suggestions". These are items you might have forgotten, based on what you usually buy.',
+      handHold: 'Prices here come from what you actually paid.',
     },
     {
-      title: 'Budget Tracker 💰',
-      description: 'Stay on budget while shopping',
+      title: 'Budget and Prices 💰',
+      description: 'Watch the total as you shop',
       image: '💵',
       focusElement: '[data-tutorial="budget-tracker"]',
       instructions: [
-        '🎯 Set a budget for your trip',
-        '📊 See real-time spending',
-        '⚠️ Get warnings when approaching limit',
-        '📈 Track spending over time',
+        'Running total of checked items vs the whole list',
+        'Per-item prices feed in from your purchase history',
       ],
-      handHold: 'At the bottom, you\'ll see your budget and current total. Set a budget to get alerts when you\'re close to the limit.',
+      handHold: 'Set prices as you add items — they stick for next time.',
     },
     {
-      title: 'XP & Leveling System 🏆',
-      description: 'Earn rewards for shopping',
-      image: '⭐',
-      focusElement: null,
+      title: 'After the Shop 📦',
+      description: 'Where your haul goes next',
+      image: '🔄',
+      focusElement: '[data-tutorial="sidebar"]',
       instructions: [
-        '✨ Earn XP for every action',
-        '📈 Level up to unlock perks',
-        '🎁 Complete achievements',
-        '🔔 Notifications show your progress',
+        '✅ Checked-off items ride to the Unpack page',
+        '📦 Unpack sorts them into Home Inventory — what is at home, and how much',
+        '🍳 Recipe Book and 🧪 Homemade Lab cook from that inventory',
+        '🔁 Running low? Inventory levels feed your next suggestions',
       ],
-      handHold: 'Every time you add items, check them off, or complete a trip, you earn XP! Watch for the notifications in the top right.',
+      handHold: 'That is the loop — list, shop, unpack, cook, repeat.',
     },
     {
-      title: 'Need Help? 🆘',
-      description: 'We\'re here for you',
-      image: '❓',
+      title: "You're Ready! 🚀",
+      description: 'The whole loop, recap',
+      image: '🎉',
       focusElement: null,
       instructions: [
-        '❓ Click the help icon (?) in "Looking For Next"',
-        '⚙️ Visit Settings for customization',
-        '📖 Check the guide anytime',
-        '💬 Tooltips appear when you hover over buttons',
+        'Make a list → shop and check off → Unpack → Home Inventory → cook',
+        'The Help button replays this anytime',
+        'Everything you can interact with wears a soft ring',
       ],
-      handHold: 'If you ever get stuck, look for the question mark icon or hover over buttons to see what they do. You\'ve got this!',
     },
   ];
 
@@ -279,7 +206,6 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
   useEffect(() => {
     if (forceOpen) {
       setIsOpen(true);
-      setTutorialMode(null);
       setCurrentStep(0);
       setShowSkipMessage(false);
     }
@@ -366,7 +292,6 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
     if (!hasSeenSkipMessage) {
       // First time skipping - show helpful message
       setShowSkipMessage(true);
-      setTutorialMode(null);
       setCurrentStep(0);
       localStorage.setItem(`onboarding_skip_message_${userId}`, 'true');
       
@@ -384,7 +309,6 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
     } else {
       // Already seen skip message before - just close
       setIsOpen(false);
-      setTutorialMode(null);
       setCurrentStep(0);
       
       // Remove focus highlights
@@ -402,12 +326,8 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
     if (onClose) onClose();
   };
 
-  const selectMode = (mode) => {
-    setTutorialMode(mode);
-    setCurrentStep(0);
-  };
 
-  const steps = tutorialMode === 'quick' ? quickSteps : fullSteps;
+  const steps = walkthroughSteps;
 
   const nextStep = () => {
     if (currentStep < steps.length - 1) {
@@ -425,7 +345,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
 
   // Highlight focused element
   useEffect(() => {
-    if (!tutorialMode || !steps[currentStep]) return;
+    if (showSkipMessage || !steps[currentStep]) return;
 
     const step = steps[currentStep];
     
@@ -441,12 +361,12 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
-  }, [currentStep, tutorialMode, steps]);
+  }, [currentStep, showSkipMessage, steps]);
 
   // Spotlight: after the highlight effect scrolls the target into view, keep
   // its rect measured so the dim cutout + tooltip card track scroll/resize.
   useEffect(() => {
-    if (!tutorialMode || !steps[currentStep]) { setTargetRect(null); return; }
+    if (showSkipMessage || !steps[currentStep]) { setTargetRect(null); return; }
     const sel = steps[currentStep].focusElement;
     if (!sel) { setTargetRect(null); return; }
 
@@ -472,7 +392,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
       window.removeEventListener('resize', measure);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, tutorialMode]);
+  }, [currentStep, showSkipMessage]);
 
   if (!isOpen) return null;
 
@@ -480,7 +400,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
 
   // Spotlight geometry: padded cutout rect + where to anchor the card.
   const CARD_W = 384, CARD_H = 420, M = 12, P = 8;
-  const spotlighting = tutorialMode && !showSkipMessage && !!targetRect;
+  const spotlighting = !showSkipMessage && !!targetRect;
   const spot = spotlighting
     ? { x: targetRect.left - P, y: targetRect.top - P, w: targetRect.width + P * 2, h: targetRect.height + P * 2 }
     : null;
@@ -497,7 +417,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className={`fixed inset-0 flex items-center justify-center z-[70] p-2 sm:p-4${spot && tutorialMode && !showSkipMessage ? ' pointer-events-none' : ' bg-black/10 backdrop-blur-sm'}`}
+        className={`fixed inset-0 flex items-center justify-center z-[70] p-2 sm:p-4${spot && !showSkipMessage ? ' pointer-events-none' : ' bg-black/10 backdrop-blur-sm'}`}
         onClick={(e) => {
           // Close on backdrop click
           if (e.target === e.currentTarget) {
@@ -583,7 +503,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
                   <div className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center flex-shrink-0 text-sm font-bold">2</div>
                     <p className="text-gray-900 dark:text-white">
-                      Click it to choose between <strong>Quick Guide</strong> or <strong>Full Guide</strong>
+                      Click it to reopen this walkthrough
                     </p>
                   </div>
                   <div className="flex items-start gap-3">
@@ -606,68 +526,6 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
                 This message will auto-close in 5 seconds
               </p>
             </div>
-          ) : !tutorialMode ? (
-            // Mode Selection Screen
-            <div className="text-center mb-8">
-              <div className="text-6xl mb-4">🎓</div>
-              <h2 id="onboarding-title" className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
-                Welcome to Listzy!
-              </h2>
-              <p id="onboarding-description" className="text-lg text-gray-600 dark:text-gray-400 mb-8">
-                Choose your tutorial experience
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl mx-auto">
-                {/* Quick Guide */}
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => selectMode('quick')}
-                  className="p-6 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl shadow-lg transition-all"
-                >
-                  <Zap className="w-12 h-12 mx-auto mb-3" />
-                  <h3 className="text-xl font-bold mb-2">Quick Guide</h3>
-                  <p className="text-sm text-blue-100 mb-3">Perfect for tech-savvy users</p>
-                  <div className="text-xs text-left space-y-1 bg-blue-600/30 rounded-lg p-3">
-                    <div>⏱️ 2 minutes</div>
-                    <div>📝 5 essential steps</div>
-                    <div>🎯 Core features only</div>
-                  </div>
-                </motion.button>
-
-                {/* Full Guide */}
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => selectMode('full')}
-                  className="p-6 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl shadow-lg transition-all"
-                >
-                  <BookOpen className="w-12 h-12 mx-auto mb-3" />
-                  <h3 className="text-xl font-bold mb-2">Full Guide</h3>
-                  <p className="text-sm text-green-100 mb-3">Detailed walkthrough with hand-holding</p>
-                  <div className="text-xs text-left space-y-1 bg-green-600/30 rounded-lg p-3">
-                    <div>⏱️ 5 minutes</div>
-                    <div>📚 12 comprehensive steps</div>
-                    <div>🤝 Perfect for beginners</div>
-                  </div>
-                </motion.button>
-              </div>
-
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-6">
-                You can skip the tutorial anytime by pressing ESC
-              </p>
-
-              {/* Permanent opt-out — honored by Skip, X, backdrop, and finishing */}
-              <label className="mt-4 inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none hover:text-gray-900 dark:hover:text-gray-200">
-                <input
-                  type="checkbox"
-                  checked={dontShowAgain}
-                  onChange={(e) => setDontShowAgain(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                Don't show this tutorial automatically again
-              </label>
-            </div>
           ) : (
             // Tutorial Steps
             <div className="text-center mb-8">
@@ -680,7 +538,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
               </p>
 
               {/* Hand-holding text for full guide */}
-              {tutorialMode === 'full' && step.handHold && (
+              {step.handHold && (
                 <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-300 dark:border-yellow-700 rounded-lg">
                   <div className="flex items-start gap-3">
                     <HelpCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
@@ -711,7 +569,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
           )}
 
           {/* Navigation - Only show when tutorial mode is selected */}
-          {tutorialMode && (
+          {!showSkipMessage && (
             <>
               <div className="flex items-center justify-between">
                 <button
@@ -727,7 +585,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
                 </button>
 
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {currentStep + 1} of {steps.length} • {tutorialMode === 'quick' ? 'Quick' : 'Full'} Guide
+                  {currentStep + 1} of {steps.length}
                 </span>
 
                 <button

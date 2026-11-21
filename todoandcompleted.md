@@ -413,3 +413,14 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - [x] Custom icon upload ported into inventory `IconPicker`: shared `utils/iconUpload.js` extracted from QuickIconPicker (normalize <=128x128, auto downscale/cover-crop, real progress), custom-icons strip + upload button
 - [x] Tutorial: ONBOARDING_VERSION v3->v4 (spotlight tour never bumped -> returning users never auto-saw it); spotlight overlay is now pointer-events-none during focused steps so clicks pass through to the highlighted element instead of instantly skipping the tour (card stays pointer-events-auto)
 - [x] eslint/node --check clean; Codacy run on every edited file (only pre-existing warnings)
+
+## Walkthrough tutorial + floating button restyle (committed)
+- Onboarding: removed the tutorial card and mode-select screen — one spotlight walkthrough (12 steps) that teaches both the buttons AND the app flow: list → shop and check off → Unpack → Home Inventory → Recipe Book / Homemade Lab → suggestions loop back. Each step spotlights the real control; clicks pass through during focused steps.
+- FloatingButtons: side-by-side corner layout (app column sits one button-width inside the beta/admin column, same baseline, snaps back to the corner when empty); Active List is now green (emerald gradient); retired the unused buttonColor widget prop.
+- Note: Onboarding.js uses CRLF line endings — sed/script edits must be EOL-aware.
+
+## Smart Suggestions rework (planned, next)
+- Custom backend API for suggestions (MDL-trained: purchase history, prices, categories, inventory, item shortcuts).
+- 3D scrollbar for long lists, interactable-icon convention, tiny buttons, hide integration.
+- Previously-removed quick re-add.
+- Price advisor: previous store prices, price changes, cross-store margins — UX options: inline hover badge / compact widget in looking-for-next / expandable detail box.

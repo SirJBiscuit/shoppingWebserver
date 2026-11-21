@@ -3294,7 +3294,6 @@ const Dashboard = () => {
           showRecipes={widgetProperties['floating-buttons']?.showRecipes !== false}
           position={widgetProperties['floating-buttons']?.position || 'right'}
           buttonSize={widgetProperties['floating-buttons']?.buttonSize || 'medium'}
-          buttonColor={widgetProperties['floating-buttons']?.buttonColor || '#6366f1'}
           spacing={widgetProperties['floating-buttons']?.spacing || 16}
           showAppsMenu={showAppsMenu}
           setShowAppsMenu={setShowAppsMenu}
