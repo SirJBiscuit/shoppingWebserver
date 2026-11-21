@@ -471,3 +471,12 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Looking-for-Next: current item icon opens QuickIconPicker -> saves item_icon + learns icon.
 - MDL product database: category quick-edit popover gets a search box; SizeUnitFields preset-chip wall replaced with free-text size + shared searchable unit popup (CustomDropdownList + custom units).
 - updating.html: indeterminate pulse bar replaced with a conic swirl ring; real progress bar stays and hides the ring when progress.txt data arrives.
+
+## Batch: suggestion icons, sidebar rail, list/category mode, shortcuts rework (committed)
+- Smart suggestions: removed items now keep their trained icon (dictionary join) and show ×N removal count; "Removed (n)" chip expands into a dedicated Previously-removed strip; suggestion chips show a ×N times-added badge; re-add passes icon/category back to the list.
+- Sidebar: desktop/tablet minimize arrow collapses to a 72px icon rail (labels hidden, badges -> dots, tooltips kept); persisted in localStorage; also in the sidebar right-click menu; content spacer shrinks with it.
+- Active list: List mode is now default; List/Groups segmented toggle sits next to the Labels pill; header Show/Hide button stays in sync; choice persists in itemListViewMode.
+- Item shortcuts icon memory: rows now merge the trained /items dictionary (preferred_icon) into picks + catalog so user-set icons come back; prefs endpoint limit raised 50->500.
+- Item shortcuts tabs: new Templates tab — save the staged tray as a named template, one-tap "Add all" drops everything onto the list (with MDL tracking), delete per card; old sets behavior renamed Saved Templates (stage-to-tray).
+- For You tab: inline explanation of the four feeds (due/recurring/low/frequent), ? info popover, and a reset button that re-pulls predictions; tray gets a save-as-template button.
+- '/' typed as first char in the add-item input opens Item Shortcuts (global '/' hotkey already existed).

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useContextMenu, oiRow, oiHeader, oiSep, oiSub } from '../overlay/OverlayInteractions';
-import { 
-  ShoppingCart, ChefHat, Package, Calendar, BarChart3, 
+import {
+  ShoppingCart, ChefHat, Package, Calendar, BarChart3,
   Settings, Shield, History, Search, Share2,
   Menu, X, Bell, Moon, Sun, Crown, Store, Sparkles, Home, GraduationCap,
-  Book, DollarSign, Star, Users, Folder, Database, StickyNote, Flame, FlaskConical
+  Book, DollarSign, Star, Users, Folder, Database, StickyNote, Flame, FlaskConical,
+  PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -26,6 +27,14 @@ const Sidebar = ({ onAction }) => {
   const { effectiveRole, canAccess } = usePreviewMode();
   const { isEditorActive, selectedWidget, selectWidget } = useEditor();
   const [isOpen, setIsOpen] = useState(window.innerWidth >= 1024);
+  // Desktop/tablet icon-rail collapse — persisted so it survives reloads.
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem('sidebarCollapsed') === 'true'
+  );
+  const toggleCollapsed = () => setCollapsed((v) => {
+    localStorage.setItem('sidebarCollapsed', String(!v));
+    return !v;
+  });
   const navRef = useRef(null);
 
   /* OverlayInteraction API — right-click / long-hold menus on sidebar items.
@@ -43,6 +52,7 @@ const Sidebar = ({ onAction }) => {
       ]),
       oiSep(),
       oiRow({ label: isOpen ? 'Hide sidebar' : 'Show sidebar', checked: isOpen, onClick: () => setIsOpen((v) => !v) }),
+      oiRow({ icon: collapsed ? PanelLeftOpen : PanelLeftClose, label: collapsed ? 'Expand sidebar' : 'Minimize sidebar', checked: collapsed, onClick: toggleCollapsed }),
     ];
     if (!btn) return { title: 'Sidebar', items: generic };
     const label = btn.dataset.oiLabel || 'Item';
@@ -321,12 +331,28 @@ const Sidebar = ({ onAction }) => {
       {(isOpen || isDesktop) && (
         <Portal><motion.aside
           initial={false}
-          animate={{ x: (isOpen || isDesktop) ? 0 : -288 }}
+          animate={{
+            x: (isOpen || isDesktop) ? 0 : -288,
+            width: collapsed && isDesktop ? 72 : 288,
+          }}
           exit={{ x: -288 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="fixed left-0 top-0 h-screen w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-xl z-[60] flex flex-col overflow-y-auto custom-scrollbar"
+          className="fixed left-0 top-0 h-screen w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-xl z-[60] flex flex-col overflow-y-auto overflow-x-hidden custom-scrollbar"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
+          {/* Minimize arrow — desktop/tablet icon-rail toggle */}
+          {isDesktop && (
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              title={collapsed ? 'Expand sidebar' : 'Minimize sidebar'}
+              className="absolute top-3 right-2 z-10 w-6 h-6 rounded-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 shadow-md flex items-center justify-center text-gray-500 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:scale-110 transition-all"
+            >
+              {collapsed
+                ? <PanelLeftOpen className="w-3.5 h-3.5" />
+                : <PanelLeftClose className="w-3.5 h-3.5" />}
+            </button>
+          )}
           {/* AVE Editor Overlay */}
           <EditorOverlay
             isActive={isEditorActive}
@@ -335,39 +361,48 @@ const Sidebar = ({ onAction }) => {
             isSelected={selectedWidget === 'sidebar'}
           />
         {/* Header */}
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center space-x-3">
+        <div className={`${collapsed && isDesktop ? 'p-3' : 'p-6'} border-b border-gray-200 dark:border-gray-700`}>
+          <div className={`flex items-center ${collapsed && isDesktop ? 'justify-center' : 'space-x-3'}`}>
             <div className="p-2 bg-primary-100 dark:bg-primary-900 rounded-lg">
               <ShoppingCart className="w-8 h-8 text-primary-600 dark:text-primary-400" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Listzy</h1>
-              <p className="text-xs text-gray-600 dark:text-gray-400">Smart Shopping Lists</p>
-            </div>
+            {!(collapsed && isDesktop) && (
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">Listzy</h1>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Smart Shopping Lists</p>
+              </div>
+            )}
           </div>
         </div>
 
         {/* User Info */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+        <div className={`${collapsed && isDesktop ? 'p-2' : 'p-4'} border-b border-gray-200 dark:border-gray-700`}>
+          <div className={`flex items-center ${collapsed && isDesktop ? 'justify-center' : 'space-x-3'}`}>
+            <div
+              className="w-10 h-10 bg-gradient-to-br from-primary-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold"
+              title={collapsed && isDesktop ? user?.username : undefined}
+            >
               {user?.username?.charAt(0).toUpperCase()}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                {user?.username}
-              </p>
-              <p className="text-xs text-gray-600 dark:text-gray-400">Welcome back!</p>
-            </div>
+            {!(collapsed && isDesktop) && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  {user?.username}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Welcome back!</p>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Main Navigation */}
-        <nav ref={navRef} className="flex-1 p-4 space-y-1">
+        <nav ref={navRef} className={`flex-1 ${collapsed && isDesktop ? 'p-2' : 'p-4'} space-y-1`}>
           <div className="mb-4">
-            <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-              Main Menu
-            </h3>
+            {!(collapsed && isDesktop) && (
+              <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                Main Menu
+              </h3>
+            )}
             {/* Loading skeletons */}
             {isLoading ? (
               <>
@@ -388,19 +423,24 @@ const Sidebar = ({ onAction }) => {
                     data-oi-path={page.page_path}
                     data-oi-label={page.page_name}
                     onClick={() => handleNavClick(page.page_path)}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative ${
+                    title={collapsed && isDesktop ? page.page_name : undefined}
+                    className={`w-full flex items-center ${collapsed && isDesktop ? 'justify-center' : 'space-x-3'} px-3 py-2.5 rounded-lg transition-all duration-200 relative ${
                       isActive(page.page_path)
                         ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 shadow-sm'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                   >
                     <Icon className={`w-5 h-5 ${isActive(page.page_path) ? 'text-primary-600' : ''}`} />
-                    <span className="font-medium text-sm">{page.page_name}</span>
+                    {!(collapsed && isDesktop) && <span className="font-medium text-sm">{page.page_name}</span>}
                     {/* Expiring Soon Badge for Home Inventory */}
                     {page.page_path === '/pantry-new-v2' && expiringCount > 0 && (
-                      <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse">
-                        {expiringCount}
-                      </span>
+                      collapsed && isDesktop ? (
+                        <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
+                      ) : (
+                        <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse">
+                          {expiringCount}
+                        </span>
+                      )
                     )}
                   </button>
                 );
@@ -415,19 +455,24 @@ const Sidebar = ({ onAction }) => {
                   data-oi-path={item.path}
                   data-oi-label={item.label}
                   onClick={() => handleNavClick(item.path)}
-                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative ${
+                  title={collapsed && isDesktop ? item.label : undefined}
+                  className={`w-full flex items-center ${collapsed && isDesktop ? 'justify-center' : 'space-x-3'} px-3 py-2.5 rounded-lg transition-all duration-200 relative ${
                     isActive(item.path)
                       ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 shadow-sm'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
                   <item.icon className={`w-5 h-5 ${isActive(item.path) ? item.color : ''}`} />
-                  <span className="font-medium text-sm">{item.label}</span>
+                  {!(collapsed && isDesktop) && <span className="font-medium text-sm">{item.label}</span>}
                   {/* Expiring Soon Badge for Home Inventory */}
                   {item.path === '/pantry-new-v2' && expiringCount > 0 && (
-                    <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse">
-                      {expiringCount}
-                    </span>
+                    collapsed && isDesktop ? (
+                      <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
+                    ) : (
+                      <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse">
+                        {expiringCount}
+                      </span>
+                    )
                   )}
                 </button>
               ))
@@ -436,9 +481,11 @@ const Sidebar = ({ onAction }) => {
 
           {/* Quick Tools */}
           <div className="mb-4">
-            <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-              Quick Tools
-            </h3>
+            {!(collapsed && isDesktop) && (
+              <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                Quick Tools
+              </h3>
+            )}
             {toolItems
               .filter(item => !item.feature || hasFeature(item.feature))
               .map((item) => (
@@ -447,19 +494,22 @@ const Sidebar = ({ onAction }) => {
                 data-oi-action={item.action}
                 data-oi-label={item.label}
                 onClick={() => handleToolClick(item.action)}
-                className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+                title={collapsed && isDesktop ? item.label : undefined}
+                className={`w-full flex items-center ${collapsed && isDesktop ? 'justify-center' : 'space-x-3'} px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200`}
               >
                 <item.icon className={`w-5 h-5 ${item.color}`} />
-                <span className="font-medium text-sm">{item.label}</span>
+                {!(collapsed && isDesktop) && <span className="font-medium text-sm">{item.label}</span>}
               </button>
             ))}
           </div>
 
           {/* Settings */}
           <div>
-            <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-              System
-            </h3>
+            {!(collapsed && isDesktop) && (
+              <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                System
+              </h3>
+            )}
             {settingsItems
               .filter(item => item.isAdmin || !item.feature || hasFeature(item.feature))
               .map((item) => (
@@ -468,6 +518,7 @@ const Sidebar = ({ onAction }) => {
                 data-oi-path={item.path || undefined}
                 data-oi-action={item.action || undefined}
                 data-oi-label={item.label}
+                title={collapsed && isDesktop ? item.label : undefined}
                 onClick={() => {
                   if (item.action) {
                     onAction?.(item.action);
@@ -476,7 +527,7 @@ const Sidebar = ({ onAction }) => {
                     handleNavClick(item.path);
                   }
                 }}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                className={`w-full flex items-center ${collapsed && isDesktop ? 'justify-center' : 'space-x-3'} px-3 py-2.5 rounded-lg transition-all duration-200 relative ${
                   item.adminSpecial
                     ? isActive(item.path)
                       ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg'
@@ -495,21 +546,33 @@ const Sidebar = ({ onAction }) => {
                 }`}
               >
                 <item.icon className={`w-5 h-5 ${item.special || item.adminSpecial || item.mdlSpecial ? 'text-white' : isActive(item.path) ? item.color : ''}`} />
-                <span className="font-medium text-sm">{item.label}</span>
+                {!(collapsed && isDesktop) && <span className="font-medium text-sm">{item.label}</span>}
                 {item.adminSpecial && (
-                  <span className="ml-auto bg-white text-orange-600 text-xs px-2 py-0.5 rounded-full font-bold">
-                    ADMIN
-                  </span>
+                  collapsed && isDesktop ? (
+                    <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 bg-white rounded-full" />
+                  ) : (
+                    <span className="ml-auto bg-white text-orange-600 text-xs px-2 py-0.5 rounded-full font-bold">
+                      ADMIN
+                    </span>
+                  )
                 )}
                 {item.special && (
-                  <span className="ml-auto bg-white text-purple-600 text-xs px-2 py-0.5 rounded-full font-bold">
-                    NEW
-                  </span>
+                  collapsed && isDesktop ? (
+                    <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 bg-white rounded-full" />
+                  ) : (
+                    <span className="ml-auto bg-white text-purple-600 text-xs px-2 py-0.5 rounded-full font-bold">
+                      NEW
+                    </span>
+                  )
                 )}
                 {item.mdlSpecial && (
-                  <span className="ml-auto bg-white text-teal-600 text-xs px-2 py-0.5 rounded-full font-bold">
-                    MDL
-                  </span>
+                  collapsed && isDesktop ? (
+                    <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 bg-white rounded-full" />
+                  ) : (
+                    <span className="ml-auto bg-white text-teal-600 text-xs px-2 py-0.5 rounded-full font-bold">
+                      MDL
+                    </span>
+                  )
                 )}
               </button>
             ))}
@@ -517,7 +580,7 @@ const Sidebar = ({ onAction }) => {
         </nav>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+        <div className={`${collapsed && isDesktop ? 'p-2' : 'p-4'} border-t border-gray-200 dark:border-gray-700 space-y-2`}>
           {/* Premium Button - DISABLED */}
           {/* <button
             onClick={() => handleNavClick('/premium')}
@@ -529,17 +592,18 @@ const Sidebar = ({ onAction }) => {
           {/* <ClearCacheButton /> */} {/* Component doesn't exist */}
           <button
             onClick={toggleTheme}
-            className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+            title={collapsed && isDesktop ? (isDark ? 'Light Mode' : 'Dark Mode') : undefined}
+            className={`w-full flex items-center ${collapsed && isDesktop ? 'justify-center' : 'space-x-3'} px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200`}
           >
             {isDark ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-indigo-500" />}
-            <span className="font-medium text-sm">{isDark ? 'Light Mode' : 'Dark Mode'}</span>
+            {!(collapsed && isDesktop) && <span className="font-medium text-sm">{isDark ? 'Light Mode' : 'Dark Mode'}</span>}
           </button>
         </div>
       </motion.aside></Portal>
       )}
 
-      {/* Main content spacer */}
-      <div className="hidden lg:block w-72" />
+      {/* Main content spacer — shrinks with the icon rail */}
+      <div className={`hidden lg:block ${collapsed ? 'w-[4.5rem]' : 'w-72'} transition-all duration-200`} />
     </>
   );
 };

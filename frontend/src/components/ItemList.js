@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye, MoreVertical, Tag, Heart, X } from 'lucide-react';
+import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye, MoreVertical, Tag, Heart, X, List, LayoutGrid } from 'lucide-react';
 import { motion } from 'framer-motion';
 import CustomEditPanel from './CustomEditPanel';
 import CustomContextMenu from './CustomContextMenu';
@@ -78,6 +78,7 @@ const ItemListContent = (props) => {
     storeName = null, 
     onLookForThis,
     onQuantityChange,
+    onToggleCategories,
     ghostItems = [],
     onGhostAdd,
     // AVE Properties
@@ -267,10 +268,38 @@ const ItemListContent = (props) => {
   return (
     <>
     <div data-tutorial="item-row" className={`space-y-${Math.floor(itemSpacing / 4)} shopping-list-scroll custom-scrollbar max-h-[calc(100vh-400px)] pr-2 ${fontSizeClass}`}>
-      {/* Button-label toggle — a pill with a mini switch so the control
-          reads as a setting, not a stray text link. Labels show by
-          default; the choice persists in localStorage. */}
-      <div className="flex justify-end mb-1">
+      {/* View mode (List / Categories) + button-label toggles — pills with
+          mini switches so the controls read as settings, not stray text
+          links. List mode is the default; both persist. */}
+      <div className="flex justify-end mb-1 gap-2">
+        {onToggleCategories && (
+          <div className="inline-flex rounded-full border border-gray-300 dark:border-gray-600 overflow-hidden text-xs font-semibold" role="group" aria-label="List view mode">
+            <button
+              type="button"
+              onClick={() => onToggleCategories(true)}
+              className={`px-2.5 py-1 flex items-center gap-1 transition-colors ${
+                hideCategories
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+              title="Flat list — one row per item"
+            >
+              <List className="w-3 h-3" /> List
+            </button>
+            <button
+              type="button"
+              onClick={() => onToggleCategories(false)}
+              className={`px-2.5 py-1 flex items-center gap-1 transition-colors ${
+                !hideCategories
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+              title="Group items by category"
+            >
+              <LayoutGrid className="w-3 h-3" /> Groups
+            </button>
+          </div>
+        )}
         <button
           onClick={toggleButtonLabels}
           title={showButtonLabels ? 'Hide the captions under the item action buttons' : 'Show the captions under the item action buttons'}

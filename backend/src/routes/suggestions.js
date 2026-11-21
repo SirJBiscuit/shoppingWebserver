@@ -374,8 +374,16 @@ router.get('/recently-removed', async (req, res) => {
   try {
     const result = await db.query(
       `SELECT DISTINCT ON (LOWER(l.item_name))
-         l.item_name, l.quantity, l.unit, l.price, l.category, l.removed_at
+         l.item_name, l.quantity, l.unit, l.price, l.category, l.removed_at,
+         i.preferred_icon AS icon, i.purchase_count,
+         rm.times_removed
        FROM list_item_removal_log l
+       LEFT JOIN items i
+         ON i.user_id = l.user_id AND LOWER(i.name) = LOWER(l.item_name)
+       LEFT JOIN (
+         SELECT user_id, LOWER(item_name) AS name, COUNT(*) AS times_removed
+         FROM list_item_removal_log GROUP BY user_id, LOWER(item_name)
+       ) rm ON rm.user_id = l.user_id AND rm.name = LOWER(l.item_name)
        WHERE l.user_id = $1
        ORDER BY LOWER(l.item_name), l.removed_at DESC
        LIMIT 30`,

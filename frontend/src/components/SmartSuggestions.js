@@ -69,6 +69,7 @@ const SmartSuggestionChips = ({
 }) => {
   const [openAdvisorKey, setOpenAdvisorKey] = useState(null);
   const [detailKey, setDetailKey] = useState(null);
+  const [showRemovedSection, setShowRemovedSection] = useState(false);
 
   if (suggestions.length === 0 && removedItems.length === 0) return null;
 
@@ -118,6 +119,14 @@ const SmartSuggestionChips = ({
                     <Home className="w-2.5 h-2.5" />{suggestion.atHome.qty}
                   </span>
                 )}
+                {suggestion.mdl?.timesAdded > 1 && (
+                  <span
+                    className="px-1 py-0.5 rounded text-[9px] font-semibold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300"
+                    title={`Added to your lists ${suggestion.mdl.timesAdded} times`}
+                  >
+                    ×{suggestion.mdl.timesAdded}
+                  </span>
+                )}
               </button>
               {price && (
                 adv ? (
@@ -152,26 +161,63 @@ const SmartSuggestionChips = ({
           );
         })}
 
-        {showRemoved && removedItems.slice(0, maxRemoved).map((r) => (
-          <div
-            key={`removed-${r.id || r.item_name}`}
-            className="flex-shrink-0 flex items-center gap-1.5 pl-2 pr-1 py-1.5 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/60"
+        {showRemoved && removedItems.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowRemovedSection((v) => !v)}
+            className="flex-shrink-0 flex items-center gap-1.5 pl-2 pr-2 py-1.5 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/60 text-gray-500 dark:text-gray-400 tap-target"
+            title="Items you removed — tap to expand and re-add"
           >
-            <RotateCcw className="w-3 h-3 text-gray-400 flex-shrink-0" />
-            <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap max-w-[8rem] truncate" title="Previously removed — tap to re-add">
-              {r.item_name}
+            <RotateCcw className="w-3 h-3 flex-shrink-0" />
+            <span className="text-xs font-semibold whitespace-nowrap">
+              Removed ({removedItems.length})
             </span>
-            <button
-              type="button"
-              onClick={() => onAddSuggestion({ item: r.item_name, quantity: r.quantity || 1, unit: r.unit || '', price: r.price || 0 })}
-              className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 font-bold text-sm tap-target"
-              title={`Re-add ${r.item_name} to list`}
-            >
-              +
-            </button>
-          </div>
-        ))}
+            {showRemovedSection ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+        )}
       </div>
+
+      {/* Previously removed — its own expandable section so removed items
+          keep their learned icon + frequency and re-add in one tap */}
+      {showRemoved && showRemovedSection && removedItems.length > 0 && (
+        <div className="mt-1.5">
+          <div className="flex items-center gap-1.5 mb-1 px-0.5">
+            <RotateCcw className="w-3 h-3 text-gray-400" />
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+              Previously removed — tap to re-add
+            </span>
+          </div>
+          <div className="flex gap-2 overflow-x-auto scrollbar-3d pb-2 -mx-1 px-1">
+            {removedItems.slice(0, maxRemoved).map((r) => (
+              <div
+                key={`removed-${r.id || r.item_name}`}
+                className="flex-shrink-0 flex items-center gap-1.5 pl-2 pr-1 py-1.5 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/60"
+              >
+                <SuggestionIcon icon={r.icon} />
+                <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap max-w-[8rem] truncate" title="Previously removed — tap to re-add">
+                  {r.item_name}
+                </span>
+                {r.times_removed > 1 && (
+                  <span
+                    className="px-1 py-0.5 rounded text-[9px] font-semibold bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                    title={`Removed ${r.times_removed} times`}
+                  >
+                    ×{r.times_removed}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onAddSuggestion({ item: r.item_name, icon: r.icon, quantity: r.quantity || 1, unit: r.unit || '', price: r.price || 0 })}
+                  className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 font-bold text-sm tap-target"
+                  title={`Re-add ${r.item_name} to list`}
+                >
+                  +
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Inline advisor — expands under the strip when a price badge is tapped */}
       {openSuggestion && advisorFor(advisor, openSuggestion) && (

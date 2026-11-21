@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Search, Zap, Loader2, Check, Plus, Minus, Trash2,
-  Sparkles, Package, BookmarkCheck, ShoppingCart,
+  Sparkles, Package, BookmarkCheck, ShoppingCart, LayoutTemplate,
+  Info, RotateCcw,
 } from 'lucide-react';
 import api, { shoppingAPI } from '../services/api';
 import {
@@ -47,7 +48,8 @@ const IconGlyph = ({ icon, name = '', className = 'text-2xl', imgClass = 'w-7 h-
 const TABS = [
   { id: 'picks', label: 'For You', icon: Sparkles },
   { id: 'catalog', label: 'Catalog', icon: Package },
-  { id: 'sets', label: 'Saved Sets', icon: BookmarkCheck },
+  { id: 'templates', label: 'Templates', icon: LayoutTemplate },
+  { id: 'sets', label: 'Saved Templates', icon: BookmarkCheck },
 ];
 
 const SOURCE_BADGE = {
@@ -80,6 +82,10 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
   const [catalog, setCatalog] = useState([]);
   const [sets, setSets] = useState([]);       // saved templates
   const [setBusy, setSetBusy] = useState(null); // template id being applied
+  const [tplName, setTplName] = useState('');   // new-template name field
+  const [tplBusy, setTplBusy] = useState(false); // creating a template
+  const [showForYouInfo, setShowForYouInfo] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [remote, setRemote] = useState([]);   // debounced autocomplete+search hits
   const [tray, setTray] = useState([]);       // [{ name, icon, quantity, unit }]
   const [committing, setCommitting] = useState(false);
@@ -94,13 +100,23 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [dueRes, smartRes, popularRes, catalogRes, setsRes] = await Promise.allSettled([
+    const [dueRes, smartRes, popularRes, catalogRes, setsRes, prefsRes] = await Promise.allSettled([
       getSuggestions(),                                   // predicted-due
       api.get('/suggestions/smart-suggestions'),          // recurring / low / frequent
       api.get('/mdl/popular', { params: { limit: 30 } }), // popular catalog items
       searchProducts('', '', 60),                         // product catalog browse
       shoppingAPI.getTemplates(),                         // saved sets
+      api.get('/items/preferences'),                      // trained dictionary — user-set icons win
     ]);
+
+    // User-trained dictionary — the icon a user assigned on any surface
+    // must come back here too (that's how the shortcut "remembers" icons).
+    const dictIcon = {};
+    if (prefsRes.status === 'fulfilled') {
+      (prefsRes.value.data || []).forEach((p) => {
+        if (p.preferred_icon) dictIcon[norm(p.name)] = p.preferred_icon;
+      });
+    }
 
     const seen = new Map();
     // 1) predicted-due first — highest intent
@@ -127,7 +143,7 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
         mergeInto(seen, p.name || p.item_name, { icon: p.icon || p.icon_emoji || null, source: 'popular' })
       );
     }
-    setPicks([...seen.values()].slice(0, 40));
+    setPicks([...seen.values()].map((r) => ({ ...r, icon: dictIcon[norm(r.name)] || r.icon })).slice(0, 40));
 
     // Catalog browse — product DB, common list as fallback filler
     const cat = new Map();
@@ -137,7 +153,7 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
       );
     }
     COMMON_GROCERY_ITEMS.slice(0, 60).forEach((n) => mergeInto(cat, n, { source: 'catalog' }));
-    setCatalog([...cat.values()].slice(0, 90));
+    setCatalog([...cat.values()].map((r) => ({ ...r, icon: dictIcon[norm(r.name)] || r.icon })).slice(0, 90));
 
     setSets(setsRes.status === 'fulfilled' ? (setsRes.value.data || []) : []);
     setLoading(false);
@@ -288,6 +304,80 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
     }
   };
 
+  // Instant apply — fetch the template's items and drop them straight onto
+  // the list via onAddItems (no tray staging). Fire-and-forget MDL tracking
+  // so template adds still train predictions + icons.
+  const applyTemplateNow = async (tpl) => {
+    if (setBusy) return;
+    setSetBusy(tpl.id);
+    try {
+      const { data } = await shoppingAPI.getTemplateItems(tpl.id);
+      const rows = (data || []).filter((i) => i.item_name).map((i) => ({
+        name: i.item_name.trim(),
+        quantity: i.quantity || 1,
+        unit: i.unit || '',
+        icon: i.item_icon || null,
+        category: i.category || '',
+      }));
+      if (!rows.length) return;
+      onAddItems(rows);
+      rows.forEach((r) => {
+        trackItem({
+          itemName: r.name, icon: r.icon, quantity: r.quantity, unit: r.unit,
+          store, wasSuggestion: false, source: 'item_shortcut_template',
+        });
+      });
+      playSound('check');
+      onClose();
+    } catch (e) {
+      console.warn('Template apply failed:', e);
+    } finally {
+      setSetBusy(null);
+    }
+  };
+
+  // Save the staged tray as a reusable template — same backend the list's
+  // "Save as Template" uses, so it shows up in Saved Templates too.
+  const saveTrayAsTemplate = async () => {
+    const name = tplName.trim();
+    if (!name || !tray.length || tplBusy) return;
+    setTplBusy(true);
+    try {
+      await shoppingAPI.createTemplate({
+        name,
+        items: tray.map((t) => ({
+          item_name: t.name, quantity: t.quantity, unit: t.unit,
+          category: '', item_icon: t.icon || '',
+        })),
+      });
+      const { data } = await shoppingAPI.getTemplates();
+      setSets(data || []);
+      setTplName('');
+      playSound('check');
+    } catch (e) {
+      console.warn('Template save failed:', e);
+    } finally {
+      setTplBusy(false);
+    }
+  };
+
+  const deleteTemplate = async (tpl) => {
+    try {
+      await shoppingAPI.deleteTemplate(tpl.id);
+      setSets((prev) => prev.filter((t) => t.id !== tpl.id));
+    } catch (e) {
+      console.warn('Template delete failed:', e);
+    }
+  };
+
+  // For You reset — re-pull predictions so the tab reflects the latest MDL
+  // state (new training data, items you just removed, etc.).
+  const resetForYou = async () => {
+    if (resetting) return;
+    setResetting(true);
+    try { await loadAll(); } finally { setResetting(false); }
+  };
+
   const applySet = async (tpl) => {
     if (setBusy) return;
     setSetBusy(tpl.id);
@@ -415,13 +505,83 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
                     <Loader2 className="w-7 h-7 animate-spin" />
                     <span className="text-xs">Learning what you buy…</span>
                   </div>
+                ) : tab === 'templates' && !searching ? (
+                  /* ---- Templates — one-tap instant add, user-created ---- */
+                  <div className="space-y-3">
+                    {/* Create a template out of whatever is staged in the tray */}
+                    <div className="rounded-xl border-2 border-dashed border-indigo-300 dark:border-indigo-600 bg-indigo-50/60 dark:bg-indigo-900/20 p-3 flex items-center gap-2">
+                      <input
+                        value={tplName}
+                        onChange={(e) => setTplName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && saveTrayAsTemplate()}
+                        placeholder={tray.length ? `Name a template with ${tray.length} staged item${tray.length === 1 ? '' : 's'}…` : 'Stage items first, then name your template…'}
+                        disabled={!tray.length}
+                        className="flex-1 min-w-0 px-3 py-2 rounded-lg text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-50"
+                      />
+                      <button
+                        onClick={saveTrayAsTemplate}
+                        disabled={!tplName.trim() || !tray.length || tplBusy}
+                        className="px-3 py-2 rounded-lg bg-indigo-500 text-white text-xs font-semibold hover:bg-indigo-600 disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {tplBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LayoutTemplate className="w-3.5 h-3.5" />}
+                        Save template
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-gray-400 px-1">
+                      Templates add every item to your list in one tap — build one
+                      by staging items from For You or Catalog, then save it here.
+                    </p>
+                    {sets.length === 0 ? (
+                      <div className="text-center py-10 text-gray-400">
+                        <LayoutTemplate className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                        <p className="font-medium text-sm">No templates yet</p>
+                        <p className="text-xs mt-1">Stage a few items, name the set, save — done.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {sets.map((tpl, i) => (
+                          <motion.div
+                            key={tpl.id}
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: Math.min(i * 0.04, 0.4), type: 'spring', stiffness: 300, damping: 24 }}
+                            className="rounded-xl border-2 border-gray-200 dark:border-gray-700 p-3 flex items-center gap-3 hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors"
+                          >
+                            <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                              <LayoutTemplate className="w-5 h-5 text-indigo-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{tpl.name}</p>
+                              <p className="text-xs text-gray-400">{tpl.item_count} items</p>
+                            </div>
+                            <button
+                              onClick={() => applyTemplateNow(tpl)}
+                              disabled={setBusy === tpl.id}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-semibold hover:bg-emerald-600 disabled:opacity-50 flex items-center gap-1"
+                              title="Add all items straight to your list"
+                            >
+                              {setBusy === tpl.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShoppingCart className="w-3.5 h-3.5" />}
+                              Add all
+                            </button>
+                            <button
+                              onClick={() => deleteTemplate(tpl)}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30"
+                              title="Delete template"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ) : tab === 'sets' && !searching ? (
-                  /* ---- Saved sets (the old templates, folded in) ---- */
+                  /* ---- Saved templates (the old saved-sets stage flow) ---- */
                   sets.length === 0 ? (
                     <div className="text-center py-14 text-gray-400">
                       <BookmarkCheck className="w-10 h-10 mx-auto mb-3 opacity-40" />
-                      <p className="font-medium text-sm">No saved sets yet</p>
-                      <p className="text-xs mt-1">Use “Save as Template” on a list — it shows up here.</p>
+                      <p className="font-medium text-sm">No saved templates yet</p>
+                      <p className="text-xs mt-1">Use “Save as Template” on a list, or build one in the Templates tab.</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -464,6 +624,39 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
                         {rows.length} match{rows.length === 1 ? '' : 'es'}
                       </p>
+                    )}
+                    {tab === 'picks' && !searching && (
+                      <div className="relative flex items-center gap-2 mb-2">
+                        <p className="flex-1 text-[11px] text-gray-400">
+                          <span className="font-semibold uppercase tracking-wide">For You</span>
+                          {' '}— items MDL predicts you're due to buy, plus recurring, low-stock and frequent picks learned from your history.
+                        </p>
+                        <button
+                          onClick={() => setShowForYouInfo((v) => !v)}
+                          className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                          title="How For You works"
+                        >
+                          <Info className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={resetForYou}
+                          disabled={resetting}
+                          className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          title="Refresh predictions"
+                        >
+                          <RotateCcw className={`w-3.5 h-3.5 ${resetting ? 'animate-spin' : ''}`} />
+                        </button>
+                        {showForYouInfo && (
+                          <div className="absolute right-0 top-8 z-20 w-64 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xl p-3 text-[11px] text-gray-600 dark:text-gray-300 space-y-1.5">
+                            <p><strong className="text-gray-800 dark:text-gray-100">For You</strong> merges four learned feeds:</p>
+                            <p>🔥 <strong>Due</strong> — MDL predicts you'll need it soon</p>
+                            <p>🔁 <strong>Recurring</strong> — items you buy on a cycle</p>
+                            <p>📉 <strong>Low</strong> — running out in Home Inventory</p>
+                            <p>📈 <strong>Frequent</strong> — your most-added items</p>
+                            <p className="text-gray-400">Right-click a tile to set its icon — it trains MDL and is remembered everywhere. The ⟳ button re-pulls fresh predictions.</p>
+                          </div>
+                        )}
+                      </div>
                     )}
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5" style={{ perspective: 800 }}>
                       {/* Unlearned item — "just shortcut it" */}
@@ -594,6 +787,13 @@ const ItemShortcut = ({ isOpen, onClose, onAddItems, store = '', activeItemNames
                           ≈ <span className="font-bold text-gray-800 dark:text-gray-200">{fmtPrice(estTotal)}</span>
                         </span>
                       )}
+                      <button
+                        onClick={() => setTab('templates')}
+                        className="shrink-0 p-2.5 rounded-xl bg-white dark:bg-gray-700 border border-indigo-200 dark:border-indigo-700 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                        title="Save these items as a template"
+                      >
+                        <LayoutTemplate className="w-4 h-4" />
+                      </button>
                       <motion.button
                         onClick={commit}
                         disabled={committing}

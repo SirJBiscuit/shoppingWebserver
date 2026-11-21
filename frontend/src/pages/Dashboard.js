@@ -189,7 +189,15 @@ const Dashboard = () => {
   const [showCelebration, setShowCelebration] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
   const [completedLists, setCompletedLists] = useState([]);
-  const [hideCategories, setHideCategories] = useState(false);
+  // List mode (flat) is the default; category mode groups like before.
+  // Persisted so the choice survives reloads.
+  const [hideCategories, setHideCategories] = useState(
+    () => localStorage.getItem('itemListViewMode') !== 'category'
+  );
+  const setListViewMode = (flat) => {
+    localStorage.setItem('itemListViewMode', flat ? 'list' : 'category');
+    setHideCategories(flat);
+  };
   const [showItemShortcuts, setShowItemShortcuts] = useState(false);
   const [showNewListModal, setShowNewListModal] = useState(false);
   const [showPriceLearning, setShowPriceLearning] = useState(false);
@@ -1314,7 +1322,8 @@ const Dashboard = () => {
         quantity: suggestion.quantity || 1,
         unit: suggestion.unit || '',
         price: suggestion.price || 0,
-        category: '',
+        category: suggestion.category || '',
+        icon: suggestion.icon || '',
       });
 
       // MDL tracking — marks this came from a suggestion (non-blocking)
@@ -2152,7 +2161,7 @@ const Dashboard = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setHideCategories(!hideCategories)}
+                      onClick={() => setListViewMode(!hideCategories)}
                       className={`btn-secondary text-sm flex items-center ${hideCategories ? 'bg-gray-200 dark:bg-gray-700' : ''}`}
                       title={hideCategories ? 'Show categories' : 'Hide categories'}
                     >
@@ -2272,6 +2281,13 @@ const Dashboard = () => {
                       }}
                       onChange={(e) => {
                       const value = e.target.value;
+                      // '/' as the first keystroke opens Item Shortcuts
+                      if (value === '/' || (value.startsWith('/') && !newItemName)) {
+                        setNewItemName('');
+                        setSearchQuery('');
+                        setShowItemShortcuts(true);
+                        return;
+                      }
                       setNewItemName(value);
                       setSearchQuery(value);
                       
@@ -2704,6 +2720,7 @@ const Dashboard = () => {
                 triggerAnimation={triggerFlyingAnimation}
                 nextItemId={getNextItem()?.id}
                 hideCategories={hideCategories}
+                onToggleCategories={setListViewMode}
                 storeName={activeList?.store_name}
                 onLookForThis={handleLookForThis}
                 onQuantityChange={handleQuantityChange}
@@ -3400,6 +3417,7 @@ const Dashboard = () => {
             triggerAnimation={triggerFlyingAnimation}
             nextItemId={getNextItem()?.id}
             hideCategories={hideCategories}
+            onToggleCategories={setListViewMode}
             storeName={activeList?.store_name}
             onLookForThis={handleLookForThis}
             onQuantityChange={handleQuantityChange}

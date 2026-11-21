@@ -67,7 +67,7 @@ async function getItemPreferences(userId, searchTerm = '') {
          FROM items 
          WHERE user_id = $1
          ORDER BY purchase_count DESC, last_purchased DESC
-         LIMIT 50`;
+         LIMIT 500`;
     
     const params = searchTerm ? [userId, `%${searchTerm}%`] : [userId];
     const result = await db.query(query, params);
