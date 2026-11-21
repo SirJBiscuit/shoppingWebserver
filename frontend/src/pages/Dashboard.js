@@ -168,6 +168,7 @@ const Dashboard = () => {
   const [newItemIcon, setNewItemIcon] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [removedItems, setRemovedItems] = useState([]); // quick re-add feed for Smart Suggestions
+  const [priceAdvisor, setPriceAdvisor] = useState({}); // per-store price intel keyed by lowercased item name
 
   // Debug: Log when icon changes
   useEffect(() => {
@@ -589,6 +590,10 @@ const Dashboard = () => {
     try {
       const response = await suggestionsAPI.getSmartSuggestions();
       setSuggestions(response.data);
+      // Price advisor is best-effort — keyed by lowercased item name.
+      const names = (response.data || []).map(s => s.item).filter(Boolean);
+      const adv = await suggestionsAPI.getPriceAdvisor(activeList?.store_name, names);
+      setPriceAdvisor(adv.data);
     } catch (error) {
       console.error('Error loading suggestions:', error);
     }
@@ -2781,6 +2786,8 @@ const Dashboard = () => {
                       suggestions={suggestions}
                       removedItems={removedItems}
                       onAddSuggestion={addSuggestion}
+                      advisor={priceAdvisor}
+                      storeName={activeList?.store_name}
                     />
                   </div>
                 </>

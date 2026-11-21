@@ -263,6 +263,103 @@ router.get('/advise', async (req, res) => {
   }
 });
 
+// Price advisor — batch per-store price intelligence for Smart Suggestions.
+// For each item the user has price data on, returns the last + previous price
+// at the requested store (trend), plus the cheapest store and the margin.
+// ?store=<name> picks the "current" store; ?items=a,b,c optionally limits names.
+router.get('/price-advisor', async (req, res) => {
+  try {
+    const store = (req.query.store || '').trim();
+    const names = (req.query.items || '')
+      .split(',')
+      .map(n => n.trim().toLowerCase())
+      .filter(Boolean)
+      .slice(0, 100);
+
+    let where = 'user_id = $1 AND status = $2';
+    const params = [req.user.id, 'approved'];
+    if (names.length > 0) {
+      params.push(names);
+      where += ' AND LOWER(item_name) = ANY($3::text[])';
+    }
+
+    // Last two observed prices per item per store — enough for a trend arrow.
+    const rows = await db.query(
+      `SELECT key, item_name, store_name, price, created_at, rn FROM (
+         SELECT LOWER(item_name) AS key, item_name, store_name, price, created_at,
+                ROW_NUMBER() OVER (
+                  PARTITION BY LOWER(item_name), COALESCE(store_name, '')
+                  ORDER BY created_at DESC
+                ) AS rn
+         FROM price_history
+         WHERE ${where}
+       ) ranked
+       WHERE rn <= 2
+       ORDER BY key, store_name, rn`,
+      params
+    );
+
+    // key -> { byStore: {store: {last, lastAt, prev}} }
+    const items = {};
+    for (const r of rows.rows) {
+      if (!items[r.key]) items[r.key] = { name: r.item_name, byStore: {} };
+      const entry = items[r.key];
+      const sn = r.store_name || 'Unknown store';
+      if (!entry.byStore[sn]) entry.byStore[sn] = {};
+      const slot = entry.byStore[sn];
+      if (r.rn === 1) {
+        slot.last = parseFloat(r.price);
+        slot.lastAt = r.created_at;
+      } else {
+        slot.prev = parseFloat(r.price);
+      }
+    }
+
+    const advisor = {};
+    const norm = (s) => (s || '').toLowerCase();
+    for (const [key, entry] of Object.entries(items)) {
+      const stores = Object.entries(entry.byStore)
+        .map(([name, v]) => ({ store: name, price: v.last, at: v.lastAt, prev: v.prev }))
+        .filter(s2 => s2.price != null)
+        .sort((a, b) => a.price - b.price);
+      if (stores.length === 0) continue;
+
+      const best = stores[0];
+      const cur = store
+        ? stores.find(s2 => norm(s2.store) === norm(store)) ||
+          Object.entries(entry.byStore)
+            .filter(([n]) => norm(n) === norm(store))
+            .map(([n, v]) => ({ store: n, price: v.last, at: v.lastAt, prev: v.prev }))[0]
+        : null;
+
+      const out = {
+        best: { store: best.store, price: best.price, at: best.at },
+        stores,
+      };
+      if (cur) {
+        out.store = {
+          price: cur.price,
+          at: cur.at,
+          prev: cur.prev != null ? cur.prev : null,
+          changePct: cur.prev != null && cur.prev > 0
+            ? Math.round(((cur.price - cur.prev) / cur.prev) * 1000) / 10
+            : null,
+        };
+        if (norm(best.store) !== norm(cur.store) && best.price < cur.price) {
+          out.store.savesPct = Math.round(((cur.price - best.price) / cur.price) * 1000) / 10;
+        }
+      }
+      advisor[key] = out;
+    }
+
+    res.json({ store: store || null, advisor });
+  } catch (error) {
+    // price_history may not exist on older installs — degrade, never 500.
+    console.warn('price-advisor unavailable:', error.message);
+    res.json({ store: null, advisor: {} });
+  }
+});
+
 // Recently-removed list items — powers the quick re-add section in Smart Suggestions.
 // Rows come from list_item_removal_log (migration 100), written by DELETE /shopping items.
 router.get('/recently-removed', async (req, res) => {

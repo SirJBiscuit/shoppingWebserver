@@ -424,3 +424,9 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - 3D scrollbar for long lists, interactable-icon convention, tiny buttons, hide integration.
 - Previously-removed quick re-add.
 - Price advisor: previous store prices, price changes, cross-store margins — UX options: inline hover badge / compact widget in looking-for-next / expandable detail box.
+
+## Price advisor — built (committed)
+- `GET /api/suggestions/price-advisor?store=&items=` — batch per-store intel: last + previous price at the active store (trend %), cheapest store + savings %, other-store price chips. Window query over price_history, degrades to {} if table missing.
+- SmartSuggestions: tapping a suggestion's price badge expands a price-intel box (store price + date, trend arrow vs last visit, "Cheapest: store (save X%)", other-store chips). AdvisorBox hoisted to module scope; badge uses tap-target convention.
+- Dashboard: advisor fetched with suggestions, keyed by item name; works with existing hide/MDL/removed-items systems.
+- Still open from the rework list: item icons on suggestion rows, tighter Item Shortcut/inventory cross-feed.

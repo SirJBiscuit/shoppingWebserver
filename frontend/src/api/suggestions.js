@@ -32,6 +32,24 @@ export const searchItems = async (query) => {
   return { data };
 };
 
+// Price advisor — batch per-store price intel for Smart Suggestions.
+// Returns { store, advisor: { [lowercased item name]: { store, best, stores } } }.
+export const getPriceAdvisor = async (store, items = []) => {
+  try {
+    const qs = new URLSearchParams();
+    if (store) qs.set('store', store);
+    if (items.length > 0) qs.set('items', items.join(','));
+    const response = await fetch(`${API_URL}/api/suggestions/price-advisor?${qs}`, {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) return { data: {} };
+    const data = await response.json();
+    return { data: data.advisor || {} };
+  } catch {
+    return { data: {} }; // non-critical — price intel is best-effort
+  }
+};
+
 // Previously-removed list items — quick re-add source for Smart Suggestions.
 export const getRecentlyRemoved = async () => {
   try {

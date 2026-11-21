@@ -1,9 +1,9 @@
-import React from 'react';
-import { Plus, AlertCircle, TrendingUp, Clock, Brain, RotateCcw } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, AlertCircle, TrendingUp, TrendingDown, Clock, Brain, RotateCcw, ChevronDown, ChevronUp, Store } from 'lucide-react';
 import { useEditor } from '../contexts/EditorContext';
 import { EditableContainer } from './editor/EditorOverlay';
 
-const SmartSuggestions = ({ suggestions, removedItems, onAddSuggestion }) => {
+const SmartSuggestions = ({ suggestions, removedItems, onAddSuggestion, advisor, storeName }) => {
   const { isEditorActive, selectWidget, selectedWidget, widgetProperties } = useEditor();
   const aveProps = widgetProperties['smart-suggestions'] || {};
   
@@ -14,13 +14,72 @@ const SmartSuggestions = ({ suggestions, removedItems, onAddSuggestion }) => {
       onSelect={() => selectWidget('smart-suggestions', 'dashboard')}
       isSelected={selectedWidget?.id === 'smart-suggestions'}
     >
-      <SmartSuggestionsContent 
+      <SmartSuggestionsContent
         suggestions={suggestions}
         removedItems={removedItems}
         onAddSuggestion={onAddSuggestion}
+        advisor={advisor}
+        storeName={storeName}
         {...aveProps}
       />
     </EditableContainer>
+  );
+};
+
+const fmtDate = (iso) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+
+// Expandable price-intel box — last/prev at this store, cheapest store, margins.
+const AdvisorBox = ({ data, storeName }) => {
+  const cur = data.store;
+  const others = (data.stores || []).filter(o => !cur || o.store.toLowerCase() !== cur.store.toLowerCase());
+  return (
+    <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50/60 dark:bg-blue-900/20 dark:border-blue-800 p-2.5 text-xs space-y-1.5">
+      {cur && (
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1 text-gray-700 dark:text-gray-300">
+            <Store className="w-3 h-3 text-blue-600" />
+            <strong>{cur.store === 'Unknown store' && storeName ? storeName : cur.store}</strong>
+            {cur.at && <span className="text-gray-400">· {fmtDate(cur.at)}</span>}
+          </span>
+          <span className="font-semibold text-gray-900 dark:text-white">${cur.price.toFixed(2)}</span>
+        </div>
+      )}
+      {cur && cur.changePct != null && cur.prev != null && (
+        <div className="flex items-center gap-1.5">
+          {cur.changePct > 0
+            ? <TrendingUp className="w-3.5 h-3.5 text-red-500" />
+            : cur.changePct < 0
+              ? <TrendingDown className="w-3.5 h-3.5 text-green-600" />
+              : <span className="w-3.5 h-3.5 text-center text-gray-400">=</span>}
+          <span className={cur.changePct > 0 ? 'text-red-600' : cur.changePct < 0 ? 'text-green-700' : 'text-gray-500'}>
+            {cur.changePct > 0 ? '+' : ''}{cur.changePct}% vs last time (${cur.prev.toFixed(2)})
+          </span>
+        </div>
+      )}
+      {data.best && (!cur || data.best.store.toLowerCase() !== (cur.store || '').toLowerCase()) && (
+        <div className="flex items-center justify-between rounded bg-green-100/80 dark:bg-green-900/30 px-2 py-1">
+          <span className="text-green-800 dark:text-green-200">
+            Cheapest: <strong>{data.best.store}</strong>
+          </span>
+          <span className="font-semibold text-green-800 dark:text-green-200">
+            ${data.best.price.toFixed(2)}
+            {cur && cur.savesPct != null && <span className="ml-1 text-[10px]">(save {cur.savesPct}%)</span>}
+          </span>
+        </div>
+      )}
+      {others.length > 0 && (
+        <div className="flex flex-wrap gap-1 pt-0.5">
+          {others.slice(0, 4).map(o => (
+            <span key={o.store} className="px-1.5 py-0.5 rounded bg-white/80 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
+              {o.store} ${o.price.toFixed(2)}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -39,8 +98,11 @@ const SmartSuggestionsContent = ({
   maxRemoved = 8,
   compactMode = false,
   maxHeight = 384,
-  groupByPriority = false
+  groupByPriority = false,
+  advisor = {},
+  storeName = ''
 }) => {
+  const [openAdvisorKey, setOpenAdvisorKey] = useState(null);
   const getPriorityColor = (priority) => {
     switch (priority) {
       case 'high':
@@ -106,13 +168,23 @@ const SmartSuggestionsContent = ({
     return bits.join(' · ');
   };
 
+  // Price advisor lookup — keyed by lowercased name, exact or canonical.
+  const advisorFor = (s) =>
+    advisor[(s.item || '').toLowerCase()] ||
+    (s.exactName ? advisor[s.exactName.toLowerCase()] : null) ||
+    null;
+
   return (
     <div>
       <div 
         className={`${compactMode ? 'space-y-2' : 'space-y-3'} overflow-y-auto scrollbar-3d`}
         style={{ maxHeight: `${maxHeight}px` }}
       >
-        {displaySuggestions.map((suggestion, index) => (
+        {displaySuggestions.map((suggestion, index) => {
+          const adv = advisorFor(suggestion);
+          const advKey = `${suggestion.item}-${index}`;
+          const advisorOpen = openAdvisorKey === advKey;
+          return (
           <div
             key={index}
             className={`${compactMode ? 'p-2' : 'p-3'} rounded-lg border-2 ${getPriorityColor(suggestion.priority)}`}
@@ -125,15 +197,28 @@ const SmartSuggestionsContent = ({
                     {suggestion.item}
                   </span>
                   {showPrice && fmtPrice(suggestion) && (
-                    <span
-                      className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700"
-                      title={suggestion.priceSource === 'last_paid' ? 'Last price you paid'
-                        : suggestion.priceSource === 'learned_avg' ? 'Your learned average' : 'Catalog estimate'}
-                    >
-                      {fmtPrice(suggestion)}
-                    </span>
+                    adv ? (
+                      <button
+                        type="button"
+                        onClick={() => setOpenAdvisorKey(advisorOpen ? null : advKey)}
+                        className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200 tap-target flex items-center gap-0.5"
+                        title="Price advisor — tap for store prices and trends"
+                      >
+                        {fmtPrice(suggestion)}
+                        {advisorOpen ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+                      </button>
+                    ) : (
+                      <span
+                        className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700"
+                        title={suggestion.priceSource === 'last_paid' ? 'Last price you paid'
+                          : suggestion.priceSource === 'learned_avg' ? 'Your learned average' : 'Catalog estimate'}
+                      >
+                        {fmtPrice(suggestion)}
+                      </span>
+                    )
                   )}
                 </div>
+                {advisorOpen && adv && <AdvisorBox data={adv} storeName={storeName} />}
                 {canonicalOf(suggestion) && (
                   <p className="text-[10px] text-gray-400 italic">listed as “{canonicalOf(suggestion)}”</p>
                 )}
@@ -165,7 +250,8 @@ const SmartSuggestionsContent = ({
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {showRemoved && removedItems.length > 0 && (
