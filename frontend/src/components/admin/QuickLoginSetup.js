@@ -28,7 +28,7 @@ const shuffledIdx = () => {
 const QuickLoginSetup = () => {
   const [status, setStatus] = useState(null);
   const [seq, setSeq] = useState([]); // symbols in order
-  const [symOrder, setSymOrder] = useState(shuffledIdx); // builder grid layout
+  const [symOrder] = useState(shuffledIdx); // builder layout — stable while entering
   const [codes, setCodes] = useState(null); // freshly generated, shown once
   const [copied, setCopied] = useState(false);
   const [confirmDisable, setConfirmDisable] = useState(false);
@@ -202,9 +202,9 @@ const QuickLoginSetup = () => {
             className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
           <span className="text-sm text-gray-700 dark:text-gray-300">
-            Re-shuffle the grid after every tap
+            Re-shuffle the login grid after every tap
             <span className="block text-xs text-gray-500 dark:text-gray-400">
-              On: an observer can't predict where your next tap lands. Off: the layout stays put during a challenge.
+              On: an observer can't predict where your next tap lands. Off: the login layout stays put during a challenge.
             </span>
           </span>
         </label>
@@ -234,11 +234,7 @@ const QuickLoginSetup = () => {
               <button
                 key={s}
                 type="button"
-                onClick={() => {
-                  if (seq.length >= SEQ_MAX) return;
-                  setSeq([...seq, s]);
-                  if (status?.reshuffle !== false) setSymOrder(shuffledIdx());
-                }}
+                onClick={() => seq.length < SEQ_MAX && setSeq([...seq, s])}
                 className={`relative aspect-square text-xl rounded-lg border-2 flex items-center justify-center transition-colors ${
                   count > 0
                     ? 'border-primary-400 bg-primary-50 dark:bg-primary-900/30'

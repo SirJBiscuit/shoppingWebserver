@@ -534,3 +534,6 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - QuickLoginModal.js: tapped grid cells no longer show ANY selection state (removed highlight border/bg + order badges) — an observer can't tell which tiles were tapped; the progress dots still give count feedback. Per-tap reshuffle now honors challenge.reshuffle from the server (off = layout stays fixed for the whole challenge).
 - quickLogin.js: POST /mode now accepts { mode?, reshuffle? } (either or both, COALESCE update, returns current values); /status and /challenge expose reshuffle.
 - QuickLoginSetup.js: "Re-shuffle the grid after every tap" checkbox under the mode picker; the sequence-builder grid also honors the pref.
+
+## Quick login — builder keeps a stable grid (committed)
+- QuickLoginSetup.js: the sequence-builder grid no longer re-shuffles per tap — it renders a random layout once and stays put while you build (per-tap scatter is a login-challenge feature, not a setup annoyance). Reshuffle checkbox label now says "login grid" to reflect scope.
