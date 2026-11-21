@@ -105,13 +105,16 @@ router.get('/smart-suggestions', async (req, res) => {
         const enrich = await db.query(
           `SELECT LOWER(i.name) AS key,
                   i.average_price AS catalog_price,
+                  i.preferred_icon AS icon, i.category,
                   n.normalized_name AS canonical_name,
                   p.total_times_added, p.prediction_confidence,
                   p.next_predicted_date, p.average_days_between,
-                  p.last_price, p.average_price AS mdl_price
+                  p.last_price, p.average_price AS mdl_price,
+                  inv.current_quantity AS home_qty, inv.unit AS home_unit
            FROM items i
            LEFT JOIN mdl_item_names n ON n.normalized_name = normalize_item_name(i.name)
            LEFT JOIN mdl_user_patterns p ON p.item_name_id = n.id AND p.user_id = $1
+           LEFT JOIN inventory inv ON inv.item_id = i.id AND inv.user_id = $1
            WHERE i.user_id = $1 AND LOWER(i.name) = ANY($2::text[])`,
           [req.user.id, keys]
         );
@@ -127,6 +130,11 @@ router.get('/smart-suggestions', async (req, res) => {
               : e.mdl_price != null ? 'learned_avg' : 'catalog';
           }
           s.exactName = e.canonical_name || s.item;
+          if (e.icon) s.icon = e.icon;
+          if (e.category) s.category = e.category;
+          if (e.home_qty != null && e.home_qty > 0) {
+            s.atHome = { qty: parseFloat(e.home_qty), unit: e.home_unit || '' };
+          }
           if (e.total_times_added != null) {
             s.mdl = {
               timesAdded: e.total_times_added,

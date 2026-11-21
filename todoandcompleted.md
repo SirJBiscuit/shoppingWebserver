@@ -435,3 +435,8 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Rewrote Onboarding as a no-dim demo tour: animated fake cursor glides to each element and pulses a tap, soft ring highlights the control, small floating tooltip box anchored beside it (reuses anchoredPopupPos).
 - Click/tap anywhere continues; ESC/X skips; arrows navigate. Chooser on open: Quick tour (7 stops) / Full tour (12) / Skip + don't-show-again. Skip hint auto-closes in 6s.
 - Steps unchanged (flow teaching incl. Unpack → Inventory → Homemade Lab); version bumped v4 → v5 so everyone sees the new style once.
+
+## Tutorial 3D + opt-out API + suggestion polish (committed)
+- 3D animation layer: chooser + step boxes enter with rotateX perspective flips; step emoji does a rotateY spin; demo cursor tilts and pulses an isometric "floor tap" ellipse. All gated on prefers-reduced-motion. Fixed framer-motion transform clobbering Tailwind centering (positioning moved to static wrappers).
+- Custom API for the opt-out checkbox: POST /users/onboarding now accepts {never}; GET returns it — "don't show automatically" follows the account across devices (migration 103 adds users.onboarding_never).
+- Smart Suggestions richer rows: item icon (emoji or uploaded image), category chip, and "Have X unit" badge from Home Inventory — the enrich query now joins inventory + preferred_icon/category.

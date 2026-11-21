@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, AlertCircle, TrendingUp, TrendingDown, Clock, Brain, RotateCcw, ChevronDown, ChevronUp, Store } from 'lucide-react';
+import { Plus, AlertCircle, TrendingUp, TrendingDown, Clock, Brain, RotateCcw, ChevronDown, ChevronUp, Store, Home } from 'lucide-react';
+import { isImageIcon } from '../utils/iconUpload';
 import { useEditor } from '../contexts/EditorContext';
 import { EditableContainer } from './editor/EditorOverlay';
 
@@ -193,6 +194,13 @@ const SmartSuggestionsContent = ({
               <div className="flex-1">
                 <div className={`flex items-center ${compactMode ? 'mb-0.5' : 'mb-1'}`}>
                   {showIcons && getPriorityIcon(suggestion.type)}
+                  {suggestion.icon && (
+                    isImageIcon(suggestion.icon) ? (
+                      <img src={suggestion.icon} alt="" className="w-6 h-6 ml-2 rounded object-cover flex-shrink-0" />
+                    ) : (
+                      <span className="ml-2 text-base flex-shrink-0" aria-hidden="true">{suggestion.icon}</span>
+                    )
+                  )}
                   <span className={`${showIcons ? 'ml-2' : ''} font-medium text-gray-900 ${compactMode ? 'text-sm' : ''}` }>
                     {suggestion.item}
                   </span>
@@ -221,6 +229,24 @@ const SmartSuggestionsContent = ({
                 {advisorOpen && adv && <AdvisorBox data={adv} storeName={storeName} />}
                 {canonicalOf(suggestion) && (
                   <p className="text-[10px] text-gray-400 italic">listed as “{canonicalOf(suggestion)}”</p>
+                )}
+                {(suggestion.category || suggestion.atHome) && (
+                  <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                    {suggestion.category && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                        {suggestion.category}
+                      </span>
+                    )}
+                    {suggestion.atHome && (
+                      <span
+                        className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center gap-0.5"
+                        title="Already in your Home Inventory"
+                      >
+                        <Home className="w-2.5 h-2.5" />
+                        Have {suggestion.atHome.qty}{suggestion.atHome.unit ? ` ${suggestion.atHome.unit}` : ''}
+                      </span>
+                    )}
+                  </div>
                 )}
                 {showReason && (
                   <p className={`text-xs text-gray-600 ${compactMode ? 'mb-1' : 'mb-2'}`}>{suggestion.reason}</p>

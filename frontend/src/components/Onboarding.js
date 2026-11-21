@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, ChevronRight, ChevronLeft, Check, MousePointer2, Zap, BookOpen } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Portal, anchoredPopupPos } from '../utils/autoPlacement';
 import api from '../services/api';
 
@@ -162,6 +162,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
   const [cursor, setCursor] = useState(null); // demo cursor target point
   const [pulseKey, setPulseKey] = useState(0); // retrigger the tap ripple per step
   const boxRef = useRef(null);
+  const reduceMotion = useReducedMotion();
 
   const steps = mode === 'quick'
     ? QUICK_STEP_IDX.map(i => WALKTHROUGH_STEPS[i])
@@ -185,6 +186,9 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
     api.get('/users/onboarding')
       .then((r) => {
         const serverSeen = r.data?.version === ONBOARDING_VERSION;
+        if (r.data?.never) {
+          localStorage.setItem(neverKey(userId), 'true'); // server opt-out wins
+        }
         if (!serverSeen && !localSeen()) show();
       })
       .catch(() => { if (!localSeen()) show(); });
@@ -199,7 +203,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
       localStorage.setItem(neverKey(userId), 'true');
     }
     if (userId) {
-      api.post('/users/onboarding', { version: ONBOARDING_VERSION }).catch(() => {});
+      api.post('/users/onboarding', { version: ONBOARDING_VERSION, never: dontShowAgain }).catch(() => {});
     }
   };
 
@@ -329,19 +333,26 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
   const boxPos = anchor
     ? anchoredPopupPos(anchor, { width: BOX_W, height: 300, margin: 10, gap: 12 })
     : null;
-  const boxStyle = boxPos
-    ? { position: 'fixed', left: boxPos.left, top: boxPos.top, width: BOX_W, maxWidth: 'calc(100vw - 20px)', maxHeight: boxPos.maxHeight }
-    : { position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', width: BOX_W, maxWidth: 'calc(100vw - 20px)' };
+  // Positioning lives on a static wrapper — framer-motion owns the inner
+  // box's transform, so centering via translate classes would be clobbered.
+  const outerStyle = boxPos
+    ? { position: 'fixed', left: boxPos.left, top: boxPos.top }
+    : { position: 'fixed', left: 0, right: 0, bottom: 24, display: 'flex', justifyContent: 'center' };
+  const boxStyle = {
+    width: BOX_W,
+    maxWidth: 'calc(100vw - 20px)',
+    maxHeight: boxPos ? boxPos.maxHeight : undefined,
+  };
 
   return (
     <Portal>
       <AnimatePresence>
         {showSkipMessage ? (
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 24 }}
-            className="fixed left-1/2 bottom-6 -translate-x-1/2 z-[10003] w-80 max-w-[calc(100vw-20px)] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-5 text-center"
+            initial={{ opacity: 0, y: 24, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: 24, x: '-50%' }}
+            className="fixed left-1/2 bottom-6 z-[10003] w-80 max-w-[calc(100vw-20px)] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-5 text-center"
             role="status"
           >
             <div className="text-4xl mb-2">👋</div>
@@ -354,10 +365,12 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
         ) : !mode ? (
           // Tour chooser — a small floating box, no backdrop.
           <motion.div
-            initial={{ opacity: 0, y: 24, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 24, scale: 0.96 }}
-            className="fixed left-1/2 bottom-6 -translate-x-1/2 z-[10003] w-[22rem] max-w-[calc(100vw-20px)] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4"
+            initial={{ opacity: 0, y: 30, rotateX: -35, scale: 0.95, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1, x: '-50%' }}
+            exit={{ opacity: 0, y: 30, rotateX: -25, scale: 0.95, x: '-50%' }}
+            transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+            style={{ transformPerspective: 900 }}
+            className="fixed left-1/2 bottom-6 z-[10003] w-[22rem] max-w-[calc(100vw-20px)] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4"
             role="dialog"
             aria-label="Choose a tutorial"
           >
@@ -433,7 +446,8 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
               />
             )}
 
-            {/* Animated demo cursor — glides to the element and pulses a tap. */}
+            {/* Animated demo cursor — glides to the element and pulses an
+                isometric "floor tap" ripple (elliptical = depth cue). */}
             {cursor && (
               <motion.div
                 className="fixed z-[10002] pointer-events-none"
@@ -444,23 +458,29 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
                 <motion.span
                   key={`pulse-${pulseKey}`}
                   className="absolute -inset-2.5 rounded-full border-2 border-primary-400"
-                  initial={{ scale: 0.5, opacity: 0.9 }}
-                  animate={{ scale: 2, opacity: 0 }}
-                  transition={{ duration: 1.1, repeat: Infinity, repeatDelay: 0.5, ease: 'easeOut' }}
+                  initial={{ scaleX: 0.5, scaleY: 0.3, opacity: 0.9 }}
+                  animate={{ scaleX: 2.4, scaleY: 1.3, opacity: 0 }}
+                  transition={reduceMotion ? { duration: 0 } : { duration: 1.1, repeat: Infinity, repeatDelay: 0.5, ease: 'easeOut' }}
                 />
-                <MousePointer2 className="w-6 h-6 text-gray-900 dark:text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]" />
+                <motion.div
+                  animate={reduceMotion ? {} : { rotate: [-8, -4, -8], scale: [1, 0.92, 1] }}
+                  transition={{ duration: 1.1, repeat: Infinity, repeatDelay: 0.5 }}
+                >
+                  <MousePointer2 className="w-6 h-6 text-gray-900 dark:text-white drop-shadow-[0_3px_3px_rgba(0,0,0,0.45)]" />
+                </motion.div>
               </motion.div>
             )}
 
             {/* Floating tutorial box — anchored near the element. */}
+            <div className="z-[10003]" style={outerStyle}>
             <motion.div
               ref={boxRef}
               key={`box-${currentStep}`}
-              initial={{ opacity: 0, y: 8, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
+              initial={{ opacity: 0, y: 10, rotateX: 14, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
               transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-              className="z-[10003] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
-              style={boxStyle}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+              style={{ ...boxStyle, transformPerspective: 800 }}
               onClick={(e) => e.stopPropagation()}
               role="dialog"
               aria-label={`Tutorial step ${currentStep + 1} of ${steps.length}`}
@@ -468,7 +488,16 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
               <div className="p-3.5 pb-2.5">
                 <div className="flex items-start justify-between mb-1">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xl flex-shrink-0">{step.image}</span>
+                    <motion.span
+                      key={`icon-${currentStep}`}
+                      className="text-xl flex-shrink-0 inline-block"
+                      initial={reduceMotion ? false : { rotateY: 0 }}
+                      animate={reduceMotion ? {} : { rotateY: 360 }}
+                      transition={{ duration: 0.7, ease: 'easeOut' }}
+                      style={{ transformPerspective: 400 }}
+                    >
+                      {step.image}
+                    </motion.span>
                     <div className="min-w-0">
                       <h2 className="text-sm font-bold text-gray-900 dark:text-white leading-tight">{step.title}</h2>
                       <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-tight">{step.description}</p>
@@ -526,6 +555,7 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
                 </button>
               </div>
             </motion.div>
+            </div>
 
             {/* Hint — tap anywhere to continue */}
             <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[10001] pointer-events-none">

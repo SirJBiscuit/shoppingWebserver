@@ -153,10 +153,13 @@ router.delete('/admin/:userId', auth, isAdmin, async (req, res) => {
 router.get('/onboarding', auth, async (req, res) => {
   try {
     const r = await db.query(
-      'SELECT onboarding_version FROM users WHERE id = $1',
+      'SELECT onboarding_version, onboarding_never FROM users WHERE id = $1',
       [req.user.id]
     );
-    res.json({ version: r.rows[0]?.onboarding_version || null });
+    res.json({
+      version: r.rows[0]?.onboarding_version || null,
+      never: !!r.rows[0]?.onboarding_never,
+    });
   } catch (error) {
     console.error('Error fetching onboarding flag:', error);
     res.status(500).json({ error: 'Failed to fetch onboarding flag' });
@@ -167,11 +170,12 @@ router.post('/onboarding', auth, async (req, res) => {
   try {
     const version = typeof req.body?.version === 'string'
       ? req.body.version.slice(0, 20) : null;
+    const never = req.body?.never === true;
     await db.query(
-      'UPDATE users SET onboarding_version = $2 WHERE id = $1',
-      [req.user.id, version]
+      'UPDATE users SET onboarding_version = $2, onboarding_never = $3 WHERE id = $1',
+      [req.user.id, version, never]
     );
-    res.json({ version });
+    res.json({ version, never });
   } catch (error) {
     console.error('Error saving onboarding flag:', error);
     res.status(500).json({ error: 'Failed to save onboarding flag' });
