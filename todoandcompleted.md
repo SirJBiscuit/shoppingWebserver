@@ -430,3 +430,8 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - SmartSuggestions: tapping a suggestion's price badge expands a price-intel box (store price + date, trend arrow vs last visit, "Cheapest: store (save X%)", other-store chips). AdvisorBox hoisted to module scope; badge uses tap-target convention.
 - Dashboard: advisor fetched with suggestions, keyed by item name; works with existing hide/MDL/removed-items systems.
 - Still open from the rework list: item icons on suggestion rows, tighter Item Shortcut/inventory cross-feed.
+
+## Tutorial v5 — floating demo walkthrough (committed)
+- Rewrote Onboarding as a no-dim demo tour: animated fake cursor glides to each element and pulses a tap, soft ring highlights the control, small floating tooltip box anchored beside it (reuses anchoredPopupPos).
+- Click/tap anywhere continues; ESC/X skips; arrows navigate. Chooser on open: Quick tour (7 stops) / Full tour (12) / Skip + don't-show-again. Skip hint auto-closes in 6s.
+- Steps unchanged (flow teaching incl. Unpack → Inventory → Homemade Lab); version bumped v4 → v5 so everyone sees the new style once.
