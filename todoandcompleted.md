@@ -462,3 +462,12 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - A — Chips under "Looking for Next": SmartSuggestions rewritten as a compact horizontal chip strip (icon + name + price badge + "+" add, amber "have" dot, dashed re-add chips for removed items). Price badge expands the advisor inline; tapping the name expands reason/quantity/MDL training. Editor id "smart-suggestions" + hide widget preserved; AdvisorBox/helpers extracted to components/PriceAdvisor.js.
 - B — Ghost rows in the list: ItemList accepts ghostItems/onGhostAdd; up to 2 faded dashed rows appear inside their canonical category, the rest collect under a trailing "💡 Suggested" group (all trailing in flat mode). Tap → addSuggestion.
 - C — Proactive autocomplete: AutocompleteInput proactiveItems prop — on focus before typing, the dropdown shows "Suggested for you" (top suggestions, icon + 'suggested' tag); normal search unchanged.
+
+## Batch: qty stepper API, pins auto-complete, interactable system, admin context panel (committed)
+- QuantityStepper (new components/QuantityStepper.js): animated -/+ with directional number slide + press-shrink + ripple; learns preferred qty via learnQuantity (localStorage) + server preferred_quantity through the update path. Replaces both steppers in ItemList (inline + mobile menu).
+- Pins: fixed pins leave the page markers + default admin queue; queue shows them only via the 'fixed' filter chip; marking the last actionable pin fixed closes the pin panel.
+- Interactable indicator system (utils/interactable.js + index.css): useRipple() hook injects .ripple-ink at tap point; .tap-fill (filled pill affordance), .input-field:hover tint, ripple/tap CSS reusable anywhere. Wired into QuantityStepper.
+- AdminContextPanel (new, mounted in App.js): admins right-click any element -> pin a bug anchored to that element (selector + offset), element info, copy selector/text, session-hide, select widget in layout editor, admin nav, reload. Skips when another handler preventDefault'd, inside inputs/own panel.
+- Looking-for-Next: current item icon opens QuickIconPicker -> saves item_icon + learns icon.
+- MDL product database: category quick-edit popover gets a search box; SizeUnitFields preset-chip wall replaced with free-text size + shared searchable unit popup (CustomDropdownList + custom units).
+- updating.html: indeterminate pulse bar replaced with a conic swirl ring; real progress bar stays and hides the ring when progress.txt data arrives.

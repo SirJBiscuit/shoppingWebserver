@@ -67,6 +67,29 @@ export const getLearnedPrice = (itemName) => {
   return preferences.prices[normalizedName] || null;
 };
 
+// Learn preferred quantity for an item name (mirrors the server-side
+// preferred_quantity learned via updateItemPreferences)
+export const learnQuantity = (itemName, quantity) => {
+  if (!itemName || quantity === null || quantity === undefined) return;
+
+  const preferences = getUserPreferences();
+  const normalizedName = itemName.toLowerCase().trim();
+
+  if (!preferences.quantities) preferences.quantities = {};
+  preferences.quantities[normalizedName] = parseFloat(quantity);
+  savePreferences(preferences);
+};
+
+// Get learned quantity for an item name
+export const getLearnedQuantity = (itemName) => {
+  if (!itemName) return null;
+
+  const preferences = getUserPreferences();
+  const normalizedName = itemName.toLowerCase().trim();
+
+  return preferences.quantities ? preferences.quantities[normalizedName] ?? null : null;
+};
+
 // Clear all learned preferences (for settings/reset)
 export const clearAllPreferences = () => {
   localStorage.removeItem(STORAGE_KEY);

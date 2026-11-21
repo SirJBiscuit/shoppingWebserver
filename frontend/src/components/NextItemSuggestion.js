@@ -12,6 +12,7 @@ import { EditableContainer } from './editor/EditorOverlay';
 import { Portal, Popup } from '../utils/autoPlacement';
 import ItemIcon from './ItemIcon';
 import QuickCategoryPicker from './QuickCategoryPicker';
+import QuickIconPicker from './QuickIconPicker';
 
 const NextItemSuggestion = (props) => {
   const { isEditorActive, selectWidget, selectedWidget, widgetProperties } = useEditor();
@@ -52,6 +53,7 @@ const NextItemSuggestionContent = ({
   onPriceUpdate, 
   triggerFlyingAnimation,
   onCategoryChange,
+  onIconChange,
   // AVE Properties
   showAisle = true,
   showCategory = true,
@@ -85,6 +87,7 @@ const NextItemSuggestionContent = ({
   }, [showGuide]);
   const [helpPos, setHelpPos] = useState(null);    // help tooltip anchor {x,y}
   const [ctxMenu, setCtxMenu] = useState(null);    // right-click menu {x,y}
+  const [iconPick, setIconPick] = useState(null);  // {cx, top, bottom} anchor for QuickIconPicker
   const [isChecked, setIsChecked] = useState(nextItem?.is_checked || false);
   const [quickPrice, setQuickPrice] = useState(nextItem?.price ? nextItem.price.toString() : '');
   const [showPriceInput, setShowPriceInput] = useState(false);
@@ -618,8 +621,19 @@ const NextItemSuggestionContent = ({
             setCtxMenu({ x: e.clientX, y: e.clientY });
           }}
         >
-          {/* Large Icon */}
-          <span className="text-5xl sm:text-6xl flex-shrink-0"><ItemIcon icon={nextItem.item_icon} emojiClass="text-5xl sm:text-6xl" imgClass="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover" /></span>
+          {/* Large Icon — tap to quick-swap via the icon picker */}
+          <button
+            type="button"
+            onClick={(e) => {
+              if (!onIconChange) return;
+              const r = e.currentTarget.getBoundingClientRect();
+              setIconPick({ cx: r.left + r.width / 2, top: r.top, bottom: r.bottom });
+            }}
+            className={`text-5xl sm:text-6xl flex-shrink-0 leading-none ${onIconChange ? 'tap-target rounded-xl' : ''}`}
+            title={onIconChange ? 'Change item icon' : undefined}
+          >
+            <ItemIcon icon={nextItem.item_icon} emojiClass="text-5xl sm:text-6xl" imgClass="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover" />
+          </button>
           
           <div className="flex-1 min-w-0">
             {/* Item Name */}
@@ -1321,6 +1335,22 @@ const NextItemSuggestionContent = ({
             anchor={catAnchor}
             onSelect={(cat) => onCategoryChange?.(nextItem, cat)}
             onClose={() => setShowCategoryPicker(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Anchored quick-icon picker for the current next item */}
+      <AnimatePresence>
+        {iconPick && onIconChange && (
+          <QuickIconPicker
+            item={nextItem}
+            anchor={iconPick}
+            currentIcon={nextItem.item_icon}
+            onSelect={(icon) => {
+              onIconChange(nextItem, icon);
+              setIconPick(null);
+            }}
+            onClose={() => setIconPick(null)}
           />
         )}
       </AnimatePresence>

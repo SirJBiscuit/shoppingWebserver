@@ -727,7 +727,11 @@ const BetaPinLayer = () => {
   const positioned = useMemo(
     () => {
       const elCache = new Map();
-      return pins.map((p) => ({ p, pos: resolvePin(p, elCache) }));
+      // Fixed/removed pins leave the page entirely — a fixed pin is done,
+      // not a marker that keeps hovering over the UI.
+      return pins
+        .filter((p) => p.status !== 'fixed' && p.status !== 'removed')
+        .map((p) => ({ p, pos: resolvePin(p, elCache) }));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [pins, docH, tick, layerTick, page]
@@ -781,7 +785,10 @@ const BetaPinLayer = () => {
   };
   // Search + filter + sort pipeline for the pins tab
   const filteredPins = useMemo(() => {
-    let list = allPins.filter((p) => p.status !== 'removed');
+    // Fixed pins are completed — hidden from the default queue; they only
+    // reappear when the 'fixed' status filter chip is explicitly on.
+    let list = allPins.filter((p) =>
+      p.status !== 'removed' && (statusFilter.size ? true : p.status !== 'fixed'));
     if (statusFilter.size) list = list.filter((p) => statusFilter.has(p.status));
     if (sevFilter.size) list = list.filter((p) => sevFilter.has(p.severity));
     if (authorFilter !== 'all') list = list.filter((p) => p.username === authorFilter);
@@ -990,6 +997,13 @@ const BetaPinLayer = () => {
       await api.post(`/beta/pins/admin/${pin.id}/status`, { status });
       setCtx(null); setDetail(null);
       loadPagePins(); loadAdminPins();
+      // Fixed = done: marker + queue row disappear. When that was the last
+      // actionable pin, the pin box closes itself.
+      if (status === 'fixed' && tab === 'pins') {
+        const remaining = allPins.filter((p) =>
+          p.id !== pin.id && p.status !== 'removed' && p.status !== 'fixed').length;
+        if (remaining === 0) setPanelOpen(false);
+      }
     } catch (e) { apiErr(e, 'Status update failed'); }
   };
 
@@ -2727,7 +2741,7 @@ const BetaPinLayer = () => {
                 {/* Result count + bulk actions */}
                 <div className="flex items-center gap-1.5 mt-1.5">
                   <span className="text-[11px] text-slate-500 mr-auto">
-                    {filteredPins.length} of {allPins.filter((p) => p.status !== 'removed').length}
+                    {filteredPins.length} of {allPins.filter((p) => p.status !== 'removed' && (statusFilter.size ? true : p.status !== 'fixed')).length}
                     {sel.size > 0 && <span className="text-blue-300"> · {sel.size} selected</span>}
                   </span>
                   {['fixed', 'in_progress', 'open', 'hide', 'remove'].map((a) => (

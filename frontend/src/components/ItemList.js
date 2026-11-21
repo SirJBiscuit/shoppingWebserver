@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye, MoreVertical, Tag, Minus, Plus, Heart, X } from 'lucide-react';
+import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye, MoreVertical, Tag, Heart, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import CustomEditPanel from './CustomEditPanel';
 import CustomContextMenu from './CustomContextMenu';
@@ -17,6 +17,7 @@ import { useEditor } from '../contexts/EditorContext';
 import ItemIcon from './ItemIcon';
 import QuickIconPicker from './QuickIconPicker';
 import QuickCategoryPicker from './QuickCategoryPicker';
+import QuantityStepper from './QuantityStepper';
 
 const ItemList = (props) => {
   const { items, onToggleCheck, onDelete, onEdit, onCopyMove, triggerAnimation, nextItemId, hideCategories = false, storeName = null, onLookForThis } = props;
@@ -903,24 +904,12 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                     </p>
                     <div className="flex items-center gap-2 flex-wrap">
                       {(onQuantityChange || onEdit) && item.count === 1 ? (
-                        <span className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
-                          <button
-                            onClick={() => adjustQuantity(-1)}
-                            className="w-8 h-8 sm:w-5 sm:h-5 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-primary-200 dark:hover:bg-primary-800 text-gray-700 dark:text-gray-200 text-base sm:text-xs font-bold flex items-center justify-center"
-                            title="Decrease quantity"
-                          >
-                            −
-                          </button>
-                          <span className="min-w-[1.5rem] text-center">{formatQuantityPlain(itemQty)}</span>
-                          <button
-                            onClick={() => adjustQuantity(1)}
-                            className="w-8 h-8 sm:w-5 sm:h-5 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-primary-200 dark:hover:bg-primary-800 text-gray-700 dark:text-gray-200 text-base sm:text-xs font-bold flex items-center justify-center"
-                            title="Increase quantity"
-                          >
-                            +
-                          </button>
-                          {item.unit && <span>{item.unit}</span>}
-                        </span>
+                        <QuantityStepper
+                          value={itemQty}
+                          unit={item.unit}
+                          itemName={item.item_name}
+                          onAdjust={adjustQuantity}
+                        />
                       ) : (
                         <span className="text-sm text-gray-500 dark:text-gray-400">
                           {formatQuantityPlain(itemQty)} {item.unit}
@@ -1086,23 +1075,14 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                       <div className="absolute right-0 top-full mt-1 z-40 w-44 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl py-1">
                         {item.count === 1 && (onQuantityChange || onEdit) && (
                           <div className="flex items-center justify-between px-3 py-1.5">
-                            <button
-                              onClick={() => adjustQuantity(-1)}
-                              className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-200"
-                              title="Decrease quantity"
-                            >
-                              <Minus className="w-5 h-5" />
-                            </button>
-                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                              {formatQuantityPlain(itemQty)} {item.unit}
-                            </span>
-                            <button
-                              onClick={() => adjustQuantity(1)}
-                              className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-200"
-                              title="Increase quantity"
-                            >
-                              <Plus className="w-5 h-5" />
-                            </button>
+                            <QuantityStepper
+                              value={itemQty}
+                              unit={item.unit}
+                              itemName={item.item_name}
+                              onAdjust={adjustQuantity}
+                              size="lg"
+                              className="w-full justify-between text-gray-800 dark:text-gray-200 font-semibold"
+                            />
                           </div>
                         )}
                         <button

@@ -74,19 +74,19 @@
     background: rgba(255, 255, 255, .14);
     overflow: hidden;
   }
-  .bar::after {
-    content: '';
-    display: block;
-    height: 100%;
-    width: 40%;
-    border-radius: 999px;
-    background: linear-gradient(90deg, #818cf8, #c084fc);
-    animation: slide 1.6s ease-in-out infinite;
+  /* swirling ring loader — shows until real progress.txt data arrives */
+  .spinner {
+    margin: 24px auto 4px;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 8%, #818cf8 55%, #c084fc 82%, transparent 100%);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+    animation: swirl 0.9s linear infinite;
   }
-  @keyframes slide {
-    0%   { transform: translateX(-110%); }
-    100% { transform: translateX(280%); }
-  }
+  .spinner.hidden { display: none; }
+  @keyframes swirl { to { transform: rotate(360deg); } }
   /* real progress — update-server.sh writes progress.txt, we poll it */
   .bar .fill {
     display: none;
@@ -96,8 +96,7 @@
     background: linear-gradient(90deg, #818cf8, #c084fc);
     transition: width .7s ease;
   }
-  .bar.real::after { display: none; }
-  .bar.real .fill { display: block; }
+  .bar .fill { display: block; }
   .steplabel {
     font-size: 11.5px;
     color: rgba(255, 255, 255, .6);
@@ -173,6 +172,7 @@
     <p class="sub">We're rolling out something new.<br>
     Please be patient — the app will be back up within minutes.</p>
     <div class="bar" id="bar"><div class="fill" id="barFill"></div></div>
+    <div class="spinner" id="spinner"></div>
     <div class="steplabel" id="stepLabel"></div>
     <div class="changes" id="changes"><h2>In this update</h2><ul id="changeList"></ul></div>
     <div class="timer">Retrying automatically in <b id="secs">15</b>s…</div>
@@ -217,6 +217,7 @@
   // a true bar; fall back gracefully while the file is absent/stale (step 0).
   var barEl = document.getElementById('bar');
   var fillEl = document.getElementById('barFill');
+  var spinnerEl = document.getElementById('spinner');
   var labelEl = document.getElementById('stepLabel');
   function pollProgress() {
     fetch('/progress.txt', { cache: 'no-store' })
@@ -231,6 +232,7 @@
         var n = +m[1], total = +m[2], label = m[3];
         if (n <= 0) return; // "waiting" placeholder — keep the slider
         barEl.classList.add('real');
+        spinnerEl.classList.add('hidden');
         fillEl.style.width = Math.min(100, Math.round((n / total) * 100)) + '%';
         labelEl.textContent = label + ' — step ' + n + ' of ' + total;
       })

@@ -2601,6 +2601,16 @@ const Dashboard = () => {
                     onRemoveNote={removeNote}
                     onMarkUnavailable={handleMarkUnavailable}
                     onChangeStore={handleChangeStore}
+                    onIconChange={async (item, icon) => {
+                      try {
+                        await shoppingAPI.updateItem(activeList.id, item.id, { item_icon: icon });
+                        learnIcon(item.item_name, icon);
+                        await loadListItems(activeList.id);
+                      } catch (e) {
+                        console.error('Error updating icon:', e);
+                        error('Failed to update icon. Please try again.');
+                      }
+                    }}
                     triggerCheckmarkAnimation={triggerCheckmarkAnimation}
                     triggerFlyingAnimation={triggerFlyingAnimation}
                     onPriceUpdate={handlePriceUpdate}

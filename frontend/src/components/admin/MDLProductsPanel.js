@@ -8,26 +8,15 @@ import {
 import {
   getAdminStats, searchProducts, getProductCategories,
   updateProduct, addPriceRecord, runMdlBackup,
-  getSizePresets, createSizePreset,
   getProductVariants, saveProductVariant, deleteProductVariant, markBestVariant,
   getFavorites
 } from '../../api/mdl';
+import CustomDropdownList from '../CustomDropdownList';
+import { useCustomUnits } from '../../utils/customUnits';
 import { CANONICAL_CATEGORIES, canonicalizeCategory, getCategoryIcon } from '../../utils/categoryDetector';
 import IconPicker from '../IconPicker';
 import FavoritePicker from '../FavoritePicker';
 import { Popup, Portal } from '../../utils/autoPlacement';
-
-// Preset color key -> tailwind classes
-const PRESET_COLORS = {
-  red:    'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-  blue:   'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-  green:  'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-  cyan:   'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
-  amber:  'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-  purple: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-  gray:   'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-};
-const presetColor = (c) => PRESET_COLORS[c] || PRESET_COLORS.gray;
 
 // Canonical category -> chip color (color coding for the MDL system)
 const CATEGORY_CHIP_COLORS = {
@@ -48,12 +37,24 @@ const CATEGORY_CHIP_COLORS = {
 const categoryChip = (cat) =>
   CATEGORY_CHIP_COLORS[canonicalizeCategory(cat)] || CATEGORY_CHIP_COLORS['Other'];
 
-const PRESET_TYPE_LABELS = {
-  weight: 'Weights',
-  package: 'Package amounts',
-  size: 'Sizes',
-  unit: 'Units',
-};
+// Base units shared with CustomEditPanel — the searchable unit picker.
+const BASE_UNIT_OPTIONS = [
+  { value: '', label: 'None' },
+  { value: 'oz', label: 'oz (ounces)' },
+  { value: 'lb', label: 'lb (pounds)' },
+  { value: 'g', label: 'g (grams)' },
+  { value: 'kg', label: 'kg (kilograms)' },
+  { value: 'ml', label: 'ml (milliliters)' },
+  { value: 'L', label: 'L (liters)' },
+  { value: 'pt', label: 'pt (pints)' },
+  { value: 'qt', label: 'qt (quarts)' },
+  { value: 'gal', label: 'gal (gallons)' },
+  { value: 'ct', label: 'ct (count)' },
+  { value: 'pkg', label: 'pkg (package)' },
+  { value: 'box', label: 'box' },
+  { value: 'can', label: 'can' },
+  { value: 'bag', label: 'bag' },
+];
 
 const inputCls =
   'w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-primary-500';
@@ -82,6 +83,7 @@ const MDLProductsPanel = () => {
   const [iconPickerFor, setIconPickerFor] = useState(null);
   // Inline category quick-edit popover {product, x, y}
   const [catEditor, setCatEditor] = useState(null);
+  const [catQuery, setCatQuery] = useState('');
   // Right-click context menu {product, x, y}
   const [ctxMenu, setCtxMenu] = useState(null);
   // Favorite picker {product}
@@ -363,6 +365,7 @@ const MDLProductsPanel = () => {
                           onClick={(e) => {
                             e.stopPropagation();
                             const r = e.currentTarget.getBoundingClientRect();
+                            setCatQuery('');
                             setCatEditor({ product: p, x: r.left, y: r.bottom });
                           }}
                           className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-transform hover:scale-105 ${categoryChip(p.category)}`}
@@ -437,7 +440,18 @@ const MDLProductsPanel = () => {
           <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 px-2 py-1">
             Category for "{catEditor.product.product_name}"
           </div>
-          {CANONICAL_CATEGORIES.map((cc) => (
+          <div className="px-1.5 pb-1.5">
+            <input
+              type="text"
+              value={catQuery}
+              onChange={(e) => setCatQuery(e.target.value)}
+              placeholder="Search categories…"
+              className="w-full px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          {CANONICAL_CATEGORIES
+            .filter((cc) => cc.name.toLowerCase().includes(catQuery.trim().toLowerCase()))
+            .map((cc) => (
             <button
               key={cc.name}
               onClick={async () => {
@@ -669,120 +683,64 @@ const MDLProductsPanel = () => {
 };
 
 /* ------------------------------------------------------------------
- * SizeUnitFields — preset-driven pickers for common_size/common_unit.
- * Presets carry simple labels + colors; admins can add new ones inline.
+ * SizeUnitFields — free-text size + the shared searchable unit popup
+ * (CustomDropdownList + custom units) — same picker the item editor uses,
+ * no more wall of preset chips.
  * ------------------------------------------------------------------ */
 const SizeUnitFields = ({ form, setForm }) => {
-  const [presets, setPresets] = useState([]);
-  const [adding, setAdding] = useState(false);
-  const [np, setNp] = useState({ preset_type: 'size', label: '', value: '', color: 'gray' });
+  const [userId] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('user') || '{}').id; } catch { return null; }
+  });
+  const [customUnits, addUnit] = useCustomUnits(userId);
+  const [showUnitInput, setShowUnitInput] = useState(false);
+  const [newUnitName, setNewUnitName] = useState('');
 
-  const load = useCallback(async () => {
-    setPresets(await getSizePresets(canonicalizeCategory(form.category)));
-  }, [form.category]);
+  const unitOptions = [
+    ...BASE_UNIT_OPTIONS,
+    ...(customUnits.length ? [{ value: '__custom_hdr', label: '⭐ Custom Units', isHeader: true }] : []),
+    ...customUnits.map((u) => ({ value: u, label: u })),
+  ];
 
-  useEffect(() => { load(); }, [load]);
-
-  const byType = presets.reduce((acc, p) => {
-    (acc[p.preset_type] = acc[p.preset_type] || []).push(p);
-    return acc;
-  }, {});
-
-  const addPreset = async () => {
-    if (!np.label.trim() || !np.value.trim()) return;
-    await createSizePreset({
-      category: null, // global preset
-      preset_type: np.preset_type,
-      label: np.label.trim(),
-      value: np.value.trim(),
-      color: np.color,
-    });
-    setNp({ preset_type: 'size', label: '', value: '', color: 'gray' });
-    setAdding(false);
-    load();
+  const commitNewUnit = () => {
+    const u = newUnitName.trim();
+    if (!u) return;
+    addUnit(u);
+    setForm((f) => ({ ...f, common_unit: u }));
+    setNewUnitName('');
+    setShowUnitInput(false);
   };
 
-  const PresetChip = ({ active, onClick, color, children }) => (
-    <button
-      onClick={onClick}
-      className={`px-2 py-1 rounded-lg text-xs font-medium border transition-all ${
-        active
-          ? 'border-primary-500 ring-1 ring-primary-400 ' + presetColor(color)
-          : 'border-transparent hover:scale-105 ' + presetColor(color)
-      }`}
-    >
-      {children}
-    </button>
-  );
-
   return (
-    <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-          Size / Weight / Unit <span className="font-normal text-xs text-gray-400">(presets + custom)</span>
-        </p>
-        <button onClick={() => setAdding(a => !a)} className="text-xs text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1">
-          <Plus className="w-3 h-3" /> New preset
-        </button>
+    <div className="grid grid-cols-2 gap-3">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Common Size</label>
+        <input className={inputCls} value={form.common_size} placeholder='e.g. "1 lb", "12 ct", "family size"'
+          onChange={(e) => setForm({ ...form, common_size: e.target.value })} />
       </div>
-
-      {adding && (
-        <div className="grid grid-cols-2 gap-2 bg-gray-50 dark:bg-gray-900 rounded-lg p-2">
-          <select className={inputCls} value={np.preset_type}
-            onChange={(e) => setNp({ ...np, preset_type: e.target.value })}>
-            {Object.entries(PRESET_TYPE_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
-          <select className={inputCls} value={np.color}
-            onChange={(e) => setNp({ ...np, color: e.target.value })}>
-            {Object.keys(PRESET_COLORS).map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <input className={inputCls} placeholder='Label, e.g. "Amount per package"'
-            value={np.label} onChange={(e) => setNp({ ...np, label: e.target.value })} />
-          <input className={inputCls} placeholder='Value, e.g. "1 lb"'
-            value={np.value} onChange={(e) => setNp({ ...np, value: e.target.value })} />
-          <button onClick={addPreset} className="btn-primary text-xs col-span-2">Add preset</button>
-        </div>
-      )}
-
-      {Object.entries(byType).map(([type, list]) => (
-        <div key={type}>
-          <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
-            {PRESET_TYPE_LABELS[type] || type}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Common Unit</label>
+        <CustomDropdownList
+          value={form.common_unit}
+          onChange={(v) => setForm((f) => ({ ...f, common_unit: v }))}
+          options={unitOptions}
+          placeholder="Select unit"
+          searchable
+          onAddNew={() => setShowUnitInput(true)}
+          addNewLabel="Add Custom Unit"
+        />
+        {showUnitInput && (
+          <div className="flex gap-2 mt-2">
+            <input
+              className={inputCls}
+              placeholder='New unit, e.g. "tray"'
+              value={newUnitName}
+              onChange={(e) => setNewUnitName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && commitNewUnit()}
+            />
+            <button type="button" onClick={commitNewUnit} className="btn-primary text-sm whitespace-nowrap">Add</button>
+            <button type="button" onClick={() => setShowUnitInput(false)} className="btn-secondary text-sm">Cancel</button>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {list.map((p) => (
-              <PresetChip
-                key={p.id}
-                color={p.color}
-                active={form.common_size === p.value || form.common_unit === p.value}
-                onClick={() => {
-                  const field = type === 'unit' ? 'common_unit' : 'common_size';
-                  setForm(f => ({
-                    ...f,
-                    [field]: f[field] === p.value ? '' : p.value,
-                  }));
-                }}
-              >
-                {p.label}
-              </PresetChip>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Common Size (custom ok)</label>
-          <input className={inputCls} value={form.common_size}
-            onChange={(e) => setForm({ ...form, common_size: e.target.value })} />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Common Unit (custom ok)</label>
-          <input className={inputCls} value={form.common_unit}
-            onChange={(e) => setForm({ ...form, common_unit: e.target.value })} />
-        </div>
+        )}
       </div>
     </div>
   );

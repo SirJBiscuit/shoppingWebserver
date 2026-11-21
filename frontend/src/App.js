@@ -16,6 +16,7 @@ import AdminToolbar from './components/AdminToolbar';
 import UpdateNotification from './components/UpdateNotification';
 import UpdateBanner from './components/UpdateBanner';
 import BetaPinLayer from './components/beta/BetaPinLayer';
+import AdminContextPanel from './components/AdminContextPanel';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Lazy load pages for better performance
@@ -154,6 +155,7 @@ const AppWithEditor = () => {
         <UpdateBanner />
         <AdminToolbar />
         <BetaPinLayer />
+        <AdminContextPanel />
         <AnimatedRoutes />
         <FlyingItemAnimation />
         {/* <MobileBottomNav /> */} {/* Disabled for now */}

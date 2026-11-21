@@ -202,6 +202,70 @@
     animation: tap-pulse 1.6s ease-out infinite;
   }
 
+  /* .tap-fill — stronger persistent affordance for controls that must
+     read as buttons even at rest (bare icons, ghost rows, triggers). A
+     filled pill + border instead of just a ring. */
+  .tap-fill {
+    background-color: rgba(59, 130, 246, 0.10);
+    border: 1.5px solid rgba(59, 130, 246, 0.35);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  }
+
+  .tap-fill:hover {
+    background-color: rgba(59, 130, 246, 0.18);
+    border-color: rgba(59, 130, 246, 0.55);
+  }
+
+  .tap-fill:active {
+    transform: scale(0.95);
+  }
+
+  .dark .tap-fill {
+    background-color: rgba(96, 165, 250, 0.12);
+    border-color: rgba(96, 165, 250, 0.35);
+  }
+
+  .dark .tap-fill:hover {
+    background-color: rgba(96, 165, 250, 0.2);
+    border-color: rgba(96, 165, 250, 0.55);
+  }
+
+  /* Inputs read as interactive too — subtle border tint on hover,
+     before focus rings in. */
+  .input-field:hover {
+    border-color: rgba(59, 130, 246, 0.5);
+  }
+
+  .dark .input-field:hover {
+    border-color: rgba(96, 165, 250, 0.5);
+  }
+
+  /* Ripple — useRipple() (utils/interactable.js) injects .ripple-ink at
+     the tap point. Add the hook's onPointerDown to any control. */
+  .ripple-host {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ripple-ink {
+    position: absolute;
+    border-radius: 9999px;
+    pointer-events: none;
+    background: currentColor;
+    opacity: 0.25;
+    transform: scale(0);
+    animation: tap-ripple 0.5s ease-out forwards;
+  }
+
+  @keyframes tap-ripple {
+    to {
+      transform: scale(2.6);
+      opacity: 0;
+    }
+  }
+
   [role="button"] {
     cursor: pointer;
   }
@@ -210,6 +274,11 @@
     .tap-affordance,
     .tap-affordance-loop {
       animation: none;
+    }
+
+    .ripple-ink {
+      animation: none;
+      opacity: 0;
     }
   }
 
