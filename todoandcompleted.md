@@ -456,3 +456,9 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Add-item icon: framer-motion was clobbering the Tailwind -translate-y-1/2 so the emoji sat low over the input — centering is now a motion value (y:'-50%'); uploaded-image icons render as <img> instead of raw URL text.
 - updating.html: card capped at viewport height; "In this update" list scrolls in a compact 3d-styled scrollbar (168px).
 - down.html after deploy: SW now arms a 12-minute deploy window when it sees the maintenance header — 5xx/unreachable navs during the gap keep showing updating.html instead of the error page. Cache bump v7.
+
+## Smart Suggestions rework — chips + ghosts + proactive autocomplete (committed)
+- Changelog: removed the "Update Available" banner block + dead state; categorizeCommit now uses an ordered rule table (conventional prefixes first, then free-form content: fix/perf/docs/feat/chore) so total/features/bug-fixes/performance counts reflect the real mixed message style.
+- A — Chips under "Looking for Next": SmartSuggestions rewritten as a compact horizontal chip strip (icon + name + price badge + "+" add, amber "have" dot, dashed re-add chips for removed items). Price badge expands the advisor inline; tapping the name expands reason/quantity/MDL training. Editor id "smart-suggestions" + hide widget preserved; AdvisorBox/helpers extracted to components/PriceAdvisor.js.
+- B — Ghost rows in the list: ItemList accepts ghostItems/onGhostAdd; up to 2 faded dashed rows appear inside their canonical category, the rest collect under a trailing "💡 Suggested" group (all trailing in flat mode). Tap → addSuggestion.
+- C — Proactive autocomplete: AutocompleteInput proactiveItems prop — on focus before typing, the dropdown shows "Suggested for you" (top suggestions, icon + 'suggested' tag); normal search unchanged.

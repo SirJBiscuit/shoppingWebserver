@@ -1,13 +1,21 @@
 import { useState } from 'react';
-import { Plus, AlertCircle, TrendingUp, TrendingDown, Clock, Brain, RotateCcw, ChevronDown, ChevronUp, Store, Home } from 'lucide-react';
+import { AlertCircle, Clock, TrendingUp, Brain, RotateCcw, ChevronDown, ChevronUp, Home, Lightbulb } from 'lucide-react';
 import { isImageIcon } from '../utils/iconUpload';
 import { useEditor } from '../contexts/EditorContext';
 import { EditableContainer } from './editor/EditorOverlay';
+import AdvisorBox, { advisorFor, canonicalOf, fmtPrice, trainingLine } from './PriceAdvisor';
 
+/**
+ * SmartSuggestions — compact chip strip (replaces the old card widget).
+ * Sits under "Looking for Next": each chip is icon + name + price badge.
+ * Tap a chip to add the item; tap its price badge to expand the store
+ * price advisor inline under the strip. Removed items trail as dashed
+ * re-add chips.
+ */
 const SmartSuggestions = ({ suggestions, removedItems, onAddSuggestion, advisor, storeName }) => {
   const { isEditorActive, selectWidget, selectedWidget, widgetProperties } = useEditor();
   const aveProps = widgetProperties['smart-suggestions'] || {};
-  
+
   return (
     <EditableContainer
       isEditorActive={isEditorActive}
@@ -15,7 +23,7 @@ const SmartSuggestions = ({ suggestions, removedItems, onAddSuggestion, advisor,
       onSelect={() => selectWidget('smart-suggestions', 'dashboard')}
       isSelected={selectedWidget?.id === 'smart-suggestions'}
     >
-      <SmartSuggestionsContent
+      <SmartSuggestionChips
         suggestions={suggestions}
         removedItems={removedItems}
         onAddSuggestion={onAddSuggestion}
@@ -27,283 +35,175 @@ const SmartSuggestions = ({ suggestions, removedItems, onAddSuggestion, advisor,
   );
 };
 
-const fmtDate = (iso) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+const PRIORITY_ICON = {
+  low_inventory: <AlertCircle className="w-3 h-3 text-red-500 flex-shrink-0" />,
+  recurring: <Clock className="w-3 h-3 text-yellow-500 flex-shrink-0" />,
+  frequent: <TrendingUp className="w-3 h-3 text-blue-500 flex-shrink-0" />,
 };
 
-// Expandable price-intel box — last/prev at this store, cheapest store, margins.
-const AdvisorBox = ({ data, storeName }) => {
-  const cur = data.store;
-  const others = (data.stores || []).filter(o => !cur || o.store.toLowerCase() !== cur.store.toLowerCase());
-  return (
-    <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50/60 dark:bg-blue-900/20 dark:border-blue-800 p-2.5 text-xs space-y-1.5">
-      {cur && (
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1 text-gray-700 dark:text-gray-300">
-            <Store className="w-3 h-3 text-blue-600" />
-            <strong>{cur.store === 'Unknown store' && storeName ? storeName : cur.store}</strong>
-            {cur.at && <span className="text-gray-400">· {fmtDate(cur.at)}</span>}
-          </span>
-          <span className="font-semibold text-gray-900 dark:text-white">${cur.price.toFixed(2)}</span>
-        </div>
-      )}
-      {cur && cur.changePct != null && cur.prev != null && (
-        <div className="flex items-center gap-1.5">
-          {cur.changePct > 0
-            ? <TrendingUp className="w-3.5 h-3.5 text-red-500" />
-            : cur.changePct < 0
-              ? <TrendingDown className="w-3.5 h-3.5 text-green-600" />
-              : <span className="w-3.5 h-3.5 text-center text-gray-400">=</span>}
-          <span className={cur.changePct > 0 ? 'text-red-600' : cur.changePct < 0 ? 'text-green-700' : 'text-gray-500'}>
-            {cur.changePct > 0 ? '+' : ''}{cur.changePct}% vs last time (${cur.prev.toFixed(2)})
-          </span>
-        </div>
-      )}
-      {data.best && (!cur || data.best.store.toLowerCase() !== (cur.store || '').toLowerCase()) && (
-        <div className="flex items-center justify-between rounded bg-green-100/80 dark:bg-green-900/30 px-2 py-1">
-          <span className="text-green-800 dark:text-green-200">
-            Cheapest: <strong>{data.best.store}</strong>
-          </span>
-          <span className="font-semibold text-green-800 dark:text-green-200">
-            ${data.best.price.toFixed(2)}
-            {cur && cur.savesPct != null && <span className="ml-1 text-[10px]">(save {cur.savesPct}%)</span>}
-          </span>
-        </div>
-      )}
-      {others.length > 0 && (
-        <div className="flex flex-wrap gap-1 pt-0.5">
-          {others.slice(0, 4).map(o => (
-            <span key={o.store} className="px-1.5 py-0.5 rounded bg-white/80 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
-              {o.store} ${o.price.toFixed(2)}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
+const PRIORITY_RING = {
+  high: 'border-red-300 dark:border-red-700',
+  medium: 'border-yellow-300 dark:border-yellow-700',
+};
+
+const SuggestionIcon = ({ icon }) => {
+  if (!icon) return null;
+  return isImageIcon(icon) ? (
+    <img src={icon} alt="" className="w-5 h-5 rounded object-cover flex-shrink-0" />
+  ) : (
+    <span className="text-base leading-none flex-shrink-0" aria-hidden="true">{icon}</span>
   );
 };
 
-const SmartSuggestionsContent = ({ 
-  suggestions, 
+const SmartSuggestionChips = ({
+  suggestions = [],
   removedItems = [],
   onAddSuggestion,
-  maxSuggestions = 5,
+  maxSuggestions = 10,
   showIcons = true,
-  showQuantity = true,
-  showReason = true,
-  showConfidence = false,
   showPrice = true,
-  showTraining = true,
   showRemoved = true,
-  maxRemoved = 8,
-  compactMode = false,
-  maxHeight = 384,
-  groupByPriority = false,
+  maxRemoved = 6,
   advisor = {},
-  storeName = ''
+  storeName = '',
 }) => {
   const [openAdvisorKey, setOpenAdvisorKey] = useState(null);
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'high':
-        return 'border-red-300 bg-red-50';
-      case 'medium':
-        return 'border-yellow-300 bg-yellow-50';
-      default:
-        return 'border-blue-300 bg-blue-50';
-    }
-  };
+  const [detailKey, setDetailKey] = useState(null);
 
-  const getPriorityIcon = (type) => {
-    switch (type) {
-      case 'low_inventory':
-        return <AlertCircle className="w-4 h-4 text-red-600" />;
-      case 'recurring':
-        return <Clock className="w-4 h-4 text-yellow-600" />;
-      case 'frequent':
-        return <TrendingUp className="w-4 h-4 text-blue-600" />;
-      default:
-        return null;
-    }
-  };
+  if (suggestions.length === 0 && removedItems.length === 0) return null;
 
-  // Limit suggestions based on maxSuggestions property
-  const limitedSuggestions = suggestions.slice(0, maxSuggestions);
-  
-  // Group by priority if enabled
-  const displaySuggestions = groupByPriority
-    ? [...limitedSuggestions].sort((a, b) => {
-        const priorityOrder = { high: 0, medium: 1, low: 2 };
-        return (priorityOrder[a.priority] || 3) - (priorityOrder[b.priority] || 3);
-      })
-    : limitedSuggestions;
-
-  if (suggestions.length === 0 && removedItems.length === 0) {
-    return (
-      <div className={`text-center ${compactMode ? 'py-4' : 'py-6'} text-gray-500`}>
-        <p className="text-sm">No suggestions at the moment</p>
-        <p className="text-xs mt-1">Keep shopping to get personalized suggestions!</p>
-      </div>
-    );
-  }
-
-  // Exact canonical name when the MDL learned it as something different
-  const canonicalOf = (s) =>
-    s.exactName && s.exactName.toLowerCase() !== s.item.toLowerCase() ? s.exactName : null;
-
-  const fmtPrice = (s) =>
-    s.price != null && !Number.isNaN(s.price)
-      ? `${s.priceSource === 'catalog' ? '~' : ''}$${Number(s.price).toFixed(2)}`
-      : null;
-
-  const trainingLine = (s) => {
-    if (!s.mdl) return null;
-    const bits = [`trained on ${s.mdl.timesAdded} add${s.mdl.timesAdded === 1 ? '' : 's'}`];
-    if (s.mdl.confidence != null) bits.push(`${Math.round(s.mdl.confidence * 100)}% conf`);
-    if (s.mdl.nextDue) {
-      const d = new Date(s.mdl.nextDue);
-      if (!Number.isNaN(d.getTime()))
-        bits.push(`due ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`);
-    }
-    return bits.join(' · ');
-  };
-
-  // Price advisor lookup — keyed by lowercased name, exact or canonical.
-  const advisorFor = (s) =>
-    advisor[(s.item || '').toLowerCase()] ||
-    (s.exactName ? advisor[s.exactName.toLowerCase()] : null) ||
-    null;
+  const chips = suggestions.slice(0, maxSuggestions);
+  const openSuggestion = openAdvisorKey != null ? chips[openAdvisorKey] : null;
+  const detailSuggestion = detailKey != null ? chips[detailKey] : null;
 
   return (
-    <div>
-      <div 
-        className={`${compactMode ? 'space-y-2' : 'space-y-3'} overflow-y-auto scrollbar-3d`}
-        style={{ maxHeight: `${maxHeight}px` }}
-      >
-        {displaySuggestions.map((suggestion, index) => {
-          const adv = advisorFor(suggestion);
-          const advKey = `${suggestion.item}-${index}`;
-          const advisorOpen = openAdvisorKey === advKey;
-          return (
-          <div
-            key={index}
-            className={`${compactMode ? 'p-2' : 'p-3'} rounded-lg border-2 ${getPriorityColor(suggestion.priority)}`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className={`flex items-center ${compactMode ? 'mb-0.5' : 'mb-1'}`}>
-                  {showIcons && getPriorityIcon(suggestion.type)}
-                  {suggestion.icon && (
-                    isImageIcon(suggestion.icon) ? (
-                      <img src={suggestion.icon} alt="" className="w-6 h-6 ml-2 rounded object-cover flex-shrink-0" />
-                    ) : (
-                      <span className="ml-2 text-base flex-shrink-0" aria-hidden="true">{suggestion.icon}</span>
-                    )
-                  )}
-                  <span className={`${showIcons ? 'ml-2' : ''} font-medium text-gray-900 ${compactMode ? 'text-sm' : ''}` }>
-                    {suggestion.item}
-                  </span>
-                  {showPrice && fmtPrice(suggestion) && (
-                    adv ? (
-                      <button
-                        type="button"
-                        onClick={() => setOpenAdvisorKey(advisorOpen ? null : advKey)}
-                        className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200 tap-target flex items-center gap-0.5"
-                        title="Price advisor — tap for store prices and trends"
-                      >
-                        {fmtPrice(suggestion)}
-                        {advisorOpen ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
-                      </button>
-                    ) : (
-                      <span
-                        className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700"
-                        title={suggestion.priceSource === 'last_paid' ? 'Last price you paid'
-                          : suggestion.priceSource === 'learned_avg' ? 'Your learned average' : 'Catalog estimate'}
-                      >
-                        {fmtPrice(suggestion)}
-                      </span>
-                    )
-                  )}
-                </div>
-                {advisorOpen && adv && <AdvisorBox data={adv} storeName={storeName} />}
-                {canonicalOf(suggestion) && (
-                  <p className="text-[10px] text-gray-400 italic">listed as “{canonicalOf(suggestion)}”</p>
-                )}
-                {(suggestion.category || suggestion.atHome) && (
-                  <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                    {suggestion.category && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                        {suggestion.category}
-                      </span>
-                    )}
-                    {suggestion.atHome && (
-                      <span
-                        className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center gap-0.5"
-                        title="Already in your Home Inventory"
-                      >
-                        <Home className="w-2.5 h-2.5" />
-                        Have {suggestion.atHome.qty}{suggestion.atHome.unit ? ` ${suggestion.atHome.unit}` : ''}
-                      </span>
-                    )}
-                  </div>
-                )}
-                {showReason && (
-                  <p className={`text-xs text-gray-600 ${compactMode ? 'mb-1' : 'mb-2'}`}>{suggestion.reason}</p>
-                )}
-                {showQuantity && suggestion.quantity && (
-                  <p className="text-xs text-gray-500">
-                    Suggested: {suggestion.quantity} {suggestion.unit}
-                  </p>
-                )}
-                {showTraining && trainingLine(suggestion) && (
-                  <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
-                    <Brain className="w-3 h-3" /> {trainingLine(suggestion)}
-                  </p>
-                )}
-                {showConfidence && suggestion.confidence && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    Confidence: {Math.round(suggestion.confidence * 100)}%
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={() => onAddSuggestion(suggestion)}
-                className="ml-2 p-2 bg-white rounded-lg hover:bg-gray-100 transition-colors"
-                title="Add to list"
-              >
-                <Plus className="w-4 h-4 text-primary-600" />
-              </button>
-            </div>
-          </div>
-          );
-        })}
+    <div data-tutorial="suggestions">
+      <div className="flex items-center gap-1.5 mb-1.5 px-0.5">
+        <Lightbulb className="w-3.5 h-3.5 text-yellow-500" />
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+          Smart suggestions — tap to add
+        </span>
       </div>
 
-      {showRemoved && removedItems.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-gray-200">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2 flex items-center gap-1">
-            <RotateCcw className="w-3 h-3" /> Previously removed — tap to re-add
-          </p>
-          <div className={`${compactMode ? 'space-y-1' : 'space-y-1.5'} overflow-y-auto scrollbar-3d`} style={{ maxHeight: '160px' }}>
-            {removedItems.slice(0, maxRemoved).map((r, i) => (
-              <div key={i} className="flex items-center justify-between text-sm py-1 px-2 rounded-md bg-gray-50 hover:bg-gray-100">
-                <span className="text-gray-700 truncate">
-                  {r.item_name}
-                  <span className="text-[10px] text-gray-400 ml-1.5">
-                    {r.quantity ? `${r.quantity} ${r.unit || ''}`.trim() : ''}
-                  </span>
+      <div className="flex gap-2 overflow-x-auto scrollbar-3d pb-2 -mx-1 px-1">
+        {chips.map((suggestion, index) => {
+          const adv = advisorFor(advisor, suggestion);
+          const price = showPrice ? fmtPrice(suggestion) : null;
+          const advisorOpen = openAdvisorKey === index;
+          const detailOpen = detailKey === index;
+          return (
+            <div
+              key={suggestion.id || `${suggestion.item}-${suggestion.category || 'x'}`}
+              className={`flex-shrink-0 flex items-center gap-1.5 pl-2 pr-1 py-1.5 rounded-full border-2 bg-white dark:bg-gray-800 shadow-sm ${
+                PRIORITY_RING[suggestion.priority] || 'border-blue-200 dark:border-blue-800'
+              }`}
+            >
+              {PRIORITY_ICON[suggestion.type]}
+              <button
+                type="button"
+                onClick={() => setDetailKey(detailOpen ? null : index)}
+                onDoubleClick={() => onAddSuggestion(suggestion)}
+                className="flex items-center gap-1.5 tap-target rounded-full"
+                title={`${suggestion.item}${suggestion.reason ? ` — ${suggestion.reason}` : ''}`}
+              >
+                {showIcons && <SuggestionIcon icon={suggestion.icon} />}
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap max-w-[9rem] truncate">
+                  {suggestion.item}
                 </span>
-                <button
-                  onClick={() => onAddSuggestion({ item: r.item_name, quantity: r.quantity || 1, unit: r.unit || '', price: r.price || 0 })}
-                  className="ml-2 p-1 bg-white rounded hover:bg-gray-200 transition-colors flex-shrink-0"
-                  title="Re-add to list"
-                >
-                  <Plus className="w-3.5 h-3.5 text-primary-600" />
-                </button>
-              </div>
-            ))}
+                {suggestion.atHome && (
+                  <span
+                    className="flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
+                    title="Already in your Home Inventory"
+                  >
+                    <Home className="w-2.5 h-2.5" />{suggestion.atHome.qty}
+                  </span>
+                )}
+              </button>
+              {price && (
+                adv ? (
+                  <button
+                    type="button"
+                    onClick={() => setOpenAdvisorKey(advisorOpen ? null : index)}
+                    className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/60 tap-target flex items-center gap-0.5"
+                    title="Price advisor — tap for store prices and trends"
+                  >
+                    {price}
+                    {advisorOpen ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+                  </button>
+                ) : (
+                  <span
+                    className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"
+                    title={suggestion.priceSource === 'last_paid' ? 'Last price you paid'
+                      : suggestion.priceSource === 'learned_avg' ? 'Your learned average' : 'Catalog estimate'}
+                  >
+                    {price}
+                  </span>
+                )
+              )}
+              <button
+                type="button"
+                onClick={() => onAddSuggestion(suggestion)}
+                className="w-6 h-6 flex items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900/40 hover:bg-primary-200 dark:hover:bg-primary-900/60 text-primary-600 dark:text-primary-300 font-bold text-sm tap-target"
+                title={`Add ${suggestion.item} to list`}
+              >
+                +
+              </button>
+            </div>
+          );
+        })}
+
+        {showRemoved && removedItems.slice(0, maxRemoved).map((r) => (
+          <div
+            key={`removed-${r.id || r.item_name}`}
+            className="flex-shrink-0 flex items-center gap-1.5 pl-2 pr-1 py-1.5 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/60"
+          >
+            <RotateCcw className="w-3 h-3 text-gray-400 flex-shrink-0" />
+            <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap max-w-[8rem] truncate" title="Previously removed — tap to re-add">
+              {r.item_name}
+            </span>
+            <button
+              type="button"
+              onClick={() => onAddSuggestion({ item: r.item_name, quantity: r.quantity || 1, unit: r.unit || '', price: r.price || 0 })}
+              className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 font-bold text-sm tap-target"
+              title={`Re-add ${r.item_name} to list`}
+            >
+              +
+            </button>
           </div>
+        ))}
+      </div>
+
+      {/* Inline advisor — expands under the strip when a price badge is tapped */}
+      {openSuggestion && advisorFor(advisor, openSuggestion) && (
+        <div className="mt-1">
+          <div className="flex items-center gap-1 mb-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+            {openSuggestion.item}
+          </div>
+          <AdvisorBox data={advisorFor(advisor, openSuggestion)} storeName={storeName} />
+        </div>
+      )}
+
+      {/* Inline detail — reason / quantity / MDL training, when the chip name is tapped */}
+      {detailSuggestion && (
+        <div className="mt-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70 p-2.5 text-xs space-y-1">
+          <div className="flex items-center justify-between">
+            <strong className="text-gray-900 dark:text-gray-100">{detailSuggestion.item}</strong>
+            {canonicalOf(detailSuggestion) && (
+              <span className="text-[10px] text-gray-400 italic">listed as “{canonicalOf(detailSuggestion)}”</span>
+            )}
+          </div>
+          {detailSuggestion.reason && <p className="text-gray-600 dark:text-gray-400">{detailSuggestion.reason}</p>}
+          {detailSuggestion.quantity && (
+            <p className="text-gray-500">Suggested: {detailSuggestion.quantity} {detailSuggestion.unit}</p>
+          )}
+          {detailSuggestion.category && (
+            <p className="text-gray-500">Category: {detailSuggestion.category}</p>
+          )}
+          {trainingLine(detailSuggestion) && (
+            <p className="text-[10px] text-gray-400 flex items-center gap-1">
+              <Brain className="w-3 h-3" /> {trainingLine(detailSuggestion)}
+            </p>
+          )}
         </div>
       )}
     </div>

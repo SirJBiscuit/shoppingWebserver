@@ -8,7 +8,7 @@ import { useEditor } from '../contexts/EditorContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, CheckCircle, Edit2, X,
-  AlertCircle, TrendingUp, Package, DollarSign, Lightbulb, ChefHat, Settings, 
+  AlertCircle, TrendingUp, Package, DollarSign, ChefHat, Settings, 
   ArrowUpDown, Calendar, BarChart3, Scan, Share2, Mic, History, Eye, EyeOff, 
   StickyNote, Store, ChevronDown, ChevronUp, Save, ArrowRight, FileText, Zap, 
   MapPin, List, Wand2, Grid, RefreshCw, MoreVertical, FlaskConical
@@ -177,7 +177,6 @@ const Dashboard = () => {
   }, [newItemIcon]);
   const [inventory, setInventory] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(true);
   const [smartSort, setSmartSort] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showNotepad, setShowNotepad] = useState(false);
@@ -2262,6 +2261,10 @@ const Dashboard = () => {
                       value={newItemName}
                       store={activeList?.store_name || ''}
                       data-tutorial="add-item-input"
+                      proactiveItems={suggestions
+                        .filter(s => !items.some(i => (i.item_name || '').toLowerCase() === (s.item || '').toLowerCase()))
+                        .slice(0, 6)
+                        .map(s => ({ name: s.item, icon: s.icon }))}
                       onEnter={() => addItem({ preventDefault: () => {} })}
                       getSuggestionIcon={(name) => {
                         const pref = itemPreferences.find(p => p.name?.toLowerCase() === name.toLowerCase());
@@ -2634,6 +2637,24 @@ const Dashboard = () => {
                 </div>
               )}
 
+              {/* Smart Suggestions — compact chip strip under Looking for Next */}
+              <HidableWidget id="smart-suggestions" label="Smart Suggestions" hidden={isHidden('smart-suggestions')} onHide={() => hide('smart-suggestions')} onUnhide={() => unhide('smart-suggestions')}>
+                <div className="mb-6">
+                  <StoreUsuals
+                    storeName={activeList?.store_name}
+                    items={items}
+                    onAdd={addSuggestion}
+                  />
+                  <SmartSuggestions
+                    suggestions={suggestions}
+                    removedItems={removedItems}
+                    onAddSuggestion={addSuggestion}
+                    advisor={priceAdvisor}
+                    storeName={activeList?.store_name}
+                  />
+                </div>
+              </HidableWidget>
+
               {/* Item Search Bar - Moved below Looking for Next */}
               {items.length > 0 && (
                 <div className="mb-6">
@@ -2665,6 +2686,8 @@ const Dashboard = () => {
 
               <ItemList
                 items={getFilteredItems()}
+                ghostItems={suggestions}
+                onGhostAdd={addSuggestion}
                 onToggleCheck={handleCheckItem}
                 onDelete={deleteItem}
                 onCopyMove={handleCopyMove}
@@ -2762,42 +2785,6 @@ const Dashboard = () => {
             {/* Leveling System */}
             <HidableWidget id="leveling" label="Leveling" hidden={isHidden('leveling')} onHide={() => hide('leveling')} onUnhide={() => unhide('leveling')}>
               <LevelingSystem userId={user?.id || user?.username} />
-            </HidableWidget>
-
-            <HidableWidget id="smart-suggestions" label="Smart Suggestions" hidden={isHidden('smart-suggestions')} onHide={() => hide('smart-suggestions')} onUnhide={() => unhide('smart-suggestions')}>
-            <div className="card" data-tutorial="suggestions">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold flex items-center">
-                  <Lightbulb className="w-5 h-5 mr-2 text-yellow-500" />
-                  Smart Suggestions
-                </h3>
-                <button
-                  onClick={() => setShowSuggestions(!showSuggestions)}
-                  className="text-sm text-primary-600 hover:text-primary-700"
-                >
-                  {showSuggestions ? 'Hide' : 'Show'}
-                </button>
-              </div>
-              {showSuggestions && (
-                <>
-                  {/* Per-store "usually buy" quick-add chips (MDL) */}
-                  <StoreUsuals
-                    storeName={activeList?.store_name}
-                    items={items}
-                    onAdd={addSuggestion}
-                  />
-                  <div className="mt-3">
-                    <SmartSuggestions
-                      suggestions={suggestions}
-                      removedItems={removedItems}
-                      onAddSuggestion={addSuggestion}
-                      advisor={priceAdvisor}
-                      storeName={activeList?.store_name}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
             </HidableWidget>
 
             <HidableWidget id="pantry-quick-view" label="Home Inventory" hidden={isHidden('pantry-quick-view')} onHide={() => hide('pantry-quick-view')} onUnhide={() => unhide('pantry-quick-view')}>

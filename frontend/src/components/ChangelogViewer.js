@@ -3,11 +3,29 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Calendar, GitCommit, User, Tag, TrendingUp, 
   Sparkles, Zap, Bug, Settings, FileText, Package,
-  ChevronDown, ChevronUp, Filter, Search, Download, Shield, Users, RefreshCw, Flag, ThumbsUp,
+  ChevronDown, ChevronUp, Filter, Search, Download, Shield, Users, Flag, ThumbsUp,
   CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Portal } from '../utils/autoPlacement';
+
+// Ordered rules — conventional prefixes first, then free-form message
+// content so commits without a prefix still count toward the right stat.
+const COMMIT_CATEGORY_RULES = [
+  [/^feat(:|\()/, 'feat'],
+  [/^fix(:|\()/, 'fix'],
+  [/^perf(:|\()/, 'perf'],
+  [/^docs(:|\()/, 'docs'],
+  [/^style(:|\()/, 'style'],
+  [/^refactor:/, 'refactor'],
+  [/^test:/, 'test'],
+  [/^chore:/, 'chore'],
+  [/\b(fix|fixes|fixed|bugfix|hotfix|patch|repairs?|corrects?|resolves?|regression)\b/, 'fix'],
+  [/\b(perf|performance|optimiz\w+|speed\s?up|faster|lazy.?load\w*|caching)\b/, 'perf'],
+  [/\b(tracker|docs?|readme|changelog)\b/, 'docs'],
+  [/\b(add|adds|added|new|introduc\w+|implement\w+|creat\w+|support(?:s|ing)? for|unif\w+|rework\w*|redesign\w*|improv\w+|polish|enhanc\w+|upgrad\w+|restyle\w*)\b/, 'feat'],
+  [/\b(deploy|release|bump|merge)\b/, 'chore'],
+];
 
 const ChangelogViewer = ({ isOpen, onClose }) => {
   const { user } = useAuth();
@@ -21,31 +39,10 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
   const [viewMode, setViewMode] = useState('timeline'); // timeline, grouped
   const [userView, setUserView] = useState(true); // true = user-friendly, false = admin detailed
   const [isAdmin, setIsAdmin] = useState(false);
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [pendingCommits, setPendingCommits] = useState([]);
-
-  // Server-side apply button removed — the UpdateBanner popup is the single
-  // update UX. updateAvailable/pendingCommits are informational only.
-  const checkUpdateStatus = async () => {
-    try {
-      const res = await fetch('/api/system/status', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUpdateAvailable(!!data.update_available);
-        setPendingCommits(Array.isArray(data.pending) ? data.pending : []);
-      }
-    } catch {
-      // non-critical
-    }
-  };
-
   useEffect(() => {
     if (isOpen) {
       loadChangelog();
       checkAdminStatus();
-      checkUpdateStatus();
     }
   }, [isOpen]);
 
@@ -104,14 +101,9 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
 
   const categorizeCommit = (message) => {
     const lower = message.toLowerCase();
-    if (lower.startsWith('feat:') || lower.startsWith('feat(')) return 'feat';
-    if (lower.startsWith('fix:') || lower.startsWith('fix(')) return 'fix';
-    if (lower.startsWith('perf:') || lower.startsWith('perf(')) return 'perf';
-    if (lower.startsWith('docs:') || lower.startsWith('docs(')) return 'docs';
-    if (lower.startsWith('style:') || lower.startsWith('style(')) return 'style';
-    if (lower.startsWith('refactor:')) return 'refactor';
-    if (lower.startsWith('test:')) return 'test';
-    if (lower.startsWith('chore:')) return 'chore';
+    for (const [pattern, category] of COMMIT_CATEGORY_RULES) {
+      if (pattern.test(lower)) return category;
+    }
     return 'other';
   };
 
@@ -343,27 +335,6 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
 
         {/* Changelog Content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
-          {/* Update available — what it adds, so users know why to update */}
-          {updateAvailable && (
-            <div className="mb-6 rounded-xl border-2 border-yellow-300 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <RefreshCw className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                <h3 className="text-lg font-bold text-yellow-900 dark:text-yellow-200">Update Available</h3>
-              </div>
-              {pendingCommits.length > 0 ? (
-                <ul className="space-y-1 ml-1">
-                  {pendingCommits.map((c) => (
-                    <li key={c} className="text-sm text-yellow-800 dark:text-yellow-200/90">• {c}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-yellow-800 dark:text-yellow-200/90">A newer version is ready to deploy.</p>
-              )}
-              <p className="text-xs text-yellow-700 dark:text-yellow-300/70 mt-2">
-                It goes live once the server is updated — you'll get a refresh prompt when it's ready.
-              </p>
-            </div>
-          )}
           {/* Coming Soon — admin-announced upcoming features */}
           {upcoming.length > 0 && (
             <div className="mb-6 rounded-xl border-2 border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 p-4">

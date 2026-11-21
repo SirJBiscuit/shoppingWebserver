@@ -38,6 +38,32 @@ const ItemList = (props) => {
   );
 };
 
+// Faded "suggested" placeholder row — tap anywhere to convert to a real item.
+const GhostRow = ({ ghost, onAdd }) => (
+  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50/60 dark:bg-gray-800/40 opacity-60 hover:opacity-100 transition-opacity">
+    <button
+      type="button"
+      onClick={() => onAdd(ghost)}
+      className="flex items-center gap-2 flex-1 min-w-0 tap-target rounded"
+      title={`Suggested — tap to add "${ghost.item}"`}
+    >
+      {ghost.icon && <ItemIcon icon={ghost.icon} fallback="💡" emojiClass="text-base" imgClass="w-5 h-5 rounded object-cover" />}
+      <span className="text-sm text-gray-600 dark:text-gray-300 truncate">{ghost.item}</span>
+      {ghost.quantity ? (
+        <span className="text-[10px] text-gray-400 flex-shrink-0">{ghost.quantity} {ghost.unit}</span>
+      ) : null}
+    </button>
+    <button
+      type="button"
+      onClick={() => onAdd(ghost)}
+      className="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900/40 hover:bg-primary-200 dark:hover:bg-primary-900/60 text-primary-600 dark:text-primary-300 font-bold text-sm tap-target"
+      title={`Add ${ghost.item} to list`}
+    >
+      +
+    </button>
+  </div>
+);
+
 const ItemListContent = (props) => {
   const { 
     items, 
@@ -51,6 +77,8 @@ const ItemListContent = (props) => {
     storeName = null, 
     onLookForThis,
     onQuantityChange,
+    ghostItems = [],
+    onGhostAdd,
     // AVE Properties
     showCheckboxes = true,
     showPrices = true,
@@ -209,6 +237,32 @@ const ItemListContent = (props) => {
     large: 'text-lg'
   }[fontSize] || 'text-base';
 
+  // Ghost suggestion rows — faded "tap to add" placeholders inside the list.
+  // Up to 2 sit under the suggestion's canonical category; the rest collect
+  // in a trailing "Suggested" block (or all of them in flat mode).
+  const onListGhostNames = new Set(items.map((i) => (i.item_name || '').toLowerCase()));
+  const ghosts = (ghostItems || [])
+    .filter((g) => g && g.item && !onListGhostNames.has(String(g.item).toLowerCase()))
+    .slice(0, 10);
+  const ghostsByCat = {};
+  ghosts.forEach((g, i) => {
+    const cat = canonicalizeCategory(g.category);
+    if (!ghostsByCat[cat]) ghostsByCat[cat] = [];
+    ghostsByCat[cat].push(i);
+  });
+  const catGroupSet = new Set(categories);
+  const shownPerCat = {};
+  const trailingGhostIdx = [];
+  ghosts.forEach((g, i) => {
+    const cat = canonicalizeCategory(g.category);
+    if (catGroupSet.has(cat)) {
+      const n = shownPerCat[cat] || 0;
+      if (n < 2) { shownPerCat[cat] = n + 1; return; }
+    }
+    trailingGhostIdx.push(i);
+  });
+  const flatGhostIdx = (hideCategories || !showCategories) ? ghosts.map((_, i) => i) : trailingGhostIdx;
+
   return (
     <>
     <div data-tutorial="item-row" className={`space-y-${Math.floor(itemSpacing / 4)} shopping-list-scroll custom-scrollbar max-h-[calc(100vh-400px)] pr-2 ${fontSizeClass}`}>
@@ -270,6 +324,16 @@ const ItemListContent = (props) => {
               onOpenFavorites={() => setFavItem(item)}
             />
           ))}
+          {onGhostAdd && flatGhostIdx.length > 0 && (
+            <>
+              <div className="pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                💡 Suggested — tap to add
+              </div>
+              {flatGhostIdx.map((gi) => (
+                <GhostRow key={`ghost-${gi}`} ghost={ghosts[gi]} onAdd={onGhostAdd} />
+              ))}
+            </>
+          )}
         </div>
       ) : (
         // Grouped by categories
@@ -317,9 +381,28 @@ const ItemListContent = (props) => {
                   onOpenFavorites={() => setFavItem(item)}
                 />
               ))}
+              {onGhostAdd && (ghostsByCat[category] || []).slice(0, 2).map((gi) => (
+                <GhostRow key={`ghost-${gi}`} ghost={ghosts[gi]} onAdd={onGhostAdd} />
+              ))}
             </div>
           </div>
         ))
+      )}
+      {onGhostAdd && !(hideCategories || !showCategories) && trailingGhostIdx.length > 0 && (
+        <div>
+          <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center">
+            <span className="text-2xl mr-2">💡</span>
+            Suggested
+            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 normal-case">
+              ({trailingGhostIdx.length} item{trailingGhostIdx.length === 1 ? '' : 's'})
+            </span>
+          </h4>
+          <div className="space-y-2">
+            {trailingGhostIdx.map((gi) => (
+              <GhostRow key={`ghost-${gi}`} ghost={ghosts[gi]} onAdd={onGhostAdd} />
+            ))}
+          </div>
+        </div>
       )}
     </div>
 

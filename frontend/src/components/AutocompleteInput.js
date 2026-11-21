@@ -6,7 +6,7 @@ import { getAutocomplete } from '../api/mdl';
 
 // Tier rank for merged ordering — learned data beats the static list
 const TIER_RANK = { local: 0, user: 0, global: 1, common: 2 };
-const SOURCE_TAG = { user: 'yours', global: 'popular', store: 'this store' };
+const SOURCE_TAG = { user: 'yours', global: 'popular', store: 'this store', proactive: 'suggested' };
 
 const AutocompleteInput = ({ 
   value, 
@@ -19,7 +19,8 @@ const AutocompleteInput = ({
   store = '',
   placeholder = "Type to search...",
   className = "",
-  disableAutocomplete = false
+  disableAutocomplete = false,
+  proactiveItems = [] // [{ name, icon }] — smart suggestions shown on focus before typing
 }) => {
   const [suggestions, setSuggestions] = useState([]); // [{ name, source, icon?, storeMatch? }]
   const [remote, setRemote] = useState([]);           // MDL user/global suggestions
@@ -29,6 +30,7 @@ const AutocompleteInput = ({
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef(null);
   const prevValueRef = useRef('');
 
@@ -96,13 +98,20 @@ const AutocompleteInput = ({
       setGhostText(ghost ? ghost.name.slice(value.trim().length) : '');
       // Only show suggestions if NOT deleting
       setShowSuggestions(!isCurrentlyDeleting && top.length > 0);
+    } else if (isFocused && proactiveItems.length > 0) {
+      // Proactive smart suggestions — shown on focus before typing.
+      setSuggestions(
+        proactiveItems.slice(0, 6).map((p) => ({ name: p.name, icon: p.icon, source: 'proactive' }))
+      );
+      setGhostText('');
+      setShowSuggestions(true);
     } else {
       setSuggestions([]);
       setGhostText('');
       setShowSuggestions(false);
     }
     setSelectedIndex(-1);
-  }, [value, previousItems, remote, disableAutocomplete]);
+  }, [value, previousItems, remote, disableAutocomplete, isFocused, proactiveItems]);
 
   const handleKeyDown = (e) => {
     // Enter always commits — selected suggestion if highlighted,
@@ -189,8 +198,18 @@ const AutocompleteInput = ({
           value={value}
           onChange={onChange}
           onKeyDown={handleKeyDown}
-          onFocus={() => value.length >= 2 && suggestions.length > 0 && !isDeleting && setShowSuggestions(true)}
-          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+          onFocus={() => {
+            setIsFocused(true);
+            if (value.trim().length >= 2) {
+              if (suggestions.length > 0 && !isDeleting) setShowSuggestions(true);
+            } else if (proactiveItems.length > 0) {
+              setShowSuggestions(true);
+            }
+          }}
+          onBlur={() => setTimeout(() => {
+            setShowSuggestions(false);
+            setIsFocused(false);
+          }, 200)}
           placeholder={placeholder}
           className={`${className} relative z-20 bg-transparent`}
           autoComplete="off"
@@ -205,8 +224,13 @@ const AutocompleteInput = ({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 4, scale: 0.98 }}
           transition={{ duration: 0.15 }}
-          className="absolute z-30 w-full bottom-full mb-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+          className="absolute z-30 w-full bottom-full mb-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto scrollbar-3d"
         >
+          {value.trim().length < 2 && proactiveItems.length > 0 && (
+            <div className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+              Suggested for you
+            </div>
+          )}
           {suggestions.map((suggestion, index) => {
             const icon = suggestion.icon || (getSuggestionIcon ? getSuggestionIcon(suggestion.name) : null);
             const name = suggestion.name;
