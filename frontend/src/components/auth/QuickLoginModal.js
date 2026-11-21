@@ -84,8 +84,11 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
     const serverIdx = display[visualIdx];
     if (serverIdx === undefined) return;
     setTaps((t) => [...t, serverIdx]);
-    // Re-scatter the grid so the next tap lands somewhere unpredictable.
-    setDisplay((d) => shuffledIdx(d.length).map((i) => d[i]));
+    // Re-scatter the grid so the next tap lands somewhere unpredictable —
+    // unless the admin turned per-tap shuffle off in Security settings.
+    if (challenge?.reshuffle !== false) {
+      setDisplay((d) => shuffledIdx(d.length).map((i) => d[i]));
+    }
     setError('');
   };
 
@@ -120,7 +123,6 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
   };
 
   const needed = challenge?.positions?.length || 0;
-  const tappedOrder = new Map(taps.map((gridIdx, i) => [gridIdx, i + 1]));
 
   return (
     <div
@@ -228,30 +230,19 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                     ))}
                   </div>
                   <div className="grid grid-cols-4 gap-2">
-                    {display.map((gridIdx, vi) => {
-                      const symbol = challenge.grid[gridIdx];
-                      const order = tappedOrder.get(gridIdx);
-                      return (
-                        <motion.button
-                          key={symbol}
-                          type="button"
-                          onClick={() => tap(vi)}
-                          whileTap={{ scale: 0.9 }}
-                          className={`relative aspect-square text-2xl rounded-xl border-2 flex items-center justify-center transition-colors ${
-                            order
-                              ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
-                              : 'border-gray-200 dark:border-gray-600 hover:border-primary-300 dark:hover:border-primary-600 bg-gray-50 dark:bg-gray-700/50'
-                          }`}
-                        >
-                          {symbol}
-                          {order && (
-                            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-primary-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                              {order}
-                            </span>
-                          )}
-                        </motion.button>
-                      );
-                    })}
+                    {/* No per-cell selected state — an observer can't tell which
+                        tiles were tapped. Progress dots carry the feedback. */}
+                    {display.map((gridIdx, vi) => (
+                      <motion.button
+                        key={challenge.grid[gridIdx]}
+                        type="button"
+                        onClick={() => tap(vi)}
+                        whileTap={{ scale: 0.9 }}
+                        className="relative aspect-square text-2xl rounded-xl border-2 flex items-center justify-center transition-colors border-gray-200 dark:border-gray-600 hover:border-primary-300 dark:hover:border-primary-600 bg-gray-50 dark:bg-gray-700/50"
+                      >
+                        {challenge.grid[gridIdx]}
+                      </motion.button>
+                    ))}
                   </div>
                   {challenge.mode !== 'full' && (
                     <p className="text-xs text-center text-gray-400 dark:text-gray-500">

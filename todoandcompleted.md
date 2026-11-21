@@ -528,3 +528,9 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - QuickLoginModal.js: challenge.mode === 'full' shows "tap all N symbols in order" hint instead of the positions-needed line; the step prompt already reads correctly for full mode.
 - QuickLoginSetup.js: "Login challenge mode" picker — Partial positions (shoulder-surf safe) vs Full sequence (faster, observer could see all).
 - Per-tap reshuffle: the login grid renders through a display permutation that re-scatters after EVERY tap, so an observer can't predict where the next tap lands. Taps still submit server-grid indices — verify unchanged. The setup builder grid reshuffles per tap too (same watcher risk while creating the sequence).
+
+## Quick login — stealth cells + reshuffle toggle (committed, migration 106)
+- migration 106: users.quick_login_reshuffle BOOLEAN DEFAULT true.
+- QuickLoginModal.js: tapped grid cells no longer show ANY selection state (removed highlight border/bg + order badges) — an observer can't tell which tiles were tapped; the progress dots still give count feedback. Per-tap reshuffle now honors challenge.reshuffle from the server (off = layout stays fixed for the whole challenge).
+- quickLogin.js: POST /mode now accepts { mode?, reshuffle? } (either or both, COALESCE update, returns current values); /status and /challenge expose reshuffle.
+- QuickLoginSetup.js: "Re-shuffle the grid after every tap" checkbox under the mode picker; the sequence-builder grid also honors the pref.

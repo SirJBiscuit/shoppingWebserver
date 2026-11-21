@@ -83,11 +83,21 @@ const QuickLoginSetup = () => {
 
   const saveMode = async (mode) => {
     try {
-      await quickLoginAPI.setMode(mode);
+      await quickLoginAPI.setMode({ mode });
       setStatus((s) => (s ? { ...s, mode } : s));
       flash(mode === 'full' ? 'Full-sequence login enabled' : 'Partial-positions login enabled');
     } catch {
       flash('Failed to save login mode');
+    }
+  };
+
+  const saveReshuffle = async (reshuffle) => {
+    try {
+      await quickLoginAPI.setMode({ reshuffle });
+      setStatus((s) => (s ? { ...s, reshuffle } : s));
+      flash(reshuffle ? 'Per-tap shuffle enabled' : 'Per-tap shuffle disabled');
+    } catch {
+      flash('Failed to save shuffle setting');
     }
   };
 
@@ -184,6 +194,20 @@ const QuickLoginSetup = () => {
             </button>
           ))}
         </div>
+        <label className="mt-3 flex items-center gap-2.5 max-w-md cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={status?.reshuffle !== false}
+            onChange={(e) => saveReshuffle(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+          <span className="text-sm text-gray-700 dark:text-gray-300">
+            Re-shuffle the grid after every tap
+            <span className="block text-xs text-gray-500 dark:text-gray-400">
+              On: an observer can't predict where your next tap lands. Off: the layout stays put during a challenge.
+            </span>
+          </span>
+        </label>
       </div>
 
       {status?.needsReset && (
@@ -213,7 +237,7 @@ const QuickLoginSetup = () => {
                 onClick={() => {
                   if (seq.length >= SEQ_MAX) return;
                   setSeq([...seq, s]);
-                  setSymOrder(shuffledIdx());
+                  if (status?.reshuffle !== false) setSymOrder(shuffledIdx());
                 }}
                 className={`relative aspect-square text-xl rounded-lg border-2 flex items-center justify-center transition-colors ${
                   count > 0

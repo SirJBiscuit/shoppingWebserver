@@ -134,7 +134,7 @@ const recordFail = async (userId, fails) => {
 router.get('/status', authenticateToken, isAdmin, async (req, res) => {
   try {
     const u = await db.query(
-      'SELECT quick_seq, quick_locked_until, quick_login_mode FROM users WHERE id = $1',
+      'SELECT quick_seq, quick_locked_until, quick_login_mode, quick_login_reshuffle FROM users WHERE id = $1',
       [req.user.id]
     );
     const row = u.rows[0] || {};
@@ -150,6 +150,7 @@ router.get('/status', authenticateToken, isAdmin, async (req, res) => {
       codesLeft: codes.rows[0]?.n || 0,
       lockedUntil: isLocked(row) ? row.quick_locked_until : null,
       mode: row.quick_login_mode === 'full' ? 'full' : 'partial',
+      reshuffle: row.quick_login_reshuffle !== false,
     });
   } catch (error) {
     console.error('Quick login status error:', error);
@@ -181,22 +182,37 @@ router.post('/setup', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-// Challenge mode: 'partial' (few positions, safer in public) or 'full'
-// (enter the whole sequence from memory — faster, but an observer sees it all).
+// Challenge prefs: mode 'partial' (few positions, safer in public) or 'full'
+// (whole sequence from memory — faster, observer sees it all); reshuffle
+// controls whether the grid re-scatters after every tap.
 router.post('/mode', authenticateToken, isAdmin, async (req, res) => {
-  const { mode } = req.body || {};
-  if (mode !== 'partial' && mode !== 'full') {
+  const { mode, reshuffle } = req.body || {};
+  if (mode !== undefined && mode !== 'partial' && mode !== 'full') {
     return res.status(400).json({ error: 'Mode must be partial or full' });
+  }
+  if (reshuffle !== undefined && typeof reshuffle !== 'boolean') {
+    return res.status(400).json({ error: 'reshuffle must be a boolean' });
+  }
+  if (mode === undefined && reshuffle === undefined) {
+    return res.status(400).json({ error: 'Nothing to update' });
   }
   try {
     const result = await db.query(
-      'UPDATE users SET quick_login_mode = $1 WHERE id = $2 AND is_admin = true',
-      [mode, req.user.id]
+      `UPDATE users SET
+         quick_login_mode = COALESCE($1, quick_login_mode),
+         quick_login_reshuffle = COALESCE($2, quick_login_reshuffle)
+       WHERE id = $3 AND is_admin = true
+       RETURNING quick_login_mode, quick_login_reshuffle`,
+      [mode ?? null, reshuffle ?? null, req.user.id]
     );
     if (result.rowCount === 0) {
       return res.status(403).json({ error: 'Quick login requires an admin account' });
     }
-    res.json({ mode });
+    const row = result.rows[0];
+    res.json({
+      mode: row.quick_login_mode === 'full' ? 'full' : 'partial',
+      reshuffle: row.quick_login_reshuffle !== false,
+    });
   } catch (error) {
     console.error('Quick login setup error:', error);
     res.status(500).json({ error: 'Failed to save sequence' });
@@ -245,7 +261,7 @@ router.post('/challenge', async (req, res) => {
   }
   try {
     const result = await db.query(
-      'SELECT id, quick_seq, quick_locked_until, quick_login_mode FROM users WHERE LOWER(username) = LOWER($1) AND is_admin = true',
+      'SELECT id, quick_seq, quick_locked_until, quick_login_mode, quick_login_reshuffle FROM users WHERE LOWER(username) = LOWER($1) AND is_admin = true',
       [username.trim()]
     );
     const user = result.rows[0];
@@ -271,7 +287,13 @@ router.post('/challenge', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: CHALLENGE_TTL }
     );
-    res.json({ challengeToken, grid, positions: positions.map((p) => p + 1), mode });
+    res.json({
+      challengeToken,
+      grid,
+      positions: positions.map((p) => p + 1),
+      mode,
+      reshuffle: user.quick_login_reshuffle !== false,
+    });
   } catch (error) {
     console.error('Quick login challenge error:', error);
     res.status(500).json({ error: 'Failed to start quick login' });
