@@ -446,3 +446,8 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Spotlight upgraded: primary ring + a second breathing halo ring pulsing around the element.
 - Click-anywhere removed: stray clicks now just flash the Next button; advancing is via Next/Back/ESC/arrows.
 - Autoplay "video" mode: Play/Pause button in the box footer auto-advances (3.5s + 1.4s per bullet) with a top progress bar — watches like a video.
+
+## Maintenance page real progress bar (committed)
+- update-server.sh writes "step|6|label" to maintenance/progress.txt at each deploy phase (swap → stop → build → start → migrations → almost done), mounted read-only into the placeholder nginx.
+- updating.html polls /progress.txt every 2s — swaps the indeterminate slider for a real fill % + "Building the new version — step 3 of 6" label; falls back to the slider when the file is absent or at step 0. Script resets the file to waiting after completion.
+- update-quick.sh doesn't swap the placeholder — no progress there (by design).

@@ -16,4 +16,5 @@ services:
     volumes:
       - ./frontend/public/updating.html:/usr/share/nginx/html/updating.html:ro
       - ./maintenance/changes.txt:/usr/share/nginx/html/changes.txt:ro
+      - ./maintenance/progress.txt:/usr/share/nginx/html/progress.txt:ro
       - ./maintenance/nginx.conf:/etc/nginx/conf.d/default.conf:ro

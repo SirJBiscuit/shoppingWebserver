@@ -11,6 +11,11 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# Real progress for the maintenance page — the file is bind-mounted into the
+# placeholder nginx, and updating.html polls it for "step|total|label".
+TOTAL_STEPS=6
+progress() { echo "$1|$TOTAL_STEPS|$2" > maintenance/progress.txt 2>/dev/null || true; }
+
 echo -e "${CYAN}========================================${NC}"
 echo -e "${CYAN}  CloudMC Shop - Update Script${NC}"
 echo -e "${CYAN}========================================${NC}"
@@ -115,24 +120,29 @@ cp docker-compose.prod.yml docker-compose.yml
 # "Listzy is updating" page instead of a bad gateway while the frontend
 # container is down for its rebuild. Separate compose project — the main
 # `docker compose down` below must NOT kill it (see compose file header).
+progress 1 "Swapping to update mode"
 echo -e "${YELLOW}Swapping in the updating page on :3006...${NC}"
 docker compose stop frontend || true
 docker compose -f docker-compose.maintenance.yml up -d
 
 # Stop containers
+progress 2 "Stopping the old version"
 echo -e "${YELLOW}Stopping containers...${NC}"
 docker compose down
 
 # Rebuild images (placeholder keeps serving :3006 through this whole step)
+progress 3 "Building the new version"
 echo -e "${YELLOW}Building images...${NC}"
 docker compose build
 
 # Swap the placeholder back out and bring the real stack up
+progress 4 "Starting the new version"
 echo -e "${YELLOW}Restoring the app...${NC}"
 docker compose -f docker-compose.maintenance.yml down || true
 docker compose up -d
 
 # Wait for containers to be ready
+progress 5 "Running database updates"
 echo -e "${YELLOW}Waiting for containers to start...${NC}"
 sleep 10
 
@@ -151,6 +161,7 @@ else
 fi
 
 # Check status
+progress 6 "Almost done"
 echo ""
 echo -e "${GREEN}Checking container status...${NC}"
 docker compose ps
@@ -161,6 +172,9 @@ echo -e "${GREEN}  Update Complete!${NC}"
 echo -e "${GREEN}========================================${NC}"
 
 ./watchdog.sh --alert "Listzy update complete ✅" "Now running ${AFTER_COMMIT:0:7}." "white_check_mark" 3 2>/dev/null || true
+
+# Reset for next time — a stale step must never show as live progress.
+progress 0 "Waiting for the update to start"
 echo ""
 echo -e "${CYAN}Access your app at:${NC}"
 echo -e "  - Frontend: http://localhost:3006"

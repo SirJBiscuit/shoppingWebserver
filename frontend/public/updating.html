@@ -76,6 +76,23 @@
     0%   { transform: translateX(-110%); }
     100% { transform: translateX(280%); }
   }
+  /* real progress — update-server.sh writes progress.txt, we poll it */
+  .bar .fill {
+    display: none;
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #818cf8, #c084fc);
+    transition: width .7s ease;
+  }
+  .bar.real::after { display: none; }
+  .bar.real .fill { display: block; }
+  .steplabel {
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, .6);
+    margin-top: 8px;
+    min-height: 15px;
+  }
   .timer { font-size: 12px; color: rgba(255, 255, 255, .5); margin-top: 10px; }
   /* what's in this update — populated from changes.txt written by update-server.sh */
   .changes {
@@ -124,7 +141,8 @@
     <h1>Listzy is updating</h1>
     <p class="sub">We're rolling out something new.<br>
     Please be patient — the app will be back up within minutes.</p>
-    <div class="bar"></div>
+    <div class="bar" id="bar"><div class="fill" id="barFill"></div></div>
+    <div class="steplabel" id="stepLabel"></div>
     <div class="changes" id="changes"><h2>In this update</h2><ul id="changeList"></ul></div>
     <div class="timer">Retrying automatically in <b id="secs">15</b>s…</div>
     <button class="retry" onclick="window.location.reload()">Check now</button>
@@ -162,6 +180,33 @@
       document.getElementById('changes').style.display = 'block';
     })
     .catch(function () { /* no file — page still works without the list */ });
+
+  // Real deploy progress — update-server.sh writes "step|total|label" to
+  // progress.txt as it works. Poll it and swap the indeterminate slider for
+  // a true bar; fall back gracefully while the file is absent/stale (step 0).
+  var barEl = document.getElementById('bar');
+  var fillEl = document.getElementById('barFill');
+  var labelEl = document.getElementById('stepLabel');
+  function pollProgress() {
+    fetch('/progress.txt', { cache: 'no-store' })
+      .then(function (r) {
+        var ct = r.headers.get('content-type') || '';
+        return (r.ok && ct.indexOf('text/plain') !== -1) ? r.text() : null;
+      })
+      .then(function (text) {
+        if (!text) return;
+        var m = /^(\d+)\|(\d+)\|(.+)$/.exec(text.trim());
+        if (!m) return;
+        var n = +m[1], total = +m[2], label = m[3];
+        if (n <= 0) return; // "waiting" placeholder — keep the slider
+        barEl.classList.add('real');
+        fillEl.style.width = Math.min(100, Math.round((n / total) * 100)) + '%';
+        labelEl.textContent = label + ' — step ' + n + ' of ' + total;
+      })
+      .catch(function () { /* keep the slider */ });
+  }
+  pollProgress();
+  setInterval(pollProgress, 2000);
 </script>
 </body>
 </html>
