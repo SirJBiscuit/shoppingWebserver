@@ -185,8 +185,10 @@ const QuickRecipeTemplates = ({ onAddRecipe, onClose }) => {
   });
 
   const handleAddTemplate = (template) => {
+    // Backend contract (POST /api/recipes): name, ingredients[].item_name,
+    // instructions as a plain string — not recipe_name/ingredient_name/[].
     const recipeData = {
-      recipe_name: template.name,
+      name: template.name,
       category: template.category,
       difficulty: template.difficulty,
       prep_time: template.prep_time,
@@ -195,11 +197,11 @@ const QuickRecipeTemplates = ({ onAddRecipe, onClose }) => {
       cuisine: template.cuisine,
       description: template.description,
       ingredients: template.ingredients.map(ing => ({
-        ingredient_name: ing,
-        quantity: null,
-        unit: null
+        item_name: ing,
+        quantity: 1,
+        unit: ''
       })),
-      instructions: []
+      instructions: template.instructions || ''
     };
     onAddRecipe(recipeData);
   };

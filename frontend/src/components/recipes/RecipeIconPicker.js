@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Image as ImageIcon, Link, Smile } from 'lucide-react';
 import ModalShell from '../ui/ModalShell';
 
@@ -20,6 +20,11 @@ const RecipeIconPicker = ({ isOpen, onClose, onPick, current }) => {
   const fileRef = useRef(null);
   const [urlText, setUrlText] = useState('');
   const [error, setError] = useState('');
+
+  // The shell keeps this mounted between opens — clear stale input/error.
+  useEffect(() => {
+    if (isOpen) { setUrlText(''); setError(''); }
+  }, [isOpen]);
 
   const pickEmoji = (e) => {
     onPick(`emoji:${e}`);
@@ -51,6 +56,7 @@ const RecipeIconPicker = ({ isOpen, onClose, onPick, current }) => {
       onPick(reader.result); // data URL — stored in image_url (TEXT column)
       onClose();
     };
+    reader.onerror = () => setError('Could not read that image');
     reader.readAsDataURL(file);
   };
 

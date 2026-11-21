@@ -359,6 +359,7 @@ const Recipes = () => {
                       onAddToList={handleAddToShoppingList}
                       onToggleFavorite={handleToggleFavorite}
                       onDelete={handleDeleteRecipe}
+                      onEdit={editRecipe}
                       missingItems={recipe.missing_ingredients}
                     />
                   ))}
@@ -384,7 +385,7 @@ const Recipes = () => {
                       onAddToList={handleAddToShoppingList}
                       onToggleFavorite={handleToggleFavorite}
                       onDelete={handleDeleteRecipe}
-                      onEdit={openRecipe}
+                      onEdit={editRecipe}
                     />
                   ))}
                 </div>

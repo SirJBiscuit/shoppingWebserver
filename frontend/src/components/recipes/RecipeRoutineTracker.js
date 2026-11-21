@@ -51,7 +51,7 @@ const RecipeRoutineTracker = ({ routineData = [] }) => {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.1 }}
-            className="p-5 bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary-500 dark:hover:border-primary-500 transition-all"
+            className="relative p-5 bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary-500 dark:hover:border-primary-500 transition-all"
           >
             {/* Rank badge */}
             {index < 3 && (
@@ -68,7 +68,7 @@ const RecipeRoutineTracker = ({ routineData = [] }) => {
 
             {/* Recipe name */}
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-              {routine.recipe.recipe_name || routine.recipe.name}
+              {routine.recipe?.recipe_name || routine.recipe?.name || 'Unknown recipe'}
               {routine.is_favorite && <Star className="w-5 h-5 text-yellow-500 fill-current" />}
             </h3>
 

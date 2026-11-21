@@ -34,7 +34,7 @@ const StarRow = ({ value, onRate, size = 'w-5 h-5' }) => (
  * header jumps to the editor. Icon, difficulty, and rating are editable inline
  * via quick PATCHes — full form fields stay in RecipeModal.
  */
-const RecipeViewModal = ({ recipe, onClose, onEdit, onToggleFavorite, onAddToList, onDelete, onChanged }) => {
+const RecipeViewModal = ({ recipe, onClose, onEdit, onAddToList, onDelete, onChanged }) => {
   const [detail, setDetail] = useState(null);
   const [ratings, setRatings] = useState(null); // {avg, count, mine} from recipe_ratings
   const [loading, setLoading] = useState(true);
@@ -148,7 +148,7 @@ const RecipeViewModal = ({ recipe, onClose, onEdit, onToggleFavorite, onAddToLis
               </div>
               <div className="flex items-center gap-1">
                 <button
-                  onClick={() => onToggleFavorite?.(current)}
+                  onClick={() => patch({ is_favorite: !current.is_favorite })}
                   className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                   title="Favorite"
                 >

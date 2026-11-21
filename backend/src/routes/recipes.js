@@ -85,8 +85,11 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-// Get single recipe with ingredients
-router.get('/:id', authenticateToken, async (req, res) => {
+// Get single recipe with ingredients. Numeric guard first — without it
+// /search and /supported-sites (registered below) are shadowed by :id and
+// Postgres throws 22P02 on the integer cast.
+router.get('/:id', authenticateToken, async (req, res, next) => {
+  if (!/^\d+$/.test(req.params.id)) return next();
   try {
     const recipeResult = await db.query(`
       SELECT * FROM recipes WHERE id = $1 AND (user_id = $2 OR is_public = true)
@@ -319,7 +322,8 @@ router.post('/:id/variant', authenticateToken, async (req, res) => {
 // 
 
 // Update recipe
-router.patch('/:id', authenticateToken, async (req, res) => {
+router.patch('/:id', authenticateToken, async (req, res, next) => {
+  if (!/^\d+$/.test(req.params.id)) return next();
   try {
     const { name, description, servings, prep_time, cook_time, instructions, image_url, is_favorite, ingredients, temperature,
             difficulty, category, cuisine, tags, rating, in_recipe_book } = req.body;
@@ -357,11 +361,13 @@ router.patch('/:id', authenticateToken, async (req, res) => {
       // Delete existing ingredients
       await db.query('DELETE FROM recipe_ingredients WHERE recipe_id = $1', [req.params.id]);
       
-      // Insert new ingredients
-      for (const ingredient of ingredients) {
+      // Insert new ingredients — sort_order matches POST so display order
+      // survives edits (without it every row lands on the default 0).
+      for (let i = 0; i < ingredients.length; i++) {
+        const ingredient = ingredients[i];
         await db.query(`
-          INSERT INTO recipe_ingredients (recipe_id, item_name, quantity, quantity_display, unit, is_optional, is_pantry_staple, notes)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          INSERT INTO recipe_ingredients (recipe_id, item_name, quantity, quantity_display, unit, is_optional, is_pantry_staple, notes, sort_order)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `, [
           req.params.id,
           ingredient.item_name,
@@ -370,7 +376,8 @@ router.patch('/:id', authenticateToken, async (req, res) => {
           ingredient.unit || '',
           ingredient.is_optional || false,
           ingredient.is_pantry_staple || false,
-          ingredient.notes || ''
+          ingredient.notes || '',
+          i
         ]);
       }
     }
@@ -554,6 +561,8 @@ router.post('/:id/to-shopping-list', authenticateToken, async (req, res) => {
     // Add missing ingredients to shopping list with recipe tracking
     const addedItems = [];
     for (const ing of ingredientsResult.rows) {
+      // Legacy rows can carry NULL item_name — skip instead of 500ing.
+      if (!ing.item_name) continue;
       const inPantry = pantryMap.has(ing.item_name.toLowerCase());
       
       if (!inPantry && !ing.is_optional) {

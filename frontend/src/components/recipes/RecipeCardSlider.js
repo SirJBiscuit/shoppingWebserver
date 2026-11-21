@@ -176,8 +176,13 @@ const RecipeCardSlider = ({
                   }}
                 >
                   <div className={`w-full h-full bg-gradient-to-br from-white to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-2xl overflow-hidden transition-shadow duration-300 ${isPlaceholder ? 'border-2 border-dashed border-gray-300 dark:border-gray-600' : 'hover:shadow-3xl'}`}>
-                    {/* Image */}
+                    {/* Image — emoji: values render as text, not <img> */}
                     {recipe.image_url ? (
+                      recipe.image_url.startsWith('emoji:') ? (
+                        <div className="h-48 bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-7xl">
+                          {recipe.image_url.slice(6)}
+                        </div>
+                      ) : (
                       <div className="h-48 overflow-hidden">
                         <img 
                           src={recipe.image_url} 
@@ -185,6 +190,7 @@ const RecipeCardSlider = ({
                           className="w-full h-full object-cover"
                         />
                       </div>
+                      )
                     ) : (
                       <div className="h-48 bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center">
                         <ChefHat className="w-20 h-20 text-white opacity-50" />
@@ -372,11 +378,17 @@ const RecipeCardSlider = ({
               {/* Content */}
               <div className="p-6">
                 {zoomedRecipe.image_url && (
+                  zoomedRecipe.image_url.startsWith('emoji:') ? (
+                    <div className="w-full h-64 flex items-center justify-center text-8xl rounded-xl mb-6 bg-gradient-to-br from-primary-400 to-primary-600">
+                      {zoomedRecipe.image_url.slice(6)}
+                    </div>
+                  ) : (
                   <img 
                     src={zoomedRecipe.image_url} 
                     alt={zoomedRecipe.recipe_name || zoomedRecipe.name}
                     className="w-full h-64 object-cover rounded-xl mb-6"
                   />
+                  )
                 )}
 
                 {zoomedRecipe.description && (

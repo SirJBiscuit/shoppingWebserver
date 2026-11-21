@@ -511,3 +511,13 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - service-worker.js: the status-page nav handler deferred response.clone() inside the async caches.open() callback — by then the body was already streaming to the navigation, throwing "Response body is already used" (uncaught, console noise on every /updating.html-style fetch). Now uses put() which clones synchronously before the response is handed to respondWith.
 - put() also swallows cache.put rejections (quota/full) so it can't produce uncaught promise noise.
 - Cache bumped to listzy-shell-v8 so the fixed worker activates on next load.
+
+## Recipe book bug-fix pass (committed)
+- Recipes.js: "Just a few items away" RecipeCards were missing onEdit — clicking the pencil crashed with "onEdit is not a function". Wired to editRecipe; All-Recipes grid pencil now opens the editor (was opening the read-only viewer).
+- recipes.js (backend): GET /:id had no numeric guard, so /recipes/search and /recipes/supported-sites (registered later) were shadowed and 500'd on Postgres 22P02. Numeric-guard + next() lets literals fall through; same guard on PATCH /:id.
+- QuickRecipeTemplates.js: handleAddTemplate sent recipe_name / ingredient_name / instructions:[] but POST /recipes expects name / item_name / string instructions — every quick-add created a NULL-name recipe with NULL item_name rows. Fixed payload shape.
+- recipes.js: POST /:id/to-shopping-list called ing.item_name.toLowerCase() unguarded — one NULL row 500'd the whole add. Now skips NULL rows. PATCH ingredient re-insert now writes sort_order (was defaulting to 0, scrambling order after edits).
+- RecipeViewModal.js: favorite star called the parent's stale-snapshot handler — never visually toggled and always resent the old value. Now patches is_favorite directly through the modal's live patch() helper (updates local override + refetches list).
+- RecipeCardSlider.js: image_url values like "emoji:X" (set via RecipeIconPicker) rendered as <img src> broken-image — now renders the emoji text on card fronts and in the zoomed modal.
+- Latent dead-code fixes: RecipeIngredientMatcher getAll()->getItems() (the call didn't exist — matcher silently returned empty forever), percentage default, quantity vs amount field reads; RecipeRoutineTracker rank badge got relative positioning + recipe null-guard; RecipeRecommendations null-guards; RecipeRolodex flip normalizes stale index when the deck shrinks; RecipeIconPicker resets url/error on reopen + FileReader error surfaced.
+- Removed stray 1795198680605-RecipeViewModal.js editor artifact (byte-identical, untracked).

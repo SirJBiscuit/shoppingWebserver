@@ -77,7 +77,7 @@ const RecipeRecommendations = ({ recommendations = [], onAddRecipe, onDismiss })
             <div className="flex items-center gap-2 mb-3">
               {getRecommendationIcon(rec.recommendation_type)}
               <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-                {rec.recommendation_type.replace('_', ' ')}
+                {(rec.recommendation_type || 'suggested').replace('_', ' ')}
               </span>
               <span className="ml-auto text-xs font-bold text-primary-600 dark:text-primary-400">
                 {rec.recommendation_score}% match
@@ -86,7 +86,7 @@ const RecipeRecommendations = ({ recommendations = [], onAddRecipe, onDismiss })
 
             {/* Recipe info */}
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-              {rec.recipe.recipe_name || rec.recipe.name}
+              {rec.recipe?.recipe_name || rec.recipe?.name || 'Unknown recipe'}
             </h3>
 
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">

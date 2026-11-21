@@ -9,7 +9,7 @@ import inventoryAPI from '../../services/inventoryAPI';
 const RecipeIngredientMatcher = ({ ingredients, recipeId }) => {
   const [matchedIngredients, setMatchedIngredients] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ have: 0, need: 0, low: 0, total: 0 });
+  const [stats, setStats] = useState({ have: 0, need: 0, low: 0, total: 0, percentage: 0 });
 
   useEffect(() => {
     matchIngredients();
@@ -25,7 +25,7 @@ const RecipeIngredientMatcher = ({ ingredients, recipeId }) => {
       setLoading(true);
       
       // Get all inventory items
-      const inventory = await inventoryAPI.getAll();
+      const inventory = await inventoryAPI.getItems();
       
       // Match each ingredient with inventory
       const matched = ingredients.map(ingredient => {
@@ -80,8 +80,9 @@ const RecipeIngredientMatcher = ({ ingredients, recipeId }) => {
   const getIngredientStatus = (ingredient, inventoryItem) => {
     if (!inventoryItem) return 'need';
     
-    // If we have the item, check quantity
-    const required = parseFloat(ingredient.amount) || 1;
+    // If we have the item, check quantity — recipe rows carry `quantity`
+    // (numeric) or `quantity_display`, older payloads used `amount`.
+    const required = parseFloat(ingredient.quantity ?? ingredient.amount) || 1;
     const available = inventoryItem.current_quantity || 0;
     
     if (available >= required) return 'have';
@@ -103,7 +104,8 @@ const RecipeIngredientMatcher = ({ ingredients, recipeId }) => {
   };
 
   const getStatusText = (ingredient) => {
-    const { status, inventoryMatch, amount } = ingredient;
+    const { status, inventoryMatch } = ingredient;
+    const amount = ingredient.quantity_display ?? ingredient.quantity ?? ingredient.amount;
     
     switch (status) {
       case 'have':
@@ -196,7 +198,7 @@ const RecipeIngredientMatcher = ({ ingredients, recipeId }) => {
             </div>
             <div className="text-right">
               <div className="font-medium text-gray-900 dark:text-white">
-                {ingredient.amount}
+                {ingredient.quantity_display ?? ingredient.quantity ?? ingredient.amount}
               </div>
               {ingredient.notes && (
                 <div className="text-xs text-gray-500 dark:text-gray-400">

@@ -46,7 +46,9 @@ const RecipeRolodex = ({
   const flipNext = () => {
     if (count < 2) return;
     setLeaving((l) => (l.includes(safeIndex) ? l : [...l, safeIndex]));
-    setIndex((i) => (i + 1) % count);
+    // Normalize the stored index first — if the list shrank and it's
+    // stale-high, raw +1 would land on an arbitrary card.
+    setIndex((i) => ((i % count) + 1) % count);
   };
   const flipPrev = () => {
     if (count < 2) return;
