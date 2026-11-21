@@ -1,6 +1,6 @@
 /* eslint-env worker */
 /* global globalThis */
-const CACHE_NAME = 'listzy-shell-v7';
+const CACHE_NAME = 'listzy-shell-v8';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -51,7 +51,9 @@ const cacheable = (response) => response?.ok;
 
 const put = (request, response) => {
   const clone = response.clone();
-  caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+  caches.open(CACHE_NAME)
+    .then((cache) => cache.put(request, clone))
+    .catch(() => {});
 };
 
 // Fetch event — the key contract of this worker:
@@ -117,9 +119,11 @@ globalThis.addEventListener('fetch', (event) => {
         fetch(event.request)
           .then((response) => {
             if (response.ok) {
+              // put() clones synchronously — cloning inside the async
+              // caches.open() callback throws "body is already used"
+              // once the response starts streaming to the navigation.
               if (!response.headers.get(MAINTENANCE_HEADER)) {
-                caches.open(CACHE_NAME)
-                  .then((cache) => cache.put(url.pathname, response.clone()));
+                put(url.pathname, response);
               }
               return response;
             }

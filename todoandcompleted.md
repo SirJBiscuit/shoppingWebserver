@@ -506,3 +506,8 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - quickLogin.js (backend): tryDecryptSeq() wrapper — unreadable quick_seq blob now returns a clear "save a new sequence in Admin -> Security" 400 instead of a 500 on /challenge, /verify and /status (status also reports needsReset).
 - /setup now checks rowCount — a non-admin account no longer gets a fake "Quick login enabled" success on a 0-row update.
 - /challenge and /code username lookup is now case-insensitive (LOWER = LOWER) — "Guy69" vs "guy69" no longer fails the challenge.
+
+## Service worker — clone-before-stream fix (committed)
+- service-worker.js: the status-page nav handler deferred response.clone() inside the async caches.open() callback — by then the body was already streaming to the navigation, throwing "Response body is already used" (uncaught, console noise on every /updating.html-style fetch). Now uses put() which clones synchronously before the response is handed to respondWith.
+- put() also swallows cache.put rejections (quota/full) so it can't produce uncaught promise noise.
+- Cache bumped to listzy-shell-v8 so the fixed worker activates on next load.
