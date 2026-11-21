@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const db = require('../database/db');
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -16,7 +17,8 @@ const authenticateToken = (req, res, next) => {
     req.user = {
       id: user.userId || user.id,
       username: user.username,
-      isAdmin: user.isAdmin || false
+      isAdmin: user.isAdmin || false,
+      isBetaTester: user.isBetaTester || false
     };
     next();
   });
@@ -29,4 +31,24 @@ const isAdmin = (req, res, next) => {
   next();
 };
 
-module.exports = { authenticateToken, isAdmin };
+/**
+ * isQuickLoginEligible — quick login is opt-in for admins AND beta testers.
+ * Beta status isn't in the JWT claims, so it's checked against the live row.
+ */
+const isQuickLoginEligible = async (req, res, next) => {
+  try {
+    const result = await db.query(
+      'SELECT is_admin, is_beta_tester FROM users WHERE id = $1',
+      [req.user?.id]
+    );
+    const row = result.rows[0];
+    if (!row || !(row.is_admin || row.is_beta_tester)) {
+      return res.status(403).json({ error: 'Quick login is not available for this account' });
+    }
+    next();
+  } catch {
+    res.status(500).json({ error: 'Access check failed' });
+  }
+};
+
+module.exports = { authenticateToken, isAdmin, isQuickLoginEligible };

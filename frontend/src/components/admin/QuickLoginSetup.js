@@ -1,13 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { KeyRound, ShieldCheck, RotateCcw, Copy, Check, Trash2, Grid3X3, Loader2, Undo2 } from 'lucide-react';
+import { KeyRound, ShieldCheck, RotateCcw, Copy, Check, Trash2, Grid3X3, Loader2, Undo2, Hash, Delete } from 'lucide-react';
 import { quickLoginAPI } from '../../services/api';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
+import PinPad from '../auth/PinPad';
 
 // Must match SYMBOL_SET in backend/src/routes/quickLogin.js
 const SYMBOL_SET = ['🍎','🚀','🌵','🎧','🐙','🍕','⚡','🎲','🌙','🔥','🍇','🎯','🐸','🌈','🍩','⭐'];
 const SEQ_MIN = 8;
 const SEQ_MAX = 12;
+// Must match PIN_MIN/PIN_MAX in backend/src/routes/quickLogin.js
+const PIN_MIN = 8;
+const PIN_MAX = 64; // multi-pass swipes stack into long chains
 
 // The builder grid reshuffles after every tap — a watcher can't map taps to
 // sequence symbols from fixed tile positions while you build it.
@@ -21,7 +25,8 @@ const shuffledIdx = () => {
 };
 
 /**
- * QuickLoginSetup — admin-only (Admin › Security tab).
+ * QuickLoginSetup — admins (Admin › Security) + beta testers (Settings).
+ * Quick login is opt-in; username+password stays the default.
  * Build a secret symbol sequence for the shuffled-grid challenge and manage
  * burn-after-use backup codes.
  */
@@ -35,6 +40,7 @@ const QuickLoginSetup = () => {
   const [confirmRegen, setConfirmRegen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
+  const [pinDraft, setPinDraft] = useState(''); // swipe-collected PIN digits
 
   const load = useCallback(async () => {
     try {
@@ -85,7 +91,13 @@ const QuickLoginSetup = () => {
     try {
       await quickLoginAPI.setMode({ mode });
       setStatus((s) => (s ? { ...s, mode } : s));
-      flash(mode === 'full' ? 'Full-sequence login enabled' : 'Partial-positions login enabled');
+      flash(
+        mode === 'full'
+          ? 'Full-sequence login enabled'
+          : mode === 'pin'
+            ? 'Swipe-PIN login enabled'
+            : 'Partial-positions login enabled'
+      );
     } catch {
       flash('Failed to save login mode');
     }
@@ -98,6 +110,20 @@ const QuickLoginSetup = () => {
       flash(reshuffle ? 'Per-tap shuffle enabled' : 'Per-tap shuffle disabled');
     } catch {
       flash('Failed to save shuffle setting');
+    }
+  };
+
+  const savePin = async () => {
+    setSaving(true);
+    try {
+      await quickLoginAPI.setPin(pinDraft);
+      setPinDraft('');
+      flash('Swipe PIN saved');
+      load();
+    } catch (err) {
+      flash(err.response?.data?.error || 'Failed to save PIN');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -144,7 +170,8 @@ const QuickLoginSetup = () => {
 
       <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
         A sign-in you can use while someone watches your screen — the login grid shuffles
-        every attempt and only asks for a few positions of your secret sequence.
+        every attempt and only asks for a few positions of your secret sequence, or swipe
+        chained passes on a numpad for a long muscle-memory PIN.
         Backup codes each work exactly once.
       </p>
 
@@ -164,7 +191,7 @@ const QuickLoginSetup = () => {
       {/* Challenge mode */}
       <div className="mb-5">
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Login challenge mode</h3>
-        <div className="grid grid-cols-2 gap-2 max-w-md">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 max-w-3xl">
           {[
             {
               id: 'partial',
@@ -175,6 +202,11 @@ const QuickLoginSetup = () => {
               id: 'full',
               title: 'Full sequence',
               desc: 'Type your whole sequence from memory, in order. Faster — an observer could see all of it.',
+            },
+            {
+              id: 'pin',
+              title: 'Swipe PIN',
+              desc: 'Drag across the numpad — multiple passes stack into one long muscle-memory password.',
             },
           ].map((m) => (
             <button
@@ -300,6 +332,72 @@ const QuickLoginSetup = () => {
         </div>
       </div>
 
+      {/* Swipe PIN chain */}
+      <div className="mb-5">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-2">
+          <Hash className="w-4 h-4" /> Swipe PIN chain
+          {status?.pinSet && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+              PIN set
+            </span>
+          )}
+        </h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+          Hold and drag across the numpad — lift and swipe again to chain passes into one long
+          password ({PIN_MIN}+ digits, up to {PIN_MAX}). The dots show only how many digits you've
+          entered, never which ones.
+        </p>
+        {status?.mode === 'pin' && !status?.pinSet && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-3">
+            Swipe PIN mode is selected but no PIN is saved — set one below first.
+          </p>
+        )}
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+          Your digits sit on your own scattered ring — same layout every time for you,
+          but nothing an observer can map back to a numpad.
+        </p>
+        <PinPad
+          onDigit={(d) => setPinDraft((p) => (p.length < PIN_MAX ? p + d : p))}
+          disabled={saving}
+          order={status?.pinPad}
+        />
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <span className="text-lg tracking-[0.35em] text-primary-600 dark:text-primary-400 leading-none min-h-[1rem]">
+            {'•'.repeat(Math.min(pinDraft.length, 40))}
+          </span>
+          <span className={`text-xs ${pinDraft.length >= PIN_MIN ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
+            {pinDraft.length}/{PIN_MIN}+
+          </span>
+        </div>
+        <div className="mt-3 flex gap-2 justify-center">
+          <button
+            type="button"
+            onClick={() => setPinDraft((p) => p.slice(0, -1))}
+            disabled={pinDraft.length === 0}
+            className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <Delete className="w-4 h-4" /> Undo
+          </button>
+          <button
+            type="button"
+            onClick={() => setPinDraft('')}
+            disabled={pinDraft.length === 0}
+            className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <RotateCcw className="w-4 h-4" /> Clear
+          </button>
+          <button
+            type="button"
+            onClick={savePin}
+            disabled={saving || pinDraft.length < PIN_MIN}
+            className="btn-primary text-sm disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+            {status?.pinSet ? 'Replace PIN' : 'Save PIN'}
+          </button>
+        </div>
+      </div>
+
       {/* Backup codes */}
       <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mb-4">
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-2">
@@ -352,7 +450,7 @@ const QuickLoginSetup = () => {
       <ConfirmModal
         isOpen={confirmDisable}
         title="Disable quick login?"
-        message="Your symbol sequence and all backup codes will be deleted. You can set it up again anytime."
+        message="Your symbol sequence, swipe PIN, and all backup codes will be deleted. You can set it up again anytime."
         confirmText="Disable"
         type="danger"
         onConfirm={disable}

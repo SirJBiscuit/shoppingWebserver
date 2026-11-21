@@ -537,3 +537,12 @@ release note. No Devin/Windsurf attribution in commits, ever.
 
 ## Quick login — builder keeps a stable grid (committed)
 - QuickLoginSetup.js: the sequence-builder grid no longer re-shuffles per tap — it renders a random layout once and stays put while you build (per-tap scatter is a login-challenge feature, not a setup annoyance). Reshuffle checkbox label now says "login grid" to reflect scope.
+
+## Quick login — swipe PIN chain mode + beta tester access (migration 107)
+- migration 107: users.quick_pin TEXT (bcrypt), users.quick_pin_len INT.
+- quickLogin.js: POST /pin setter (8-64 digits, bcrypt-hashed, verified whole — no plaintext needed unlike the symbol sequence); 'pin' added to quick_login_mode; /challenge pin mode issues a {t:'qlp'} token + pinLen (no grid); /verify gets a qlp branch reusing lockout + ipGuard; disable clears PIN fields; /status exposes pinSet + pinPad; padOrderFor() seeds a per-account digit order via HMAC(uid) so the scattered-ring layout is stable for the owner but unique per account.
+- Challenge gate fix: /challenge used to reject accounts without a saved quick_seq before mode branching — a PIN-only account can now challenge; enabled flag counts seq OR pin.
+- Beta testers: new isQuickLoginEligible middleware (live is_admin OR is_beta_tester row check — beta flag isn't in the JWT); all management + public lookups widened; issueSession no longer hardcodes isAdmin:true (real flag). QuickLoginSetup also mounts on the user Settings page for eligible accounts — opt-in, password stays default.
+- PinPad.js (new): golden-angle scattered-ring numpad — hold+drag (mouse/touch) collects digits per pass, lifts chain passes into one long PIN; live swipe-trail line per pass (clears on lift), vibration tick per digit, hideDigits blank-cell stealth mode (persisted, login modal toggle).
+- QuickLoginModal.js: pin mode renders PinPad + bullet counter + undo/clear + sign-in; physical keys (digits/backspace) work too.
+- QuickLoginSetup.js: third mode card + PIN chain section (pad, dots, digit count, save/replace), "PIN set" badge, amber hint when pin mode selected without a saved PIN.

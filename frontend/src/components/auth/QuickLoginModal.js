@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, KeyRound, Grid3X3, RotateCcw, Loader2, ShieldCheck, Undo2 } from 'lucide-react';
+import { X, KeyRound, Grid3X3, RotateCcw, Loader2, ShieldCheck, Undo2, Delete, Eye, EyeOff } from 'lucide-react';
 import { quickLoginAPI } from '../../services/api';
+import PinPad from './PinPad';
 
 /**
  * QuickLoginModal — admin quick login, safe to use while watched.
@@ -10,7 +11,7 @@ import { quickLoginAPI } from '../../services/api';
  * secret sequence to tap (e.g. 2nd, 5th, 7th). An observer sees only a few
  * taps on a layout that won't exist next time.
  *
- * Code tab: one-time backup codes generated in Admin → Security; each burns
+ * Code tab: one-time backup codes generated in Settings → Quick Login; each burns
  * on use.
  */
 const ordinal = (n) => {
@@ -37,6 +38,30 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
   const [challenge, setChallenge] = useState(null); // { challengeToken, grid, positions }
   const [taps, setTaps] = useState([]); // grid indices, in tap order
   const [display, setDisplay] = useState([]); // visual cell -> server grid index
+  const [pinInput, setPinInput] = useState(''); // swipe-collected digits
+  const [hideDigits, setHideDigits] = useState(
+    () => localStorage.getItem('quickLoginPadHide') === '1'
+  );
+
+  const toggleHideDigits = () => {
+    const next = !hideDigits;
+    setHideDigits(next);
+    localStorage.setItem('quickLoginPadHide', next ? '1' : '0');
+  };
+
+  const isPinMode = challenge?.mode === 'pin';
+  const pinLen = challenge?.pinLen || 0;
+
+  // Physical keys: digits append, Backspace undoes, Enter submits.
+  useEffect(() => {
+    if (!isPinMode) return undefined;
+    const onKey = (e) => {
+      if (/^\d$/.test(e.key)) setPinInput((p) => p + e.key);
+      else if (e.key === 'Backspace') setPinInput((p) => p.slice(0, -1));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isPinMode]);
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -47,6 +72,7 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
     setChallenge(null);
     setTaps([]);
     setDisplay([]);
+    setPinInput('');
     setError('');
   };
 
@@ -93,6 +119,21 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
   };
 
   const undoTap = () => setTaps((t) => t.slice(0, -1));
+
+  const submitPin = async () => {
+    setLoading(true);
+    try {
+      const res = await quickLoginAPI.verify({
+        challengeToken: challenge.challengeToken,
+        pin: pinInput,
+      });
+      onSuccess?.(res.data.token, res.data.user);
+    } catch (err) {
+      setPinInput('');
+      fail(err, 'Incorrect PIN');
+      setLoading(false);
+    }
+  };
 
   const submitSymbols = async () => {
     setLoading(true);
@@ -195,6 +236,78 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                     Get challenge
                   </button>
                 </form>
+              ) : isPinMode ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-700 dark:text-gray-300 text-center">
+                    {pinInput.length < pinLen ? (
+                      <>
+                        Swipe your{' '}
+                        <span className="font-bold text-primary-600 dark:text-primary-400">{pinLen}-digit</span>{' '}
+                        PIN
+                        <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                          {pinInput.length} of {pinLen} · passes can cross the pad as many times as you set
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-green-600 dark:text-green-400 font-medium">
+                        PIN entered — sign in below
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-center text-xl tracking-[0.4em] text-primary-600 dark:text-primary-400 leading-none min-h-[1.5rem]">
+                    {'•'.repeat(Math.min(pinInput.length, 40))}
+                  </p>
+                  <PinPad
+                    onDigit={(d) => setPinInput((p) => (p.length < 64 ? p + d : p))}
+                    disabled={loading}
+                    hideDigits={hideDigits}
+                    order={challenge.pad}
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleHideDigits}
+                    className="mx-auto flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                    title="Hide pad digits — swipe the shape from muscle memory"
+                  >
+                    {hideDigits ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    {hideDigits ? 'Show pad digits' : 'Hide pad digits'}
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPinInput((p) => p.slice(0, -1))}
+                      disabled={pinInput.length === 0 || loading}
+                      className="btn-secondary text-sm flex items-center justify-center gap-1 disabled:opacity-50 px-3"
+                      title="Delete last digit"
+                    >
+                      <Delete className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPinInput('')}
+                      disabled={pinInput.length === 0 || loading}
+                      className="flex-1 btn-secondary text-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      <RotateCcw className="w-4 h-4" /> Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={submitPin}
+                      disabled={loading || pinInput.length !== pinLen}
+                      className="flex-1 btn-primary text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                      Sign in
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={reset}
+                    className="w-full text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-center"
+                  >
+                    Different account / new challenge
+                  </button>
+                </div>
               ) : (
                 <div className="space-y-4">
                   <p className="text-sm text-gray-700 dark:text-gray-300 text-center">

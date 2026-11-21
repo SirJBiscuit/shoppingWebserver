@@ -12,6 +12,7 @@ import PageTransition from '../components/PageTransition';
 import Sidebar from '../components/Sidebar';
 import SoundSettings from '../components/SoundSettings';
 import NtfySettings from '../components/NtfySettings';
+import QuickLoginSetup from '../components/admin/QuickLoginSetup';
 
 const Settings = () => {
   const { user } = useAuth();
@@ -356,6 +357,17 @@ const Settings = () => {
               </div>
               <NtfySettings />
             </motion.div>
+
+            {/* Quick Login — admins + beta testers (opt-in; password stays default) */}
+            {(user?.isAdmin || user?.isBetaTester || user?.is_beta_tester) && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.19 }}
+              >
+                <QuickLoginSetup />
+              </motion.div>
+            )}
 
             {/* Custom Units */}
             <motion.div
