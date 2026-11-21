@@ -118,6 +118,7 @@ export const quickLoginAPI = {
   code: (data) => api.post('/auth/quick-login/code', data),
   status: () => api.get('/auth/quick-login/status'),
   setup: (sequence) => api.post('/auth/quick-login/setup', { sequence }),
+  setMode: (mode) => api.post('/auth/quick-login/mode', { mode }),
   disable: () => api.delete('/auth/quick-login'),
   generateCodes: () => api.post('/auth/quick-login/codes/generate'),
 };

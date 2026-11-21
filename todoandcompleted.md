@@ -521,3 +521,10 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - RecipeCardSlider.js: image_url values like "emoji:X" (set via RecipeIconPicker) rendered as <img src> broken-image — now renders the emoji text on card fronts and in the zoomed modal.
 - Latent dead-code fixes: RecipeIngredientMatcher getAll()->getItems() (the call didn't exist — matcher silently returned empty forever), percentage default, quantity vs amount field reads; RecipeRoutineTracker rank badge got relative positioning + recipe null-guard; RecipeRecommendations null-guards; RecipeRolodex flip normalizes stale index when the deck shrinks; RecipeIconPicker resets url/error on reopen + FileReader error surfaced.
 - Removed stray 1795198680605-RecipeViewModal.js editor artifact (byte-identical, untracked).
+
+## Quick login — full-sequence mode + per-tap grid shuffle (committed, migration 105)
+- migration 105: users.quick_login_mode TEXT DEFAULT 'partial'.
+- quickLogin.js: /status now returns mode; new POST /mode (partial|full, admin); /challenge reads the column — 'full' signs pos = 0..seqLen-1 so the same verify path checks the entire sequence in order, 'partial' keeps 3 random positions. Response includes mode.
+- QuickLoginModal.js: challenge.mode === 'full' shows "tap all N symbols in order" hint instead of the positions-needed line; the step prompt already reads correctly for full mode.
+- QuickLoginSetup.js: "Login challenge mode" picker — Partial positions (shoulder-surf safe) vs Full sequence (faster, observer could see all).
+- Per-tap reshuffle: the login grid renders through a display permutation that re-scatters after EVERY tap, so an observer can't predict where the next tap lands. Taps still submit server-grid indices — verify unchanged. The setup builder grid reshuffles per tap too (same watcher risk while creating the sequence).

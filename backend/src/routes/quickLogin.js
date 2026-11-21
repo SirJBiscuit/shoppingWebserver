@@ -134,7 +134,7 @@ const recordFail = async (userId, fails) => {
 router.get('/status', authenticateToken, isAdmin, async (req, res) => {
   try {
     const u = await db.query(
-      'SELECT quick_seq, quick_locked_until FROM users WHERE id = $1',
+      'SELECT quick_seq, quick_locked_until, quick_login_mode FROM users WHERE id = $1',
       [req.user.id]
     );
     const row = u.rows[0] || {};
@@ -149,6 +149,7 @@ router.get('/status', authenticateToken, isAdmin, async (req, res) => {
       seqLength: seq ? seq.length : 0,
       codesLeft: codes.rows[0]?.n || 0,
       lockedUntil: isLocked(row) ? row.quick_locked_until : null,
+      mode: row.quick_login_mode === 'full' ? 'full' : 'partial',
     });
   } catch (error) {
     console.error('Quick login status error:', error);
@@ -174,6 +175,28 @@ router.post('/setup', authenticateToken, isAdmin, async (req, res) => {
       return res.status(403).json({ error: 'Quick login requires an admin account' });
     }
     res.json({ message: 'Quick login enabled' });
+  } catch (error) {
+    console.error('Quick login setup error:', error);
+    res.status(500).json({ error: 'Failed to save sequence' });
+  }
+});
+
+// Challenge mode: 'partial' (few positions, safer in public) or 'full'
+// (enter the whole sequence from memory — faster, but an observer sees it all).
+router.post('/mode', authenticateToken, isAdmin, async (req, res) => {
+  const { mode } = req.body || {};
+  if (mode !== 'partial' && mode !== 'full') {
+    return res.status(400).json({ error: 'Mode must be partial or full' });
+  }
+  try {
+    const result = await db.query(
+      'UPDATE users SET quick_login_mode = $1 WHERE id = $2 AND is_admin = true',
+      [mode, req.user.id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(403).json({ error: 'Quick login requires an admin account' });
+    }
+    res.json({ mode });
   } catch (error) {
     console.error('Quick login setup error:', error);
     res.status(500).json({ error: 'Failed to save sequence' });
@@ -222,7 +245,7 @@ router.post('/challenge', async (req, res) => {
   }
   try {
     const result = await db.query(
-      'SELECT id, quick_seq, quick_locked_until FROM users WHERE LOWER(username) = LOWER($1) AND is_admin = true',
+      'SELECT id, quick_seq, quick_locked_until, quick_login_mode FROM users WHERE LOWER(username) = LOWER($1) AND is_admin = true',
       [username.trim()]
     );
     const user = result.rows[0];
@@ -236,14 +259,19 @@ router.post('/challenge', async (req, res) => {
     if (!seqLen) {
       return res.status(400).json({ error: RESETUP_MSG });
     }
-    const positions = pickPositions(seqLen);
+    const mode = user.quick_login_mode === 'full' ? 'full' : 'partial';
+    // Full mode asks for every position in order — the verify check is
+    // identical (pos[i] vs seq[pos[i]]), just with pos = 0..seqLen-1.
+    const positions = mode === 'full'
+      ? Array.from({ length: seqLen }, (_, i) => i)
+      : pickPositions(seqLen);
     const grid = shuffle(SYMBOL_SET);
     const challengeToken = jwt.sign(
       { t: 'qlc', uid: user.id, pos: positions, grid },
       process.env.JWT_SECRET,
       { expiresIn: CHALLENGE_TTL }
     );
-    res.json({ challengeToken, grid, positions: positions.map((p) => p + 1) });
+    res.json({ challengeToken, grid, positions: positions.map((p) => p + 1), mode });
   } catch (error) {
     console.error('Quick login challenge error:', error);
     res.status(500).json({ error: 'Failed to start quick login' });

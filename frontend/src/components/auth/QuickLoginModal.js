@@ -19,11 +19,24 @@ const ordinal = (n) => {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 };
 
+// Display permutation: which server-grid index sits in each visual cell.
+// Re-shuffled after every tap so an observer can't predict where the next
+// tap will land — taps are still submitted as server-grid indices.
+const shuffledIdx = (n) => {
+  const a = Array.from({ length: n }, (_, i) => i);
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
 const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) => {
   const [tab, setTab] = useState('symbols'); // 'symbols' | 'code'
   const [username, setUsername] = useState(initialUsername);
   const [challenge, setChallenge] = useState(null); // { challengeToken, grid, positions }
   const [taps, setTaps] = useState([]); // grid indices, in tap order
+  const [display, setDisplay] = useState([]); // visual cell -> server grid index
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,6 +46,7 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
   const reset = () => {
     setChallenge(null);
     setTaps([]);
+    setDisplay([]);
     setError('');
   };
 
@@ -56,6 +70,7 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
     try {
       const res = await quickLoginAPI.challenge(username.trim());
       setChallenge(res.data);
+      setDisplay(shuffledIdx(res.data.grid.length));
       setTaps([]);
     } catch (err) {
       fail(err, 'Quick login unavailable');
@@ -64,9 +79,13 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
     }
   };
 
-  const tap = (idx) => {
+  const tap = (visualIdx) => {
     if (loading || taps.length >= (challenge?.positions?.length || 0)) return;
-    setTaps((t) => [...t, idx]);
+    const serverIdx = display[visualIdx];
+    if (serverIdx === undefined) return;
+    setTaps((t) => [...t, serverIdx]);
+    // Re-scatter the grid so the next tap lands somewhere unpredictable.
+    setDisplay((d) => shuffledIdx(d.length).map((i) => d[i]));
     setError('');
   };
 
@@ -209,13 +228,14 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                     ))}
                   </div>
                   <div className="grid grid-cols-4 gap-2">
-                    {challenge.grid.map((symbol, idx) => {
-                      const order = tappedOrder.get(idx);
+                    {display.map((gridIdx, vi) => {
+                      const symbol = challenge.grid[gridIdx];
+                      const order = tappedOrder.get(gridIdx);
                       return (
                         <motion.button
                           key={symbol}
                           type="button"
-                          onClick={() => tap(idx)}
+                          onClick={() => tap(vi)}
                           whileTap={{ scale: 0.9 }}
                           className={`relative aspect-square text-2xl rounded-xl border-2 flex items-center justify-center transition-colors ${
                             order
@@ -233,9 +253,16 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                       );
                     })}
                   </div>
-                  <p className="text-xs text-center text-gray-400 dark:text-gray-500">
-                    Positions needed: {challenge.positions.map(ordinal).join(', ')}
-                  </p>
+                  {challenge.mode !== 'full' && (
+                    <p className="text-xs text-center text-gray-400 dark:text-gray-500">
+                      Positions needed: {challenge.positions.map(ordinal).join(', ')}
+                    </p>
+                  )}
+                  {challenge.mode === 'full' && (
+                    <p className="text-xs text-center text-gray-400 dark:text-gray-500">
+                      Full-sequence mode — tap all {needed} of your symbols in order
+                    </p>
+                  )}
                   <div className="flex gap-2">
                     <button
                       type="button"

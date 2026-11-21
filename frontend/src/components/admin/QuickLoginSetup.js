@@ -9,6 +9,17 @@ const SYMBOL_SET = ['🍎','🚀','🌵','🎧','🐙','🍕','⚡','🎲','🌙
 const SEQ_MIN = 8;
 const SEQ_MAX = 12;
 
+// The builder grid reshuffles after every tap — a watcher can't map taps to
+// sequence symbols from fixed tile positions while you build it.
+const shuffledIdx = () => {
+  const a = Array.from({ length: SYMBOL_SET.length }, (_, i) => i);
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
 /**
  * QuickLoginSetup — admin-only (Admin › Security tab).
  * Build a secret symbol sequence for the shuffled-grid challenge and manage
@@ -17,6 +28,7 @@ const SEQ_MAX = 12;
 const QuickLoginSetup = () => {
   const [status, setStatus] = useState(null);
   const [seq, setSeq] = useState([]); // symbols in order
+  const [symOrder, setSymOrder] = useState(shuffledIdx); // builder grid layout
   const [codes, setCodes] = useState(null); // freshly generated, shown once
   const [copied, setCopied] = useState(false);
   const [confirmDisable, setConfirmDisable] = useState(false);
@@ -66,6 +78,16 @@ const QuickLoginSetup = () => {
       flash('Failed to generate codes');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveMode = async (mode) => {
+    try {
+      await quickLoginAPI.setMode(mode);
+      setStatus((s) => (s ? { ...s, mode } : s));
+      flash(mode === 'full' ? 'Full-sequence login enabled' : 'Partial-positions login enabled');
+    } catch {
+      flash('Failed to save login mode');
     }
   };
 
@@ -129,6 +151,41 @@ const QuickLoginSetup = () => {
         </div>
       )}
 
+      {/* Challenge mode */}
+      <div className="mb-5">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Login challenge mode</h3>
+        <div className="grid grid-cols-2 gap-2 max-w-md">
+          {[
+            {
+              id: 'partial',
+              title: 'Partial positions',
+              desc: 'Tap a few requested positions (e.g. 2nd, 5th, 7th). Safest when someone is watching.',
+            },
+            {
+              id: 'full',
+              title: 'Full sequence',
+              desc: 'Type your whole sequence from memory, in order. Faster — an observer could see all of it.',
+            },
+          ].map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => saveMode(m.id)}
+              className={`text-left p-3 rounded-xl border-2 transition-colors ${
+                (status?.mode || 'partial') === m.id
+                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                  : 'border-gray-200 dark:border-gray-600 hover:border-primary-300 dark:hover:border-primary-600'
+              }`}
+            >
+              <span className={`block text-sm font-semibold ${(status?.mode || 'partial') === m.id ? 'text-primary-700 dark:text-primary-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                {m.title}
+              </span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">{m.desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {status?.needsReset && (
         <div className="mb-4 px-3 py-2 rounded-lg text-sm bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300">
           Your saved sequence can't be read (it may predate a security update).
@@ -146,13 +203,18 @@ const QuickLoginSetup = () => {
           Memorize the ORDER — at login you'll be asked for a few positions (e.g. the 2nd, 5th, 7th). Set this up privately.
         </p>
         <div className="grid grid-cols-8 gap-1.5 max-w-md mb-3">
-          {SYMBOL_SET.map((s) => {
+          {symOrder.map((si) => {
+            const s = SYMBOL_SET[si];
             const count = seq.filter((x) => x === s).length;
             return (
               <button
                 key={s}
                 type="button"
-                onClick={() => seq.length < SEQ_MAX && setSeq([...seq, s])}
+                onClick={() => {
+                  if (seq.length >= SEQ_MAX) return;
+                  setSeq([...seq, s]);
+                  setSymOrder(shuffledIdx());
+                }}
                 className={`relative aspect-square text-xl rounded-lg border-2 flex items-center justify-center transition-colors ${
                   count > 0
                     ? 'border-primary-400 bg-primary-50 dark:bg-primary-900/30'
