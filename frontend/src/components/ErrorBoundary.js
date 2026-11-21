@@ -1,10 +1,23 @@
 import React from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
+// Probe the origin for deploy mode — during a deploy the maintenance
+// placeholder answers every route with updating.html (+ header). If the
+// crash was really "the app got swapped mid-load", show the updating
+// page instead of the error screen.
+const probeDeploy = () =>
+  fetch('/api/system/status', { cache: 'no-store' })
+    .then((res) => {
+      if (res.headers.get('x-listzy-maintenance')) return true;
+      const ct = res.headers.get('content-type') || '';
+      return ct.includes('text/html'); // API routes never answer HTML
+    })
+    .catch(() => false);
+
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { 
+    this.state = {
       hasError: false,
       error: null,
       errorInfo: null
@@ -21,7 +34,17 @@ class ErrorBoundary extends React.Component {
       error,
       errorInfo
     });
-    
+
+    // Deploy in progress (flag set by the api interceptor) or the origin is
+    // answering with the maintenance page → swap to updating.html.
+    if (window.__listzyDeploy) {
+      window.location.replace('/updating.html');
+      return;
+    }
+    probeDeploy().then((isDeploy) => {
+      if (isDeploy) window.location.replace('/updating.html');
+    });
+
     if (window.ConsoleViewer) {
       console.error('CRASH:', error.toString());
       console.error('Stack:', errorInfo.componentStack);

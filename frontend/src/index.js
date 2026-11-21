@@ -26,8 +26,12 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker
       .register('/service-worker.js', { updateViaCache: 'none' })
       .then((registration) => {
-        registration.update();
-        setInterval(() => registration.update(), 60000);
+        // update() can reject during a deploy — the maintenance placeholder
+        // serves updating.html for /service-worker.js, which fails the MIME
+        // check. That's transient; quietly retry on the next interval.
+        const safeUpdate = () => registration.update().catch(() => {});
+        safeUpdate();
+        setInterval(safeUpdate, 60000);
       })
       .catch((registrationError) => {
         console.log('SW registration failed: ', registrationError);

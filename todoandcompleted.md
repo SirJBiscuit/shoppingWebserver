@@ -480,3 +480,8 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Item shortcuts tabs: new Templates tab — save the staged tray as a named template, one-tap "Add all" drops everything onto the list (with MDL tracking), delete per card; old sets behavior renamed Saved Templates (stage-to-tray).
 - For You tab: inline explanation of the four feeds (due/recurring/low/frequent), ? info popover, and a reset button that re-pulls predictions; tray gets a save-as-template button.
 - '/' typed as first char in the add-item input opens Item Shortcuts (global '/' hotkey already existed).
+
+## Deploy-crash -> updating page redirect (committed)
+- api.js: maintenance detector on BOTH axios layers (shared api instance + default axios for inventoryAPI et al). Any API response with X-Listzy-Maintenance or a text/html body redirects to /updating.html and returns a never-settling promise so callers can't .map() the HTML and crash.
+- ErrorBoundary.js: on crash, if __listzyDeploy is set or a /api/system/status probe comes back with the maintenance header / text/html, it swaps to updating.html instead of "Oops something went wrong".
+- index.js: SW update() rejection (maintenance serves HTML for service-worker.js -> MIME SecurityError) is now caught and retried on the next 60s tick instead of an uncaught console error.

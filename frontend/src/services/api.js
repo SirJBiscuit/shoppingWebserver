@@ -21,9 +21,50 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Deploy detection — during a deploy the maintenance placeholder answers
+// EVERY route (including /api) with updating.html and an X-Listzy-Maintenance
+// header. An API call coming back as HTML means the app shell is being
+// swapped: send the user to the updating page instead of letting
+// data.map() calls crash into the ErrorBoundary.
+const STATUS_PAGES = ['/updating.html', '/down.html', '/offline.html'];
+
+export const goUpdating = () => {
+  if (STATUS_PAGES.includes(window.location.pathname)) return;
+  if (window.__listzyDeploy) return;
+  window.__listzyDeploy = true;
+  window.location.assign('/updating.html');
+};
+
+const headerOf = (headers, name) =>
+  headers?.get ? headers.get(name) : headers?.[name];
+
+export const looksLikeMaintenance = (response) => {
+  if (!response) return false;
+  if (headerOf(response.headers, 'x-listzy-maintenance')) return true;
+  const ct = headerOf(response.headers, 'content-type') || '';
+  return ct.includes('text/html') && typeof response.data === 'string' &&
+    /<html|<!DOCTYPE|Listzy — Updating/i.test(response.data);
+};
+
+// A promise that never settles — the page is navigating away anyway, and
+// this stops callers from receiving the HTML payload and crashing on it.
+const hangForRedirect = () => new Promise(() => {});
+
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (looksLikeMaintenance(response)) {
+      goUpdating();
+      return hangForRedirect();
+    }
+    return response;
+  },
   (error) => {
+    // Deploy in progress — placeholder answered the API call
+    if (looksLikeMaintenance(error.response)) {
+      goUpdating();
+      return hangForRedirect();
+    }
+
     // A 401 on an auth endpoint (login/register/beta auth) means bad
     // credentials — let the calling form display the error instead of
     // hard-redirecting to /login and wiping the UI state.
@@ -40,6 +81,26 @@ api.interceptors.response.use(
     // not an expired session. Only expire when localStorage has no token.
     if ((deadToken || (status === 401 && !localStorage.getItem('token'))) && !isAuthEndpoint) {
       expireSession();
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Same deploy check on the DEFAULT axios instance — services like
+// inventoryAPI call axios directly (no shared instance), and without this
+// an HTML maintenance body lands in .map() and crashes into ErrorBoundary.
+axios.interceptors.response.use(
+  (response) => {
+    if (looksLikeMaintenance(response)) {
+      goUpdating();
+      return hangForRedirect();
+    }
+    return response;
+  },
+  (error) => {
+    if (looksLikeMaintenance(error.response)) {
+      goUpdating();
+      return hangForRedirect();
     }
     return Promise.reject(error);
   }
