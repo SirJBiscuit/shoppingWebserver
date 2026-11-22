@@ -41,7 +41,12 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
   const [pinInput, setPinInput] = useState(''); // swipe-collected digits
   const [hideDigits, setHideDigits] = useState(
     // Pattern-first: bubbles are anonymous unless you ask for digits.
-    () => localStorage.getItem('quickLoginPadHide') !== '0'
+    // localStorage can throw (storage-blocked browsers/WebViews) — a crash
+    // here unmounts the whole login screen via the error boundary.
+    () => {
+      try { return localStorage.getItem('quickLoginPadHide') !== '0'; }
+      catch { return true; }
+    }
   );
   const [entryTap, setEntryTap] = useState(false); // tap bubbles instead of swiping
   const [needsSetup, setNeedsSetup] = useState(false); // no pattern on account
@@ -49,7 +54,8 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
   const toggleHideDigits = () => {
     const next = !hideDigits;
     setHideDigits(next);
-    localStorage.setItem('quickLoginPadHide', next ? '1' : '0');
+    try { localStorage.setItem('quickLoginPadHide', next ? '1' : '0'); }
+    catch { /* storage unavailable — preference just won't persist */ }
   };
 
   const isPinMode = challenge?.mode === 'pin';
@@ -235,6 +241,10 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                     className="input-field"
                     required
                     autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    enterKeyHint="go"
                   />
                   <button type="submit" disabled={loading || !username.trim()} className="w-full btn-primary disabled:opacity-50 flex items-center justify-center gap-2">
                     {loading && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -454,6 +464,10 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                 className="input-field"
                 required
                 autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="next"
               />
               <input
                 type="text"
@@ -463,6 +477,10 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                 className="input-field font-mono tracking-wider"
                 required
                 autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="go"
               />
               <button type="submit" disabled={loading || !username.trim() || !code.trim()} className="w-full btn-primary disabled:opacity-50 flex items-center justify-center gap-2">
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}

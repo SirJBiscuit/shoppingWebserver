@@ -61,6 +61,10 @@ const Login = () => {
               style={{ fontSize: '16px' }}
               required
               autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="next"
             />
           </div>
           
@@ -76,6 +80,7 @@ const Login = () => {
               style={{ fontSize: '16px' }}
               required
               autoComplete="current-password"
+              enterKeyHint="go"
             />
           </div>
           
@@ -102,6 +107,7 @@ const Login = () => {
           </div>
           
           <button
+            type="button"
             onClick={() => setShowBetaModal(true)}
             className="w-full mt-4 flex items-center justify-center px-4 py-2 border border-purple-300 dark:border-purple-600 rounded-lg text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
           >
