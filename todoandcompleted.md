@@ -345,6 +345,11 @@ release note. No Devin/Windsurf attribution in commits, ever.
 
 ## ✅ Completed log (newest first)
 
+- **`684a2fa`** — Swipe-pad bubble offset fix: `motion.button` writes inline
+  `transform: scale(...)` which overrode the Tailwind `-translate-x-1/2`
+  centering — every bubble's top-left sat on its layout point while the
+  collider tested the centre, offsetting hits by +28px/+28px. Centering now
+  uses negative margins; hits land exactly on the visible bubbles.
 - **`5e3966e`** — Mobile "can't type username in Quick Login" hardening:
   full audit found no focus blocker (input, CSS, overlays, global listeners all
   clean). Real latent crash fixed: `localStorage.getItem('quickLoginPadHide')` in
