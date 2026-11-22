@@ -217,7 +217,7 @@ const PinPad = ({
           whileHover={arrange ? { scale: 1.08 } : undefined}
           style={{ left: `${x}%`, top: `${y}%` }}
           className={`absolute -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full border-2 text-xl font-semibold flex items-center justify-center transition-colors disabled:opacity-50 ${
-            arrange ? 'cursor-grab active:cursor-grabbing ' : 'cursor-crosshair '
+            arrange ? 'cursor-grab active:cursor-grabbing ' : ''
           }${
             active === d || dragging === d
               ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 shadow-lg shadow-primary-500/30'
