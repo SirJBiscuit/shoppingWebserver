@@ -197,10 +197,10 @@ const QuickLoginSetup = () => {
     }
   };
 
-  // Warn when two bubbles sit close enough that a fast swipe could
-  // accidentally collect both.
+  // Warn when bubbles overlap — a stroke through the overlap zone can't
+  // tell them apart. 20% ≈ the 56px bubble diameter on a 280px pad.
   const padCrowded = padLayout?.some((a, i) =>
-    padLayout.slice(i + 1).some((b) => Math.hypot(a.x - b.x, a.y - b.y) < 10));
+    padLayout.slice(i + 1).some((b) => Math.hypot(a.x - b.x, a.y - b.y) < 20));
 
   // Suggest a shape — greedy nearest-neighbour walk through the bubbles
   // makes a connected, tracable path instead of random jumps.
@@ -464,7 +464,7 @@ const QuickLoginSetup = () => {
         )}
         {arranging && padCrowded && (
           <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-3">
-            Some bubbles are close together — fast swipes may collect both digits.
+            Some bubbles overlap — a swipe through the shared edge can't tell them apart. Space them out.
           </p>
         )}
         {!arranging && (

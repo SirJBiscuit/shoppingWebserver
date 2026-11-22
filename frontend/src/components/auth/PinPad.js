@@ -27,9 +27,15 @@ const defaultLayout = () =>
     return { d, x: 50 + r * Math.cos(angle), y: 50 + r * Math.sin(angle) };
   });
 
-// Distance from cell centre to the a→b segment; returns digits under the
-// stroke ordered along it, so multi-digit crossings report in path order.
-const hitsAlong = (a, b, cellsPx, hitR) => {
+// The collider is the bubble's own circle — 56px button minus its border,
+// plus 4px of edge forgiveness. Passing near a bubble collects nothing;
+// the stroke has to actually cross it.
+const CELL_HIT_PX = 30;
+
+// Distance from each cell centre to the a→b stroke segment. Returns cells
+// genuinely crossed by the stroke, ordered along the path; distance breaks
+// ties so an ambiguous graze goes to the nearest bubble, never both.
+const hitsAlong = (a, b, cellsPx, hitR = CELL_HIT_PX) => {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const len2 = dx * dx + dy * dy || 1;
@@ -41,7 +47,7 @@ const hitsAlong = (a, b, cellsPx, hitR) => {
       return { d: c.d, t, dist: Math.hypot(c.x - px, c.y - py) };
     })
     .filter((h) => h.dist <= hitR)
-    .sort((h1, h2) => h1.t - h2.t);
+    .sort((h1, h2) => h1.t - h2.t || h1.dist - h2.dist);
 };
 
 const PinPad = ({
@@ -102,7 +108,7 @@ const PinPad = ({
     const p = point(e);
     if (!r || !p) return;
     if (arrange) {
-      const hit = hitsAlong(p, p, cellsPx(), r.width * 0.16)[0];
+      const hit = hitsAlong(p, p, cellsPx(), CELL_HIT_PX * 1.3)[0];
       if (hit) {
         dragDigit.current = hit.d;
         setDragging(hit.d);
@@ -113,7 +119,7 @@ const PinPad = ({
     if (tapMode) {
       // Tap-to-connect — each press emits its bubble, no drag needed.
       const px = cellsPx();
-      const hit = hitsAlong(p, p, px, r.width * 0.15)[0];
+      const hit = hitsAlong(p, p, px, CELL_HIT_PX)[0];
       if (hit) emit(hit.d, px.find((cell) => cell.d === hit.d));
       return;
     }
@@ -127,7 +133,7 @@ const PinPad = ({
     prevPt.current = p;
     setFinger(p);
     const px0 = cellsPx();
-    hitsAlong(p, p, px0, r.width * 0.135).forEach((h) => {
+    hitsAlong(p, p, px0).forEach((h) => {
       const c = px0.find((cell) => cell.d === h.d);
       emit(h.d, c);
     });
@@ -148,8 +154,8 @@ const PinPad = ({
       return;
     }
     const px = cellsPx();
-    const hitR = r.width * 0.135;
-    // Proximity magnet — the nearest bubble lifts as the pointer approaches.
+    // Proximity magnet — the nearest bubble lifts only when the pointer is
+    // genuinely about to land on it (just past the collider edge).
     const closest = px.reduce(
       (m, c) => {
         const d = Math.hypot(c.x - p.x, c.y - p.y);
@@ -157,10 +163,10 @@ const PinPad = ({
       },
       { dist: Infinity, digit: null }
     );
-    setNear(closest.dist <= hitR * 1.6 ? closest.digit : null);
+    setNear(closest.dist <= CELL_HIT_PX * 1.45 ? closest.digit : null);
     if (tapMode || !swiping.current) return;
     const from = prevPt.current || p;
-    hitsAlong(from, p, px, hitR).forEach((h) => {
+    hitsAlong(from, p, px).forEach((h) => {
       const c = px.find((cell) => cell.d === h.d);
       emit(h.d, c);
     });

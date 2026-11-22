@@ -559,3 +559,7 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - QuickLoginSetup: entry-style chips (Swipe / Tap / Trace a shape); "Trace a shape" suggests a greedy nearest-neighbour path through the bubbles with a looping guide; two-stage confirm — enter the pattern, then repeat it before saving (live match/mismatch feedback); Ring + Spiral layout presets join Shuffle spots.
 - QuickLoginModal: pin mode is pattern-first — bubbles anonymous by default (eye toggle to reveal), Swipe/Tap entry toggle, pattern copy; needsSetup from /challenge renders "sign in with password first → Settings → Quick Login" panel instead of a bare error. Fixed challenge handler crashing on pin mode (res.data.grid undefined).
 - quickLogin.js: /challenge pin branch returns needsSetup:true + password-first guidance when no PIN is saved.
+
+## Swipe pad — exact-fit collider fix
+- PinPad.js: hit radius was ~38px — larger than the 28px bubble — so hovering near a bubble collected it and gap passes grabbed adjacent digits. Now CELL_HIT_PX=30 matches the bubble's actual circle (28px + edge forgiveness); a stroke must cross the bubble to collect. Ambiguous point hits resolve to the nearest bubble (t-then-distance sort), proximity magnet tightens to just past the collider edge.
+- QuickLoginSetup.js: crowding warning now fires at true overlap (<20% spacing ≈ bubble diameter), not just near-miss.
