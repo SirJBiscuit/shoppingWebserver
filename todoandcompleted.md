@@ -345,6 +345,23 @@ release note. No Devin/Windsurf attribution in commits, ever.
 
 ## ✅ Completed log (newest first)
 
+- **`a0ef786`** — Duplicate-bubble swipe fix: `emit` only blocked consecutive
+  repeats, so a path wobbling A→B→A re-collected A mid-swipe, and a touchdown
+  inside a crowded overlap zone emitted every grazed bubble at once. Now a
+  per-swipe `visited` set collects each node at most once per gesture
+  (cleared on every new pass — multi-pass glyphs still chain), touchdown
+  takes only the nearest bubble, and tap mode clears per press so "3-3"
+  glyphs remain possible.
+- **`9dd8f7f`** — Node-glyph swipe system: pads are now N nodes (6-25,
+  ids `0-9` then `a-z`) instead of exactly 10 digits. The glyph = the
+  ordered node sequence the swipe crosses, bcrypt-compared whole — no
+  connection/edge tracking. Setup gets a −/+ node stepper, a **Grid**
+  preset (Android-style N×N pattern lock) alongside Ring/Spiral/Shuffle,
+  grow keeps existing bubble positions, shrink drops the last nodes.
+  `POST /pad` accepts 6-25 unique node cells; `POST /pin` validates the
+  glyph's chars against the account's own node set so a saved pattern is
+  always enterable; saving a pattern auto-persists a dirty layout first.
+  No migration — node count is implicit in `quick_pin_pad` length.
 - **`684a2fa`** — Swipe-pad bubble offset fix: `motion.button` writes inline
   `transform: scale(...)` which overrode the Tailwind `-translate-x-1/2`
   centering — every bubble's top-left sat on its layout point while the
