@@ -265,8 +265,12 @@ const PinPad = ({
           }}
           transition={{ type: 'spring', stiffness: 500, damping: 28, delay: i * 0.03 }}
           whileHover={arrange ? { scale: 1.08 } : undefined}
-          style={{ left: `${x}%`, top: `${y}%`, touchAction: 'none' }}
-          className={`absolute -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full border-2 text-xl font-semibold flex items-center justify-center transition-colors disabled:opacity-50 ${
+          // Centered with -28px margins, NOT translate classes — framer-motion
+          // writes an inline `transform` for scale, which would override the
+          // Tailwind translate and leave the bubble offset half its size from
+          // the collider centre.
+          style={{ left: `${x}%`, top: `${y}%`, marginLeft: -28, marginTop: -28, touchAction: 'none' }}
+          className={`absolute w-14 h-14 rounded-full border-2 text-xl font-semibold flex items-center justify-center transition-colors disabled:opacity-50 ${
             arrange ? 'cursor-grab active:cursor-grabbing ' : ''
           }${
             active === d || dragging === d
