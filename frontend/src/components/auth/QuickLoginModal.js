@@ -61,16 +61,17 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
   const isPinMode = challenge?.mode === 'pin';
   const pinLen = challenge?.pinLen || 0;
 
-  // Physical keys: digits append, Backspace undoes, Enter submits.
+  // Physical keys: node chars append, Backspace undoes, Enter submits.
   useEffect(() => {
     if (!isPinMode) return undefined;
+    const nodeSet = new Set((challenge.pad || []).map((c) => c.d));
     const onKey = (e) => {
-      if (/^\d$/.test(e.key)) setPinInput((p) => p + e.key);
+      if (nodeSet.has(e.key)) setPinInput((p) => p + e.key);
       else if (e.key === 'Backspace') setPinInput((p) => p.slice(0, -1));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isPinMode]);
+  }, [isPinMode, challenge]);
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

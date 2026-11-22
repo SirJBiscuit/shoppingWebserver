@@ -18,14 +18,18 @@ import { motion } from 'framer-motion';
  * vertex dots that fades on lift, vibration tick, optional hidden digits.
  */
 const GOLDEN_ANGLE = (137.508 * Math.PI) / 180;
-const DEFAULT_ORDER = ['1','2','3','4','5','6','7','8','9','0'];
+// Node ids: digits first, then letters — a pad can hold up to 36 nodes,
+// though the server caps saves at 25. Glyph mode hides the labels anyway.
+export const NODE_IDS = '0123456789abcdefghijklmnopqrstuvwxyz'.split('');
 
-const defaultLayout = () =>
-  DEFAULT_ORDER.map((d, i) => {
+export const defaultLayout = (count = 10) => {
+  const n = Math.min(Math.max(count, 4), NODE_IDS.length);
+  return NODE_IDS.slice(0, n).map((d, i) => {
     const angle = i * GOLDEN_ANGLE;
-    const r = 7 + 29 * Math.sqrt((i + 0.5) / 10);
+    const r = 7 + 29 * Math.sqrt((i + 0.5) / n);
     return { d, x: 50 + r * Math.cos(angle), y: 50 + r * Math.sin(angle) };
   });
+};
 
 // The collider is the bubble's own circle — 56px button minus its border,
 // plus 4px of edge forgiveness. Passing near a bubble collects nothing;
@@ -75,7 +79,11 @@ const PinPad = ({
   const [finger, setFinger] = useState(null);
 
   const cells = useMemo(
-    () => (Array.isArray(layout) && layout.length === 10 ? layout : defaultLayout()),
+    () => (
+      Array.isArray(layout) && layout.length >= 4 && layout.length <= NODE_IDS.length
+        ? layout
+        : defaultLayout()
+    ),
     [layout]
   );
 

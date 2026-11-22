@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { KeyRound, ShieldCheck, RotateCcw, Copy, Check, Trash2, Grid3X3, Loader2, Undo2, Hash, Delete, Shuffle, Move, Circle, Atom } from 'lucide-react';
+import { KeyRound, ShieldCheck, RotateCcw, Copy, Check, Trash2, Grid3X3, Loader2, Undo2, Hash, Delete, Shuffle, Move, Circle, Atom, Plus, Minus } from 'lucide-react';
 import { quickLoginAPI } from '../../services/api';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
-import PinPad from '../auth/PinPad';
+import PinPad, { defaultLayout } from '../auth/PinPad';
 
 // Must match SYMBOL_SET in backend/src/routes/quickLogin.js
 const SYMBOL_SET = ['🍎','🚀','🌵','🎧','🐙','🍕','⚡','🎲','🌙','🔥','🍇','🎯','🐸','🌈','🍩','⭐'];
@@ -128,6 +128,12 @@ const QuickLoginSetup = () => {
   const savePin = async () => {
     setSaving(true);
     try {
+      // A glyph entered on an unsaved layout would fail the server's
+      // node-set check — persist the pad first if it changed.
+      if (padDirty && padLayout) {
+        await quickLoginAPI.setPad(padLayout);
+        setPadDirty(false);
+      }
       await quickLoginAPI.setPin(pinDraft);
       setPinDraft('');
       setFirstDraft(null);
@@ -151,19 +157,46 @@ const QuickLoginSetup = () => {
     setPadDirty(true);
   };
 
-  // One-click layout presets — same digits, new shape.
+  // One-click layout presets — same nodes, new shape. 'grid' is the classic
+  // pattern-lock lattice; the rest keep the freeform bubble feel.
   const presetPad = (kind) => {
     if (!padLayout) return;
+    const n = padLayout.length;
     const GOLDEN = (137.508 * Math.PI) / 180;
-    setPadLayout(padLayout.map((c, i) => {
-      if (kind === 'ring') {
-        const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
-        return { ...c, x: 50 + 34 * Math.cos(a), y: 50 + 34 * Math.sin(a) };
-      }
-      const a = i * GOLDEN;
-      const r = 7 + 29 * Math.sqrt((i + 0.5) / 10);
-      return { ...c, x: 50 + r * Math.cos(a), y: 50 + r * Math.sin(a) };
-    }));
+    if (kind === 'grid') {
+      const cols = Math.ceil(Math.sqrt(n));
+      const rows = Math.ceil(n / cols);
+      setPadLayout(padLayout.map((c, i) => ({
+        ...c,
+        x: cols === 1 ? 50 : 14 + (72 * (i % cols)) / (cols - 1),
+        y: rows === 1 ? 50 : 14 + (72 * Math.floor(i / cols)) / (rows - 1),
+      })));
+    } else {
+      setPadLayout(padLayout.map((c, i) => {
+        if (kind === 'ring') {
+          const a = (i / n) * Math.PI * 2 - Math.PI / 2;
+          return { ...c, x: 50 + 34 * Math.cos(a), y: 50 + 34 * Math.sin(a) };
+        }
+        const a = i * GOLDEN;
+        const r = 7 + 29 * Math.sqrt((i + 0.5) / n);
+        return { ...c, x: 50 + r * Math.cos(a), y: 50 + r * Math.sin(a) };
+      }));
+    }
+    setPadDirty(true);
+  };
+
+  // Node count — grow keeps every existing bubble and lands new nodes on
+  // the golden-angle scatter; shrink drops the last ones. 6-25 nodes.
+  const NODE_MIN = 6;
+  const NODE_MAX = 25;
+  const resizePad = (n) => {
+    if (!padLayout || n < NODE_MIN || n > NODE_MAX) return;
+    if (n <= padLayout.length) {
+      setPadLayout(padLayout.slice(0, n));
+    } else {
+      const fresh = defaultLayout(n);
+      setPadLayout(fresh.map((c, i) => padLayout[i] || c));
+    }
     setPadDirty(true);
   };
 
@@ -454,8 +487,8 @@ const QuickLoginSetup = () => {
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
           {arranging
-            ? 'Drag the bubbles anywhere to shape your own layout — it saves to your account and nobody else sees this scatter.'
-            : `Hold and drag across the pad — lift and swipe again to chain passes into one long password (${PIN_MIN}+ digits, up to ${PIN_MAX}). The dots only show how many digits entered, never which.`}
+            ? 'Drag nodes anywhere to shape your own layout, set how many nodes you want, or snap them into a Grid / Ring / Spiral — it saves to your account and nobody else sees this layout.'
+            : `Hold and drag across the nodes — lift and swipe again to chain passes into one long glyph (${PIN_MIN}+ nodes, up to ${PIN_MAX}). The dots only show how many entered, never which.`}
         </p>
         {status?.mode === 'pin' && !status?.pinSet && !arranging && (
           <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-3">
@@ -503,7 +536,36 @@ const QuickLoginSetup = () => {
           ghost={entryStyle === 'trace' && !arranging ? ghost : null}
         />
         {arranging ? (
-          <div className="mt-3 flex gap-2 justify-center flex-wrap">
+          <div className="mt-3 flex gap-2 justify-center flex-wrap items-center">
+            <div className="flex items-center gap-1 mr-1" title="How many nodes your glyph pad has">
+              <button
+                type="button"
+                onClick={() => resizePad((padLayout?.length || 10) - 1)}
+                disabled={saving || !padLayout || padLayout.length <= NODE_MIN}
+                className="btn-secondary text-sm px-2 disabled:opacity-50"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <span className="text-sm font-medium w-10 text-center text-gray-700 dark:text-gray-300">
+                {padLayout?.length || 10} nodes
+              </span>
+              <button
+                type="button"
+                onClick={() => resizePad((padLayout?.length || 10) + 1)}
+                disabled={saving || !padLayout || padLayout.length >= NODE_MAX}
+                className="btn-secondary text-sm px-2 disabled:opacity-50"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => presetPad('grid')}
+              disabled={saving}
+              className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <Grid3X3 className="w-4 h-4" /> Grid
+            </button>
             <button
               type="button"
               onClick={() => presetPad('ring')}

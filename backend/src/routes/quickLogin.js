@@ -43,13 +43,21 @@ const ENC_KEY = crypto
 const PIN_MIN = 8;
 const PIN_MAX = 64; // multi-pass swipes over the pad stack into long PINs
 
+// Nodes are single chars — digits for small pads, letters beyond ten so a
+// larger glyph pad still labels cleanly. The stored "PIN" is just the
+// sequence of node chars the swipe crossed.
+const NODE_IDS = '0123456789abcdefghijklmnopqrstuvwxyz'.split('');
+const NODE_MIN = 6;   // fewer than 6 nodes makes patterns too guessable
+const NODE_MAX = 25;  // beyond ~25 nodes a 280px pad gets too crowded to hit
+const DEFAULT_NODE_COUNT = 10;
+
 /**
- * padOrderFor — deterministic per-account digit arrangement for the swipe pad.
+ * padOrderFor — deterministic per-account node arrangement for the swipe pad.
  * Seeded from the user id, so the owner's scattered-ring layout is identical
  * every login (muscle memory) but different for every account — an observer
  * can't lean on standard numpad positions.
  */
-const padOrderFor = (uid) => {
+const padOrderFor = (uid, ids = NODE_IDS.slice(0, DEFAULT_NODE_COUNT)) => {
   const digest = crypto
     .createHmac('sha256', process.env.JWT_SECRET)
     .update(`quick-pad:${uid}`)
@@ -59,7 +67,7 @@ const padOrderFor = (uid) => {
     seed = (seed * 1664525 + 1013904223) >>> 0;
     return seed / 4294967296;
   };
-  const a = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+  const a = [...ids];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(rnd() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
@@ -69,26 +77,28 @@ const padOrderFor = (uid) => {
 
 const GOLDEN_ANGLE = (137.508 * Math.PI) / 180;
 
-// Seeded default layout — the account's digits on a golden-angle scatter.
-const padLayoutFor = (uid) =>
-  padOrderFor(uid).map((d, i) => {
+// Seeded default layout — the account's nodes on a golden-angle scatter.
+const padLayoutFor = (uid, count = DEFAULT_NODE_COUNT) => {
+  const n = Math.min(Math.max(count, NODE_MIN), NODE_MAX);
+  return padOrderFor(uid, NODE_IDS.slice(0, n)).map((d, i) => {
     const angle = i * GOLDEN_ANGLE;
-    const r = 7 + 29 * Math.sqrt((i + 0.5) / 10);
+    const r = 7 + 29 * Math.sqrt((i + 0.5) / n);
     return {
       d,
       x: Math.round((50 + r * Math.cos(angle)) * 10) / 10,
       y: Math.round((50 + r * Math.sin(angle)) * 10) / 10,
     };
   });
+};
 
-// A stored layout must be exactly ten unique digits, each with x/y in 0-100%.
+// A stored layout is NODE_MIN..NODE_MAX unique node ids, x/y in 0-100% space.
 const validLayout = (arr) => {
-  if (!Array.isArray(arr) || arr.length !== 10) return false;
+  if (!Array.isArray(arr) || arr.length < NODE_MIN || arr.length > NODE_MAX) return false;
   const seen = new Set();
   return arr.every((c) => {
     if (
       !c || typeof c.d !== 'string' || c.d.length !== 1 ||
-      c.d < '0' || c.d > '9' || seen.has(c.d) ||
+      !NODE_IDS.includes(c.d) || seen.has(c.d) ||
       typeof c.x !== 'number' || typeof c.y !== 'number' ||
       c.x < 0 || c.x > 100 || c.y < 0 || c.y > 100
     ) return false;
@@ -289,15 +299,27 @@ router.post('/mode', authenticateToken, isQuickLoginEligible, async (req, res) =
   }
 });
 
-// Numeric PIN mode — long digit password stored as bcrypt. Whole-string
-// verify means no plaintext is needed, unlike the symbol sequence.
+// Numeric PIN / glyph mode — a long node-sequence password stored as bcrypt.
+// Whole-string verify means no plaintext is needed, unlike the symbol
+// sequence. Node chars are limited to the account's own pad ids so a saved
+// glyph is always enterable on their layout.
 router.post('/pin', authenticateToken, isQuickLoginEligible, async (req, res) => {
   const { pin } = req.body || {};
-  if (typeof pin !== 'string' || !/^\d+$/.test(pin) ||
+  if (typeof pin !== 'string' || !/^[0-9a-z]+$/.test(pin) ||
       pin.length < PIN_MIN || pin.length > PIN_MAX) {
-    return res.status(400).json({ error: `PIN must be ${PIN_MIN}-${PIN_MAX} digits` });
+    return res.status(400).json({ error: `Pattern must be ${PIN_MIN}-${PIN_MAX} nodes` });
   }
   try {
+    const existing = await db.query(
+      'SELECT quick_pin_pad FROM users WHERE id = $1', [req.user.id]
+    );
+    const nodeSet = new Set(
+      (parseLayout(existing.rows[0]?.quick_pin_pad) ||
+        padLayoutFor(req.user.id)).map((c) => c.d)
+    );
+    if (![...pin].every((ch) => nodeSet.has(ch))) {
+      return res.status(400).json({ error: 'Pattern uses nodes that are not on your pad' });
+    }
     const result = await db.query(
       'UPDATE users SET quick_pin = $1, quick_pin_len = $2 WHERE id = $3 AND (is_admin = true OR is_beta_tester = true)',
       [await bcrypt.hash(pin, 10), pin.length, req.user.id]
@@ -317,7 +339,7 @@ router.post('/pin', authenticateToken, isQuickLoginEligible, async (req, res) =>
 router.post('/pad', authenticateToken, isQuickLoginEligible, async (req, res) => {
   const { layout } = req.body || {};
   if (layout != null && !validLayout(layout)) {
-    return res.status(400).json({ error: 'Layout must contain all ten digits with 0-100 positions' });
+    return res.status(400).json({ error: `Layout must contain ${NODE_MIN}-${NODE_MAX} unique nodes with 0-100 positions` });
   }
   try {
     const result = await db.query(
