@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { KeyRound, ShieldCheck, RotateCcw, Copy, Check, Trash2, Grid3X3, Loader2, Undo2, Hash, Delete, Shuffle, Move } from 'lucide-react';
+import { KeyRound, ShieldCheck, RotateCcw, Copy, Check, Trash2, Grid3X3, Loader2, Undo2, Hash, Delete, Shuffle, Move, Circle, Atom } from 'lucide-react';
 import { quickLoginAPI } from '../../services/api';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
 import PinPad from '../auth/PinPad';
@@ -41,6 +41,9 @@ const QuickLoginSetup = () => {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
   const [pinDraft, setPinDraft] = useState(''); // swipe-collected PIN digits
+  const [firstDraft, setFirstDraft] = useState(null); // stage-1 entry awaiting confirm
+  const [entryStyle, setEntryStyle] = useState('swipe'); // swipe | tap | trace
+  const [ghost, setGhost] = useState(null); // suggested shape guide path
   const [padLayout, setPadLayout] = useState(null); // [{d,x,y}] bubble positions
   const [arranging, setArranging] = useState(false);
   const [padDirty, setPadDirty] = useState(false);
@@ -127,7 +130,8 @@ const QuickLoginSetup = () => {
     try {
       await quickLoginAPI.setPin(pinDraft);
       setPinDraft('');
-      flash('Swipe PIN saved');
+      setFirstDraft(null);
+      flash('Swipe pattern saved');
       load();
     } catch (err) {
       flash(err.response?.data?.error || 'Failed to save PIN');
@@ -144,6 +148,22 @@ const QuickLoginSetup = () => {
       [pos[i], pos[j]] = [pos[j], pos[i]];
     }
     setPadLayout(padLayout.map((c, i) => ({ ...c, ...pos[i] })));
+    setPadDirty(true);
+  };
+
+  // One-click layout presets — same digits, new shape.
+  const presetPad = (kind) => {
+    if (!padLayout) return;
+    const GOLDEN = (137.508 * Math.PI) / 180;
+    setPadLayout(padLayout.map((c, i) => {
+      if (kind === 'ring') {
+        const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+        return { ...c, x: 50 + 34 * Math.cos(a), y: 50 + 34 * Math.sin(a) };
+      }
+      const a = i * GOLDEN;
+      const r = 7 + 29 * Math.sqrt((i + 0.5) / 10);
+      return { ...c, x: 50 + r * Math.cos(a), y: 50 + r * Math.sin(a) };
+    }));
     setPadDirty(true);
   };
 
@@ -181,6 +201,23 @@ const QuickLoginSetup = () => {
   // accidentally collect both.
   const padCrowded = padLayout?.some((a, i) =>
     padLayout.slice(i + 1).some((b) => Math.hypot(a.x - b.x, a.y - b.y) < 10));
+
+  // Suggest a shape — greedy nearest-neighbour walk through the bubbles
+  // makes a connected, tracable path instead of random jumps.
+  const suggestShape = () => {
+    const cells = padLayout || status?.pinPad;
+    if (!cells?.length) return;
+    const pool = [...cells];
+    const path = [pool.splice(Math.floor(Math.random() * pool.length), 1)[0]];
+    while (path.length < Math.min(6, cells.length) && pool.length) {
+      const cur = path[path.length - 1];
+      pool.sort(
+        (a, b) => Math.hypot(a.x - cur.x, a.y - cur.y) - Math.hypot(b.x - cur.x, b.y - cur.y)
+      );
+      path.push(pool.shift());
+    }
+    setGhost(path.map((c) => ({ x: c.x, y: c.y })));
+  };
 
   const disable = async () => {
     setConfirmDisable(false);
@@ -430,15 +467,59 @@ const QuickLoginSetup = () => {
             Some bubbles are close together — fast swipes may collect both digits.
           </p>
         )}
+        {!arranging && (
+          <div className="flex justify-center gap-1 mb-2">
+            {[['Swipe', 'swipe'], ['Tap', 'tap'], ['Trace a shape', 'trace']].map(([label, style]) => (
+              <button
+                key={style}
+                type="button"
+                onClick={() => { setEntryStyle(style); if (style === 'trace' && !ghost) suggestShape(); }}
+                className={`px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
+                  entryStyle === style
+                    ? 'border-primary-400 text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30'
+                    : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-primary-300'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        {entryStyle === 'trace' && !arranging && (
+          <p className="text-xs text-center text-gray-500 dark:text-gray-400 mb-1">
+            Follow the dotted path — it loops forever until you swipe your own.
+            <button type="button" onClick={suggestShape} className="ml-1 underline text-primary-600 dark:text-primary-400">
+              New shape
+            </button>
+          </p>
+        )}
         <PinPad
           layout={padLayout || status?.pinPad}
           arrange={arranging}
           onLayoutChange={(l) => { setPadLayout(l); setPadDirty(true); }}
           onDigit={(d) => setPinDraft((p) => (p.length < PIN_MAX ? p + d : p))}
           disabled={saving}
+          tapMode={entryStyle === 'tap'}
+          ghost={entryStyle === 'trace' && !arranging ? ghost : null}
         />
         {arranging ? (
-          <div className="mt-3 flex gap-2 justify-center">
+          <div className="mt-3 flex gap-2 justify-center flex-wrap">
+            <button
+              type="button"
+              onClick={() => presetPad('ring')}
+              disabled={saving}
+              className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <Circle className="w-4 h-4" /> Ring
+            </button>
+            <button
+              type="button"
+              onClick={() => presetPad('spiral')}
+              disabled={saving}
+              className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <Atom className="w-4 h-4" /> Spiral
+            </button>
             <button
               type="button"
               onClick={shufflePad}
@@ -474,6 +555,21 @@ const QuickLoginSetup = () => {
                 {pinDraft.length}/{PIN_MIN}+
               </span>
             </div>
+            {firstDraft !== null && (
+              <p className={`text-xs text-center font-medium ${
+                pinDraft === firstDraft
+                  ? 'text-green-600 dark:text-green-400'
+                  : pinDraft.length >= firstDraft.length
+                    ? 'text-red-500 dark:text-red-400'
+                    : 'text-gray-500 dark:text-gray-400'
+              }`}>
+                {pinDraft === firstDraft
+                  ? 'Matches — save it'
+                  : pinDraft.length >= firstDraft.length
+                    ? 'Different pattern'
+                    : `Repeat the same pattern to confirm (${firstDraft.length} digits)`}
+              </p>
+            )}
             <div className="mt-3 flex gap-2 justify-center">
               <button
                 type="button"
@@ -485,21 +581,32 @@ const QuickLoginSetup = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setPinDraft('')}
-                disabled={pinDraft.length === 0}
+                onClick={() => { setPinDraft(''); setFirstDraft(null); }}
+                disabled={pinDraft.length === 0 && firstDraft === null}
                 className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-50"
               >
-                <RotateCcw className="w-4 h-4" /> Clear
+                <RotateCcw className="w-4 h-4" /> Start over
               </button>
-              <button
-                type="button"
-                onClick={savePin}
-                disabled={saving || pinDraft.length < PIN_MIN}
-                className="btn-primary text-sm disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                {status?.pinSet ? 'Replace PIN' : 'Save PIN'}
-              </button>
+              {firstDraft === null ? (
+                <button
+                  type="button"
+                  onClick={() => { setFirstDraft(pinDraft); setPinDraft(''); }}
+                  disabled={pinDraft.length < PIN_MIN}
+                  className="btn-primary text-sm disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  Use this pattern
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={savePin}
+                  disabled={saving || pinDraft !== firstDraft}
+                  className="btn-primary text-sm disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {status?.pinSet ? 'Confirm & replace' : 'Confirm & save'}
+                </button>
+              )}
             </div>
           </>
         )}

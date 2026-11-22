@@ -52,6 +52,8 @@ const PinPad = ({
   hideDigits = false,
   arrange = false,
   onLayoutChange,
+  tapMode = false,   // tap bubbles in order instead of dragging a path
+  ghost = null,      // [{x,y}] guide path to trace (setup suggestions)
 }) => {
   const padRef = useRef(null);
   const swiping = useRef(false);
@@ -60,6 +62,7 @@ const PinPad = ({
   const dragDigit = useRef(null); // bubble being moved in arrange mode
   const vertexId = useRef(0);     // unique id per trail vertex (stable keys)
   const [active, setActive] = useState(null);
+  const [near, setNear] = useState(null); // proximity magnet feedback
   const [dragging, setDragging] = useState(null);
   const [trail, setTrail] = useState([]);
   const [fading, setFading] = useState(false);
@@ -95,12 +98,11 @@ const PinPad = ({
   // ————— swipe collect —————
   const down = (e) => {
     if (disabled) return;
+    const r = rectOf();
+    const p = point(e);
+    if (!r || !p) return;
     if (arrange) {
-      const r = rectOf();
-      const p = point(e);
-      if (!r || !p) return;
-      const hitR = r.width * 0.16;
-      const hit = hitsAlong(p, p, cellsPx(), hitR)[0];
+      const hit = hitsAlong(p, p, cellsPx(), r.width * 0.16)[0];
       if (hit) {
         dragDigit.current = hit.d;
         setDragging(hit.d);
@@ -108,27 +110,35 @@ const PinPad = ({
       }
       return;
     }
+    if (tapMode) {
+      // Tap-to-connect — each press emits its bubble, no drag needed.
+      const px = cellsPx();
+      const hit = hitsAlong(p, p, px, r.width * 0.15)[0];
+      if (hit) emit(hit.d, px.find((cell) => cell.d === hit.d));
+      return;
+    }
     swiping.current = true;
+    // Capture the pointer to the pad — a swipe that drifts outside the
+    // square keeps collecting instead of dying on pointerleave.
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     last.current = null;
     setTrail([]);
     setFading(false);
-    const p = point(e);
     prevPt.current = p;
     setFinger(p);
-    if (p) {
-      const px = cellsPx();
-      hitsAlong(p, p, px, rectOf().width * 0.135).forEach((h) => {
-        const c = px.find((cell) => cell.d === h.d);
-        emit(h.d, c);
-      });
-    }
+    const px0 = cellsPx();
+    hitsAlong(p, p, px0, r.width * 0.135).forEach((h) => {
+      const c = px0.find((cell) => cell.d === h.d);
+      emit(h.d, c);
+    });
   };
 
   const move = (e) => {
+    const r = rectOf();
+    const p = point(e);
+    if (!r || !p) return;
     if (arrange) {
-      const r = rectOf();
-      const p = point(e);
-      if (!dragDigit.current || !r || !p) return;
+      if (!dragDigit.current) return;
       // Clamp so the bubble stays fully inside the pad.
       const x = Math.max(8, Math.min(92, (p.x / r.width) * 100));
       const y = Math.max(8, Math.min(92, (p.y / r.height) * 100));
@@ -137,11 +147,18 @@ const PinPad = ({
       );
       return;
     }
-    if (!swiping.current) return;
-    const p = point(e);
-    if (!p) return;
     const px = cellsPx();
-    const hitR = rectOf().width * 0.135;
+    const hitR = r.width * 0.135;
+    // Proximity magnet — the nearest bubble lifts as the pointer approaches.
+    const closest = px.reduce(
+      (m, c) => {
+        const d = Math.hypot(c.x - p.x, c.y - p.y);
+        return d < m.dist ? { dist: d, digit: c.d } : m;
+      },
+      { dist: Infinity, digit: null }
+    );
+    setNear(closest.dist <= hitR * 1.6 ? closest.digit : null);
+    if (tapMode || !swiping.current) return;
     const from = prevPt.current || p;
     hitsAlong(from, p, px, hitR).forEach((h) => {
       const c = px.find((cell) => cell.d === h.d);
@@ -151,14 +168,16 @@ const PinPad = ({
     setFinger(p);
   };
 
-  const up = () => {
+  const up = (e) => {
     if (arrange) {
       dragDigit.current = null;
       setDragging(null);
       return;
     }
+    setNear(null);
     if (!swiping.current) return;
     swiping.current = false;
+    try { e?.currentTarget?.releasePointerCapture?.(e.pointerId); } catch { /* noop */ }
     last.current = null;
     prevPt.current = null;
     setFinger(null);
@@ -182,6 +201,31 @@ const PinPad = ({
       onPointerCancel={up}
       onPointerLeave={arrange ? undefined : up}
     >
+      {/* ghost guide path — a suggested shape to trace (setup only) */}
+      {ghost?.length > 1 && (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="absolute inset-0 w-full h-full pointer-events-none"
+        >
+          <polyline
+            points={ghost.map((g) => `${g.x},${g.y}`).join(' ')}
+            fill="none"
+            stroke="rgb(99 102 241 / 0.5)"
+            strokeDasharray="4 3"
+            vectorEffect="non-scaling-stroke"
+            strokeWidth="1.5"
+          />
+          <circle r="3" fill="rgb(99 102 241 / 0.8)">
+            <animateMotion
+              dur={`${ghost.length * 0.7}s`}
+              repeatCount="indefinite"
+              path={`M ${ghost.map((g) => `${g.x} ${g.y}`).join(' L ')}`}
+            />
+          </circle>
+        </svg>
+      )}
       {/* swipe trail — vertex dots per digit, fades out on lift */}
       {trail.length > 0 && (
         <svg
@@ -210,18 +254,20 @@ const PinPad = ({
           disabled={disabled}
           initial={{ scale: 0, opacity: 0 }}
           animate={{
-            scale: active === d ? 1.22 : dragging === d ? 1.15 : 1,
+            scale: active === d ? 1.22 : dragging === d ? 1.15 : near === d ? 1.08 : 1,
             opacity: 1,
           }}
           transition={{ type: 'spring', stiffness: 500, damping: 28, delay: i * 0.03 }}
           whileHover={arrange ? { scale: 1.08 } : undefined}
-          style={{ left: `${x}%`, top: `${y}%` }}
+          style={{ left: `${x}%`, top: `${y}%`, touchAction: 'none' }}
           className={`absolute -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full border-2 text-xl font-semibold flex items-center justify-center transition-colors disabled:opacity-50 ${
             arrange ? 'cursor-grab active:cursor-grabbing ' : ''
           }${
             active === d || dragging === d
               ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 shadow-lg shadow-primary-500/30'
-              : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 hover:border-primary-300 dark:hover:border-primary-600'
+              : near === d
+                ? 'border-primary-400 dark:border-primary-500 bg-primary-50/60 dark:bg-primary-900/20'
+                : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 hover:border-primary-300 dark:hover:border-primary-600'
           }`}
         >
           {hideDigits ? '' : d}

@@ -40,8 +40,11 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
   const [display, setDisplay] = useState([]); // visual cell -> server grid index
   const [pinInput, setPinInput] = useState(''); // swipe-collected digits
   const [hideDigits, setHideDigits] = useState(
-    () => localStorage.getItem('quickLoginPadHide') === '1'
+    // Pattern-first: bubbles are anonymous unless you ask for digits.
+    () => localStorage.getItem('quickLoginPadHide') !== '0'
   );
+  const [entryTap, setEntryTap] = useState(false); // tap bubbles instead of swiping
+  const [needsSetup, setNeedsSetup] = useState(false); // no pattern on account
 
   const toggleHideDigits = () => {
     const next = !hideDigits;
@@ -74,6 +77,7 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
     setDisplay([]);
     setPinInput('');
     setError('');
+    setNeedsSetup(false);
   };
 
   const close = () => {
@@ -96,9 +100,10 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
     try {
       const res = await quickLoginAPI.challenge(username.trim());
       setChallenge(res.data);
-      setDisplay(shuffledIdx(res.data.grid.length));
+      setDisplay(shuffledIdx(res.data.grid?.length || 0));
       setTaps([]);
     } catch (err) {
+      if (err.response?.data?.needsSetup) setNeedsSetup(true);
       fail(err, 'Quick login unavailable');
     } finally {
       setLoading(false);
@@ -235,17 +240,30 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                     {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                     Get challenge
                   </button>
+                  {needsSetup && (
+                    <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-3 text-sm text-indigo-800 dark:text-indigo-300">
+                      No swipe pattern is set on this account. Sign in with your
+                      password first, then create one in <b>Settings → Quick Login</b>.
+                      <button
+                        type="button"
+                        onClick={close}
+                        className="mt-2 w-full btn-secondary text-sm"
+                      >
+                        Sign in with password
+                      </button>
+                    </div>
+                  )}
                 </form>
               ) : isPinMode ? (
                 <div className="space-y-4">
                   <p className="text-sm text-gray-700 dark:text-gray-300 text-center">
                     {pinInput.length < pinLen ? (
                       <>
-                        Swipe your{' '}
+                        {entryTap ? 'Tap your' : 'Swipe your'}{' '}
                         <span className="font-bold text-primary-600 dark:text-primary-400">{pinLen}-digit</span>{' '}
-                        PIN
+                        pattern
                         <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                          {pinInput.length} of {pinLen} · passes can cross the pad as many times as you set
+                          {pinInput.length} of {pinLen} · chain as many passes as your pattern uses
                         </span>
                       </>
                     ) : (
@@ -257,11 +275,28 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                   <p className="text-center text-xl tracking-[0.4em] text-primary-600 dark:text-primary-400 leading-none min-h-[1.5rem]">
                     {'•'.repeat(Math.min(pinInput.length, 40))}
                   </p>
+                  <div className="flex justify-center gap-1">
+                    {[['Swipe', false], ['Tap', true]].map(([label, isTap]) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => setEntryTap(isTap)}
+                        className={`px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
+                          entryTap === isTap
+                            ? 'border-primary-400 text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30'
+                            : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-primary-300'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                   <PinPad
                     onDigit={(d) => setPinInput((p) => (p.length < 64 ? p + d : p))}
                     disabled={loading}
                     hideDigits={hideDigits}
                     layout={challenge.pad}
+                    tapMode={entryTap}
                   />
                   <button
                     type="button"

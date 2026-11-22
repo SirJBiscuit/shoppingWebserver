@@ -397,7 +397,10 @@ router.post('/challenge', async (req, res) => {
     // client pairs with the typed digits on /verify.
     if (mode === 'pin') {
       if (!user.quick_pin) {
-        return res.status(400).json({ error: 'PIN not set — create one in Settings → Quick Login' });
+        return res.status(400).json({
+          error: 'No swipe pattern on this account — sign in with your password, then set one in Settings → Quick Login',
+          needsSetup: true,
+        });
       }
       const challengeToken = jwt.sign(
         { t: 'qlp', uid: user.id },

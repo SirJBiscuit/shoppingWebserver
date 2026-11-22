@@ -553,3 +553,9 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - PinPad.js: segment-based hit testing — the stroke between consecutive pointer events is tested against every bubble, so fast flicks can't skip digits they crossed; multi-digit crossings report in path order. arrange mode lets you drag bubbles anywhere (clamped inside the pad, pointer-captured); spring-in mount, per-digit scale pop, trail with vertex dots that fades on lift instead of vanishing.
 - QuickLoginSetup.js: "Arrange bubbles" mode — drag-to-shape layout, Shuffle spots (permutes positions), Reset to seeded, Save layout; "Custom layout" badge + crowding warning when two bubbles sit close enough that a fast swipe could grab both.
 - api.js: quickLoginAPI.setPad.
+
+## Swipe pattern — muscle-memory rework (pattern-first UX)
+- PinPad: pointer capture on swipe start — a drag drifting outside the pad no longer cancels the pass; touch-action:none on bubbles; proximity magnet (nearest bubble lifts as the pointer approaches); tapMode for tap-to-connect entry; ghost prop renders a dashed guide path with a traveling dot for shape tracing.
+- QuickLoginSetup: entry-style chips (Swipe / Tap / Trace a shape); "Trace a shape" suggests a greedy nearest-neighbour path through the bubbles with a looping guide; two-stage confirm — enter the pattern, then repeat it before saving (live match/mismatch feedback); Ring + Spiral layout presets join Shuffle spots.
+- QuickLoginModal: pin mode is pattern-first — bubbles anonymous by default (eye toggle to reveal), Swipe/Tap entry toggle, pattern copy; needsSetup from /challenge renders "sign in with password first → Settings → Quick Login" panel instead of a bare error. Fixed challenge handler crashing on pin mode (res.data.grid undefined).
+- quickLogin.js: /challenge pin branch returns needsSetup:true + password-first guidance when no PIN is saved.
