@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { KeyRound, ShieldCheck, RotateCcw, Copy, Check, Trash2, Grid3X3, Loader2, Undo2, Hash, Delete } from 'lucide-react';
+import { KeyRound, ShieldCheck, RotateCcw, Copy, Check, Trash2, Grid3X3, Loader2, Undo2, Hash, Delete, Shuffle, Move } from 'lucide-react';
 import { quickLoginAPI } from '../../services/api';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
 import PinPad from '../auth/PinPad';
@@ -41,6 +41,9 @@ const QuickLoginSetup = () => {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
   const [pinDraft, setPinDraft] = useState(''); // swipe-collected PIN digits
+  const [padLayout, setPadLayout] = useState(null); // [{d,x,y}] bubble positions
+  const [arranging, setArranging] = useState(false);
+  const [padDirty, setPadDirty] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -52,6 +55,12 @@ const QuickLoginSetup = () => {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Keep the pad preview in sync with the server — but never clobber
+  // a layout the user is mid-edit on.
+  useEffect(() => {
+    if (!padDirty && status?.pinPad) setPadLayout(status.pinPad);
+  }, [status?.pinPad, padDirty]);
 
   const flash = (msg) => {
     setNotice(msg);
@@ -126,6 +135,52 @@ const QuickLoginSetup = () => {
       setSaving(false);
     }
   };
+
+  const shufflePad = () => {
+    if (!padLayout) return;
+    const pos = padLayout.map((c) => ({ x: c.x, y: c.y }));
+    for (let i = pos.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pos[i], pos[j]] = [pos[j], pos[i]];
+    }
+    setPadLayout(padLayout.map((c, i) => ({ ...c, ...pos[i] })));
+    setPadDirty(true);
+  };
+
+  const savePad = async () => {
+    setSaving(true);
+    try {
+      await quickLoginAPI.setPad(padLayout);
+      setPadDirty(false);
+      setArranging(false);
+      flash('Pad layout saved');
+      load();
+    } catch (err) {
+      flash(err.response?.data?.error || 'Failed to save layout');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetPad = async () => {
+    setSaving(true);
+    try {
+      const res = await quickLoginAPI.setPad(null);
+      setPadLayout(res.data.pad);
+      setPadDirty(false);
+      flash('Layout reset to your default scatter');
+      load();
+    } catch {
+      flash('Failed to reset layout');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Warn when two bubbles sit close enough that a fast swipe could
+  // accidentally collect both.
+  const padCrowded = padLayout?.some((a, i) =>
+    padLayout.slice(i + 1).some((b) => Math.hypot(a.x - b.x, a.y - b.y) < 10));
 
   const disable = async () => {
     setConfirmDisable(false);
@@ -334,68 +389,120 @@ const QuickLoginSetup = () => {
 
       {/* Swipe PIN chain */}
       <div className="mb-5">
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-2">
-          <Hash className="w-4 h-4" /> Swipe PIN chain
-          {status?.pinSet && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-              PIN set
-            </span>
-          )}
-        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+            <Hash className="w-4 h-4" /> Swipe PIN chain
+            {status?.pinSet && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                PIN set
+              </span>
+            )}
+            {status?.pinPadCustom && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                Custom layout
+              </span>
+            )}
+          </h3>
+          <button
+            type="button"
+            onClick={() => setArranging((a) => !a)}
+            className={`text-xs font-medium flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-colors ${
+              arranging
+                ? 'border-primary-400 text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30'
+                : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-primary-300'
+            }`}
+          >
+            <Move className="w-3.5 h-3.5" /> {arranging ? 'Done arranging' : 'Arrange bubbles'}
+          </button>
+        </div>
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-          Hold and drag across the numpad — lift and swipe again to chain passes into one long
-          password ({PIN_MIN}+ digits, up to {PIN_MAX}). The dots show only how many digits you've
-          entered, never which ones.
+          {arranging
+            ? 'Drag the bubbles anywhere to shape your own layout — it saves to your account and nobody else sees this scatter.'
+            : `Hold and drag across the pad — lift and swipe again to chain passes into one long password (${PIN_MIN}+ digits, up to ${PIN_MAX}). The dots only show how many digits entered, never which.`}
         </p>
-        {status?.mode === 'pin' && !status?.pinSet && (
+        {status?.mode === 'pin' && !status?.pinSet && !arranging && (
           <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-3">
             Swipe PIN mode is selected but no PIN is saved — set one below first.
           </p>
         )}
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-          Your digits sit on your own scattered ring — same layout every time for you,
-          but nothing an observer can map back to a numpad.
-        </p>
+        {arranging && padCrowded && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-3">
+            Some bubbles are close together — fast swipes may collect both digits.
+          </p>
+        )}
         <PinPad
+          layout={padLayout || status?.pinPad}
+          arrange={arranging}
+          onLayoutChange={(l) => { setPadLayout(l); setPadDirty(true); }}
           onDigit={(d) => setPinDraft((p) => (p.length < PIN_MAX ? p + d : p))}
           disabled={saving}
-          order={status?.pinPad}
         />
-        <div className="mt-3 flex items-center justify-center gap-3">
-          <span className="text-lg tracking-[0.35em] text-primary-600 dark:text-primary-400 leading-none min-h-[1rem]">
-            {'•'.repeat(Math.min(pinDraft.length, 40))}
-          </span>
-          <span className={`text-xs ${pinDraft.length >= PIN_MIN ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
-            {pinDraft.length}/{PIN_MIN}+
-          </span>
-        </div>
-        <div className="mt-3 flex gap-2 justify-center">
-          <button
-            type="button"
-            onClick={() => setPinDraft((p) => p.slice(0, -1))}
-            disabled={pinDraft.length === 0}
-            className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-50"
-          >
-            <Delete className="w-4 h-4" /> Undo
-          </button>
-          <button
-            type="button"
-            onClick={() => setPinDraft('')}
-            disabled={pinDraft.length === 0}
-            className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-50"
-          >
-            <RotateCcw className="w-4 h-4" /> Clear
-          </button>
-          <button
-            type="button"
-            onClick={savePin}
-            disabled={saving || pinDraft.length < PIN_MIN}
-            className="btn-primary text-sm disabled:opacity-50 flex items-center gap-1.5"
-          >
-            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {status?.pinSet ? 'Replace PIN' : 'Save PIN'}
-          </button>
-        </div>
+        {arranging ? (
+          <div className="mt-3 flex gap-2 justify-center">
+            <button
+              type="button"
+              onClick={shufflePad}
+              disabled={saving}
+              className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <Shuffle className="w-4 h-4" /> Shuffle spots
+            </button>
+            <button
+              type="button"
+              onClick={resetPad}
+              disabled={saving}
+              className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <RotateCcw className="w-4 h-4" /> Reset
+            </button>
+            <button
+              type="button"
+              onClick={savePad}
+              disabled={saving || !padDirty}
+              className="btn-primary text-sm disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />} Save layout
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="mt-3 flex items-center justify-center gap-3">
+              <span className="text-lg tracking-[0.35em] text-primary-600 dark:text-primary-400 leading-none min-h-[1rem]">
+                {'•'.repeat(Math.min(pinDraft.length, 40))}
+              </span>
+              <span className={`text-xs ${pinDraft.length >= PIN_MIN ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
+                {pinDraft.length}/{PIN_MIN}+
+              </span>
+            </div>
+            <div className="mt-3 flex gap-2 justify-center">
+              <button
+                type="button"
+                onClick={() => setPinDraft((p) => p.slice(0, -1))}
+                disabled={pinDraft.length === 0}
+                className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Delete className="w-4 h-4" /> Undo
+              </button>
+              <button
+                type="button"
+                onClick={() => setPinDraft('')}
+                disabled={pinDraft.length === 0}
+                className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <RotateCcw className="w-4 h-4" /> Clear
+              </button>
+              <button
+                type="button"
+                onClick={savePin}
+                disabled={saving || pinDraft.length < PIN_MIN}
+                className="btn-primary text-sm disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                {status?.pinSet ? 'Replace PIN' : 'Save PIN'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Backup codes */}

@@ -67,6 +67,45 @@ const padOrderFor = (uid) => {
   return a;
 };
 
+const GOLDEN_ANGLE = (137.508 * Math.PI) / 180;
+
+// Seeded default layout — the account's digits on a golden-angle scatter.
+const padLayoutFor = (uid) =>
+  padOrderFor(uid).map((d, i) => {
+    const angle = i * GOLDEN_ANGLE;
+    const r = 7 + 29 * Math.sqrt((i + 0.5) / 10);
+    return {
+      d,
+      x: Math.round((50 + r * Math.cos(angle)) * 10) / 10,
+      y: Math.round((50 + r * Math.sin(angle)) * 10) / 10,
+    };
+  });
+
+// A stored layout must be exactly ten unique digits, each with x/y in 0-100%.
+const validLayout = (arr) => {
+  if (!Array.isArray(arr) || arr.length !== 10) return false;
+  const seen = new Set();
+  return arr.every((c) => {
+    if (
+      !c || typeof c.d !== 'string' || c.d.length !== 1 ||
+      c.d < '0' || c.d > '9' || seen.has(c.d) ||
+      typeof c.x !== 'number' || typeof c.y !== 'number' ||
+      c.x < 0 || c.x > 100 || c.y < 0 || c.y > 100
+    ) return false;
+    seen.add(c.d);
+    return true;
+  });
+};
+
+const parseLayout = (value) => {
+  try {
+    const arr = JSON.parse(value);
+    return validLayout(arr) ? arr : null;
+  } catch {
+    return null;
+  }
+};
+
 const encryptSeq = (seq) => {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', ENC_KEY, iv);
@@ -162,7 +201,7 @@ const recordFail = async (userId, fails) => {
 router.get('/status', authenticateToken, isQuickLoginEligible, async (req, res) => {
   try {
     const u = await db.query(
-      'SELECT quick_seq, quick_locked_until, quick_login_mode, quick_login_reshuffle, quick_pin FROM users WHERE id = $1',
+      'SELECT quick_seq, quick_locked_until, quick_login_mode, quick_login_reshuffle, quick_pin, quick_pin_pad FROM users WHERE id = $1',
       [req.user.id]
     );
     const row = u.rows[0] || {};
@@ -180,7 +219,8 @@ router.get('/status', authenticateToken, isQuickLoginEligible, async (req, res) 
       mode: ['partial', 'full', 'pin'].includes(row.quick_login_mode) ? row.quick_login_mode : 'partial',
       reshuffle: row.quick_login_reshuffle !== false,
       pinSet: !!row.quick_pin,
-      pinPad: padOrderFor(req.user.id),
+      pinPad: parseLayout(row.quick_pin_pad) || padLayoutFor(req.user.id),
+      pinPadCustom: !!parseLayout(row.quick_pin_pad),
     });
   } catch (error) {
     console.error('Quick login status error:', error);
@@ -272,10 +312,35 @@ router.post('/pin', authenticateToken, isQuickLoginEligible, async (req, res) =>
   }
 });
 
+// POST /pad — save a custom bubble layout ({d,x,y}[] in 0-100% space).
+// null layout resets to the seeded default scatter.
+router.post('/pad', authenticateToken, isQuickLoginEligible, async (req, res) => {
+  const { layout } = req.body || {};
+  if (layout != null && !validLayout(layout)) {
+    return res.status(400).json({ error: 'Layout must contain all ten digits with 0-100 positions' });
+  }
+  try {
+    const result = await db.query(
+      'UPDATE users SET quick_pin_pad = $1 WHERE id = $2 AND (is_admin = true OR is_beta_tester = true)',
+      [layout == null ? null : JSON.stringify(layout), req.user.id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(403).json({ error: 'Quick login requires an eligible account' });
+    }
+    res.json({
+      pad: layout == null ? padLayoutFor(req.user.id) : layout,
+      custom: layout != null,
+    });
+  } catch (error) {
+    console.error('Quick login pad error:', error);
+    res.status(500).json({ error: 'Failed to save pad layout' });
+  }
+});
+
 router.delete('/', authenticateToken, isQuickLoginEligible, async (req, res) => {
   try {
     await db.query(
-      'UPDATE users SET quick_seq = NULL, quick_pin = NULL, quick_pin_len = NULL, quick_failed = 0, quick_locked_until = NULL WHERE id = $1',
+      'UPDATE users SET quick_seq = NULL, quick_pin = NULL, quick_pin_len = NULL, quick_pin_pad = NULL, quick_failed = 0, quick_locked_until = NULL WHERE id = $1',
       [req.user.id]
     );
     await db.query('DELETE FROM quick_login_codes WHERE user_id = $1', [req.user.id]);
@@ -314,7 +379,7 @@ router.post('/challenge', async (req, res) => {
   }
   try {
     const result = await db.query(
-      'SELECT id, quick_seq, quick_pin, quick_pin_len, quick_locked_until, quick_login_mode, quick_login_reshuffle FROM users WHERE LOWER(username) = LOWER($1) AND (is_admin = true OR is_beta_tester = true)',
+      'SELECT id, quick_seq, quick_pin, quick_pin_len, quick_pin_pad, quick_locked_until, quick_login_mode, quick_login_reshuffle FROM users WHERE LOWER(username) = LOWER($1) AND (is_admin = true OR is_beta_tester = true)',
       [username.trim()]
     );
     const user = result.rows[0];
@@ -343,7 +408,7 @@ router.post('/challenge', async (req, res) => {
         challengeToken,
         mode: 'pin',
         pinLen: user.quick_pin_len || PIN_MIN,
-        pad: padOrderFor(user.id),
+        pad: parseLayout(user.quick_pin_pad) || padLayoutFor(user.id),
       });
     }
 

@@ -546,3 +546,10 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - PinPad.js (new): golden-angle scattered-ring numpad — hold+drag (mouse/touch) collects digits per pass, lifts chain passes into one long PIN; live swipe-trail line per pass (clears on lift), vibration tick per digit, hideDigits blank-cell stealth mode (persisted, login modal toggle).
 - QuickLoginModal.js: pin mode renders PinPad + bullet counter + undo/clear + sign-in; physical keys (digits/backspace) work too.
 - QuickLoginSetup.js: third mode card + PIN chain section (pad, dots, digit count, save/replace), "PIN set" badge, amber hint when pin mode selected without a saved PIN.
+
+## Quick login — draggable custom pad + swipe feel overhaul (migration 108)
+- migration 108: users.quick_pin_pad TEXT (JSON [{d,x,y}] percent positions); NULL = seeded golden-angle scatter.
+- quickLogin.js: padLayoutFor() seeds the default scatter; validLayout/parseLayout validate stored layouts (all ten digits, 0-100 positions); POST /pad saves a custom layout or resets to seeded on null; /challenge + /status serve stored-else-seeded layout; disable clears the column.
+- PinPad.js: segment-based hit testing — the stroke between consecutive pointer events is tested against every bubble, so fast flicks can't skip digits they crossed; multi-digit crossings report in path order. arrange mode lets you drag bubbles anywhere (clamped inside the pad, pointer-captured); spring-in mount, per-digit scale pop, trail with vertex dots that fades on lift instead of vanishing.
+- QuickLoginSetup.js: "Arrange bubbles" mode — drag-to-shape layout, Shuffle spots (permutes positions), Reset to seeded, Save layout; "Custom layout" badge + crowding warning when two bubbles sit close enough that a fast swipe could grab both.
+- api.js: quickLoginAPI.setPad.

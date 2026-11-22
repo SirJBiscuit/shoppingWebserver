@@ -261,7 +261,7 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                     onDigit={(d) => setPinInput((p) => (p.length < 64 ? p + d : p))}
                     disabled={loading}
                     hideDigits={hideDigits}
-                    order={challenge.pad}
+                    layout={challenge.pad}
                   />
                   <button
                     type="button"
