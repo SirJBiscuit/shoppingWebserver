@@ -345,6 +345,17 @@ release note. No Devin/Windsurf attribution in commits, ever.
 
 ## ✅ Completed log (newest first)
 
+- **`5e3966e`** — Mobile "can't type username in Quick Login" hardening:
+  full audit found no focus blocker (input, CSS, overlays, global listeners all
+  clean). Real latent crash fixed: `localStorage.getItem('quickLoginPadHide')` in
+  the modal's useState initializer throws in storage-blocked browsers/WebViews →
+  modal crash → ErrorBoundary fallback → dead login screen. Now try/catch-guarded
+  (get + set). Added `autoCapitalize="none"`/`autoCorrect="off"`/`spellCheck`/
+  `enterKeyHint` to username/code inputs (QuickLoginModal + Login.js) so mobile
+  keyboards stop capitalizing case-sensitive usernames; Beta Access button got
+  explicit `type="button"`. If the symptom persists on device, remaining suspects
+  are a stale deployed bundle (`res.data.grid.length` crash predates `c956ee3`)
+  or a stale SW chunk — verify deployed version.
 - **2026-11-20 `3699ee3`** — Recipe delete second bug: slider passed recipe object not
   id (`DELETE /api/recipes/[object Object]` → 500). Trash buttons added to all card
   faces (slider front/back, rolodex top, shelf/grid/list), deck default `list`,
