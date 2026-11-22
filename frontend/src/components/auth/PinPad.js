@@ -67,7 +67,7 @@ const PinPad = ({
 }) => {
   const padRef = useRef(null);
   const swiping = useRef(false);
-  const last = useRef(null);      // last digit added this pass
+  const visited = useRef(new Set()); // nodes collected this swipe — once each
   const prevPt = useRef(null);    // last pointer position this pass
   const dragDigit = useRef(null); // bubble being moved in arrange mode
   const vertexId = useRef(0);     // unique id per trail vertex (stable keys)
@@ -100,8 +100,12 @@ const PinPad = ({
   };
 
   const emit = (d, centre) => {
-    if (d === last.current) return;
-    last.current = d;
+    // Once per node per swipe — a wobble back through an already-collected
+    // bubble must not re-emit it (consecutive-repeat checking let A→B→A
+    // double-count A). A fresh swipe clears `visited`, so deliberate
+    // repeat passes still work.
+    if (visited.current.has(d)) return;
+    visited.current.add(d);
     setActive(d);
     setTimeout(() => setActive((a) => (a === d ? null : a)), 160);
     if (centre) setTrail((t) => [...t, { ...centre, id: vertexId.current++ }]);
@@ -126,6 +130,8 @@ const PinPad = ({
     }
     if (tapMode) {
       // Tap-to-connect — each press emits its bubble, no drag needed.
+      // Clear per press so deliberate repeats ("3-3-4") can be tapped.
+      visited.current.clear();
       const px = cellsPx();
       const hit = hitsAlong(p, p, px, CELL_HIT_PX)[0];
       if (hit) emit(hit.d, px.find((cell) => cell.d === hit.d));
@@ -135,16 +141,16 @@ const PinPad = ({
     // Capture the pointer to the pad — a swipe that drifts outside the
     // square keeps collecting instead of dying on pointerleave.
     e.currentTarget.setPointerCapture?.(e.pointerId);
-    last.current = null;
+    visited.current.clear();
     setTrail([]);
     setFading(false);
     prevPt.current = p;
     setFinger(p);
+    // Only the nearest bubble under the touch counts — a touchdown in a
+    // crowded overlap zone must not collect every bubble it grazes.
     const px0 = cellsPx();
-    hitsAlong(p, p, px0).forEach((h) => {
-      const c = px0.find((cell) => cell.d === h.d);
-      emit(h.d, c);
-    });
+    const first = hitsAlong(p, p, px0)[0];
+    if (first) emit(first.d, px0.find((cell) => cell.d === first.d));
   };
 
   const move = (e) => {
@@ -192,7 +198,6 @@ const PinPad = ({
     if (!swiping.current) return;
     swiping.current = false;
     try { e?.currentTarget?.releasePointerCapture?.(e.pointerId); } catch { /* noop */ }
-    last.current = null;
     prevPt.current = null;
     setFinger(null);
     setFading(true);
