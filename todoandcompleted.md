@@ -345,6 +345,17 @@ release note. No Devin/Windsurf attribution in commits, ever.
 
 ## ✅ Completed log (newest first)
 
+- **`cd1b60c`** — Dual pad mode (bubble pin ↔ glyph pin, migration 109):
+  `quick_glyph_pad` + `quick_pad_mode` columns. Login modal gets a
+  **Bubbles | Glyph** chip row — glyph shows the anonymous node pad (N×N
+  grid default, pattern-lock style), bubbles show the labeled scatter.
+  Account default pad style saved via `POST /mode {padMode}` ("Login opens
+  on" chips in setup); device remembers its swap via localStorage. Setup
+  arranges each pad independently (tab chips, per-pad dirty dots, separate
+  save/reset); node count stays shared across both pads so the same glyph
+  is enterable on either. `POST /pad` takes `which: bubble|glyph`;
+  `/status` + `/challenge` return `glyphPad`, `padMode`. Same stored
+  secret — no second password.
 - **`a0ef786`** — Duplicate-bubble swipe fix: `emit` only blocked consecutive
   repeats, so a path wobbling A→B→A re-collected A mid-swipe, and a touchdown
   inside a crowded overlap zone emitted every grazed bubble at once. Now a
