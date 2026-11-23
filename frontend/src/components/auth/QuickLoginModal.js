@@ -259,7 +259,9 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
+                    inputMode="text"
                     enterKeyHint="go"
+                    autoFocus
                   />
                   <button type="submit" disabled={loading || !username.trim()} className="w-full btn-primary disabled:opacity-50 flex items-center justify-center gap-2">
                     {loading && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -512,7 +514,9 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
+                inputMode="text"
                 enterKeyHint="next"
+                autoFocus
               />
               <input
                 type="text"
@@ -525,6 +529,7 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
+                inputMode="text"
                 enterKeyHint="go"
               />
               <button type="submit" disabled={loading || !username.trim() || !code.trim()} className="w-full btn-primary disabled:opacity-50 flex items-center justify-center gap-2">
