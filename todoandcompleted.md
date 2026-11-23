@@ -345,6 +345,17 @@ release note. No Devin/Windsurf attribution in commits, ever.
 
 ## ✅ Completed log (newest first)
 
+- **`e8a5857`** — Login typing lag root cause: `BetaPinLayer`'s
+  `usePinLayerTick(1000)` ran a 1s interval + capture-phase scroll and
+  window-resize bumps **unconditionally, even logged out** — every tick
+  re-rendered the whole ~1300-line component (which `return null`s at the
+  bottom, so all hooks ran for nothing), and the keyboard-open scroll/
+  resize storm hit the same path: each keystroke queued behind a heavy
+  re-render → laggy keys + slow keyboard-open. `usePinLayerTick` now takes
+  an `enabled` flag skipping all listeners; BetaPinLayer enables it only
+  for pin-eligible users and its `document.body` ResizeObserver is gated
+  identically. `FlyingItemAnimation` scroll/resize `getBoundingClientRect`
+  work now attaches only while an animation is actually live.
 - **`53cf4a7`** — Login screen UX + mobile keyboard hardening: full audit
   found no code-level keyboard blocker (inputs, CSS, overlays, global
   listeners, SW all clean), so the fixes target the real weak points —
