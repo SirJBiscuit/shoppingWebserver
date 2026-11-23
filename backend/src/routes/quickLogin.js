@@ -91,6 +91,25 @@ const padLayoutFor = (uid, count = DEFAULT_NODE_COUNT) => {
   });
 };
 
+// Default glyph pad — an N×N lattice (the classic pattern-lock look).
+// Short last rows stay centred so the grid reads evenly at any count.
+const gridLayoutFor = (count = DEFAULT_NODE_COUNT) => {
+  const n = Math.min(Math.max(count, NODE_MIN), NODE_MAX);
+  const cols = Math.ceil(Math.sqrt(n));
+  const rows = Math.ceil(n / cols);
+  const spacing = cols === 1 ? 0 : 72 / (cols - 1);
+  return NODE_IDS.slice(0, n).map((d, i) => {
+    const row = Math.floor(i / cols);
+    const rowNodes = Math.min(cols, n - row * cols);
+    const rowWidth = spacing * (rowNodes - 1);
+    return {
+      d,
+      x: Math.round((50 - rowWidth / 2 + spacing * (i % cols)) * 10) / 10,
+      y: Math.round((rows === 1 ? 50 : 14 + (72 * row) / (rows - 1)) * 10) / 10,
+    };
+  });
+};
+
 // A stored layout is NODE_MIN..NODE_MAX unique node ids, x/y in 0-100% space.
 const validLayout = (arr) => {
   if (!Array.isArray(arr) || arr.length < NODE_MIN || arr.length > NODE_MAX) return false;
@@ -211,7 +230,7 @@ const recordFail = async (userId, fails) => {
 router.get('/status', authenticateToken, isQuickLoginEligible, async (req, res) => {
   try {
     const u = await db.query(
-      'SELECT quick_seq, quick_locked_until, quick_login_mode, quick_login_reshuffle, quick_pin, quick_pin_pad FROM users WHERE id = $1',
+      'SELECT quick_seq, quick_locked_until, quick_login_mode, quick_login_reshuffle, quick_pin, quick_pin_pad, quick_glyph_pad, quick_pad_mode FROM users WHERE id = $1',
       [req.user.id]
     );
     const row = u.rows[0] || {};
@@ -231,6 +250,10 @@ router.get('/status', authenticateToken, isQuickLoginEligible, async (req, res) 
       pinSet: !!row.quick_pin,
       pinPad: parseLayout(row.quick_pin_pad) || padLayoutFor(req.user.id),
       pinPadCustom: !!parseLayout(row.quick_pin_pad),
+      glyphPad: parseLayout(row.quick_glyph_pad) ||
+        gridLayoutFor((parseLayout(row.quick_pin_pad) || []).length || DEFAULT_NODE_COUNT),
+      glyphPadCustom: !!parseLayout(row.quick_glyph_pad),
+      padMode: row.quick_pad_mode === 'glyph' ? 'glyph' : 'bubble',
     });
   } catch (error) {
     console.error('Quick login status error:', error);
@@ -266,24 +289,28 @@ router.post('/setup', authenticateToken, isQuickLoginEligible, async (req, res) 
 // (whole sequence from memory — faster, observer sees it all); reshuffle
 // controls whether the grid re-scatters after every tap.
 router.post('/mode', authenticateToken, isQuickLoginEligible, async (req, res) => {
-  const { mode, reshuffle } = req.body || {};
+  const { mode, reshuffle, padMode } = req.body || {};
   if (mode !== undefined && !['partial', 'full', 'pin'].includes(mode)) {
     return res.status(400).json({ error: 'Mode must be partial, full, or pin' });
   }
   if (reshuffle !== undefined && typeof reshuffle !== 'boolean') {
     return res.status(400).json({ error: 'reshuffle must be a boolean' });
   }
-  if (mode === undefined && reshuffle === undefined) {
+  if (padMode !== undefined && !['bubble', 'glyph'].includes(padMode)) {
+    return res.status(400).json({ error: 'padMode must be bubble or glyph' });
+  }
+  if (mode === undefined && reshuffle === undefined && padMode === undefined) {
     return res.status(400).json({ error: 'Nothing to update' });
   }
   try {
     const result = await db.query(
       `UPDATE users SET
          quick_login_mode = COALESCE($1, quick_login_mode),
-         quick_login_reshuffle = COALESCE($2, quick_login_reshuffle)
-       WHERE id = $3 AND (is_admin = true OR is_beta_tester = true)
-       RETURNING quick_login_mode, quick_login_reshuffle`,
-      [mode ?? null, reshuffle ?? null, req.user.id]
+         quick_login_reshuffle = COALESCE($2, quick_login_reshuffle),
+         quick_pad_mode = COALESCE($3, quick_pad_mode)
+       WHERE id = $4 AND (is_admin = true OR is_beta_tester = true)
+       RETURNING quick_login_mode, quick_login_reshuffle, quick_pad_mode`,
+      [mode ?? null, reshuffle ?? null, padMode ?? null, req.user.id]
     );
     if (result.rowCount === 0) {
       return res.status(403).json({ error: 'Quick login requires an admin account' });
@@ -292,6 +319,7 @@ router.post('/mode', authenticateToken, isQuickLoginEligible, async (req, res) =
     res.json({
       mode: ['partial', 'full', 'pin'].includes(row.quick_login_mode) ? row.quick_login_mode : 'partial',
       reshuffle: row.quick_login_reshuffle !== false,
+      padMode: row.quick_pad_mode === 'glyph' ? 'glyph' : 'bubble',
     });
   } catch (error) {
     console.error('Quick login setup error:', error);
@@ -311,12 +339,11 @@ router.post('/pin', authenticateToken, isQuickLoginEligible, async (req, res) =>
   }
   try {
     const existing = await db.query(
-      'SELECT quick_pin_pad FROM users WHERE id = $1', [req.user.id]
+      'SELECT quick_pin_pad, quick_glyph_pad FROM users WHERE id = $1', [req.user.id]
     );
-    const nodeSet = new Set(
-      (parseLayout(existing.rows[0]?.quick_pin_pad) ||
-        padLayoutFor(req.user.id)).map((c) => c.d)
-    );
+    const bubblePad = parseLayout(existing.rows[0]?.quick_pin_pad) || padLayoutFor(req.user.id);
+    const glyphPad = parseLayout(existing.rows[0]?.quick_glyph_pad) || gridLayoutFor(bubblePad.length);
+    const nodeSet = new Set([...bubblePad, ...glyphPad].map((c) => c.d));
     if (![...pin].every((ch) => nodeSet.has(ch))) {
       return res.status(400).json({ error: 'Pattern uses nodes that are not on your pad' });
     }
@@ -334,24 +361,35 @@ router.post('/pin', authenticateToken, isQuickLoginEligible, async (req, res) =>
   }
 });
 
-// POST /pad — save a custom bubble layout ({d,x,y}[] in 0-100% space).
-// null layout resets to the seeded default scatter.
+// POST /pad — save a custom pad layout ({d,x,y}[] in 0-100% space).
+// `which` picks the column: 'bubble' (labeled pin pad, seeded-scatter
+// default) or 'glyph' (anonymous node pad, N×N grid default). A null
+// layout resets that pad to its default.
 router.post('/pad', authenticateToken, isQuickLoginEligible, async (req, res) => {
-  const { layout } = req.body || {};
+  const { layout, which } = req.body || {};
+  if (which !== undefined && !['bubble', 'glyph'].includes(which)) {
+    return res.status(400).json({ error: 'which must be bubble or glyph' });
+  }
   if (layout != null && !validLayout(layout)) {
     return res.status(400).json({ error: `Layout must contain ${NODE_MIN}-${NODE_MAX} unique nodes with 0-100 positions` });
   }
+  const isGlyph = which === 'glyph';
+  const column = isGlyph ? 'quick_glyph_pad' : 'quick_pin_pad';
   try {
     const result = await db.query(
-      'UPDATE users SET quick_pin_pad = $1 WHERE id = $2 AND (is_admin = true OR is_beta_tester = true)',
+      `UPDATE users SET ${column} = $1 WHERE id = $2 AND (is_admin = true OR is_beta_tester = true) RETURNING quick_pin_pad`,
       [layout == null ? null : JSON.stringify(layout), req.user.id]
     );
     if (result.rowCount === 0) {
       return res.status(403).json({ error: 'Quick login requires an eligible account' });
     }
+    const bubbleCount = (parseLayout(result.rows[0].quick_pin_pad) || []).length || DEFAULT_NODE_COUNT;
     res.json({
-      pad: layout == null ? padLayoutFor(req.user.id) : layout,
+      pad: layout == null
+        ? (isGlyph ? gridLayoutFor(bubbleCount) : padLayoutFor(req.user.id))
+        : layout,
       custom: layout != null,
+      which: isGlyph ? 'glyph' : 'bubble',
     });
   } catch (error) {
     console.error('Quick login pad error:', error);
@@ -362,7 +400,7 @@ router.post('/pad', authenticateToken, isQuickLoginEligible, async (req, res) =>
 router.delete('/', authenticateToken, isQuickLoginEligible, async (req, res) => {
   try {
     await db.query(
-      'UPDATE users SET quick_seq = NULL, quick_pin = NULL, quick_pin_len = NULL, quick_pin_pad = NULL, quick_failed = 0, quick_locked_until = NULL WHERE id = $1',
+      'UPDATE users SET quick_seq = NULL, quick_pin = NULL, quick_pin_len = NULL, quick_pin_pad = NULL, quick_glyph_pad = NULL, quick_pad_mode = \'bubble\', quick_failed = 0, quick_locked_until = NULL WHERE id = $1',
       [req.user.id]
     );
     await db.query('DELETE FROM quick_login_codes WHERE user_id = $1', [req.user.id]);
@@ -401,7 +439,7 @@ router.post('/challenge', async (req, res) => {
   }
   try {
     const result = await db.query(
-      'SELECT id, quick_seq, quick_pin, quick_pin_len, quick_pin_pad, quick_locked_until, quick_login_mode, quick_login_reshuffle FROM users WHERE LOWER(username) = LOWER($1) AND (is_admin = true OR is_beta_tester = true)',
+      'SELECT id, quick_seq, quick_pin, quick_pin_len, quick_pin_pad, quick_glyph_pad, quick_pad_mode, quick_locked_until, quick_login_mode, quick_login_reshuffle FROM users WHERE LOWER(username) = LOWER($1) AND (is_admin = true OR is_beta_tester = true)',
       [username.trim()]
     );
     const user = result.rows[0];
@@ -429,11 +467,14 @@ router.post('/challenge', async (req, res) => {
         process.env.JWT_SECRET,
         { expiresIn: CHALLENGE_TTL }
       );
+      const bubblePad = parseLayout(user.quick_pin_pad) || padLayoutFor(user.id);
       return res.json({
         challengeToken,
         mode: 'pin',
         pinLen: user.quick_pin_len || PIN_MIN,
-        pad: parseLayout(user.quick_pin_pad) || padLayoutFor(user.id),
+        pad: bubblePad,
+        glyphPad: parseLayout(user.quick_glyph_pad) || gridLayoutFor(bubblePad.length),
+        padMode: user.quick_pad_mode === 'glyph' ? 'glyph' : 'bubble',
       });
     }
 

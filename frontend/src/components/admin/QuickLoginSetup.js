@@ -44,9 +44,12 @@ const QuickLoginSetup = () => {
   const [firstDraft, setFirstDraft] = useState(null); // stage-1 entry awaiting confirm
   const [entryStyle, setEntryStyle] = useState('swipe'); // swipe | tap | trace
   const [ghost, setGhost] = useState(null); // suggested shape guide path
-  const [padLayout, setPadLayout] = useState(null); // [{d,x,y}] bubble positions
+  const [padLayout, setPadLayout] = useState(null); // [{d,x,y}] bubble pad positions
+  const [glyphLayout, setGlyphLayout] = useState(null); // [{d,x,y}] glyph pad positions
   const [arranging, setArranging] = useState(false);
+  const [arrangeWhich, setArrangeWhich] = useState('bubble'); // pad being arranged
   const [padDirty, setPadDirty] = useState(false);
+  const [glyphDirty, setGlyphDirty] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -59,11 +62,14 @@ const QuickLoginSetup = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  // Keep the pad preview in sync with the server — but never clobber
+  // Keep the pad previews in sync with the server — but never clobber
   // a layout the user is mid-edit on.
   useEffect(() => {
     if (!padDirty && status?.pinPad) setPadLayout(status.pinPad);
   }, [status?.pinPad, padDirty]);
+  useEffect(() => {
+    if (!glyphDirty && status?.glyphPad) setGlyphLayout(status.glyphPad);
+  }, [status?.glyphPad, glyphDirty]);
 
   const flash = (msg) => {
     setNotice(msg);
@@ -125,14 +131,31 @@ const QuickLoginSetup = () => {
     }
   };
 
+  // The pad being arranged right now — bubble layout or glyph layout.
+  const activeLayout = arrangeWhich === 'glyph' ? glyphLayout : padLayout;
+  const activeDirty = arrangeWhich === 'glyph' ? glyphDirty : padDirty;
+  const writeActive = (cells, markDirty = true) => {
+    if (arrangeWhich === 'glyph') {
+      setGlyphLayout(cells);
+      if (markDirty) setGlyphDirty(true);
+    } else {
+      setPadLayout(cells);
+      if (markDirty) setPadDirty(true);
+    }
+  };
+
   const savePin = async () => {
     setSaving(true);
     try {
       // A glyph entered on an unsaved layout would fail the server's
-      // node-set check — persist the pad first if it changed.
+      // node-set check — persist any dirty pads first.
       if (padDirty && padLayout) {
-        await quickLoginAPI.setPad(padLayout);
+        await quickLoginAPI.setPad(padLayout, 'bubble');
         setPadDirty(false);
+      }
+      if (glyphDirty && glyphLayout) {
+        await quickLoginAPI.setPad(glyphLayout, 'glyph');
+        setGlyphDirty(false);
       }
       await quickLoginAPI.setPin(pinDraft);
       setPinDraft('');
@@ -147,32 +170,31 @@ const QuickLoginSetup = () => {
   };
 
   const shufflePad = () => {
-    if (!padLayout) return;
-    const pos = padLayout.map((c) => ({ x: c.x, y: c.y }));
+    if (!activeLayout) return;
+    const pos = activeLayout.map((c) => ({ x: c.x, y: c.y }));
     for (let i = pos.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pos[i], pos[j]] = [pos[j], pos[i]];
     }
-    setPadLayout(padLayout.map((c, i) => ({ ...c, ...pos[i] })));
-    setPadDirty(true);
+    writeActive(activeLayout.map((c, i) => ({ ...c, ...pos[i] })));
   };
 
   // One-click layout presets — same nodes, new shape. 'grid' is the classic
   // pattern-lock lattice; the rest keep the freeform bubble feel.
   const presetPad = (kind) => {
-    if (!padLayout) return;
-    const n = padLayout.length;
+    if (!activeLayout) return;
+    const n = activeLayout.length;
     const GOLDEN = (137.508 * Math.PI) / 180;
     if (kind === 'grid') {
       const cols = Math.ceil(Math.sqrt(n));
       const rows = Math.ceil(n / cols);
-      setPadLayout(padLayout.map((c, i) => ({
+      writeActive(activeLayout.map((c, i) => ({
         ...c,
         x: cols === 1 ? 50 : 14 + (72 * (i % cols)) / (cols - 1),
         y: rows === 1 ? 50 : 14 + (72 * Math.floor(i / cols)) / (rows - 1),
       })));
     } else {
-      setPadLayout(padLayout.map((c, i) => {
+      writeActive(activeLayout.map((c, i) => {
         if (kind === 'ring') {
           const a = (i / n) * Math.PI * 2 - Math.PI / 2;
           return { ...c, x: 50 + 34 * Math.cos(a), y: 50 + 34 * Math.sin(a) };
@@ -182,31 +204,29 @@ const QuickLoginSetup = () => {
         return { ...c, x: 50 + r * Math.cos(a), y: 50 + r * Math.sin(a) };
       }));
     }
-    setPadDirty(true);
   };
 
-  // Node count — grow keeps every existing bubble and lands new nodes on
-  // the golden-angle scatter; shrink drops the last ones. 6-25 nodes.
+  // Node count — shared across both pads so the same glyph is enterable on
+  // either. Grow keeps existing positions and lands new nodes on the
+  // golden-angle scatter; shrink drops the last ones. 6-25 nodes.
   const NODE_MIN = 6;
   const NODE_MAX = 25;
+  const resizeTo = (cells, n) =>
+    n <= cells.length ? cells.slice(0, n)
+      : defaultLayout(n).map((c, i) => cells[i] || c);
   const resizePad = (n) => {
-    if (!padLayout || n < NODE_MIN || n > NODE_MAX) return;
-    if (n <= padLayout.length) {
-      setPadLayout(padLayout.slice(0, n));
-    } else {
-      const fresh = defaultLayout(n);
-      setPadLayout(fresh.map((c, i) => padLayout[i] || c));
-    }
-    setPadDirty(true);
+    if (!activeLayout || n < NODE_MIN || n > NODE_MAX) return;
+    if (padLayout) { setPadLayout(resizeTo(padLayout, n)); setPadDirty(true); }
+    if (glyphLayout) { setGlyphLayout(resizeTo(glyphLayout, n)); setGlyphDirty(true); }
   };
 
   const savePad = async () => {
+    if (!activeLayout) return;
     setSaving(true);
     try {
-      await quickLoginAPI.setPad(padLayout);
-      setPadDirty(false);
-      setArranging(false);
-      flash('Pad layout saved');
+      await quickLoginAPI.setPad(activeLayout, arrangeWhich);
+      if (arrangeWhich === 'glyph') setGlyphDirty(false); else setPadDirty(false);
+      flash(arrangeWhich === 'glyph' ? 'Glyph pad saved' : 'Bubble pad saved');
       load();
     } catch (err) {
       flash(err.response?.data?.error || 'Failed to save layout');
@@ -218,10 +238,10 @@ const QuickLoginSetup = () => {
   const resetPad = async () => {
     setSaving(true);
     try {
-      const res = await quickLoginAPI.setPad(null);
-      setPadLayout(res.data.pad);
-      setPadDirty(false);
-      flash('Layout reset to your default scatter');
+      const res = await quickLoginAPI.setPad(null, arrangeWhich);
+      writeActive(res.data.pad, false);
+      if (arrangeWhich === 'glyph') setGlyphDirty(false); else setPadDirty(false);
+      flash(arrangeWhich === 'glyph' ? 'Glyph pad reset to a grid' : 'Bubble pad reset to your default scatter');
       load();
     } catch {
       flash('Failed to reset layout');
@@ -230,10 +250,20 @@ const QuickLoginSetup = () => {
     }
   };
 
-  // Warn when bubbles overlap — a stroke through the overlap zone can't
+  const savePadMode = async (padMode) => {
+    try {
+      await quickLoginAPI.setMode({ padMode });
+      setStatus((s) => (s ? { ...s, padMode } : s));
+      flash(padMode === 'glyph' ? 'Login opens on the glyph pad' : 'Login opens on the bubble pad');
+    } catch {
+      flash('Failed to save pad style');
+    }
+  };
+
+  // Warn when nodes overlap — a stroke through the overlap zone can't
   // tell them apart. 20% ≈ the 56px bubble diameter on a 280px pad.
-  const padCrowded = padLayout?.some((a, i) =>
-    padLayout.slice(i + 1).some((b) => Math.hypot(a.x - b.x, a.y - b.y) < 20));
+  const padCrowded = activeLayout?.some((a, i) =>
+    activeLayout.slice(i + 1).some((b) => Math.hypot(a.x - b.x, a.y - b.y) < 20));
 
   // Suggest a shape — greedy nearest-neighbour walk through the bubbles
   // makes a connected, tracable path instead of random jumps.
@@ -482,12 +512,31 @@ const QuickLoginSetup = () => {
                 : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-primary-300'
             }`}
           >
-            <Move className="w-3.5 h-3.5" /> {arranging ? 'Done arranging' : 'Arrange bubbles'}
+            <Move className="w-3.5 h-3.5" /> {arranging ? 'Done arranging' : 'Arrange pads'}
           </button>
         </div>
+        {arranging && (
+          <div className="flex justify-center gap-1 mb-2">
+            {[['Bubble pad', 'bubble'], ['Glyph pad', 'glyph']].map(([label, which]) => (
+              <button
+                key={which}
+                type="button"
+                onClick={() => setArrangeWhich(which)}
+                className={`px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
+                  arrangeWhich === which
+                    ? 'border-primary-400 text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30'
+                    : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-primary-300'
+                }`}
+              >
+                {label}
+                {(which === 'glyph' ? glyphDirty : padDirty) && ' •'}
+              </button>
+            ))}
+          </div>
+        )}
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
           {arranging
-            ? 'Drag nodes anywhere to shape your own layout, set how many nodes you want, or snap them into a Grid / Ring / Spiral — it saves to your account and nobody else sees this layout.'
+            ? `Drag nodes anywhere, set the node count (shared by both pads), or snap into a Grid / Ring / Spiral. The ${arrangeWhich} pad ${arrangeWhich === 'glyph' ? 'shows at login as anonymous dots — pure shape.' : 'shows labeled nodes at login.'}`
             : `Hold and drag across the nodes — lift and swipe again to chain passes into one long glyph (${PIN_MIN}+ nodes, up to ${PIN_MAX}). The dots only show how many entered, never which.`}
         </p>
         {status?.mode === 'pin' && !status?.pinSet && !arranging && (
@@ -518,6 +567,25 @@ const QuickLoginSetup = () => {
             ))}
           </div>
         )}
+        {!arranging && status?.pinSet && (
+          <div className="flex items-center justify-center gap-1 mb-2">
+            <span className="text-xs text-gray-400 dark:text-gray-500 mr-1">Login opens on</span>
+            {[['Bubbles', 'bubble'], ['Glyph', 'glyph']].map(([label, which]) => (
+              <button
+                key={which}
+                type="button"
+                onClick={() => savePadMode(which)}
+                className={`px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
+                  (status?.padMode || 'bubble') === which
+                    ? 'border-primary-400 text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30'
+                    : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-primary-300'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {entryStyle === 'trace' && !arranging && (
           <p className="text-xs text-center text-gray-500 dark:text-gray-400 mb-1">
             Follow the dotted path — it loops forever until you swipe your own.
@@ -527,9 +595,10 @@ const QuickLoginSetup = () => {
           </p>
         )}
         <PinPad
-          layout={padLayout || status?.pinPad}
+          layout={arranging ? activeLayout : (padLayout || status?.pinPad)}
           arrange={arranging}
-          onLayoutChange={(l) => { setPadLayout(l); setPadDirty(true); }}
+          hideDigits={arranging && arrangeWhich === 'glyph'}
+          onLayoutChange={writeActive}
           onDigit={(d) => setPinDraft((p) => (p.length < PIN_MAX ? p + d : p))}
           disabled={saving}
           tapMode={entryStyle === 'tap'}
@@ -537,22 +606,22 @@ const QuickLoginSetup = () => {
         />
         {arranging ? (
           <div className="mt-3 flex gap-2 justify-center flex-wrap items-center">
-            <div className="flex items-center gap-1 mr-1" title="How many nodes your glyph pad has">
+            <div className="flex items-center gap-1 mr-1" title="How many nodes your pads have">
               <button
                 type="button"
-                onClick={() => resizePad((padLayout?.length || 10) - 1)}
-                disabled={saving || !padLayout || padLayout.length <= NODE_MIN}
+                onClick={() => resizePad((activeLayout?.length || 10) - 1)}
+                disabled={saving || !activeLayout || activeLayout.length <= NODE_MIN}
                 className="btn-secondary text-sm px-2 disabled:opacity-50"
               >
                 <Minus className="w-4 h-4" />
               </button>
               <span className="text-sm font-medium w-10 text-center text-gray-700 dark:text-gray-300">
-                {padLayout?.length || 10} nodes
+                {activeLayout?.length || 10} nodes
               </span>
               <button
                 type="button"
-                onClick={() => resizePad((padLayout?.length || 10) + 1)}
-                disabled={saving || !padLayout || padLayout.length >= NODE_MAX}
+                onClick={() => resizePad((activeLayout?.length || 10) + 1)}
+                disabled={saving || !activeLayout || activeLayout.length >= NODE_MAX}
                 className="btn-secondary text-sm px-2 disabled:opacity-50"
               >
                 <Plus className="w-4 h-4" />
@@ -601,10 +670,11 @@ const QuickLoginSetup = () => {
             <button
               type="button"
               onClick={savePad}
-              disabled={saving || !padDirty}
+              disabled={saving || !activeDirty}
               className="btn-primary text-sm disabled:opacity-50 flex items-center gap-1.5"
             >
-              {saving && <Loader2 className="w-4 h-4 animate-spin" />} Save layout
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+              Save {arrangeWhich === 'glyph' ? 'glyph pad' : 'bubble pad'}
             </button>
           </div>
         ) : (

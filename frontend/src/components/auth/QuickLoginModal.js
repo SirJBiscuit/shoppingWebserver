@@ -50,6 +50,7 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
   );
   const [entryTap, setEntryTap] = useState(false); // tap bubbles instead of swiping
   const [needsSetup, setNeedsSetup] = useState(false); // no pattern on account
+  const [padStyle, setPadStyle] = useState('bubble'); // 'bubble' labeled | 'glyph' anonymous grid
 
   const toggleHideDigits = () => {
     const next = !hideDigits;
@@ -64,7 +65,9 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
   // Physical keys: node chars append, Backspace undoes, Enter submits.
   useEffect(() => {
     if (!isPinMode) return undefined;
-    const nodeSet = new Set((challenge.pad || []).map((c) => c.d));
+    const nodeSet = new Set(
+      [...(challenge.pad || []), ...(challenge.glyphPad || [])].map((c) => c.d)
+    );
     const onKey = (e) => {
       if (nodeSet.has(e.key)) setPinInput((p) => p + e.key);
       else if (e.key === 'Backspace') setPinInput((p) => p.slice(0, -1));
@@ -109,6 +112,11 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
       setChallenge(res.data);
       setDisplay(shuffledIdx(res.data.grid?.length || 0));
       setTaps([]);
+      // Account's saved pad style wins; fall back to this device's last pick.
+      setPadStyle(
+        res.data.padMode ||
+        (() => { try { return localStorage.getItem('quickLoginPadStyle') || 'bubble'; } catch { return 'bubble'; } })()
+      );
     } catch (err) {
       if (err.response?.data?.needsSetup) setNeedsSetup(true);
       fail(err, 'Quick login unavailable');
@@ -302,22 +310,45 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                       </button>
                     ))}
                   </div>
+                  {/* Pad style — same glyph works on either pad; glyph keeps
+                      nodes anonymous (the shape is the secret). */}
+                  <div className="flex justify-center gap-1">
+                    {[['Bubbles', 'bubble'], ['Glyph', 'glyph']].map(([label, style]) => (
+                      <button
+                        key={style}
+                        type="button"
+                        onClick={() => {
+                          setPadStyle(style);
+                          try { localStorage.setItem('quickLoginPadStyle', style); } catch { /* storage optional */ }
+                        }}
+                        className={`px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
+                          padStyle === style
+                            ? 'border-primary-400 text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30'
+                            : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-primary-300'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                   <PinPad
                     onDigit={(d) => setPinInput((p) => (p.length < 64 ? p + d : p))}
                     disabled={loading}
-                    hideDigits={hideDigits}
-                    layout={challenge.pad}
+                    hideDigits={padStyle === 'glyph' ? true : hideDigits}
+                    layout={padStyle === 'glyph' ? (challenge.glyphPad || challenge.pad) : challenge.pad}
                     tapMode={entryTap}
                   />
-                  <button
-                    type="button"
-                    onClick={toggleHideDigits}
-                    className="mx-auto flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                    title="Hide pad digits — swipe the shape from muscle memory"
-                  >
-                    {hideDigits ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                    {hideDigits ? 'Show pad digits' : 'Hide pad digits'}
-                  </button>
+                  {padStyle === 'bubble' && (
+                    <button
+                      type="button"
+                      onClick={toggleHideDigits}
+                      className="mx-auto flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                      title="Hide pad digits — swipe the shape from muscle memory"
+                    >
+                      {hideDigits ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                      {hideDigits ? 'Show pad digits' : 'Hide pad digits'}
+                    </button>
+                  )}
                   <div className="flex gap-2">
                     <button
                       type="button"
