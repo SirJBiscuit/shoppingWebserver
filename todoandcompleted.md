@@ -345,6 +345,19 @@ release note. No Devin/Windsurf attribution in commits, ever.
 
 ## ✅ Completed log (newest first)
 
+- **`bd2b202`** — Separate glyph secret (migration 110): the design drawn on
+  each pad is now its own bcrypt credential — `quick_pin` for the bubble pad,
+  `quick_glyph` for the glyph pad. `/verify` accepts either hash so a pad
+  swap at login never invalidates a secret, and each pad keeps its own
+  muscle-memory shape. `POST /pin` takes `which: bubble|glyph` and validates
+  chars against that pad's node set; `/status` exposes `glyphSet`/`glyphLen`;
+  `/challenge` sends `hasPin`/`hasGlyph` + per-secret lengths. Setup gains a
+  "Setting: Bubble PIN | Glyph" picker (each secret saved/replaced
+  independently, `PIN set`/`Glyph set` badges, retrace-ghost follows the
+  entry pad); the login modal opens on whichever pad actually has a
+  credential and gates Sign-in on that pad's expected node count. Glyph
+  entry renders the drawing as a connected polyline (`path` prop) so the
+  rune-like design is visible while tracing.
 - **`cd1b60c`** — Dual pad mode (bubble pin ↔ glyph pin, migration 109):
   `quick_glyph_pad` + `quick_pad_mode` columns. Login modal gets a
   **Bubbles | Glyph** chip row — glyph shows the anonymous node pad (N×N
