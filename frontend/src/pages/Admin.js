@@ -20,7 +20,7 @@ import ServiceStatus from '../components/admin/ServiceStatus';
 import QuickLoginSetup from '../components/admin/QuickLoginSetup';
 // import UserManagement from '../backburner/components/UserManagement'; // Disabled - will rebuild with CFS
 // import DashboardEditor from '../backburner/components/DashboardEditor'; // Disabled - replaced by AES
-import SoundSettings from '../components/SoundSettings';
+import SoundPanel from '../components/admin/SoundPanel';
 
 const AdminNew = () => {
   const navigate = useNavigate();
@@ -554,11 +554,7 @@ const AdminNew = () => {
                 <p className="text-gray-600 dark:text-gray-400 mb-6">
                   Upload and manage sound effects that users can select for their app experience.
                 </p>
-                <SoundSettings
-                  isOpen={true}
-                  onClose={() => {}}
-                  isAdmin={true}
-                />
+                <SoundPanel />
               </div>
             )}
 

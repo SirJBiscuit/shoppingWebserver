@@ -1,59 +1,48 @@
-import axios from 'axios';
+import api from './api';
 
-// Empty default = same-origin /api (works in dev via proxy and in production).
-const API_URL = process.env.REACT_APP_API_URL || '';
+// Sound endpoints — rides the shared axios client so auth headers,
+// maintenance-mode detection, and base URL all behave like every
+// other API call.
 
 const soundsAPI = {
-  // Get all available sounds
-  getAllSounds: async () => {
-    const response = await axios.get(`${API_URL}/api/sounds`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-    return response.data;
-  },
+  // Sound library
+  getAllSounds: async () => (await api.get('/sounds')).data,
 
-  // Upload new sound (admin only)
+  getCategories: async () => (await api.get('/sounds/categories')).data,
+
   uploadSound: async (formData) => {
-    const response = await axios.post(`${API_URL}/api/sounds/upload`, formData, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'multipart/form-data'
-      }
+    const response = await api.post('/sounds/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;
   },
 
-  // Delete sound (admin only)
-  deleteSound: async (soundId) => {
-    const response = await axios.delete(`${API_URL}/api/sounds/${soundId}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-    return response.data;
-  },
+  deleteSound: async (soundId) => (await api.delete(`/sounds/${soundId}`)).data,
 
-  // Get user sound preferences
-  getPreferences: async () => {
-    const response = await axios.get(`${API_URL}/api/sounds/preferences`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-    return response.data;
-  },
+  // Per-user preferences
+  getPreferences: async () => (await api.get('/sounds/preferences')).data,
+  updatePreferences: async (preferences) =>
+    (await api.put('/sounds/preferences', preferences)).data,
 
-  // Update user sound preferences
-  updatePreferences: async (preferences) => {
-    const response = await axios.put(`${API_URL}/api/sounds/preferences`, preferences, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-    return response.data;
-  }
+  // Effective playback config for the current user — one call feeds
+  // the whole SoundManager.
+  getPlayConfig: async () => (await api.get('/sounds/play-config')).data,
+
+  // Admin: global + per-category settings
+  getGlobalSettings: async () => (await api.get('/sounds/global')).data,
+  updateGlobalSettings: async (settings) =>
+    (await api.put('/sounds/global', settings)).data,
+  updateCategory: async (name, patch) =>
+    (await api.put(`/sounds/categories/${name}`, patch)).data,
+
+  // Element sound bindings (admin picks an element, assigns a sound)
+  getBindings: async () => (await api.get('/sounds/bindings')).data,
+  createBinding: async (binding) =>
+    (await api.post('/sounds/bindings', binding)).data,
+  updateBinding: async (id, patch) =>
+    (await api.put(`/sounds/bindings/${id}`, patch)).data,
+  deleteBinding: async (id) =>
+    (await api.delete(`/sounds/bindings/${id}`)).data,
 };
 
 export default soundsAPI;

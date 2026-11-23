@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -16,8 +16,11 @@ import AdminToolbar from './components/AdminToolbar';
 import UpdateNotification from './components/UpdateNotification';
 import UpdateBanner from './components/UpdateBanner';
 import BetaPinLayer from './components/beta/BetaPinLayer';
+import SoundBindings from './components/SoundBindings';
 import AdminContextPanel from './components/AdminContextPanel';
 import ErrorBoundary from './components/ErrorBoundary';
+import soundsAPI from './services/soundsAPI';
+import soundManager from './utils/soundEffects';
 
 // Lazy load pages for better performance
 const Login = lazy(() => import('./pages/Login'));
@@ -146,7 +149,17 @@ const AnimatedRoutes = () => {
 // Wrapper to provide EditorProvider with user context
 const AppWithEditor = () => {
   const { user } = useAuth();
-  
+
+  // Resolve the effective sound config once per session — global flags,
+  // category defaults and the user's own picks land in one request, and
+  // the manager synthesizes fallbacks for anything missing.
+  useEffect(() => {
+    if (!user) return;
+    soundsAPI.getPlayConfig()
+      .then((cfg) => soundManager.applyConfig(cfg))
+      .catch(() => {});
+  }, [user]);
+
   return (
     <EditorProvider userId={user?.is_admin ? user.id : null}>
       <Router>
@@ -155,6 +168,7 @@ const AppWithEditor = () => {
         <UpdateBanner />
         <AdminToolbar />
         <BetaPinLayer />
+        <SoundBindings />
         <AdminContextPanel />
         <AnimatedRoutes />
         <FlyingItemAnimation />
@@ -164,23 +178,44 @@ const AppWithEditor = () => {
   );
 };
 
+// Logged out, the app is literally just the router — no feature providers,
+// no global overlays, no listeners, no polls. Every provider below mounts
+// real work (scroll/keybind systems, observers, intervals) that used to
+// run behind the login screen and starve the main thread right when the
+// keyboard was trying to open. Nothing on the public path uses them.
+const AppBody = () => {
+  const { user } = useAuth();
+
+  if (!user) {
+    return (
+      <Router>
+        <AnimatedRoutes />
+      </Router>
+    );
+  }
+
+  return (
+    <FeatureFlagProvider>
+      <OptimizationProvider>
+        <PreviewModeProvider>
+          <CartAnimationProvider>
+            <OverlayInteractionProvider>
+              <AppWithEditor />
+            </OverlayInteractionProvider>
+          </CartAnimationProvider>
+        </PreviewModeProvider>
+      </OptimizationProvider>
+    </FeatureFlagProvider>
+  );
+};
+
 function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <FeatureFlagProvider>
-          <ThemeProvider>
-            <OptimizationProvider>
-              <PreviewModeProvider>
-                <CartAnimationProvider>
-                  <OverlayInteractionProvider>
-                    <AppWithEditor />
-                  </OverlayInteractionProvider>
-                </CartAnimationProvider>
-              </PreviewModeProvider>
-            </OptimizationProvider>
-          </ThemeProvider>
-        </FeatureFlagProvider>
+        <ThemeProvider>
+          <AppBody />
+        </ThemeProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

@@ -33,6 +33,63 @@ const TRANSIENT_SEL = '[data-ap-overlay], [role="dialog"], [role="alertdialog"]'
 // physically cover markers instead of the markers floating on top.
 export const PIN_MARKER_Z = 60;
 
+// ---------------------------------------------------------------------------
+// Element identification — shared by BetaPinLayer (pin anchors) and the
+// sound-binding system (click an element, assign it a sound).
+// ---------------------------------------------------------------------------
+
+// Best-effort CSS path for an element. Prefers ids, otherwise builds
+// tag.class:nth-of-type segments (max depth 6) so the path survives small
+// DOM changes. Returns null for body/document.
+export const selectorFor = (el) => {
+  if (!el || el === document.body || el === document.documentElement) return null;
+  const parts = [];
+  let cur = el;
+  while (cur && cur !== document.body && cur !== document.documentElement) {
+    if (cur.id) { parts.unshift(`#${CSS.escape(cur.id)}`); break; }
+    let part = cur.tagName.toLowerCase();
+    const cls = typeof cur.className === 'string'
+      ? cur.className.trim().split(/\s+/).filter((c) => c && !c.includes(':')).slice(0, 2)
+      : [];
+    if (cls.length) part += cls.map((c) => `.${CSS.escape(c)}`).join('');
+    if (cur.parentElement) {
+      let sibIdx = 0;
+      let sameTag = 0;
+      for (const sib of cur.parentElement.children) {
+        if (sib.tagName !== cur.tagName) continue;
+        sameTag += 1;
+        if (sib === cur) sibIdx = sameTag;
+      }
+      if (sameTag > 1) part += `:nth-of-type(${sibIdx})`;
+    }
+    parts.unshift(part);
+    cur = cur.parentElement;
+    if (parts.length >= 6) break;
+  }
+  return parts.join(' > ');
+};
+
+// Human-readable description — `button.add-item "Add item"`. Shown in
+// pick-mode readouts, pin cards, admin lists.
+export const describeElement = (el) => {
+  if (!el || !el.tagName) return '';
+  let s = el.tagName.toLowerCase();
+  if (el.id) s += `#${el.id}`;
+  else {
+    const cls = typeof el.className === 'string'
+      ? el.className.trim().split(/\s+/).filter(Boolean).slice(0, 2) : [];
+    if (cls.length) s += `.${cls.join('.')}`;
+  }
+  const role = el.getAttribute && el.getAttribute('role');
+  if (role) s += `[${role}]`;
+  const txt = (el.innerText
+    || (el.getAttribute && el.getAttribute('aria-label'))
+    || (el.getAttribute && el.getAttribute('title')) || '')
+    .trim().replace(/\s+/g, ' ').slice(0, 60);
+  if (txt) s += ` "${txt}"`;
+  return s.slice(0, 300);
+};
+
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 /** Transient overlay — menus/modals/sheets that should UNDERLAP pins. */

@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import FormattedNote from '../FormattedNote';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
 import { Popup, Portal, Connector, ScrollStrip, useCornerStack, useCornerOffset, usePanelShift, setPanelShift, useIsMobile, useFloatSide } from '../../utils/autoPlacement';
-import { pinDisplayPos, usePinLayerTick } from '../../utils/pinLayer';
+import { pinDisplayPos, usePinLayerTick, selectorFor, describeElement } from '../../utils/pinLayer';
 import {
   MapPin, Plus, X, Eye, EyeOff, MessageSquare, ChevronRight,
   Check, Clock, Trash2, Layers, ExternalLink,
@@ -255,52 +255,8 @@ const FabLabel = ({ children }) => (
 // selector no longer resolves.
 // ---------------------------------------------------------------------------
 
-// Best-effort CSS path for an element. Prefers ids, otherwise builds
-// tag.class:nth-of-type segments (max depth 6) so the path survives small
-// DOM changes. Returns null for body/document.
-const selectorFor = (el) => {
-  if (!el || el === document.body || el === document.documentElement) return null;
-  const parts = [];
-  let cur = el;
-  while (cur && cur !== document.body && cur !== document.documentElement) {
-    if (cur.id) { parts.unshift(`#${CSS.escape(cur.id)}`); break; }
-    let part = cur.tagName.toLowerCase();
-    const cls = typeof cur.className === 'string'
-      ? cur.className.trim().split(/\s+/).filter((c) => c && !c.includes(':')).slice(0, 2)
-      : [];
-    if (cls.length) part += cls.map((c) => `.${CSS.escape(c)}`).join('');
-    if (cur.parentElement) {
-      const sibs = [...cur.parentElement.children].filter((c) => c.tagName === cur.tagName);
-      if (sibs.length > 1) part += `:nth-of-type(${sibs.indexOf(cur) + 1})`;
-    }
-    parts.unshift(part);
-    cur = cur.parentElement;
-    if (parts.length >= 6) break;
-  }
-  return parts.join(' > ');
-};
-
-// Human-readable description of an element — shown while dropping (live
-// readout), on the pin card, in the admin list and in the exported bug
-// list. e.g. `button.add-item "Add item"`
-const describeElement = (el) => {
-  if (!el || !el.tagName) return '';
-  let s = el.tagName.toLowerCase();
-  if (el.id) s += `#${el.id}`;
-  else {
-    const cls = typeof el.className === 'string'
-      ? el.className.trim().split(/\s+/).filter(Boolean).slice(0, 2) : [];
-    if (cls.length) s += `.${cls.join('.')}`;
-  }
-  const role = el.getAttribute && el.getAttribute('role');
-  if (role) s += `[${role}]`;
-  const txt = (el.innerText
-    || (el.getAttribute && el.getAttribute('aria-label'))
-    || (el.getAttribute && el.getAttribute('title')) || '')
-    .trim().replace(/\s+/g, ' ').slice(0, 60);
-  if (txt) s += ` "${txt}"`;
-  return s.slice(0, 300);
-};
+// selectorFor + describeElement live in utils/pinLayer.js — shared with
+// the element sound-binding system.
 
 // Element truly under a point — the capture overlay sits on top, so we hide
 // it for a sync peek at elementsFromPoint, then skip our own UI bits.

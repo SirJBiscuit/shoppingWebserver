@@ -1,10 +1,11 @@
-import React, { useState, useId } from 'react';
+import React, { useState, useId, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { ShoppingCart, FlaskConical, KeyRound, Eye, EyeOff, Loader2, AlertTriangle } from 'lucide-react';
+import { ShoppingCart, FlaskConical, KeyRound, Eye, EyeOff, Loader2, AlertTriangle, Keyboard } from 'lucide-react';
 import BetaAccessModal from '../components/beta/BetaAccessModal';
 import QuickLoginModal from '../components/auth/QuickLoginModal';
+import AnimatedKeyboard from '../components/auth/AnimatedKeyboard';
 
 // Username is persisted only when the user opts in — the key stores no
 // credentials, just the name to prefill.
@@ -23,10 +24,28 @@ const Login = () => {
   const [remember, setRemember] = useState(() => !!readRemembered());
   const [showBetaModal, setShowBetaModal] = useState(false);
   const [showQuickLogin, setShowQuickLogin] = useState(false);
+  const [kbOpen, setKbOpen] = useState(false);          // on-screen keyboard
+  const [focusedField, setFocusedField] = useState('username');
+  const passwordRef = useRef(null);
   const { login, loginWithToken } = useAuth();
   const navigate = useNavigate();
   const usernameId = useId();
   const passwordId = useId();
+
+  // Custom keyboard targets whichever field was focused last — same
+  // mental model as the OS keyboard.
+  const typeChar = (k) =>
+    (focusedField === 'password' ? setPassword : setUsername)((v) => v + k);
+  const backspace = () =>
+    (focusedField === 'password' ? setPassword : setUsername)((v) => v.slice(0, -1));
+  const kbEnter = () => {
+    if (focusedField === 'username' && !password) {
+      setFocusedField('password');
+      passwordRef.current?.focus();
+    } else {
+      document.getElementById('login-form')?.requestSubmit();
+    }
+  };
 
   const persistUsername = () => {
     try {
@@ -56,7 +75,8 @@ const Login = () => {
     setCapsLock(typeof e.getModifierState === 'function' && e.getModifierState('CapsLock'));
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800"
+      style={{ paddingBottom: kbOpen ? 290 : 0 }}>
       <div className="card max-w-md w-full mx-4">
         <div className="flex items-center justify-center mb-8">
           <ShoppingCart className="w-12 h-12 text-primary-600 mr-3" />
@@ -76,7 +96,7 @@ const Login = () => {
           </motion.div>
         )}
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form id="login-form" onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor={usernameId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Username
@@ -86,6 +106,8 @@ const Login = () => {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              onFocus={() => setFocusedField('username')}
+              readOnly={kbOpen}
               className="input-field text-base"
               style={{ fontSize: '16px' }}
               required
@@ -93,7 +115,7 @@ const Login = () => {
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              inputMode="text"
+              inputMode={kbOpen ? 'none' : 'text'}
               enterKeyHint="next"
               autoFocus={!username}
             />
@@ -106,9 +128,12 @@ const Login = () => {
             <div className="relative">
               <input
                 id={passwordId}
+                ref={passwordRef}
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onFocus={() => setFocusedField('password')}
+                readOnly={kbOpen}
                 onKeyDown={trackCapsLock}
                 onKeyUp={trackCapsLock}
                 onBlur={() => setCapsLock(false)}
@@ -116,6 +141,7 @@ const Login = () => {
                 style={{ fontSize: '16px' }}
                 required
                 autoComplete="current-password"
+                inputMode={kbOpen ? 'none' : 'text'}
                 enterKeyHint="go"
                 autoFocus={!!username}
               />
@@ -136,15 +162,29 @@ const Login = () => {
             )}
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500"
-            />
-            Remember my username
-          </label>
+          <div className="flex items-center justify-between gap-2">
+            <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500"
+              />
+              Remember my username
+            </label>
+            <button
+              type="button"
+              onClick={() => setKbOpen((o) => !o)}
+              className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors ${
+                kbOpen
+                  ? 'border-primary-400 text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30'
+                  : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-primary-300'
+              }`}
+              title="On-screen keyboard — instant, no OS keyboard delay"
+            >
+              <Keyboard className="w-4 h-4" /> Keyboard
+            </button>
+          </div>
           
           <button
             type="submit"
@@ -229,6 +269,18 @@ const Login = () => {
           }}
         />
       )}
+
+      {/* On-screen keyboard — instant, never waits on the OS keyboard */}
+      <AnimatePresence>
+        {kbOpen && (
+          <AnimatedKeyboard
+            onKey={typeChar}
+            onBackspace={backspace}
+            onEnter={kbEnter}
+            onClose={() => setKbOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

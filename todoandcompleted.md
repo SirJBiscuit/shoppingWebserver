@@ -641,3 +641,13 @@ release note. No Devin/Windsurf attribution in commits, ever.
 ## Swipe pad — exact-fit collider fix
 - PinPad.js: hit radius was ~38px — larger than the 28px bubble — so hovering near a bubble collected it and gap passes grabbed adjacent digits. Now CELL_HIT_PX=30 matches the bubble's actual circle (28px + edge forgiveness); a stroke must cross the bubble to collect. Ambiguous point hits resolve to the nearest bubble (t-then-distance sort), proximity magnet tightens to just past the collider edge.
 - QuickLoginSetup.js: crowding warning now fires at true overlap (<20% spacing ≈ bubble diameter), not just near-miss.
+
+## Sound system — full rebuild + element bindings (migration 111)
+- sounds.js rewritten Postgres-style end to end (was SQLite db.all/db.get — every endpoint threw); uploads now land in managed storage (storage/sounds/, registered in storage_files so Storage Management tracks them); mp3 MIME filter fixed (audio/mpeg was rejected); delete unlinks the file + registry row with basename+containment guard (Semgrep audit flags the resolve call — heuristic, traversal structurally impossible).
+- soundEffects.js rewritten: guarded storage, one shared lazily-resumed AudioContext, synthesized fallback per category so sounds work with zero files; loadPreferences consumes the new /play-config payload.
+- soundsAPI.js routes through the shared api client (auth + maintenance handling); getPlayConfig + binding CRUD.
+- SoundPanel.js (new admin panel, replaces the modal-hack): master on/off, volume, user-override, per-category enable + default file + preview, library upload/preview/delete via ConfirmModal.
+- Element sounds: migration 111 element_sound_bindings (selector, label, event, sound_name OR sound_id→file, enabled). Admin → Sound panel → "Pick element" enters pick mode — hover ring highlights, click captures the selector (its own action is swallowed), assign event + synthesized-or-library sound, preview, save. Bindings apply app-wide.
+- SoundBindings.js (new, mounted in the authed shell): one delegated click listener + one mouseover listener (800ms per-binding cooldown) play matching bindings — no per-element listeners; stale selectors fail soft.
+- pinLayer.js: selectorFor/describeElement extracted from BetaPinLayer as shared element-ID utils (BetaPinLayer now imports them).
+- Known heuristic: Codacy Semgrep audit flags path.resolve in the sound-delete unlink; guarded with basename + path.relative containment — safe.

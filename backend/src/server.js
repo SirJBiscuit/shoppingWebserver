@@ -153,6 +153,13 @@ app.use('/storage', express.static(path.join(__dirname, '../../storage'), {
   maxAge: '30d',
   immutable: true
 }));
+
+// Sound uploads — sounds.js writes to ../public/sounds. These files were
+// stored on disk but never routed, which is why every sound 404'd.
+app.use('/sounds', express.static(path.join(__dirname, '../public/sounds'), {
+  maxAge: '30d',
+  immutable: true
+}));
 app.use('/api/sidebar', sidebarRoutes);
 app.use('/api/household', householdRoutes);
 app.use('/api/changelog', changelogRoutes);
