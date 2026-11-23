@@ -345,6 +345,16 @@ release note. No Devin/Windsurf attribution in commits, ever.
 
 ## ✅ Completed log (newest first)
 
+- **`53cf4a7`** — Login screen UX + mobile keyboard hardening: full audit
+  found no code-level keyboard blocker (inputs, CSS, overlays, global
+  listeners, SW all clean), so the fixes target the real weak points —
+  label taps now focus their field (`htmlFor`/`useId`), `autoFocus` on the
+  first field of each login flow lands inside the tap gesture so the
+  keyboard pops on modal open, `inputMode` hints for Android WebViews.
+  Login page gains a show/hide password eye, Caps Lock warning, opt-in
+  "Remember my username" (localStorage, username only — never credentials),
+  spinner in the sign-in button, error shake animation, dead imports
+  removed (`Link`, `api`).
 - **`bd2b202`** — Separate glyph secret (migration 110): the design drawn on
   each pad is now its own bcrypt credential — `quick_pin` for the bubble pad,
   `quick_glyph` for the glyph pad. `/verify` accepts either hash so a pad
