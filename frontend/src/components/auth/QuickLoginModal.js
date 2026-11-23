@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, KeyRound, Grid3X3, RotateCcw, Loader2, ShieldCheck, Undo2, Delete, Eye, EyeOff } from 'lucide-react';
 import { quickLoginAPI } from '../../services/api';
-import PinPad from './PinPad';
+import PinPad, { gridLayout } from './PinPad';
 
 /**
  * QuickLoginModal — admin quick login, safe to use while watched.
@@ -60,7 +60,11 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
   };
 
   const isPinMode = challenge?.mode === 'pin';
-  const pinLen = challenge?.pinLen || 0;
+  // Each pad has its own secret — the expected length follows the style,
+  // falling back to the other credential's when this pad has none yet.
+  const pinLen = padStyle === 'glyph'
+    ? (challenge?.glyphLen || challenge?.pinLen || 0)
+    : (challenge?.pinLen || challenge?.glyphLen || 0);
 
   // Physical keys: node chars append, Backspace undoes, Enter submits.
   useEffect(() => {
@@ -112,10 +116,12 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
       setChallenge(res.data);
       setDisplay(shuffledIdx(res.data.grid?.length || 0));
       setTaps([]);
-      // Account's saved pad style wins; fall back to this device's last pick.
+      // Open on the account's preferred pad when its secret exists;
+      // otherwise whichever pad actually has a credential saved.
       setPadStyle(
-        res.data.padMode ||
-        (() => { try { return localStorage.getItem('quickLoginPadStyle') || 'bubble'; } catch { return 'bubble'; } })()
+        res.data.padMode === 'glyph' && res.data.hasGlyph !== false ? 'glyph'
+          : res.data.padMode !== 'glyph' && res.data.hasPin !== false ? 'bubble'
+          : res.data.hasGlyph ? 'glyph' : 'bubble'
       );
     } catch (err) {
       if (err.response?.data?.needsSetup) setNeedsSetup(true);
@@ -150,7 +156,7 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
       onSuccess?.(res.data.token, res.data.user);
     } catch (err) {
       setPinInput('');
-      fail(err, 'Incorrect PIN');
+      fail(err, 'Incorrect pattern');
       setLoading(false);
     }
   };
@@ -278,9 +284,9 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                   <p className="text-sm text-gray-700 dark:text-gray-300 text-center">
                     {pinInput.length < pinLen ? (
                       <>
-                        {entryTap ? 'Tap your' : 'Swipe your'}{' '}
-                        <span className="font-bold text-primary-600 dark:text-primary-400">{pinLen}-digit</span>{' '}
-                        pattern
+                        {entryTap ? 'Tap your' : padStyle === 'glyph' ? 'Draw your' : 'Swipe your'}{' '}
+                        <span className="font-bold text-primary-600 dark:text-primary-400">{pinLen}-node</span>{' '}
+                        {padStyle === 'glyph' ? 'glyph' : 'pattern'}
                         <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                           {pinInput.length} of {pinLen} · chain as many passes as your pattern uses
                         </span>
@@ -333,9 +339,16 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                   </div>
                   <PinPad
                     onDigit={(d) => setPinInput((p) => (p.length < 64 ? p + d : p))}
+                    path={pinInput.split('')}
                     disabled={loading}
                     hideDigits={padStyle === 'glyph' ? true : hideDigits}
-                    layout={padStyle === 'glyph' ? (challenge.glyphPad || challenge.pad) : challenge.pad}
+                    layout={
+                      padStyle === 'glyph'
+                        // Fall back to a local node grid if the challenge
+                        // didn't include one (older backend / stale bundle).
+                        ? (challenge.glyphPad || gridLayout(challenge.pad?.length || 9))
+                        : challenge.pad
+                    }
                     tapMode={entryTap}
                   />
                   {padStyle === 'bubble' && (
@@ -370,7 +383,7 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
                     <button
                       type="button"
                       onClick={submitPin}
-                      disabled={loading || pinInput.length !== pinLen}
+                      disabled={loading || (pinLen ? pinInput.length !== pinLen : pinInput.length < 8)}
                       className="flex-1 btn-primary text-sm disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {loading && <Loader2 className="w-4 h-4 animate-spin" />}

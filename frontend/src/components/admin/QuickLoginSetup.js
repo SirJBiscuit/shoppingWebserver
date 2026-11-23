@@ -48,6 +48,7 @@ const QuickLoginSetup = () => {
   const [glyphLayout, setGlyphLayout] = useState(null); // [{d,x,y}] glyph pad positions
   const [arranging, setArranging] = useState(false);
   const [arrangeWhich, setArrangeWhich] = useState('bubble'); // pad being arranged
+  const [entryWhich, setEntryWhich] = useState('bubble'); // pad/secret being set
   const [padDirty, setPadDirty] = useState(false);
   const [glyphDirty, setGlyphDirty] = useState(false);
 
@@ -70,6 +71,12 @@ const QuickLoginSetup = () => {
   useEffect(() => {
     if (!glyphDirty && status?.glyphPad) setGlyphLayout(status.glyphPad);
   }, [status?.glyphPad, glyphDirty]);
+
+  // Entry pad follows the account's login preference when it changes,
+  // but stays put otherwise so a status refresh never swaps it mid-draw.
+  useEffect(() => {
+    setEntryWhich(status?.padMode === 'glyph' ? 'glyph' : 'bubble');
+  }, [status?.padMode]);
 
   const flash = (msg) => {
     setNotice(msg);
@@ -157,10 +164,12 @@ const QuickLoginSetup = () => {
         await quickLoginAPI.setPad(glyphLayout, 'glyph');
         setGlyphDirty(false);
       }
-      await quickLoginAPI.setPin(pinDraft);
+      // The pad you're entering on is the secret you're setting — the
+      // glyph pad stores its own independent credential.
+      await quickLoginAPI.setPin(pinDraft, entryWhich);
       setPinDraft('');
       setFirstDraft(null);
-      flash('Swipe pattern saved');
+      flash(entryWhich === 'glyph' ? 'Glyph saved' : 'Swipe pattern saved');
       load();
     } catch (err) {
       flash(err.response?.data?.error || 'Failed to save PIN');
@@ -260,15 +269,27 @@ const QuickLoginSetup = () => {
     }
   };
 
+  // Confirm-stage ghost — retrace your own stage-1 glyph to prove it's
+  // reproducible. Node ids from the first entry mapped onto whichever
+  // pad the entry preview is showing.
+  const entryPad = entryWhich === 'glyph'
+    ? (glyphLayout || status?.glyphPad)
+    : (padLayout || status?.pinPad);
+  const confirmGhost = firstDraft && entryPad
+    ? [...firstDraft]
+        .map((id) => entryPad.find((c) => c.d === id))
+        .filter(Boolean)
+    : null;
+
   // Warn when nodes overlap — a stroke through the overlap zone can't
   // tell them apart. 20% ≈ the 56px bubble diameter on a 280px pad.
   const padCrowded = activeLayout?.some((a, i) =>
     activeLayout.slice(i + 1).some((b) => Math.hypot(a.x - b.x, a.y - b.y) < 20));
 
-  // Suggest a shape — greedy nearest-neighbour walk through the bubbles
+  // Suggest a shape — greedy nearest-neighbour walk through the nodes
   // makes a connected, tracable path instead of random jumps.
   const suggestShape = () => {
-    const cells = padLayout || status?.pinPad;
+    const cells = entryPad;
     if (!cells?.length) return;
     const pool = [...cells];
     const path = [pool.splice(Math.floor(Math.random() * pool.length), 1)[0]];
@@ -497,6 +518,11 @@ const QuickLoginSetup = () => {
                 PIN set
               </span>
             )}
+            {status?.glyphSet && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                Glyph set
+              </span>
+            )}
             {status?.pinPadCustom && (
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
                 Custom layout
@@ -539,9 +565,9 @@ const QuickLoginSetup = () => {
             ? `Drag nodes anywhere, set the node count (shared by both pads), or snap into a Grid / Ring / Spiral. The ${arrangeWhich} pad ${arrangeWhich === 'glyph' ? 'shows at login as anonymous dots — pure shape.' : 'shows labeled nodes at login.'}`
             : `Hold and drag across the nodes — lift and swipe again to chain passes into one long glyph (${PIN_MIN}+ nodes, up to ${PIN_MAX}). The dots only show how many entered, never which.`}
         </p>
-        {status?.mode === 'pin' && !status?.pinSet && !arranging && (
+        {status?.mode === 'pin' && !status?.pinSet && !status?.glyphSet && !arranging && (
           <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-3">
-            Swipe PIN mode is selected but no PIN is saved — set one below first.
+            Swipe PIN mode is selected but no pattern or glyph is saved — set one below first.
           </p>
         )}
         {arranging && padCrowded && (
@@ -567,7 +593,7 @@ const QuickLoginSetup = () => {
             ))}
           </div>
         )}
-        {!arranging && status?.pinSet && (
+        {!arranging && (status?.pinSet || status?.glyphSet) && (
           <div className="flex items-center justify-center gap-1 mb-2">
             <span className="text-xs text-gray-400 dark:text-gray-500 mr-1">Login opens on</span>
             {[['Bubbles', 'bubble'], ['Glyph', 'glyph']].map(([label, which]) => (
@@ -594,15 +620,51 @@ const QuickLoginSetup = () => {
             </button>
           </p>
         )}
+        {!arranging && (
+          <div className="flex items-center justify-center gap-1 mb-2">
+            <span className="text-xs text-gray-400 dark:text-gray-500 mr-1">Setting</span>
+            {[['Bubble PIN', 'bubble'], ['Glyph', 'glyph']].map(([label, which]) => (
+              <button
+                key={which}
+                type="button"
+                onClick={() => { setEntryWhich(which); setPinDraft(''); setFirstDraft(null); }}
+                className={`px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
+                  entryWhich === which
+                    ? 'border-primary-400 text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30'
+                    : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-primary-300'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         <PinPad
-          layout={arranging ? activeLayout : (padLayout || status?.pinPad)}
+          layout={
+            arranging
+              ? activeLayout
+              : entryWhich === 'glyph'
+                ? (glyphLayout || status?.glyphPad)
+                : (padLayout || status?.pinPad)
+          }
           arrange={arranging}
-          hideDigits={arranging && arrangeWhich === 'glyph'}
+          hideDigits={
+            arranging
+              ? arrangeWhich === 'glyph'
+              : entryWhich === 'glyph'
+          }
           onLayoutChange={writeActive}
           onDigit={(d) => setPinDraft((p) => (p.length < PIN_MAX ? p + d : p))}
+          path={pinDraft.split('')}
           disabled={saving}
           tapMode={entryStyle === 'tap'}
-          ghost={entryStyle === 'trace' && !arranging ? ghost : null}
+          ghost={
+            !arranging && confirmGhost?.length > 1
+              ? confirmGhost
+              : entryStyle === 'trace' && !arranging
+                ? ghost
+                : null
+          }
         />
         {arranging ? (
           <div className="mt-3 flex gap-2 justify-center flex-wrap items-center">
@@ -736,7 +798,7 @@ const QuickLoginSetup = () => {
                   className="btn-primary text-sm disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {status?.pinSet ? 'Confirm & replace' : 'Confirm & save'}
+                  {(entryWhich === 'glyph' ? status?.glyphSet : status?.pinSet) ? 'Confirm & replace' : 'Confirm & save'}
                 </button>
               )}
             </div>

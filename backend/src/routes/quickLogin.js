@@ -230,7 +230,7 @@ const recordFail = async (userId, fails) => {
 router.get('/status', authenticateToken, isQuickLoginEligible, async (req, res) => {
   try {
     const u = await db.query(
-      'SELECT quick_seq, quick_locked_until, quick_login_mode, quick_login_reshuffle, quick_pin, quick_pin_pad, quick_glyph_pad, quick_pad_mode FROM users WHERE id = $1',
+      'SELECT quick_seq, quick_locked_until, quick_login_mode, quick_login_reshuffle, quick_pin, quick_glyph, quick_glyph_len, quick_pin_pad, quick_glyph_pad, quick_pad_mode FROM users WHERE id = $1',
       [req.user.id]
     );
     const row = u.rows[0] || {};
@@ -240,7 +240,7 @@ router.get('/status', authenticateToken, isQuickLoginEligible, async (req, res) 
     );
     const seq = tryDecryptSeq(row.quick_seq);
     res.json({
-      enabled: !!seq || !!row.quick_pin,
+      enabled: !!seq || !!row.quick_pin || !!row.quick_glyph,
       needsReset: !!row.quick_seq && !seq,
       seqLength: seq ? seq.length : 0,
       codesLeft: codes.rows[0]?.n || 0,
@@ -248,6 +248,8 @@ router.get('/status', authenticateToken, isQuickLoginEligible, async (req, res) 
       mode: ['partial', 'full', 'pin'].includes(row.quick_login_mode) ? row.quick_login_mode : 'partial',
       reshuffle: row.quick_login_reshuffle !== false,
       pinSet: !!row.quick_pin,
+      glyphSet: !!row.quick_glyph,
+      glyphLen: row.quick_glyph_len || 0,
       pinPad: parseLayout(row.quick_pin_pad) || padLayoutFor(req.user.id),
       pinPadCustom: !!parseLayout(row.quick_pin_pad),
       glyphPad: parseLayout(row.quick_glyph_pad) ||
@@ -327,12 +329,17 @@ router.post('/mode', authenticateToken, isQuickLoginEligible, async (req, res) =
   }
 });
 
-// Numeric PIN / glyph mode — a long node-sequence password stored as bcrypt.
-// Whole-string verify means no plaintext is needed, unlike the symbol
-// sequence. Node chars are limited to the account's own pad ids so a saved
-// glyph is always enterable on their layout.
+// Node-sequence secrets — a drawn design stored as bcrypt (whole-string
+// verify, no plaintext). Two independent credentials: the bubble PIN on the
+// labeled pad (`which:'bubble'`) and the glyph on the anonymous pad
+// (`which:'glyph'`). Chars are limited to the target pad's own node ids so
+// a saved design is always enterable on that layout.
 router.post('/pin', authenticateToken, isQuickLoginEligible, async (req, res) => {
-  const { pin } = req.body || {};
+  const { pin, which } = req.body || {};
+  if (which !== undefined && !['bubble', 'glyph'].includes(which)) {
+    return res.status(400).json({ error: 'which must be bubble or glyph' });
+  }
+  const isGlyph = which === 'glyph';
   if (typeof pin !== 'string' || !/^[0-9a-z]+$/.test(pin) ||
       pin.length < PIN_MIN || pin.length > PIN_MAX) {
     return res.status(400).json({ error: `Pattern must be ${PIN_MIN}-${PIN_MAX} nodes` });
@@ -343,18 +350,18 @@ router.post('/pin', authenticateToken, isQuickLoginEligible, async (req, res) =>
     );
     const bubblePad = parseLayout(existing.rows[0]?.quick_pin_pad) || padLayoutFor(req.user.id);
     const glyphPad = parseLayout(existing.rows[0]?.quick_glyph_pad) || gridLayoutFor(bubblePad.length);
-    const nodeSet = new Set([...bubblePad, ...glyphPad].map((c) => c.d));
+    const nodeSet = new Set((isGlyph ? glyphPad : bubblePad).map((c) => c.d));
     if (![...pin].every((ch) => nodeSet.has(ch))) {
-      return res.status(400).json({ error: 'Pattern uses nodes that are not on your pad' });
+      return res.status(400).json({ error: 'Pattern uses nodes that are not on that pad' });
     }
     const result = await db.query(
-      'UPDATE users SET quick_pin = $1, quick_pin_len = $2 WHERE id = $3 AND (is_admin = true OR is_beta_tester = true)',
+      `UPDATE users SET ${isGlyph ? 'quick_glyph = $1, quick_glyph_len = $2' : 'quick_pin = $1, quick_pin_len = $2'} WHERE id = $3 AND (is_admin = true OR is_beta_tester = true)`,
       [await bcrypt.hash(pin, 10), pin.length, req.user.id]
     );
     if (result.rowCount === 0) {
       return res.status(403).json({ error: 'Quick login requires an admin account' });
     }
-    res.json({ message: 'PIN saved' });
+    res.json({ message: isGlyph ? 'Glyph saved' : 'PIN saved' });
   } catch (error) {
     console.error('Quick login pin error:', error);
     res.status(500).json({ error: 'Failed to save PIN' });
@@ -400,7 +407,7 @@ router.post('/pad', authenticateToken, isQuickLoginEligible, async (req, res) =>
 router.delete('/', authenticateToken, isQuickLoginEligible, async (req, res) => {
   try {
     await db.query(
-      'UPDATE users SET quick_seq = NULL, quick_pin = NULL, quick_pin_len = NULL, quick_pin_pad = NULL, quick_glyph_pad = NULL, quick_pad_mode = \'bubble\', quick_failed = 0, quick_locked_until = NULL WHERE id = $1',
+      'UPDATE users SET quick_seq = NULL, quick_pin = NULL, quick_pin_len = NULL, quick_glyph = NULL, quick_glyph_len = NULL, quick_pin_pad = NULL, quick_glyph_pad = NULL, quick_pad_mode = \'bubble\', quick_failed = 0, quick_locked_until = NULL WHERE id = $1',
       [req.user.id]
     );
     await db.query('DELETE FROM quick_login_codes WHERE user_id = $1', [req.user.id]);
@@ -439,7 +446,7 @@ router.post('/challenge', async (req, res) => {
   }
   try {
     const result = await db.query(
-      'SELECT id, quick_seq, quick_pin, quick_pin_len, quick_pin_pad, quick_glyph_pad, quick_pad_mode, quick_locked_until, quick_login_mode, quick_login_reshuffle FROM users WHERE LOWER(username) = LOWER($1) AND (is_admin = true OR is_beta_tester = true)',
+      'SELECT id, quick_seq, quick_pin, quick_pin_len, quick_glyph, quick_glyph_len, quick_pin_pad, quick_glyph_pad, quick_pad_mode, quick_locked_until, quick_login_mode, quick_login_reshuffle FROM users WHERE LOWER(username) = LOWER($1) AND (is_admin = true OR is_beta_tester = true)',
       [username.trim()]
     );
     const user = result.rows[0];
@@ -453,10 +460,10 @@ router.post('/challenge', async (req, res) => {
       ? user.quick_login_mode
       : 'partial';
 
-    // PIN mode — no symbol grid at all, just a short-lived marker the
-    // client pairs with the typed digits on /verify.
+    // PIN / glyph mode — no symbol grid at all, just a short-lived marker
+    // the client pairs with the drawn node sequence on /verify.
     if (mode === 'pin') {
-      if (!user.quick_pin) {
+      if (!user.quick_pin && !user.quick_glyph) {
         return res.status(400).json({
           error: 'No swipe pattern on this account — sign in with your password, then set one in Settings → Quick Login',
           needsSetup: true,
@@ -471,7 +478,10 @@ router.post('/challenge', async (req, res) => {
       return res.json({
         challengeToken,
         mode: 'pin',
-        pinLen: user.quick_pin_len || PIN_MIN,
+        pinLen: user.quick_pin_len || 0,
+        glyphLen: user.quick_glyph_len || 0,
+        hasPin: !!user.quick_pin,
+        hasGlyph: !!user.quick_glyph,
         pad: bubblePad,
         glyphPad: parseLayout(user.quick_glyph_pad) || gridLayoutFor(bubblePad.length),
         padMode: user.quick_pad_mode === 'glyph' ? 'glyph' : 'bubble',
@@ -521,23 +531,29 @@ router.post('/verify', async (req, res) => {
     return res.status(400).json({ error: 'Challenge expired — start again' });
   }
 
-  // PIN mode — swipe-path digits, verified whole against bcrypt.
+  // PIN / glyph mode — the drawn node sequence, verified whole against
+  // bcrypt. Either stored credential unlocks: the bubble-pad PIN and the
+  // glyph-pad glyph are independent secrets.
   if (payload.t === 'qlp') {
-    if (typeof pin !== 'string' || !/^\d+$/.test(pin)) {
-      return res.status(400).json({ error: 'Invalid PIN' });
+    if (typeof pin !== 'string' || !/^[0-9a-z]+$/.test(pin)) {
+      return res.status(400).json({ error: 'Invalid pattern' });
     }
     try {
       const result = await db.query(
-        'SELECT id, username, is_admin, is_beta_tester, quick_pin, quick_failed, quick_locked_until FROM users WHERE id = $1 AND (is_admin = true OR is_beta_tester = true)',
+        'SELECT id, username, is_admin, is_beta_tester, quick_pin, quick_glyph, quick_failed, quick_locked_until FROM users WHERE id = $1 AND (is_admin = true OR is_beta_tester = true)',
         [payload.uid]
       );
       const user = result.rows[0];
-      if (!user || !user.quick_pin) {
+      if (!user || (!user.quick_pin && !user.quick_glyph)) {
         return res.status(400).json({ error: 'Quick login is not available for this account' });
       }
       if (isLocked(user)) return lockedResponse(res, user);
 
-      if (await bcrypt.compare(pin, user.quick_pin)) {
+      const pinMatch = user.quick_pin ? await bcrypt.compare(pin, user.quick_pin) : false;
+      const glyphMatch = !pinMatch && user.quick_glyph
+        ? await bcrypt.compare(pin, user.quick_glyph)
+        : false;
+      if (pinMatch || glyphMatch) {
         await db.query(
           'UPDATE users SET quick_failed = 0, quick_locked_until = NULL WHERE id = $1',
           [user.id]
@@ -549,7 +565,7 @@ router.post('/verify', async (req, res) => {
       return res.status(401).json({
         error: locked
           ? `Too many attempts — locked for ${LOCK_MINUTES} minutes`
-          : 'Incorrect PIN',
+          : 'Incorrect pattern',
       });
     } catch (error) {
       console.error('Quick login pin verify error:', error);

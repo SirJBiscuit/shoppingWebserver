@@ -31,6 +31,24 @@ export const defaultLayout = (count = 10) => {
   });
 };
 
+// N×N lattice — the classic pattern-lock look; short rows stay centred.
+export const gridLayout = (count = 9) => {
+  const n = Math.min(Math.max(count, 4), NODE_IDS.length);
+  const cols = Math.ceil(Math.sqrt(n));
+  const rows = Math.ceil(n / cols);
+  const spacing = cols === 1 ? 0 : 72 / (cols - 1);
+  return NODE_IDS.slice(0, n).map((d, i) => {
+    const row = Math.floor(i / cols);
+    const rowNodes = Math.min(cols, n - row * cols);
+    const rowWidth = spacing * (rowNodes - 1);
+    return {
+      d,
+      x: 50 - rowWidth / 2 + spacing * (i % cols),
+      y: rows === 1 ? 50 : 14 + (72 * row) / (rows - 1),
+    };
+  });
+};
+
 // The collider is the bubble's own circle — 56px button minus its border,
 // plus 4px of edge forgiveness. Passing near a bubble collects nothing;
 // the stroke has to actually cross it.
@@ -64,6 +82,7 @@ const PinPad = ({
   onLayoutChange,
   tapMode = false,   // tap bubbles in order instead of dragging a path
   ghost = null,      // [{x,y}] guide path to trace (setup suggestions)
+  path = null,       // entered node ids ['0','4',...] — drawn as a connected glyph
 }) => {
   const padRef = useRef(null);
   const swiping = useRef(false);
@@ -243,6 +262,30 @@ const PinPad = ({
               path={`M ${ghost.map((g) => `${g.x} ${g.y}`).join(' L ')}`}
             />
           </circle>
+        </svg>
+      )}
+      {/* entered glyph — the interconnected shape of collected nodes,
+          persists between passes so the user sees the design forming */}
+      {path?.length > 0 && (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="absolute inset-0 w-full h-full pointer-events-none"
+        >
+          <polyline
+            points={path
+              .map((id) => cells.find((c) => c.d === id))
+              .filter(Boolean)
+              .map((c) => `${c.x},${c.y}`)
+              .join(' ')}
+            fill="none"
+            stroke="rgb(99 102 241 / 0.3)"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
         </svg>
       )}
       {/* swipe trail — vertex dots per digit, fades out on lift */}
