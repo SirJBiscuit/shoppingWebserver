@@ -167,9 +167,10 @@ export const pinDisplayPos = (x, y, opts = {}) => {
  * @param {number} pollMs  optional interval — catches overlays opening or
  *                         chrome appearing without a scroll (default 0)
  */
-export const usePinLayerTick = (pollMs = 0) => {
+export const usePinLayerTick = (pollMs = 0, enabled = true) => {
   const [tick, setTick] = useState(0);
   useEffect(() => {
+    if (!enabled) return undefined;
     let raf = 0;
     const bump = () => {
       cancelAnimationFrame(raf);
@@ -184,6 +185,6 @@ export const usePinLayerTick = (pollMs = 0) => {
       if (iv) clearInterval(iv);
       cancelAnimationFrame(raf);
     };
-  }, [pollMs]);
+  }, [pollMs, enabled]);
   return tick;
 };

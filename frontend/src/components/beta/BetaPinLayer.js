@@ -666,21 +666,27 @@ const BetaPinLayer = () => {
     : 'up';
 
   // Track document height — used for the doc-% fallback when a pin's
-  // element anchor no longer resolves.
+  // element anchor no longer resolves. Logged-out the layer renders
+  // nothing, so skip the observer entirely (its setState would still
+  // re-render this whole component on every layout change).
   useEffect(() => {
+    if (!user || !canUse) return undefined;
     const measure = () => setDocH(document.documentElement.scrollHeight);
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(document.body);
     window.addEventListener('resize', measure);
     return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
-  }, [page]);
+  }, [page, user, canUse]);
 
   // pinLayer tick: capture-phase scroll catches INNER scroll containers
   // (pantry grids, lab lists, slide-out panels — scroll doesn't bubble but
   // does reach capture on document). The 1s poll re-checks occlusion when
   // popups/menus open or chrome appears without any scroll.
-  const layerTick = usePinLayerTick(1000);
+  // 1s tick only matters while pins can render — logged-out visitors
+  // (the login screen) used to pay a full component re-render every
+  // second plus on every scroll/resize for a layer that draws nothing.
+  const layerTick = usePinLayerTick(1000, !!(user && canUse));
 
   // Close context menus / fanout on any outside click
   useEffect(() => {

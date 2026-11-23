@@ -34,6 +34,10 @@ const FlyingItemAnimation = () => {
     }
 
     updateCartPosition();
+    // Only pay for global listeners while a fly animation is live —
+    // scroll/resize otherwise do layout reads for nothing, and the
+    // keyboard-open scroll storm hits this path on every page.
+    if (flyingItems.length === 0) return undefined;
     window.addEventListener('resize', updateCartPosition);
     window.addEventListener('scroll', updateCartPosition, true); // Use capture phase
 
