@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, ChefHat, Clock, Users, Trash2, ShoppingCart, Star, Edit2, GraduationCap, Layers, Library, List, Search } from 'lucide-react';
+import { Plus, ChefHat, Clock, Trash2, ShoppingCart, Star, Edit2, GraduationCap, Layers, Library, List, Search, Check, Minus } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { recipesAPI } from '../services/api';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +15,15 @@ import RecipeIconPicker from '../components/recipes/RecipeIconPicker';
 import TeachableRecipe from '../components/recipes/TeachableRecipe';
 import QuickRecipeTemplates from '../components/recipes/QuickRecipeTemplates';
 import ConfirmModal from '../limbo/modals/ConfirmModal';
+import { ScrollStrip } from '../utils/autoPlacement';
+
+const SRC_FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'custom', label: 'My recipes' },
+  { id: 'taught', label: 'Taught' },
+  { id: 'premade', label: 'Premade' },
+  { id: 'lab', label: 'HomemadeLab' },
+];
 
 const Recipes = () => {
   const { user, logout } = useAuth();
@@ -33,6 +43,16 @@ const Recipes = () => {
   const setDeckView = (v) => { setDeckViewState(v); localStorage.setItem('recipesDeckView', v); };
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  // List-view select mode — animated checkboxes bulk-pick recipes, then one
+  // confirm deletes them all via /recipes/bulk-delete.
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkTarget, setBulkTarget] = useState(null); // number[] | null
+  // Source filter chips — where the recipe came from. Persisted per device.
+  const [srcFilter, setSrcFilterState] = useState(
+    () => localStorage.getItem('recipesSourceFilter') || 'all'
+  );
+  const setSrcFilter = (v) => { setSrcFilterState(v); localStorage.setItem('recipesSourceFilter', v); };
   const [notice, setNotice] = useState(null); // {ok, text} — replaces alert() so failures are visible but non-blocking
   // In-flight recipe actions — rows disable their buttons while their own
   // request runs, so a slow API can't produce stacked duplicate calls.
@@ -149,7 +169,18 @@ const Recipes = () => {
   const matchesSearch = (r) =>
     !q || [r.name, r.description, r.category, ...(r.tags || [])]
       .filter(Boolean).join(' ').toLowerCase().includes(q);
-  const filteredRecipes = recipes.filter(matchesSearch);
+  /* ---- source classifier — lab builds carry custom-builder/plate-lab tags,
+   * taught recipes src:taught, template adds src:premade, imported recipes
+   * have a source_url. Everything else is a user-created custom recipe. */
+  const recipeSource = (r) => {
+    const t = r.tags || [];
+    if (t.includes('custom-builder') || t.includes('plate-lab') || t.includes('src:lab')) return 'lab';
+    if (t.includes('src:taught')) return 'taught';
+    if (t.includes('src:premade') || r.source_url) return 'premade';
+    return 'custom';
+  };
+  const filteredRecipes = recipes.filter(matchesSearch)
+    .filter((r) => srcFilter === 'all' || recipeSource(r) === srcFilter);
   const filteredCanMake = canMake.can_make.filter(matchesSearch);
   const filteredFew = canMake.can_make_with_few_items.filter(matchesSearch);
 
@@ -174,6 +205,36 @@ const Recipes = () => {
   ];
 
   const handleDeleteRecipe = (id) => setDeleteTarget(id);
+
+  const toggleSelect = (id) => setSelectedIds((s) => {
+    const n = new Set(s);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
+
+  const exitSelectMode = () => { setSelecting(false); setSelectedIds(new Set()); };
+
+  const toggleSelectAll = () => setSelectedIds((s) =>
+    s.size === filteredRecipes.length ? new Set() : new Set(filteredRecipes.map((r) => r.id)));
+
+  const confirmBulkDelete = async () => {
+    const ids = bulkTarget || [];
+    setBulkTarget(null);
+    if (!ids.length) return;
+    try {
+      const res = await recipesAPI.bulkDeleteRecipes(ids);
+      setNotice({ ok: true, text: `${res.data?.deleted ?? ids.length} recipe(s) deleted` });
+      exitSelectMode();
+      fetchRecipes();
+      checkCanMake();
+    } catch (error) {
+      console.error('Failed to delete recipes:', error);
+      const timeout = error.code === 'ECONNABORTED';
+      setNotice({ ok: false, text: timeout
+        ? 'Delete timed out — server is busy, try again'
+        : 'Delete failed — server unreachable, try again' });
+    }
+  };
 
   const confirmDeleteRecipe = async () => {
     // Accept either an id or a recipe object — a caller passing the whole
@@ -200,7 +261,14 @@ const Recipes = () => {
 
   const handleCreateRecipe = async (recipeData) => {
     try {
-      await recipesAPI.createRecipe(recipeData);
+      // Stamp a source tag so the filter chips can classify it later —
+      // creators that already set one (src:taught / src:premade / lab tags)
+      // keep theirs.
+      const tags = [...(recipeData.tags || [])];
+      if (!tags.some((t) => t.startsWith('src:') || t === 'custom-builder' || t === 'plate-lab')) {
+        tags.push('src:custom');
+      }
+      await recipesAPI.createRecipe({ ...recipeData, tags });
       fetchRecipes();
       checkCanMake();
       setShowCreateModal(false);
@@ -282,11 +350,7 @@ const Recipes = () => {
 
             {/* Recipe deck — flip-book rolodex or horizontal slider */}
             <div className="mb-12">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <ChefHat className="w-6 h-6 text-primary-600" />
-                  Recipe Collection
-                </h2>
+              <div className="flex items-center justify-end mb-6">
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -322,6 +386,23 @@ const Recipes = () => {
                   </div>
                 </div>
               </div>
+              {/* Source filter chips — persisted pick, filters every deck view */}
+              <ScrollStrip className="mb-4" innerClassName="gap-2">
+                {SRC_FILTERS.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setSrcFilter(f.id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                      srcFilter === f.id
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-primary-400 hover:text-primary-600 dark:hover:text-primary-400'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </ScrollStrip>
               {deckView === 'rolodex' ? (
                 <RecipeRolodex
                   recipes={filteredRecipes}
@@ -348,6 +429,13 @@ const Recipes = () => {
                   onToggleFavorite={handleToggleFavorite}
                   onAddToList={handleAddToShoppingList}
                   onDelete={handleDeleteRecipe}
+                  selecting={selecting}
+                  selectedIds={selectedIds}
+                  onEnterSelect={() => setSelecting(true)}
+                  onExitSelect={exitSelectMode}
+                  onToggleSelect={toggleSelect}
+                  onToggleAll={toggleSelectAll}
+                  onBulkDelete={() => setBulkTarget([...selectedIds])}
                 />
               )}
             </div>
@@ -375,52 +463,44 @@ const Recipes = () => {
               </div>
             ))}
 
-            {/* Almost There Section */}
+            {/* Almost There — compact list: name + what you're missing */}
             {filteredFew.length > 0 && (
-              <div className="mb-8 p-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                <h2 className="text-xl font-semibold text-yellow-900 dark:text-yellow-100 mb-4">
+              <div className="mb-8 p-4 sm:p-5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl">
+                <h2 className="text-lg font-semibold text-yellow-900 dark:text-yellow-100 mb-3">
                   🛒 Just a few items away
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredFew.map((recipe) => (
-                    <RecipeCard
-                      key={recipe.id}
-                      recipe={recipe}
-                      onAddToList={handleAddToShoppingList}
-                      onToggleFavorite={handleToggleFavorite}
-                      onDelete={handleDeleteRecipe}
-                      onEdit={editRecipe}
-                      missingItems={recipe.missing_ingredients}
-                    />
-                  ))}
+                <div className="divide-y divide-yellow-200/70 dark:divide-yellow-800/40 rounded-lg overflow-hidden bg-white/70 dark:bg-gray-800/60">
+                  {filteredFew.map((r) => {
+                    const missing = r.missing_ingredients || [];
+                    const isEmoji = r.image_url?.startsWith('emoji:');
+                    return (
+                      <div key={r.id} onClick={() => openRecipe(r)}
+                        className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-yellow-100/60 dark:hover:bg-yellow-900/20 transition-colors">
+                        <span className="w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center text-lg bg-white dark:bg-gray-700 overflow-hidden">
+                          {r.image_url && !isEmoji
+                            ? <img src={r.image_url} alt="" className="w-full h-full object-cover"
+                                onError={(e) => e.currentTarget.replaceWith(document.createTextNode('🍽️'))} />
+                            : (isEmoji ? r.image_url.slice(6) : '🍽️')}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{r.name}</p>
+                          <p className="text-xs text-yellow-700 dark:text-yellow-300 truncate">
+                            Missing: {missing.slice(0, 3).map((m) => m.item_name).join(', ')}
+                            {missing.length > 3 && ` +${missing.length - 3}`}
+                          </p>
+                        </div>
+                        <button type="button"
+                          onClick={(e) => { e.stopPropagation(); handleAddToShoppingList(r.id); }}
+                          className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 hover:bg-primary-100 dark:hover:bg-primary-900/50 transition-colors"
+                          title="Add ingredients to shopping list">
+                          <ShoppingCart className="w-3.5 h-3.5" /> List
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
-
-            {/* All Recipes */}
-            <div>
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">All Recipes</h2>
-              {recipes.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <ChefHat className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-600 dark:text-gray-300 text-lg">No recipes yet</p>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Create your first recipe to get started!</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredRecipes.map((recipe) => (
-                    <RecipeCard
-                      key={recipe.id}
-                      recipe={recipe}
-                      onAddToList={handleAddToShoppingList}
-                      onToggleFavorite={handleToggleFavorite}
-                      onDelete={handleDeleteRecipe}
-                      onEdit={editRecipe}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
 
             {/* Modals */}
             <RecipeModal
@@ -458,7 +538,7 @@ const Recipes = () => {
             {/* Quick Recipe Templates */}
             {showQuickTemplates && (
               <QuickRecipeTemplates
-                onAddRecipe={handleCreateRecipe}
+                onAddRecipe={(d) => handleCreateRecipe({ ...d, tags: [...(d.tags || []), 'src:premade'] })}
                 onClose={() => setShowQuickTemplates(false)}
               />
             )}
@@ -479,6 +559,16 @@ const Recipes = () => {
               onConfirm={confirmDeleteRecipe}
               onCancel={() => setDeleteTarget(null)}
             />
+
+            <ConfirmModal
+              isOpen={bulkTarget !== null}
+              title={`Delete ${bulkTarget?.length || 0} recipes?`}
+              message="These recipes and their ingredients will be removed. This can't be undone."
+              confirmText="Delete all"
+              type="danger"
+              onConfirm={confirmBulkDelete}
+              onCancel={() => setBulkTarget(null)}
+            />
           </div>
         </div>
       </div>
@@ -486,9 +576,65 @@ const Recipes = () => {
   );
 };
 
-/** Searchable list view — click = view sheet; pencil = edit; icon = icon picker. */
-const RecipeListView = ({ recipes, busyIds, onOpen, onEdit, onPickIcon, onToggleFavorite, onAddToList, onDelete }) => (
+/** Animated select checkbox — box fills primary, the check springs in. */
+const SelectCheck = ({ checked, partial }) => (
+  <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors duration-150 ${
+    checked || partial
+      ? 'bg-primary-500 border-primary-500'
+      : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500'
+  }`}>
+    <motion.span
+      initial={false}
+      animate={{ scale: checked || partial ? 1 : 0 }}
+      transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+    >
+      {partial && !checked
+        ? <Minus className="w-3.5 h-3.5 text-white" strokeWidth={3.5} />
+        : <Check className="w-3.5 h-3.5 text-white" strokeWidth={3.5} />}
+    </motion.span>
+  </span>
+);
+
+/** Searchable list view — click = view sheet; pencil = edit; icon = icon picker.
+ *  Select mode swaps clicks for animated checkboxes and a bulk-delete bar. */
+const RecipeListView = ({ recipes, busyIds, onOpen, onEdit, onPickIcon, onToggleFavorite, onAddToList, onDelete,
+                          selecting, selectedIds, onEnterSelect, onExitSelect, onToggleSelect, onToggleAll, onBulkDelete }) => {
+  const count = selectedIds?.size || 0;
+  const allChecked = recipes.length > 0 && count === recipes.length;
+  const someChecked = count > 0 && !allChecked;
+  return (
   <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    {/* Toolbar — Select toggle, or the selection controls while selecting */}
+    <div className="flex items-center gap-3 px-4 py-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/60">
+      {selecting ? (
+        <>
+          <button type="button" onClick={onToggleAll}
+            className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
+            <SelectCheck checked={allChecked} partial={someChecked} />
+            {allChecked ? 'Deselect all' : 'Select all'}
+          </button>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{count} selected</span>
+          <div className="ml-auto flex items-center gap-2">
+            <button type="button" onClick={onBulkDelete} disabled={count === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              <Trash2 className="w-3.5 h-3.5" /> Delete{count > 0 ? ` ${count}` : ''}
+            </button>
+            <button type="button" onClick={onExitSelect}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+              Done
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <span className="text-xs text-gray-400 dark:text-gray-500">{recipes.length} recipes</span>
+          <button type="button" onClick={onEnterSelect}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+            <Check className="w-3.5 h-3.5" /> Select
+          </button>
+        </>
+      )}
+    </div>
     <div
       className="divide-y divide-gray-100 dark:divide-gray-700 max-h-[560px] overflow-y-auto scrollbar-3d"
       style={{ perspective: '800px' }}
@@ -502,9 +648,20 @@ const RecipeListView = ({ recipes, busyIds, onOpen, onEdit, onPickIcon, onToggle
         const busy = busyIds?.has(r.id);
         // Shared control styling — real button affordances, ≥32px targets.
         const ctl = `p-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed`;
+        const checked = selectedIds?.has(r.id);
         return (
-          <div key={r.id} onClick={() => onOpen(r)}
-            className={`flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/40 cursor-pointer ${busy ? 'opacity-70' : ''}`}>
+          <div key={r.id} onClick={() => (selecting ? onToggleSelect(r.id) : onOpen(r))}
+            className={`flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/40 cursor-pointer transition-colors ${
+              busy ? 'opacity-70' : ''} ${checked ? 'bg-primary-50/70 dark:bg-primary-900/20' : ''}`}>
+            {selecting && <SelectCheck checked={checked} />}
+            {selecting ? (
+              <span className="w-9 h-9 flex-shrink-0 rounded-lg flex items-center justify-center text-xl overflow-hidden">
+                {r.image_url && !isEmoji
+                  ? <img src={r.image_url} alt="" className="w-full h-full object-cover rounded-lg"
+                      onError={(e) => e.currentTarget.replaceWith(document.createTextNode('🍽️'))} />
+                  : (isEmoji ? r.image_url.slice(6) : '🍽️')}
+              </span>
+            ) : (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onPickIcon(r); }}
@@ -514,8 +671,9 @@ const RecipeListView = ({ recipes, busyIds, onOpen, onEdit, onPickIcon, onToggle
               {r.image_url && !isEmoji
                 ? <img src={r.image_url} alt="" className="w-full h-full object-cover rounded-lg"
                     onError={(e) => e.currentTarget.replaceWith(document.createTextNode('🍽️'))} />
-                : (isEmoji ? r.image_url.slice(6) : '🍽️')}
+                  : (isEmoji ? r.image_url.slice(6) : '🍽️')}
             </button>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{r.name}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -526,6 +684,7 @@ const RecipeListView = ({ recipes, busyIds, onOpen, onEdit, onPickIcon, onToggle
             {r.avg_rating > 0 && (
               <span className="text-[10px] text-amber-500 flex-shrink-0">★ {r.avg_rating}</span>
             )}
+            {!selecting && (
             <div className="flex items-center flex-shrink-0" onClick={(e) => e.stopPropagation()}>
               <button type="button" disabled={busy} onClick={() => onToggleFavorite(r)} className={ctl} title="Toggle favorite">
                 <Star className={`w-4 h-4 ${r.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400 hover:text-yellow-400'}`} />
@@ -540,12 +699,14 @@ const RecipeListView = ({ recipes, busyIds, onOpen, onEdit, onPickIcon, onToggle
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
+            )}
           </div>
         );
       })}
     </div>
   </div>
-);
+  );
+};
 
 /** Recipe image with dead-URL fallback — broken remote images show the
  *  emoji/glyph placeholder instead of a broken <img>. */
@@ -605,92 +766,6 @@ const ShelfCard = ({ recipe, onOpen, onToggleFavorite, onAddToList, onDelete }) 
               </button>
             )}
           </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const RecipeCard = ({ recipe, onAddToList, onToggleFavorite, onDelete, onEdit, canMake, missingItems }) => {
-  return (
-    <div className="card hover:shadow-lg transition-shadow">
-      {recipe.image_url ? (
-        <RecipeImg recipe={recipe} className="w-full h-48 object-cover rounded-t-lg" emojiClass="text-6xl" />
-      ) : null}
-      <div className="p-4">
-        <div className="flex justify-between items-start mb-2">
-          <h3 className="text-lg font-semibold text-gray-900 flex-1">{recipe.name}</h3>
-          <button
-            onClick={() => onToggleFavorite(recipe)}
-            className="ml-2"
-          >
-            <Star
-              className={`w-5 h-5 ${
-                recipe.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'
-              }`}
-            />
-          </button>
-        </div>
-
-        {recipe.description && (
-          <p className="text-sm text-gray-600 mb-3 line-clamp-2">{recipe.description}</p>
-        )}
-
-        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 space-x-4 mb-3">
-          {recipe.prep_time && (
-            <div className="flex items-center">
-              <Clock className="w-4 h-4 mr-1" />
-              {recipe.prep_time + (recipe.cook_time || 0)} min
-            </div>
-          )}
-          {recipe.servings && (
-            <div className="flex items-center">
-              <Users className="w-4 h-4 mr-1" />
-              {recipe.servings} servings
-            </div>
-          )}
-        </div>
-
-        {canMake && (
-          <div className="mb-3 px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full inline-block">
-            ✓ Ready to make!
-          </div>
-        )}
-
-        {missingItems && (
-          <div className="mb-3">
-            <p className="text-xs text-yellow-700 mb-1">Missing:</p>
-            <div className="flex flex-wrap gap-1">
-              {missingItems.map((item, idx) => (
-                <span key={idx} className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded">
-                  {item.item_name}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="flex space-x-2">
-          <button
-            onClick={() => onAddToList(recipe.id)}
-            className="btn-secondary flex-1 text-sm flex items-center justify-center"
-          >
-            <ShoppingCart className="w-4 h-4 mr-1" />
-            Add to List
-          </button>
-          <button
-            onClick={() => onEdit(recipe)}
-            className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
-            title="Edit recipe"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => onDelete(recipe.id)}
-            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
         </div>
       </div>
     </div>

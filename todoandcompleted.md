@@ -693,3 +693,16 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Script now writes "done|6|Update complete", holds 5s so late pollers see it, then resets to the waiting placeholder.
 - updating.html: appProbe() every 4s fetches /api/health — real JSON without the maintenance header = the app is back → reloads straight into it. This is ground truth instead of trusting progress.txt; also catches a successful auto-restore after a failed update, and returns users to the app ~10s faster than the 15s meta-refresh.
 - Parses the new done| state ("Finishing up — opening the app shortly…").
+
+## Recipe book rework — select mode, source filters, compact sections
+- The "frozen page" on trash/controls turned out to be ConfirmModal: it rendered `fixed inset-0` inside PageTransition's `will-change: transform` wrapper, which becomes a containing block — the near-invisible backdrop ate every click while the dialog rendered off-screen. ConfirmModal now uses autoPlacement ModalPortal; ConfirmDialog + QuickLoginModal wrapped in Portal; the no-bare-fixed-overlay rule is documented in autoPlacement.js.
+- List view gains select mode: "Select" button in the list toolbar reveals animated checkboxes (spring-pop check via framer-motion), select-all with indeterminate state, "Delete N" → ConfirmModal → new POST /recipes/bulk-delete. Backend FK-cascade extracted to deleteRecipesCascade shared by single + bulk routes, with an owned-ids filter so a crafted ids array can't cascade other users' rows.
+- Source filter chips above the deck (ScrollStrip): All / My recipes / Taught / Premade / HomemadeLab, persisted in localStorage. Classifier: lab = custom-builder|plate-lab|src:lab tags, taught = src:taught, premade = src:premade or source_url, else custom. New creations get stamped (src:taught, src:premade, src:custom fallback in handleCreateRecipe).
+- Book gating tightened: GET /recipes + can-make now return the user's own recipes only — public/community recipes need include_public=true (the lab passes it alongside include_staged). Nothing lands in the book unless the user sent or created it.
+- Removed: "All Recipes" grid (redundant with the deck), the "Recipe Collection" h2 (page already says My Recipes), and the dead RecipeCard component — its text-gray-900-on-dark-cards was also the black-text report.
+- "Just a few items away" is now a compact list — icon + name + "Missing: a, b +N" + List button, click opens the view sheet.
+
+## mdl prices — product DB now actually records them
+- mdl_price_history only ever got rows from the admin-only /admin/product/:id/price endpoint — user price submissions never landed there, so the table stayed empty by construction.
+- product_master_data.average_price was write-once (COALESCE kept the first value forever) and the priceClean flag was computed but never used.
+- /track-item now writes each gate-passed price observation to mdl_price_history (source=track_item) and recomputes average_price from history — the same path the admin endpoint uses.

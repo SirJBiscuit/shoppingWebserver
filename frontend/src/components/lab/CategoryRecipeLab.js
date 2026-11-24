@@ -146,7 +146,7 @@ const CategoryRecipeLab = ({
     try {
       // include_staged so lab-built creations (in_recipe_book=false) still
       // appear in the "Can Create" shelf — they only enter the book manually.
-      const { data } = await api.get(category ? `/recipes?category=${category}&include_staged=true` : '/recipes?include_staged=true');
+      const { data } = await api.get(category ? `/recipes?category=${category}&include_staged=true&include_public=true` : '/recipes?include_staged=true&include_public=true');
       const list = data || [];
       setRecipes(list);
       setComparisons(await loadComparisons(list));

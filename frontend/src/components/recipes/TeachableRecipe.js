@@ -84,6 +84,7 @@ const TeachableRecipe = ({ isOpen, onClose, onSave }) => {
       instructions: steps.map((s, i) => `${i + 1}. ${s}`).join('\n'),
       image_url: '',
       ingredients,
+      tags: ['src:taught'],
     });
     onClose();
   };

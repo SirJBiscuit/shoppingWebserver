@@ -22,15 +22,17 @@ const router = express.Router();
 // Get all recipes for user with filters
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const { category, cuisine, difficulty, search, favorite, canMake, include_staged } = req.query;
-    
+    const { category, cuisine, difficulty, search, favorite, canMake, include_staged, include_public } = req.query;
+
+    // The Recipe Book shows the user's own recipes — public/community recipes
+    // only join when a surface explicitly asks for them (include_public=true).
     let query = `
       SELECT r.*, 
         (SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id) as ingredient_count,
         (SELECT ROUND(AVG(rating)::numeric, 1) FROM recipe_ratings WHERE recipe_id = r.id) as avg_rating,
         (SELECT COUNT(*) FROM recipe_ratings WHERE recipe_id = r.id) as rating_count
       FROM recipes r
-      WHERE (r.user_id = $1 OR r.is_public = true)
+      WHERE (r.user_id = $1${include_public === 'true' ? ' OR r.is_public = true' : ''})
     `;
     const params = [req.user.id];
     let paramCount = 2;
@@ -397,6 +399,48 @@ router.patch('/:id', authenticateToken, async (req, res, next) => {
 //   NO ACTION/RESTRICT→ delete the child rows (ratings, history, etc.)
 // shopping_list_items is always unlinked, never deleted — losing the item
 // off a live list just because a recipe was removed would be destructive.
+// Ids are filtered to the caller's own recipes FIRST — cascading with the
+// raw request array would wipe dependents of recipes the user doesn't own
+// while leaving those recipe rows orphaned.
+const deleteRecipesCascade = async (client, ids, userId) => {
+  const owned = await client.query(
+    'SELECT id FROM recipes WHERE id = ANY($1) AND user_id = $2',
+    [ids, userId]
+  );
+  const ownedIds = owned.rows.map((r) => r.id);
+  if (ownedIds.length === 0) return [];
+
+  const fkRows = await client.query(`
+    SELECT DISTINCT tc.table_name, kcu.column_name, rc.delete_rule
+    FROM information_schema.referential_constraints rc
+    JOIN information_schema.table_constraints tc
+      ON tc.constraint_name = rc.constraint_name
+    JOIN information_schema.key_column_usage kcu
+      ON kcu.constraint_name = rc.constraint_name
+    JOIN information_schema.constraint_column_usage ccu
+      ON ccu.constraint_name = rc.unique_constraint_name
+    WHERE tc.constraint_type = 'FOREIGN KEY'
+      AND tc.table_schema = 'public'
+      AND ccu.table_name = 'recipes'
+      AND ccu.column_name = 'id'
+  `);
+
+  for (const { table_name, column_name, delete_rule } of fkRows.rows) {
+    const rel = `"${table_name.replace(/"/g, '""')}"`;
+    const col = `"${column_name.replace(/"/g, '""')}"`;
+    if (table_name === 'shopping_list_items' || delete_rule === 'SET NULL') {
+      await client.query(`UPDATE ${rel} SET ${col} = NULL WHERE ${col} = ANY($1)`, [ownedIds]);
+    } else if (delete_rule !== 'CASCADE') {
+      await client.query(`DELETE FROM ${rel} WHERE ${col} = ANY($1)`, [ownedIds]);
+    }
+  }
+
+  const result = await client.query(
+    'DELETE FROM recipes WHERE id = ANY($1) RETURNING id', [ownedIds]
+  );
+  return result.rows.map((r) => r.id);
+};
+
 router.delete('/:id', authenticateToken, async (req, res) => {
   // A non-numeric id (e.g. a serialized object) would fail deep inside the
   // transaction as a 500 — reject it cheaply up front.
@@ -406,48 +450,42 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
-
-    const fkRows = await client.query(`
-      SELECT DISTINCT tc.table_name, kcu.column_name, rc.delete_rule
-      FROM information_schema.referential_constraints rc
-      JOIN information_schema.table_constraints tc
-        ON tc.constraint_name = rc.constraint_name
-      JOIN information_schema.key_column_usage kcu
-        ON kcu.constraint_name = rc.constraint_name
-      JOIN information_schema.constraint_column_usage ccu
-        ON ccu.constraint_name = rc.unique_constraint_name
-      WHERE tc.constraint_type = 'FOREIGN KEY'
-        AND tc.table_schema = 'public'
-        AND ccu.table_name = 'recipes'
-        AND ccu.column_name = 'id'
-    `);
-
-    for (const { table_name, column_name, delete_rule } of fkRows.rows) {
-      const rel = `"${table_name.replace(/"/g, '""')}"`;
-      const col = `"${column_name.replace(/"/g, '""')}"`;
-      if (table_name === 'shopping_list_items' || delete_rule === 'SET NULL') {
-        await client.query(`UPDATE ${rel} SET ${col} = NULL WHERE ${col} = $1`, [req.params.id]);
-      } else if (delete_rule !== 'CASCADE') {
-        await client.query(`DELETE FROM ${rel} WHERE ${col} = $1`, [req.params.id]);
-      }
-    }
-
-    const result = await client.query(
-      `DELETE FROM recipes WHERE id = $1 AND user_id = $2 RETURNING id`,
-      [req.params.id, req.user.id]
-    );
-
-    if (result.rows.length === 0) {
+    const deleted = await deleteRecipesCascade(client, [Number(req.params.id)], req.user.id);
+    if (deleted.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Recipe not found' });
     }
-
     await client.query('COMMIT');
     res.json({ message: 'Recipe deleted successfully' });
   } catch (error) {
     try { await client.query('ROLLBACK'); } catch { /* already rolled back */ }
     console.error('Delete recipe error:', error);
     res.status(500).json({ error: 'Failed to delete recipe' });
+  } finally {
+    client.release();
+  }
+});
+
+// Bulk delete — the recipe-book select mode sends {ids: [...]}. One
+// transaction, same FK-discovery cascade as single delete; ids are capped
+// and filtered to the caller's own recipes inside deleteRecipesCascade.
+router.post('/bulk-delete', authenticateToken, async (req, res) => {
+  const ids = Array.isArray(req.body?.ids)
+    ? req.body.ids.filter((n) => Number.isInteger(n) && n > 0).slice(0, 500)
+    : [];
+  if (ids.length === 0) {
+    return res.status(400).json({ error: 'ids must be a non-empty array of recipe ids' });
+  }
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const deleted = await deleteRecipesCascade(client, ids, req.user.id);
+    await client.query('COMMIT');
+    res.json({ message: `${deleted.length} recipe(s) deleted`, deleted: deleted.length });
+  } catch (error) {
+    try { await client.query('ROLLBACK'); } catch { /* already rolled back */ }
+    console.error('Bulk delete recipes error:', error);
+    res.status(500).json({ error: 'Failed to delete recipes' });
   } finally {
     client.release();
   }
@@ -478,7 +516,7 @@ router.get('/can-make/check', authenticateToken, async (req, res) => {
         )) as ingredients
       FROM recipes r
       LEFT JOIN recipe_ingredients ri ON r.id = ri.recipe_id
-      WHERE (r.user_id = $1 OR r.is_public = true)
+      WHERE r.user_id = $1
         ${bookFilter}
       GROUP BY r.id
     `;

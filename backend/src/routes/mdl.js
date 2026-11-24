@@ -858,7 +858,7 @@ router.post('/track-item', authenticateToken, async (req, res) => {
     if (seedAllowed) {
       try {
         const slug = submission.cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-        await db.query(
+        const upsert = await db.query(
           `INSERT INTO product_master_data
              (product_name, slug, category, average_price, icon_emoji, times_purchased, last_price_update)
            VALUES ($1, $2, $3, $4, $5, 1, NOW())
@@ -870,10 +870,29 @@ router.post('/track-item', authenticateToken, async (req, res) => {
                ELSE product_master_data.category END,
              average_price = COALESCE(product_master_data.average_price, EXCLUDED.average_price),
              icon_emoji = COALESCE(product_master_data.icon_emoji, EXCLUDED.icon_emoji),
-             last_price_update = NOW()`,
+             last_price_update = NOW()
+           RETURNING id`,
           [submission.cleanName, slug, resolvedCategory || 'Other',
            submission.price, req.body.icon || null]
         );
+
+        // Record the price observation and recompute the product average.
+        // Without this, mdl_price_history only ever got admin-entered rows
+        // and average_price stayed frozen at whatever was written first.
+        if (priceClean && upsert.rows[0]?.id) {
+          const productId = upsert.rows[0].id;
+          await db.query(
+            'INSERT INTO mdl_price_history (product_id, price, store, source) VALUES ($1, $2, $3, $4)',
+            [productId, submission.price, store || null, 'track_item']
+          );
+          await db.query(
+            `UPDATE product_master_data
+             SET average_price = (SELECT AVG(price) FROM mdl_price_history WHERE product_id = $1),
+                 last_price_update = CURRENT_TIMESTAMP
+             WHERE id = $1`,
+            [productId]
+          );
+        }
       } catch (e) {
         console.warn('Product catalog upsert failed (non-fatal):', e.message);
       }

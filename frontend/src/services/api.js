@@ -184,6 +184,7 @@ export const recipesAPI = {
   createRecipe: (data) => api.post('/recipes', data),
   updateRecipe: (id, data) => api.patch(`/recipes/${id}`, data),
   deleteRecipe: (id) => api.delete(`/recipes/${id}`),
+  bulkDeleteRecipes: (ids) => api.post('/recipes/bulk-delete', { ids }),
   checkCanMake: () => api.get('/recipes/can-make/check'),
   recipeToShoppingList: (id, data) => api.post(`/recipes/${id}/to-shopping-list`, data),
   getShoppingListRecipes: (listId) => api.get(`/recipes/shopping-list/${listId}/recipes`),
