@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Delete, ChevronDown, CornerDownLeft, ArrowBigUp, ArrowBigUpDash } from 'lucide-react';
+import { Delete, ChevronDown, CornerDownLeft, ArrowBigUp, ArrowBigUpDash, Keyboard } from 'lucide-react';
 
 /**
  * AnimatedKeyboard — on-screen keyboard with physical key-cap feel.
@@ -27,7 +27,7 @@ const ROWS_SYMBOLS = [
   ';:,.<>?|\\\''.split(''),
 ];
 
-const Key = ({ label, onPress, wide, compact, variant = 'letter', children, title }) => (
+const Key = ({ label, onPress, wide, big, compact, variant = 'letter', children, title }) => (
   <motion.button
     type="button"
     title={title}
@@ -37,7 +37,7 @@ const Key = ({ label, onPress, wide, compact, variant = 'letter', children, titl
     }}
     whileTap={{ y: 3 }}
     transition={{ type: 'spring', stiffness: 800, damping: 22 }}
-    className={`${wide ? 'flex-[1.6]' : 'flex-1'} ${compact ? 'h-9' : 'h-11'} rounded-lg select-none
+    className={`${big ? 'flex-[3]' : wide ? 'flex-[1.6]' : 'flex-1'} ${compact ? 'h-9' : 'h-11'} rounded-lg select-none
       min-w-0 ${compact ? 'text-xs' : 'text-sm'} font-medium flex items-center justify-center
       bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100
       border border-gray-200 dark:border-gray-600
@@ -53,14 +53,16 @@ const Key = ({ label, onPress, wide, compact, variant = 'letter', children, titl
   </motion.button>
 );
 
-const AnimatedKeyboard = ({ onKey, onBackspace, onEnter, onClose }) => {
+// Landscape OR narrow phones get compact keys so the sheet still fits.
+const fitsCompact = () => window.innerHeight < 520 || window.innerWidth < 400;
+
+const AnimatedKeyboard = ({ onKey, onBackspace, onEnter, onClose, onSwitchToOS }) => {
   const [shift, setShift] = useState(false); // sticky shift (one char), caps lock = double-tap
   const [caps, setCaps] = useState(false);
   const [symbols, setSymbols] = useState(false);
-  // Landscape/short viewports get compact keys so the sheet still fits.
-  const [compact, setCompact] = useState(() => window.innerHeight < 520);
+  const [compact, setCompact] = useState(fitsCompact);
   useEffect(() => {
-    const onResize = () => setCompact(window.innerHeight < 520);
+    const onResize = () => setCompact(fitsCompact());
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -125,11 +127,16 @@ const AnimatedKeyboard = ({ onKey, onBackspace, onEnter, onClose }) => {
           transition={{ delay: 0.16, duration: 0.18 }}
           className={`flex ${compact ? 'gap-1 px-0.5' : 'gap-1.5 px-1'}`}
         >
-          <Key wide compact={compact} variant="func" label={symbols ? 'abc' : '#+='} onPress={() => setSymbols((s) => !s)} title="Symbols" />
-          <Key label=" " wide compact={compact} onPress={() => press(' ')} title="Space">
+          <Key compact={compact} variant="func" label={symbols ? 'abc' : '#+='} onPress={() => setSymbols((s) => !s)} title="Symbols" />
+          <Key big compact={compact} onPress={() => press(' ')} title="Space">
             <span className="text-gray-400 text-xs">space</span>
           </Key>
-          <Key wide compact={compact} variant="func" onPress={onClose} title="Hide keyboard">
+          {onSwitchToOS && (
+            <Key compact={compact} variant="func" onPress={onSwitchToOS} title="Use device keyboard">
+              <Keyboard className="w-5 h-5" />
+            </Key>
+          )}
+          <Key compact={compact} variant="func" onPress={onClose} title="Hide keyboard">
             <ChevronDown className="w-5 h-5" />
           </Key>
           <Key wide compact={compact} variant="action" onPress={onEnter} title="Enter">

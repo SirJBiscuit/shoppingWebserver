@@ -663,3 +663,7 @@ release note. No Devin/Windsurf attribution in commits, ever.
 ## Custom keyboard — replaces OS keyboard on touch + mobile fit
 - Login.js: pointer:coarse devices get inputMode="none" + readOnly permanently so the OS keyboard can never fire; focusing/tapping a field opens AnimatedKeyboard (it IS the keyboard — auto-opens on page autofocus too); focused field scrolls above the sheet; tapping outside fields/keyboard dismisses it like an OS kb.
 - AnimatedKeyboard.js: compact mode under 520px viewport height (landscape phones) — smaller keys/gaps/padding; touch-none + select-none on the sheet; min-w-0 keys so rows shrink cleanly on narrow screens.
+
+## Custom keyboard — mobile fit + OS-keyboard switch key
+- AnimatedKeyboard: compact mode now triggers on narrow screens too (width < 400, not just landscape height) — tighter gaps/padding/keys; space bar widened to flex-3 like a real kb; new bottom-row key (Keyboard icon) switches to the device OS keyboard when provided.
+- Login.js: preferOS flag — the kb's OS-switch key drops our sheet, makes the field editable, and blur+refocuses so the OS keyboard opens; the form's Keyboard toggle flips back to ours. All OS-suppression conditions go through useCustomKb (isTouch && !preferOS).

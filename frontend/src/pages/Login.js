@@ -32,12 +32,28 @@ const Login = () => {
   const [isTouch] = useState(() =>
     typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
   );
+  const [preferOS, setPreferOS] = useState(false); // user chose the device keyboard
+  const usernameRef = useRef(null);
+  const useCustomKb = isTouch && !preferOS;
+
   const focusWith = (field) => (e) => {
     setFocusedField(field);
-    if (isTouch) {
+    if (useCustomKb) {
       setKbOpen(true);
       // Keep the active field above the keyboard sheet.
       setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 250);
+    }
+  };
+
+  // The keyboard's OS-switch key — drop our sheet, make the field editable,
+  // blur+refocus so the OS keyboard actually opens.
+  const switchToOS = () => {
+    setPreferOS(true);
+    setKbOpen(false);
+    const el = focusedField === 'password' ? passwordRef.current : usernameRef.current;
+    if (el) {
+      el.blur();
+      setTimeout(() => el.focus(), 60);
     }
   };
   const passwordRef = useRef(null);
@@ -132,9 +148,10 @@ const Login = () => {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              ref={usernameRef}
               onFocus={focusWith('username')}
-              onPointerDown={() => { if (isTouch) setKbOpen(true); }}
-              readOnly={isTouch || kbOpen}
+              onPointerDown={() => { if (useCustomKb) setKbOpen(true); }}
+              readOnly={useCustomKb || kbOpen}
               className="input-field text-base"
               style={{ fontSize: '16px' }}
               required
@@ -142,7 +159,7 @@ const Login = () => {
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              inputMode={isTouch || kbOpen ? 'none' : 'text'}
+              inputMode={useCustomKb || kbOpen ? 'none' : 'text'}
               enterKeyHint="next"
               autoFocus={!username}
             />
@@ -160,8 +177,8 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onFocus={focusWith('password')}
-                onPointerDown={() => { if (isTouch) setKbOpen(true); }}
-                readOnly={isTouch || kbOpen}
+                onPointerDown={() => { if (useCustomKb) setKbOpen(true); }}
+                readOnly={useCustomKb || kbOpen}
                 onKeyDown={trackCapsLock}
                 onKeyUp={trackCapsLock}
                 onBlur={() => setCapsLock(false)}
@@ -169,7 +186,7 @@ const Login = () => {
                 style={{ fontSize: '16px' }}
                 required
                 autoComplete="current-password"
-                inputMode={isTouch || kbOpen ? 'none' : 'text'}
+                inputMode={useCustomKb || kbOpen ? 'none' : 'text'}
                 enterKeyHint="go"
                 autoFocus={!!username}
               />
@@ -202,7 +219,10 @@ const Login = () => {
             </label>
             <button
               type="button"
-              onClick={() => setKbOpen((o) => !o)}
+              onClick={() => {
+                if (preferOS) { setPreferOS(false); setKbOpen(true); }
+                else setKbOpen((o) => !o);
+              }}
               className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors ${
                 kbOpen
                   ? 'border-primary-400 text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30'
@@ -306,6 +326,7 @@ const Login = () => {
             onBackspace={backspace}
             onEnter={kbEnter}
             onClose={() => setKbOpen(false)}
+            onSwitchToOS={isTouch ? switchToOS : undefined}
           />
         )}
       </AnimatePresence>
