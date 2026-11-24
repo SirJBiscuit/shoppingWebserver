@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Delete, ChevronDown, CornerDownLeft, ArrowBigUp, ArrowBigUpDash } from 'lucide-react';
 
 /**
@@ -88,7 +88,7 @@ const AnimatedKeyboard = ({ onKey, onBackspace, onEnter, onClose }) => {
       <div className="max-w-md mx-auto space-y-1.5">
         {rows.map((row, ri) => (
           <motion.div
-            key={ri}
+            key={row.join('')}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.04 * ri, duration: 0.18 }}

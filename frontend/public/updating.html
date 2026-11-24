@@ -161,6 +161,29 @@
   .retry:hover  { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,.3); }
   .retry:active { transform: translateY(0); }
   .foot { margin-top: 26px; font-size: 11px; color: rgba(255,255,255,.4); }
+  /* failed / stalled states */
+  .card.failed { border-color: rgba(248, 113, 113, .5); }
+  .card.failed h1 { color: #fca5a5; }
+  .alert {
+    display: none;
+    margin-top: 16px;
+    padding: 11px 14px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: left;
+  }
+  .alert.show { display: block; }
+  .alert.fail {
+    background: rgba(248, 113, 113, .14);
+    border: 1px solid rgba(248, 113, 113, .4);
+    color: #fecaca;
+  }
+  .alert.stall {
+    background: rgba(251, 191, 36, .12);
+    border: 1px solid rgba(251, 191, 36, .35);
+    color: #fde68a;
+  }
 </style>
 </head>
 <body>
@@ -174,6 +197,8 @@
     <div class="bar" id="bar"><div class="fill" id="barFill"></div></div>
     <div class="spinner" id="spinner"></div>
     <div class="steplabel" id="stepLabel"></div>
+    <div class="alert fail" id="failAlert"></div>
+    <div class="alert stall" id="stallAlert">This update is taking longer than expected and may have stalled. We'll keep checking — if it doesn't come back shortly, the admin may need to re-run the update.</div>
     <div class="changes" id="changes"><h2>In this update</h2><ul id="changeList"></ul></div>
     <div class="timer">Retrying automatically in <b id="secs">15</b>s…</div>
     <button class="retry" onclick="window.location.reload()">Check now</button>
@@ -219,6 +244,28 @@
   var fillEl = document.getElementById('barFill');
   var spinnerEl = document.getElementById('spinner');
   var labelEl = document.getElementById('stepLabel');
+  var cardEl = document.querySelector('.card');
+  var failEl = document.getElementById('failAlert');
+  var stallEl = document.getElementById('stallAlert');
+  var lastProgress = '';
+  var lastChangeAt = Date.now();
+  var failed = false;
+  var STALL_MS = 5 * 60 * 1000; // no movement for 5 min while mid-update = stalled
+
+  function showFail(label) {
+    if (failed) return;
+    failed = true;
+    cardEl.classList.add('failed');
+    document.querySelector('h1').textContent = 'Update interrupted';
+    document.querySelector('.sub').innerHTML =
+      'The update hit a problem' + (label ? ' during <b>' + label + '</b>' : '') + '.<br>' +
+      'The previous version is being restored — this page will reload into the app when it is back.';
+    spinnerEl.classList.add('hidden');
+    barEl.style.display = 'none';
+    failEl.textContent = 'If the app does not return in a couple of minutes, the admin should re-run update-server.sh.';
+    failEl.classList.add('show');
+  }
+
   function pollProgress() {
     fetch('/progress.txt', { cache: 'no-store' })
       .then(function (r) {
@@ -227,9 +274,21 @@
       })
       .then(function (text) {
         if (!text) return;
-        var m = /^(\d+)\|(\d+)\|(.+)$/.exec(text.trim());
+        var trimmed = text.trim();
+        var fm = /^fail\|(\d+)\|(.+)$/.exec(trimmed);
+        if (fm) { showFail(fm[2]); return; }
+        var m = /^(\d+)\|(\d+)\|(.+)$/.exec(trimmed);
         if (!m) return;
         var n = +m[1], total = +m[2], label = m[3];
+        // Stall watch — identical content for STALL_MS while a step is
+        // in flight means the script probably died without flagging.
+        if (trimmed !== lastProgress) {
+          lastProgress = trimmed;
+          lastChangeAt = Date.now();
+          stallEl.classList.remove('show');
+        } else if (!failed && n > 0 && n < total && Date.now() - lastChangeAt > STALL_MS) {
+          stallEl.classList.add('show');
+        }
         if (n <= 0) return; // "waiting" placeholder — keep the slider
         barEl.classList.add('real');
         spinnerEl.classList.add('hidden');

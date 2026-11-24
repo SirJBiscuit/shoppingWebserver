@@ -14,7 +14,25 @@ NC='\033[0m'
 # Real progress for the maintenance page — the file is bind-mounted into the
 # placeholder nginx, and updating.html polls it for "step|total|label".
 TOTAL_STEPS=6
-progress() { echo "$1|$TOTAL_STEPS|$2" > maintenance/progress.txt 2>/dev/null || true; }
+CURRENT_STEP="starting up"
+progress() { CURRENT_STEP="$2"; echo "$1|$TOTAL_STEPS|$2" > maintenance/progress.txt 2>/dev/null || true; }
+
+# If the script dies mid-update (build error, disk full, OOM), don't leave
+# visitors staring at "updating" forever: flag the failure in progress.txt
+# (updating.html renders the interrupted state), alert via the watchdog,
+# and try to restore the previous stack — old images survive a failed
+# build, so `up -d` brings the site back without a rebuild.
+restore_on_fail() {
+  code=$?
+  [ $code -eq 0 ] && return 0
+  echo "fail|$TOTAL_STEPS|$CURRENT_STEP" > maintenance/progress.txt 2>/dev/null || true
+  echo -e "${RED}Update failed during: $CURRENT_STEP — attempting to restore the previous version...${NC}"
+  ./watchdog.sh --alert "Listzy update FAILED" "Failed during: $CURRENT_STEP — restoring the previous version." "warning" 5 2>/dev/null || true
+  docker compose -f docker-compose.maintenance.yml down 2>/dev/null || true
+  docker compose up -d 2>/dev/null || true
+  exit $code
+}
+trap restore_on_fail EXIT
 
 echo -e "${CYAN}========================================${NC}"
 echo -e "${CYAN}  CloudMC Shop - Update Script${NC}"

@@ -23,6 +23,21 @@ cd /opt/cloudmc-shop
 
 echo -e "${CYAN}=== Manual Update (with updating page) ===${NC}"
 
+# Same failure safety as update-server.sh — a failed build must not leave
+# the placeholder serving :3006 forever. Flag it for the page and try to
+# restore the previous stack.
+restore_on_fail() {
+  code=$?
+  [ $code -eq 0 ] && return 0
+  echo "fail|6|manual deploy" > maintenance/progress.txt 2>/dev/null || true
+  echo -e "\033[0;31mUpdate failed — attempting to restore the previous version...\033[0m"
+  ./watchdog.sh --alert "Listzy update FAILED" "Manual deploy failed — restoring the previous version." "warning" 5 2>/dev/null || true
+  docker compose -f docker-compose.maintenance.yml down 2>/dev/null || true
+  docker compose up -d 2>/dev/null || true
+  exit $code
+}
+trap restore_on_fail EXIT
+
 git stash -q 2>/dev/null || true
 BEFORE_COMMIT=$(git rev-parse HEAD)
 git pull origin main

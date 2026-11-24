@@ -651,3 +651,8 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - SoundBindings.js (new, mounted in the authed shell): one delegated click listener + one mouseover listener (800ms per-binding cooldown) play matching bindings — no per-element listeners; stale selectors fail soft.
 - pinLayer.js: selectorFor/describeElement extracted from BetaPinLayer as shared element-ID utils (BetaPinLayer now imports them).
 - Known heuristic: Codacy Semgrep audit flags path.resolve in the sound-delete unlink; guarded with basename + path.relative containment — safe.
+
+## Deploy fix — broken lucide icon + maintenance-page failure detection
+- KeyboardHide doesn't exist in lucide-react 0.294 — the Docker build died on it mid-update, leaving the placeholder page up with the real stack down (set -e exited before restore). Swapped for ChevronDown; verified every lucide import in the changed files exists in the installed version.
+- update-server.sh + update-manual.sh: EXIT trap on failure — writes "fail|N|<step>" to progress.txt, fires a watchdog alert, then auto-restores the previous stack (old images survive a failed build, `up -d` brings the site back without a rebuild).
+- updating.html: reads the fail flag → red "Update interrupted" state naming the failed step + restore note; stall detection — identical progress.txt for 5min while mid-update shows an amber "may have stalled" warning instead of an eternal spinner.
