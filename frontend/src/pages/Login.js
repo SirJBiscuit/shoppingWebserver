@@ -2,7 +2,8 @@ import { useState, useEffect, useId, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { ShoppingCart, FlaskConical, KeyRound, Eye, EyeOff, Loader2, AlertTriangle, Keyboard } from 'lucide-react';
+import { ShoppingCart, FlaskConical, KeyRound, Eye, EyeOff, Loader2, AlertTriangle, Keyboard, ChevronDown, LogIn, UserPlus } from 'lucide-react';
+import { Popup } from '../utils/autoPlacement';
 import BetaAccessModal from '../components/beta/BetaAccessModal';
 import QuickLoginModal from '../components/auth/QuickLoginModal';
 import AnimatedKeyboard from '../components/auth/AnimatedKeyboard';
@@ -23,6 +24,9 @@ const Login = () => {
   const [capsLock, setCapsLock] = useState(false);
   const [remember, setRemember] = useState(() => !!readRemembered());
   const [showBetaModal, setShowBetaModal] = useState(false);
+  const [betaMenuOpen, setBetaMenuOpen] = useState(false);
+  const [betaAnchor, setBetaAnchor] = useState({ x: 0, y: 0 });
+  const [betaMode, setBetaMode] = useState('register');
   const [showQuickLogin, setShowQuickLogin] = useState(false);
   const [kbOpen, setKbOpen] = useState(false);          // on-screen keyboard
   const [focusedField, setFocusedField] = useState('username');
@@ -39,9 +43,12 @@ const Login = () => {
   const focusWith = (field) => (e) => {
     setFocusedField(field);
     if (useCustomKb) {
+      // Only scroll when the keyboard is first opening — re-scrolling on
+      // every focus makes the page jump while switching fields.
+      if (!kbOpen) {
+        setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 250);
+      }
       setKbOpen(true);
-      // Keep the active field above the keyboard sheet.
-      setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 250);
     }
   };
 
@@ -78,11 +85,28 @@ const Login = () => {
     }
   };
 
+  // Tap outside the beta chooser / its button dismisses the dropdown.
+  useEffect(() => {
+    if (!betaMenuOpen) return undefined;
+    const onDown = (e) => {
+      if (e.target.closest?.('[data-ap-overlay]') || e.target.closest?.('[data-beta-btn]')) return;
+      setBetaMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onDown, { capture: true });
+    return () => document.removeEventListener('pointerdown', onDown, { capture: true });
+  }, [betaMenuOpen]);
+
+  const openBeta = (mode) => {
+    setBetaMode(mode);
+    setBetaMenuOpen(false);
+    setShowBetaModal(true);
+  };
+
   // Tap outside the fields/keyboard dismisses it — same as the OS kb.
   useEffect(() => {
     if (!kbOpen || !isTouch) return undefined;
     const onDown = (e) => {
-      if (e.target.closest?.('input') || e.target.closest?.('[data-animated-kb]')) return;
+      if (e.target.closest?.('input') || e.target.closest?.('label') || e.target.closest?.('[data-animated-kb]')) return;
       setKbOpen(false);
     };
     document.addEventListener('pointerdown', onDown, { capture: true });
@@ -150,7 +174,6 @@ const Login = () => {
               ref={usernameRef}
               onFocus={focusWith('username')}
               onPointerDown={() => { if (useCustomKb) setKbOpen(true); }}
-              readOnly={useCustomKb || kbOpen}
               className="input-field text-base"
               style={{ fontSize: '16px' }}
               required
@@ -177,7 +200,6 @@ const Login = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 onFocus={focusWith('password')}
                 onPointerDown={() => { if (useCustomKb) setKbOpen(true); }}
-                readOnly={useCustomKb || kbOpen}
                 onKeyDown={trackCapsLock}
                 onKeyUp={trackCapsLock}
                 onBlur={() => setCapsLock(false)}
@@ -258,15 +280,56 @@ const Login = () => {
           
           <button
             type="button"
-            onClick={() => setShowBetaModal(true)}
-            className="w-full mt-4 flex items-center justify-center px-4 py-2 border border-purple-300 dark:border-purple-600 rounded-lg text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
+            data-beta-btn
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setBetaAnchor({ x: r.left + r.width / 2, y: r.bottom });
+              setBetaMenuOpen((o) => !o);
+            }}
+            className="w-full mt-4 flex items-center justify-center px-4 py-2.5 border-2 border-purple-400 dark:border-purple-500 rounded-lg text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors font-medium shadow-sm"
           >
             <FlaskConical className="w-5 h-5 mr-2" />
             Beta Testing Access
+            <ChevronDown className={`w-4 h-4 ml-2 transition-transform ${betaMenuOpen ? 'rotate-180' : ''}`} />
           </button>
           <p className="text-xs text-center mt-2 text-gray-500 dark:text-gray-400">
-            Have a beta code? Click here to register or sign in!
+            Beta testers — sign in here, or register with your beta code
           </p>
+
+          {/* Beta chooser — anchored popup on desktop, bottom sheet on mobile */}
+          {betaMenuOpen && (
+            <Popup
+              x={betaAnchor.x}
+              y={betaAnchor.y + 4}
+              width={252}
+              height={148}
+              className="z-[85] rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden"
+            >
+              <button
+                type="button"
+                onClick={() => openBeta('login')}
+                className="w-full flex items-center gap-3 px-4 py-3.5 text-left text-sm text-gray-800 dark:text-gray-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors"
+              >
+                <LogIn className="w-5 h-5 text-purple-500 shrink-0" />
+                <span>
+                  <span className="block font-medium">Beta tester sign in</span>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400">I already have a tester account</span>
+                </span>
+              </button>
+              <div className="border-t border-gray-100 dark:border-gray-700" />
+              <button
+                type="button"
+                onClick={() => openBeta('register')}
+                className="w-full flex items-center gap-3 px-4 py-3.5 text-left text-sm text-gray-800 dark:text-gray-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors"
+              >
+                <UserPlus className="w-5 h-5 text-purple-500 shrink-0" />
+                <span>
+                  <span className="block font-medium">New beta tester</span>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400">Register with a beta code</span>
+                </span>
+              </button>
+            </Popup>
+          )}
 
           {/* Admin quick access — symbol challenge / one-time code */}
           <button
@@ -295,6 +358,7 @@ const Login = () => {
       {showBetaModal && (
         <BetaAccessModal
           isOpen={showBetaModal}
+          initialMode={betaMode}
           onClose={() => setShowBetaModal(false)}
           onSuccess={() => {
             setShowBetaModal(false);

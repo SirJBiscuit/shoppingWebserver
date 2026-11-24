@@ -5,8 +5,8 @@ import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Portal } from '../../utils/autoPlacement';
 
-const BetaAccessModal = ({ isOpen, onClose, onSuccess }) => {
-  const [mode, setMode] = useState('register'); // 'register' | 'login'
+const BetaAccessModal = ({ isOpen, onClose, onSuccess, initialMode }) => {
+  const [mode, setMode] = useState(initialMode || 'register'); // 'register' | 'login'
   const [step, setStep] = useState(1); // 1: Code, 2: Account, 3: Location, 4: Policy
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

@@ -671,3 +671,12 @@ release note. No Devin/Windsurf attribution in commits, ever.
 ## Custom keyboard — floating popout via autoPlacement + key sounds
 - AnimatedKeyboard rewritten as a floating window through the autoPlacement Portal (fixed truly = viewport, immune to transformed ancestors — the root cause class behind keys escaping the screen). Drag-handle bar floats it anywhere, every move clamped through placeInViewport so it can never leave the screen; corner grip resizes 280-560px; position+size persist per device in localStorage.
 - Key click sounds via soundManager — typing keys play the 'key' synth category (25ms tick), Enter plays 'check', function keys tick; haptic 4ms retained; honors global/user sound prefs and falls back to any uploaded file the admin binds.
+
+## Custom keyboard — docked on phones, qwerty stagger, swipe typing, fold tray, pop glow
+- Two shells share one KeyGrid: phones (<=768px via useIsMobile) get a docked bottom sheet where thumbs expect a kb; larger screens keep the floating drag/resize popout.
+- Real qwerty stagger — every row totals 10 key-units (letter=1): asdf row indents 0.5 each side, zxcv row gets 1.5-unit shift/backspace, space bar 4.5 units. Symbols layer rebalanced to 10/10/11/8 so keys stay near-letter width.
+- Slide-to-type: all key firing delegated to grid pointer handlers (like SoundBindings) — press a key and drag across the board, each char/space key the finger passes over types; function keys only fire on direct touch. Window pointerup/cancel ends the swipe.
+- Fold tray: drag the sheet's grabber down (or the popout's chevron) collapses to a slim bar — pull up or tap to unfold; state persists per device in the float key.
+- Keys pop UP with a primary-color glow (scale 1.12, ring + sky shadow) when pressed/swiped over instead of pressing down; keys slimmed to h-8/h-10 so the kb sits well under OS-kb height.
+- Login.js deselecting fixes: readOnly removed (it caused iOS select/blur weirdness — inputMode="none" alone suppresses the OS kb), field labels no longer dismiss the kb, scrollIntoView only fires on first open (not every field switch).
+- Beta access dropdown (uncommitted earlier): BetaAccessModal gains initialMode; the beta button on Login opens an autoPlacement Popup (bottom-sheet on mobile) choosing "Beta tester sign in" vs "New beta tester".
