@@ -1,4 +1,4 @@
-import React, { useState, useId, useRef } from 'react';
+import { useState, useEffect, useId, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -26,7 +26,22 @@ const Login = () => {
   const [showQuickLogin, setShowQuickLogin] = useState(false);
   const [kbOpen, setKbOpen] = useState(false);          // on-screen keyboard
   const [focusedField, setFocusedField] = useState('username');
+  // Touch devices get our keyboard INSTEAD of the OS one — inputMode="none"
+  // + readOnly means the OS keyboard can never open, and focusing a field
+  // opens ours. Instant, no OS-kb delay, same shape on every device.
+  const [isTouch] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
+  );
+  const focusWith = (field) => (e) => {
+    setFocusedField(field);
+    if (isTouch) {
+      setKbOpen(true);
+      // Keep the active field above the keyboard sheet.
+      setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 250);
+    }
+  };
   const passwordRef = useRef(null);
+  const formRef = useRef(null);
   const { login, loginWithToken } = useAuth();
   const navigate = useNavigate();
   const usernameId = useId();
@@ -43,9 +58,20 @@ const Login = () => {
       setFocusedField('password');
       passwordRef.current?.focus();
     } else {
-      document.getElementById('login-form')?.requestSubmit();
+      formRef.current?.requestSubmit();
     }
   };
+
+  // Tap outside the fields/keyboard dismisses it — same as the OS kb.
+  useEffect(() => {
+    if (!kbOpen || !isTouch) return undefined;
+    const onDown = (e) => {
+      if (e.target.closest?.('input') || e.target.closest?.('[data-animated-kb]')) return;
+      setKbOpen(false);
+    };
+    document.addEventListener('pointerdown', onDown, { capture: true });
+    return () => document.removeEventListener('pointerdown', onDown, { capture: true });
+  }, [kbOpen, isTouch]);
 
   const persistUsername = () => {
     try {
@@ -96,7 +122,7 @@ const Login = () => {
           </motion.div>
         )}
         
-        <form id="login-form" onSubmit={handleSubmit} className="space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor={usernameId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Username
@@ -106,8 +132,9 @@ const Login = () => {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              onFocus={() => setFocusedField('username')}
-              readOnly={kbOpen}
+              onFocus={focusWith('username')}
+              onPointerDown={() => { if (isTouch) setKbOpen(true); }}
+              readOnly={isTouch || kbOpen}
               className="input-field text-base"
               style={{ fontSize: '16px' }}
               required
@@ -115,7 +142,7 @@ const Login = () => {
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              inputMode={kbOpen ? 'none' : 'text'}
+              inputMode={isTouch || kbOpen ? 'none' : 'text'}
               enterKeyHint="next"
               autoFocus={!username}
             />
@@ -132,8 +159,9 @@ const Login = () => {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                onFocus={() => setFocusedField('password')}
-                readOnly={kbOpen}
+                onFocus={focusWith('password')}
+                onPointerDown={() => { if (isTouch) setKbOpen(true); }}
+                readOnly={isTouch || kbOpen}
                 onKeyDown={trackCapsLock}
                 onKeyUp={trackCapsLock}
                 onBlur={() => setCapsLock(false)}
@@ -141,7 +169,7 @@ const Login = () => {
                 style={{ fontSize: '16px' }}
                 required
                 autoComplete="current-password"
-                inputMode={kbOpen ? 'none' : 'text'}
+                inputMode={isTouch || kbOpen ? 'none' : 'text'}
                 enterKeyHint="go"
                 autoFocus={!!username}
               />

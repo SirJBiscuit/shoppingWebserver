@@ -659,3 +659,7 @@ release note. No Devin/Windsurf attribution in commits, ever.
 
 ## Deploy fix — update dies when stack is already down
 - update-server.sh stamped system_status via `docker exec shop_postgres` BEFORE starting anything — after a failed deploy leaves the stack down, that dies instantly under set -e (the new trap caught it and restored, but the update could never run). Prod-config copy now happens BEFORE the stamp, `docker compose up -d postgres` runs first, and the stamp is best-effort (warns and continues instead of killing the deploy). CURRENT_STEP tracks the pre-step stages so failure messages name the real stage.
+
+## Custom keyboard — replaces OS keyboard on touch + mobile fit
+- Login.js: pointer:coarse devices get inputMode="none" + readOnly permanently so the OS keyboard can never fire; focusing/tapping a field opens AnimatedKeyboard (it IS the keyboard — auto-opens on page autofocus too); focused field scrolls above the sheet; tapping outside fields/keyboard dismisses it like an OS kb.
+- AnimatedKeyboard.js: compact mode under 520px viewport height (landscape phones) — smaller keys/gaps/padding; touch-none + select-none on the sheet; min-w-0 keys so rows shrink cleanly on narrow screens.

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Delete, ChevronDown, CornerDownLeft, ArrowBigUp, ArrowBigUpDash } from 'lucide-react';
 
@@ -27,7 +27,7 @@ const ROWS_SYMBOLS = [
   ';:,.<>?|\\\''.split(''),
 ];
 
-const Key = ({ label, onPress, wide, variant = 'letter', children, title }) => (
+const Key = ({ label, onPress, wide, compact, variant = 'letter', children, title }) => (
   <motion.button
     type="button"
     title={title}
@@ -37,8 +37,8 @@ const Key = ({ label, onPress, wide, variant = 'letter', children, title }) => (
     }}
     whileTap={{ y: 3 }}
     transition={{ type: 'spring', stiffness: 800, damping: 22 }}
-    className={`${wide ? 'flex-[1.6]' : 'flex-1'} h-11 rounded-lg select-none
-      text-sm font-medium flex items-center justify-center
+    className={`${wide ? 'flex-[1.6]' : 'flex-1'} ${compact ? 'h-9' : 'h-11'} rounded-lg select-none
+      min-w-0 ${compact ? 'text-xs' : 'text-sm'} font-medium flex items-center justify-center
       bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100
       border border-gray-200 dark:border-gray-600
       shadow-[0_3px_0_rgba(0,0,0,0.18)] dark:shadow-[0_3px_0_rgba(0,0,0,0.5)]
@@ -57,6 +57,13 @@ const AnimatedKeyboard = ({ onKey, onBackspace, onEnter, onClose }) => {
   const [shift, setShift] = useState(false); // sticky shift (one char), caps lock = double-tap
   const [caps, setCaps] = useState(false);
   const [symbols, setSymbols] = useState(false);
+  // Landscape/short viewports get compact keys so the sheet still fits.
+  const [compact, setCompact] = useState(() => window.innerHeight < 520);
+  useEffect(() => {
+    const onResize = () => setCompact(window.innerHeight < 520);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const press = (k) => {
     const out = symbols ? k : (shift || caps ? k.toUpperCase() : k);
@@ -77,35 +84,36 @@ const AnimatedKeyboard = ({ onKey, onBackspace, onEnter, onClose }) => {
 
   return (
     <motion.div
+      data-animated-kb
       initial={{ y: '100%' }}
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-      className="fixed bottom-0 left-0 right-0 z-[90] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]
-        bg-gray-100/95 dark:bg-gray-900/95 backdrop-blur-md
-        border-t border-gray-300 dark:border-gray-700 shadow-2xl"
+      className={`fixed bottom-0 left-0 right-0 z-[90] ${compact ? 'p-1' : 'p-2'} pb-[max(0.5rem,env(safe-area-inset-bottom))]
+        bg-gray-100/95 dark:bg-gray-900/95 backdrop-blur-md touch-none select-none
+        border-t border-gray-300 dark:border-gray-700 shadow-2xl`}
     >
-      <div className="max-w-md mx-auto space-y-1.5">
+      <div className={`max-w-md mx-auto ${compact ? 'space-y-1' : 'space-y-1.5'}`}>
         {rows.map((row, ri) => (
           <motion.div
             key={row.join('')}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.04 * ri, duration: 0.18 }}
-            className="flex gap-1.5 px-1"
+            className={`flex ${compact ? 'gap-1 px-0.5' : 'gap-1.5 px-1'}`}
           >
             {ri === 3 && (
-              <Key wide variant="func" onPress={symbols ? () => setSymbols(false) : tapShift}
+              <Key wide compact={compact} variant="func" onPress={symbols ? () => setSymbols(false) : tapShift}
                 title={symbols ? 'Back to letters' : caps ? 'Caps lock' : 'Shift'}>
                 {symbols ? 'abc' : caps ? <ArrowBigUpDash className="w-5 h-5" /> : <ArrowBigUp className={`w-5 h-5 ${shift ? 'text-primary-500' : ''}`} />}
               </Key>
             )}
             {row.map((k) => (
-              <Key key={k} label={symbols ? k : (shift || caps ? k.toUpperCase() : k)}
+              <Key key={k} compact={compact} label={symbols ? k : (shift || caps ? k.toUpperCase() : k)}
                 onPress={() => press(k)} />
             ))}
             {ri === 3 && (
-              <Key wide variant="func" onPress={onBackspace} title="Backspace">
+              <Key wide compact={compact} variant="func" onPress={onBackspace} title="Backspace">
                 <Delete className="w-5 h-5" />
               </Key>
             )}
@@ -115,16 +123,16 @@ const AnimatedKeyboard = ({ onKey, onBackspace, onEnter, onClose }) => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.16, duration: 0.18 }}
-          className="flex gap-1.5 px-1"
+          className={`flex ${compact ? 'gap-1 px-0.5' : 'gap-1.5 px-1'}`}
         >
-          <Key wide variant="func" label={symbols ? 'abc' : '#+='} onPress={() => setSymbols((s) => !s)} title="Symbols" />
-          <Key label=" " wide onPress={() => press(' ')} title="Space">
+          <Key wide compact={compact} variant="func" label={symbols ? 'abc' : '#+='} onPress={() => setSymbols((s) => !s)} title="Symbols" />
+          <Key label=" " wide compact={compact} onPress={() => press(' ')} title="Space">
             <span className="text-gray-400 text-xs">space</span>
           </Key>
-          <Key wide variant="func" onPress={onClose} title="Hide keyboard">
+          <Key wide compact={compact} variant="func" onPress={onClose} title="Hide keyboard">
             <ChevronDown className="w-5 h-5" />
           </Key>
-          <Key wide variant="action" onPress={onEnter} title="Enter">
+          <Key wide compact={compact} variant="action" onPress={onEnter} title="Enter">
             <CornerDownLeft className="w-5 h-5" />
           </Key>
         </motion.div>
