@@ -193,6 +193,29 @@ echo ""
 echo -e "${GREEN}Checking container status...${NC}"
 docker compose ps
 
+# Verify the app actually answers — a container can "start" and then
+# crash-loop, which used to leave visitors on updating.html forever with a
+# frozen progress file. Ground truth is end-to-end: /api/health through the
+# frontend port means nginx AND the backend are both serving (the
+# maintenance placeholder answers HTML on every route, never this JSON).
+echo ""
+echo -e "${YELLOW}Verifying the app is live...${NC}"
+CURRENT_STEP="app did not come up"
+HEALTHY=0
+for _ in $(seq 1 60); do
+    if curl -fs -o /dev/null --max-time 3 http://localhost:3006/api/health 2>/dev/null; then
+        HEALTHY=1
+        break
+    fi
+    sleep 2
+done
+
+if [ "$HEALTHY" -eq 0 ]; then
+    echo -e "${RED}App did not respond within 2 minutes — treating as a failed update${NC}"
+    exit 1   # EXIT trap: flags fail|… in progress.txt, alerts, restores stack
+fi
+echo -e "${GREEN}✓ App is responding${NC}"
+
 echo ""
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  Update Complete!${NC}"
@@ -200,7 +223,10 @@ echo -e "${GREEN}========================================${NC}"
 
 ./watchdog.sh --alert "Listzy update complete ✅" "Now running ${AFTER_COMMIT:0:7}." "white_check_mark" 3 2>/dev/null || true
 
-# Reset for next time — a stale step must never show as live progress.
+# Signal completion, hold a moment so late pollers catch it, then reset —
+# a stale mid-update step must never show as live progress next time.
+echo "done|$TOTAL_STEPS|Update complete" > maintenance/progress.txt 2>/dev/null || true
+sleep 5
 progress 0 "Waiting for the update to start"
 echo ""
 echo -e "${CYAN}Access your app at:${NC}"

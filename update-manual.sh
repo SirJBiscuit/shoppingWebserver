@@ -94,6 +94,23 @@ echo -e "${YELLOW}Restoring the app...${NC}"
 docker compose -f docker-compose.maintenance.yml down || true
 docker compose up -d
 
+# Verify end-to-end — a container can "start" then crash-loop and nobody
+# would know from compose's exit code alone.
+echo -e "${YELLOW}Verifying the app is live...${NC}"
+HEALTHY=0
+for _ in $(seq 1 60); do
+    if curl -fs -o /dev/null --max-time 3 http://localhost:3006/api/health 2>/dev/null; then
+        HEALTHY=1
+        break
+    fi
+    sleep 2
+done
+if [ "$HEALTHY" -eq 0 ]; then
+    echo -e "${RED}App did not respond within 2 minutes — treating as a failed update${NC}"
+    exit 1   # EXIT trap: flags fail in progress.txt, alerts, restores stack
+fi
+echo -e "${GREEN}✓ App is responding${NC}"
+
 echo ""
 echo -e "${GREEN}Done — ${BEFORE_COMMIT:0:7} -> ${AFTER_COMMIT:0:7}${NC}"
 ./watchdog.sh --alert "Listzy update complete ✅" "Now running ${AFTER_COMMIT:0:7}." "white_check_mark" 3 2>/dev/null || true

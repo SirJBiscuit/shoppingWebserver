@@ -687,3 +687,9 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Silent failures surfaced: toggle-favorite and icon-update errors previously only console.error'd — both now show the notice banner like delete/add already did.
 - List-mode row buttons: type="button" added, targets bumped p-1.5→p-2 (~32px), hover backgrounds for real affordance, controls wrapped in a stopPropagation group so taps between buttons don't open the view modal.
 - Verified backend already hardened: numeric-id guards on /:id routes, COALESCE PATCH (partial updates safe, sort_order kept), FK-discovering DELETE in a transaction, NULL item_name skip in to-shopping-list, pool clients released in finally.
+
+## Update flow — verified success instead of blind "Almost done"
+- update-server.sh + update-manual.sh: after `compose up -d`, polls /api/health through :3006 for up to 2 min. A crash-looping backend no longer looks like a finished update — failure exits 1, which routes through the EXIT trap (fail flag in progress.txt + watchdog alert + stack restore). `compose up -d` in the trap also revives missing containers (the shop_postgres case).
+- Script now writes "done|6|Update complete", holds 5s so late pollers see it, then resets to the waiting placeholder.
+- updating.html: appProbe() every 4s fetches /api/health — real JSON without the maintenance header = the app is back → reloads straight into it. This is ground truth instead of trusting progress.txt; also catches a successful auto-restore after a failed update, and returns users to the app ~10s faster than the 15s meta-refresh.
+- Parses the new done| state ("Finishing up — opening the app shortly…").

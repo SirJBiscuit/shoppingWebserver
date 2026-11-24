@@ -277,6 +277,14 @@
         var trimmed = text.trim();
         var fm = /^fail\|(\d+)\|(.+)$/.exec(trimmed);
         if (fm) { showFail(fm[2]); return; }
+        var dm = /^done\|(\d+)\|(.+)$/.exec(trimmed);
+        if (dm) {
+          barEl.classList.add('real');
+          spinnerEl.classList.add('hidden');
+          fillEl.style.width = '100%';
+          labelEl.textContent = 'Finishing up — opening the app shortly…';
+          return;
+        }
         var m = /^(\d+)\|(\d+)\|(.+)$/.exec(trimmed);
         if (!m) return;
         var n = +m[1], total = +m[2], label = m[3];
@@ -299,6 +307,27 @@
   }
   pollProgress();
   setInterval(pollProgress, 2000);
+
+  // Ground-truth check — progress.txt is a hint, not proof. The real signal
+  // is the app itself: /api/health returns JSON only when the real stack is
+  // serving (the maintenance placeholder answers this page's HTML with an
+  // X-Listzy-Maintenance header on every route). As soon as the real
+  // backend responds, reload straight into the app — this also covers a
+  // successful auto-restore after a failed update.
+  function appProbe() {
+    fetch('/api/health', { cache: 'no-store' })
+      .then(function (r) {
+        var ct = r.headers.get('content-type') || '';
+        var maint = r.headers.get('x-listzy-maintenance');
+        if (r.ok && !maint && ct.indexOf('json') !== -1) {
+          labelEl.textContent = 'Update complete — opening the app…';
+          window.location.href = '/';
+        }
+      })
+      .catch(function () { /* still swapping — try again next tick */ });
+  }
+  appProbe();
+  setInterval(appProbe, 4000);
 </script>
 </body>
 </html>
