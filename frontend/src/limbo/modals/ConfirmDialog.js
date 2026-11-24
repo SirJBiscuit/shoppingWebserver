@@ -1,5 +1,5 @@
-import React from 'react';
 import { AlertTriangle, X } from 'lucide-react';
+import { Portal } from '../../utils/autoPlacement';
 
 const ConfirmDialog = ({ isOpen, title, message, onConfirm, onCancel, confirmText = 'Confirm', cancelText = 'Cancel', type = 'warning' }) => {
   if (!isOpen) return null;
@@ -29,6 +29,7 @@ const ConfirmDialog = ({ isOpen, title, message, onConfirm, onCancel, confirmTex
   const IconComponent = style.icon;
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full">
         {/* Header */}
@@ -43,7 +44,7 @@ const ConfirmDialog = ({ isOpen, title, message, onConfirm, onCancel, confirmTex
               </h2>
             </div>
           </div>
-          <button
+          <button type="button"
             onClick={onCancel}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
@@ -60,13 +61,13 @@ const ConfirmDialog = ({ isOpen, title, message, onConfirm, onCancel, confirmTex
 
         {/* Actions */}
         <div className="flex space-x-3 p-6 border-t border-gray-200 dark:border-gray-700">
-          <button
+          <button type="button"
             onClick={onCancel}
             className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             {cancelText}
           </button>
-          <button
+          <button type="button"
             onClick={onConfirm}
             className={`flex-1 px-4 py-2 rounded-lg transition-colors ${style.confirmBtn}`}
           >
@@ -75,6 +76,7 @@ const ConfirmDialog = ({ isOpen, title, message, onConfirm, onCancel, confirmTex
         </div>
       </div>
     </div>
+    </Portal>
   );
 };
 

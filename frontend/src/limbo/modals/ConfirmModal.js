@@ -1,5 +1,5 @@
-import React from 'react';
 import { AlertTriangle, X } from 'lucide-react';
+import { ModalPortal } from '../../utils/autoPlacement';
 
 /**
  * ConfirmModal - Custom confirmation dialog
@@ -41,8 +41,9 @@ const ConfirmModal = ({
   const color = colors[type];
 
   return (
-    <div className="fixed inset-0 bg-black/10 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full">
+    <ModalPortal onClose={onCancel} sheet={false}
+      backdropClassName="z-50 p-4"
+      panelClassName="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
@@ -53,7 +54,7 @@ const ConfirmModal = ({
               {title}
             </h2>
           </div>
-          <button
+          <button type="button"
             onClick={onCancel}
             className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
@@ -70,21 +71,20 @@ const ConfirmModal = ({
 
         {/* Buttons */}
         <div className="flex gap-3 p-4 border-t border-gray-200 dark:border-gray-700">
-          <button
+          <button type="button"
             onClick={onCancel}
             className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
           >
             {cancelText}
           </button>
-          <button
+          <button type="button"
             onClick={onConfirm}
             className={`flex-1 px-4 py-2 ${color.button} text-white rounded-lg font-medium transition-colors`}
           >
             {confirmText}
           </button>
         </div>
-      </div>
-    </div>
+    </ModalPortal>
   );
 };
 

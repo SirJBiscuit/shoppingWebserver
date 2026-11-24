@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, KeyRound, Grid3X3, RotateCcw, Loader2, ShieldCheck, Undo2, Delete, Eye, EyeOff } from 'lucide-react';
 import { quickLoginAPI } from '../../services/api';
+import { Portal } from '../../utils/autoPlacement';
 import PinPad, { gridLayout } from './PinPad';
 
 /**
@@ -192,6 +193,7 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
   const needed = challenge?.positions?.length || 0;
 
   return (
+    <Portal>
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-[80] p-4"
       onClick={(e) => e.target === e.currentTarget && close()}
@@ -541,6 +543,7 @@ const QuickLoginModal = ({ isOpen, onClose, onSuccess, initialUsername = '' }) =
         </div>
       </motion.div>
     </div>
+    </Portal>
   );
 };
 

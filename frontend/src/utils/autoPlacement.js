@@ -31,6 +31,13 @@ export const useIsMobile = (bp = MOBILE_BREAKPOINT) =>
  *   <Portal><div ref={ref} className="fixed z-[90]" style={{ left: pos.x, top: pos.y }}>...</div></Portal>
  *
  *   <Popup x={x} y={y} width={240} className="...">…</Popup>  // all-in-one
+ *
+ *   <ModalPortal onClose={close} panelClassName="…">…</ModalPortal>  // dialogs
+ *
+ * RULE: never render a bare `fixed inset-0` overlay inside the page tree —
+ * PageTransition's will-change:transform makes it a containing block, so the
+ * backdrop traps clicks and the panel renders off-screen. Always go through
+ * Portal / Popup / ModalPortal.
  */
 
 /** Render children at document.body so `fixed` always means the viewport. */
