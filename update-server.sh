@@ -110,26 +110,35 @@ printf '%s\n' "$CHANGES" | grep . > maintenance/changes.txt 2>/dev/null \
 # reads this file. (update-quick.sh already does this; the full script didn't.)
 git log --no-merges -n 600 --pretty=format:'%H|%ai|%s|%an' > changelog.txt 2>/dev/null || true
 
-# Update database with new version
+# Copy production config — moved ahead of the DB stamp so compose commands
+# below always run against the prod services.
+echo -e "${YELLOW}Setting up production configuration...${NC}"
+cp docker-compose.prod.yml docker-compose.yml
+
+# Update database with new version — the stack may be down entirely (e.g.,
+# this run follows a failed deploy), so start postgres first and treat the
+# stamp as best-effort bookkeeping, not a hard gate.
 echo -e "${YELLOW}Updating system_status table...${NC}"
-docker exec -i shop_postgres psql -U shopuser -d shopdb << EOSQL
-UPDATE system_status 
+CURRENT_STEP="database version stamp"
+docker compose up -d postgres 2>/dev/null || true
+sleep 4
+if ! docker exec -i shop_postgres psql -U shopuser -d shopdb << EOSQL
+UPDATE system_status
 SET current_version = '${CURRENT_COMMIT}',
     last_successful_update = CURRENT_TIMESTAMP,
     update_available = false,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = 1;
 EOSQL
+then
+    echo -e "${RED}⚠ Could not stamp system_status — continuing anyway${NC}"
+fi
 
 # Remove update flag file if it exists
 if [ -f ".update-requested" ]; then
     echo -e "${YELLOW}Removing update flag file...${NC}"
     rm -f .update-requested
 fi
-
-# Copy production config
-echo -e "${YELLOW}Setting up production configuration...${NC}"
-cp docker-compose.prod.yml docker-compose.yml
 
 # Push "update started" via the same watchdog channel (best-effort)
 ./watchdog.sh --alert "Listzy is updating 🔧" "Deploying ${BEFORE_COMMIT:0:7} → ${AFTER_COMMIT:0:7} — users see the updating page for a few minutes." "hammer" 3 2>/dev/null || true
