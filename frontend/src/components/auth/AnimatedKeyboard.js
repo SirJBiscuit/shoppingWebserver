@@ -244,10 +244,13 @@ const AnimatedKeyboard = ({ onKey, onBackspace, onEnter, onClose, onSwitchToOS }
   const [compact, setCompact] = useState(fitsCompact);
   const kbHeight = compact ? 180 : 225;
 
-  const [size, setSize] = useState(() => loadFloat()?.w || Math.min(360, window.innerWidth - 16));
+  // A saved width can outlive the device it was resized on — never let the
+  // popout exceed the viewport or the clamp can't pull it back on-screen.
+  const [size, setSize] = useState(() =>
+    Math.min(loadFloat()?.w || 360, window.innerWidth - 16));
   const [pos, setPos] = useState(() => {
     const saved = loadFloat();
-    const w = saved?.w || Math.min(360, window.innerWidth - 16);
+    const w = Math.min(saved?.w || 360, window.innerWidth - 16);
     return placeInViewport(
       saved?.x ?? (window.innerWidth - w) / 2,
       saved?.y ?? window.innerHeight - 300,
@@ -317,7 +320,8 @@ const AnimatedKeyboard = ({ onKey, onBackspace, onEnter, onClose, onSwitchToOS }
     if (drag.current) {
       setPos(clampPos(e.clientX - drag.current.dx, e.clientY - drag.current.dy));
     } else if (resize.current) {
-      const w = Math.min(MAX_W, Math.max(MIN_W, resize.current.startW + e.clientX - resize.current.startX));
+      const w = Math.min(MAX_W, window.innerWidth - 16,
+        Math.max(MIN_W, resize.current.startW + e.clientX - resize.current.startX));
       setSize(w);
       setPos((p) => clampPos(p.x, p.y));
     }
