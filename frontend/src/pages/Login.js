@@ -117,8 +117,7 @@ const Login = () => {
     setCapsLock(typeof e.getModifierState === 'function' && e.getModifierState('CapsLock'));
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800"
-      style={{ paddingBottom: kbOpen ? 290 : 0 }}>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800">
       <div className="card max-w-md w-full mx-4">
         <div className="flex items-center justify-center mb-8">
           <ShoppingCart className="w-12 h-12 text-primary-600 mr-3" />

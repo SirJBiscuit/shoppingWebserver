@@ -1,17 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Delete, ChevronDown, CornerDownLeft, ArrowBigUp, ArrowBigUpDash, Keyboard } from 'lucide-react';
+import {
+  Delete, ChevronDown, CornerDownLeft, ArrowBigUp, ArrowBigUpDash,
+  Keyboard, GripHorizontal, GripVertical,
+} from 'lucide-react';
+import { Portal, placeInViewport } from '../../utils/autoPlacement';
+import soundManager from '../../utils/soundEffects';
 
 /**
- * AnimatedKeyboard — on-screen keyboard with physical key-cap feel.
+ * AnimatedKeyboard — floating popout keyboard.
  *
- * Keys have a real "press" depth: a hard under-shadow collapses while the
- * cap sinks 3px, so it reads like a mechanical key. Rows spring in
- * staggered on open. Zero layout work while closed (AnimatePresence
- * unmounts it), so it costs nothing until asked for.
+ * Rendered through the autoPlacement Portal so `fixed` truly means the
+ * viewport (transformed ancestors can't push it offscreen). It's a
+ * draggable window, not a bottom sheet: grab the handle to float it
+ * anywhere, drag the corner to resize, position + size persist per
+ * device, and placeInViewport clamps every move so it can never leave
+ * the screen.
  *
  * Pure callbacks — the parent owns the focused field's value:
- *   onKey(char) / onBackspace() / onEnter() / onClose()
+ *   onKey(char) / onBackspace() / onEnter() / onClose() / onSwitchToOS?()
  */
 
 const ROWS_LETTERS = [
@@ -26,6 +33,24 @@ const ROWS_SYMBOLS = [
   '-_=+[]{}/'.split(''),
   ';:,.<>?|\\\''.split(''),
 ];
+
+const POS_KEY = 'listzy_kb_float';   // {x, y, w} — per-device float state
+const MIN_W = 280;
+const MAX_W = 560;
+
+const loadFloat = () => {
+  try {
+    const p = JSON.parse(localStorage.getItem(POS_KEY) || 'null');
+    if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) return p;
+  } catch { /* fresh device */ }
+  return null;
+};
+const saveFloat = (p) => {
+  try { localStorage.setItem(POS_KEY, JSON.stringify(p)); } catch { /* optional */ }
+};
+
+// Landscape OR narrow phones get compact keys so the popout stays small.
+const fitsCompact = () => window.innerHeight < 520 || window.innerWidth < 400;
 
 const Key = ({ label, onPress, wide, big, compact, variant = 'letter', children, title }) => (
   <motion.button
@@ -53,98 +78,201 @@ const Key = ({ label, onPress, wide, big, compact, variant = 'letter', children,
   </motion.button>
 );
 
-// Landscape OR narrow phones get compact keys so the sheet still fits.
-const fitsCompact = () => window.innerHeight < 520 || window.innerWidth < 400;
-
 const AnimatedKeyboard = ({ onKey, onBackspace, onEnter, onClose, onSwitchToOS }) => {
   const [shift, setShift] = useState(false); // sticky shift (one char), caps lock = double-tap
   const [caps, setCaps] = useState(false);
   const [symbols, setSymbols] = useState(false);
   const [compact, setCompact] = useState(fitsCompact);
+  const kbHeight = compact ? 200 : 240; // rows + handle estimate for clamping
+
+  const [size, setSize] = useState(() => loadFloat()?.w || Math.min(360, window.innerWidth - 16));
+  const [pos, setPos] = useState(() => {
+    const saved = loadFloat();
+    const w = saved?.w || Math.min(360, window.innerWidth - 16);
+    return placeInViewport(
+      saved?.x ?? (window.innerWidth - w) / 2,
+      saved?.y ?? window.innerHeight - 300,
+      { width: w, height: kbHeight, margin: 8, offset: 0 }
+    );
+  });
+  const rootRef = useRef(null);
+  const drag = useRef(null);   // {dx, dy} while the handle is held
+  const resize = useRef(null); // {startX, startW} while the corner is held
+
   useEffect(() => {
-    const onResize = () => setCompact(fitsCompact());
+    const onResize = () => {
+      setCompact(fitsCompact());
+      const r = rootRef.current?.getBoundingClientRect();
+      setPos((p) => placeInViewport(p.x, p.y, {
+        width: r?.width || size, height: r?.height || kbHeight, margin: 8, offset: 0,
+      }));
+    };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, []);
+  }, [size, kbHeight]);
+
+  const clampPos = useCallback((x, y) => {
+    const r = rootRef.current?.getBoundingClientRect();
+    return placeInViewport(x, y, {
+      width: r?.width || size, height: r?.height || kbHeight, margin: 4, offset: 0,
+    });
+  }, [size, kbHeight]);
+
+  // Drag the handle — pointer-captured so the float can't escape mid-drag.
+  const grab = (e) => {
+    e.preventDefault();
+    drag.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const dragMove = (e) => {
+    if (drag.current) {
+      setPos(clampPos(e.clientX - drag.current.dx, e.clientY - drag.current.dy));
+    } else if (resize.current) {
+      const w = Math.min(MAX_W, Math.max(MIN_W, resize.current.startW + e.clientX - resize.current.startX));
+      setSize(w);
+      setPos((p) => clampPos(p.x, p.y));
+    }
+  };
+  const release = (e) => {
+    if (drag.current || resize.current) {
+      drag.current = null;
+      resize.current = null;
+      setPos((p) => { saveFloat({ x: p.x, y: p.y, w: size }); return p; });
+    }
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+  };
+  const grabResize = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resize.current = { startX: e.clientX, startW: size };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  // Key feedback — 'key' is a 25ms synthesized tick (falls back to any
+  // uploaded file if the admin binds one); honors the app's sound prefs.
+  const tap = (sound = 'key') => {
+    soundManager.play(sound);
+    if (navigator.vibrate) { try { navigator.vibrate(4); } catch { /* optional */ } }
+  };
 
   const press = (k) => {
     const out = symbols ? k : (shift || caps ? k.toUpperCase() : k);
     onKey(out);
     if (shift && !caps) setShift(false); // shift applies to one key, like a real kb
-    if (navigator.vibrate) { try { navigator.vibrate(4); } catch { /* optional */ } }
+    tap('key');
   };
 
-  const lastTap = React.useRef(0);
+  const lastTap = useRef(0);
   const tapShift = () => {
     const now = Date.now();
     if (now - lastTap.current < 400) { setCaps((c) => !c); setShift(false); }
     else setShift((s) => !s);
     lastTap.current = now;
+    tap('key');
   };
+  const tapBackspace = () => { onBackspace(); tap('key'); };
+  const tapEnter = () => { onEnter(); tap('check'); };
 
   const rows = symbols ? ROWS_SYMBOLS : ROWS_LETTERS;
 
   return (
-    <motion.div
-      data-animated-kb
-      initial={{ y: '100%' }}
-      animate={{ y: 0 }}
-      exit={{ y: '100%' }}
-      transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-      className={`fixed bottom-0 left-0 right-0 z-[90] w-full overflow-hidden ${compact ? 'p-1' : 'p-2'} pb-[max(0.5rem,env(safe-area-inset-bottom))]
-        bg-gray-100/95 dark:bg-gray-900/95 backdrop-blur-md touch-none select-none
-        border-t border-gray-300 dark:border-gray-700 shadow-2xl`}
-    >
-      <div className={`max-w-md w-full min-w-0 mx-auto ${compact ? 'space-y-1' : 'space-y-1.5'}`}>
-        {rows.map((row, ri) => (
+    <Portal>
+      <motion.div
+        ref={rootRef}
+        data-animated-kb
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+        style={{ left: pos.x, top: pos.y, width: size }}
+        className="fixed z-[95] rounded-2xl overflow-hidden touch-none select-none
+          bg-gray-100/95 dark:bg-gray-900/95 backdrop-blur-md
+          border border-gray-300 dark:border-gray-700 shadow-2xl"
+      >
+        {/* drag handle — grab anywhere on the bar to float it */}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label="Drag keyboard"
+          onPointerDown={grab}
+          onPointerMove={dragMove}
+          onPointerUp={release}
+          onPointerCancel={release}
+          className={`flex items-center justify-center cursor-grab active:cursor-grabbing
+            ${compact ? 'h-6' : 'h-8'} text-gray-400 dark:text-gray-500
+            bg-gray-200/70 dark:bg-gray-800/70 border-b border-gray-300 dark:border-gray-700`}
+        >
+          <GripHorizontal className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
+        </button>
+
+        <div className={`${compact ? 'p-1 space-y-1' : 'p-1.5 space-y-1.5'}`}>
+          {rows.map((row, ri) => (
+            <motion.div
+              key={row.join('')}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.04 * ri, duration: 0.18 }}
+              className={`flex ${compact ? 'gap-1 px-0.5' : 'gap-1.5 px-1'}`}
+            >
+              {ri === 3 && (
+                <Key wide compact={compact} variant="func" onPress={symbols ? () => { setSymbols(false); tap('key'); } : tapShift}
+                  title={symbols ? 'Back to letters' : caps ? 'Caps lock' : 'Shift'}>
+                  {symbols ? 'abc' : caps
+                    ? <ArrowBigUpDash className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
+                    : <ArrowBigUp className={`${compact ? 'w-4 h-4' : 'w-5 h-5'} ${shift ? 'text-primary-500' : ''}`} />}
+                </Key>
+              )}
+              {row.map((k) => (
+                <Key key={k} compact={compact} label={symbols ? k : (shift || caps ? k.toUpperCase() : k)}
+                  onPress={() => press(k)} />
+              ))}
+              {ri === 3 && (
+                <Key wide compact={compact} variant="func" onPress={tapBackspace} title="Backspace">
+                  <Delete className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
+                </Key>
+              )}
+            </motion.div>
+          ))}
           <motion.div
-            key={row.join('')}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.04 * ri, duration: 0.18 }}
+            transition={{ delay: 0.16, duration: 0.18 }}
             className={`flex ${compact ? 'gap-1 px-0.5' : 'gap-1.5 px-1'}`}
           >
-            {ri === 3 && (
-              <Key wide compact={compact} variant="func" onPress={symbols ? () => setSymbols(false) : tapShift}
-                title={symbols ? 'Back to letters' : caps ? 'Caps lock' : 'Shift'}>
-                {symbols ? 'abc' : caps ? <ArrowBigUpDash className={compact ? 'w-4 h-4' : 'w-5 h-5'} /> : <ArrowBigUp className={`${compact ? 'w-4 h-4' : 'w-5 h-5'} ${shift ? 'text-primary-500' : ''}`} />}
-              </Key>
-            )}
-            {row.map((k) => (
-              <Key key={k} compact={compact} label={symbols ? k : (shift || caps ? k.toUpperCase() : k)}
-                onPress={() => press(k)} />
-            ))}
-            {ri === 3 && (
-              <Key wide compact={compact} variant="func" onPress={onBackspace} title="Backspace">
-                <Delete className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
-              </Key>
-            )}
-          </motion.div>
-        ))}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.16, duration: 0.18 }}
-          className={`flex ${compact ? 'gap-1 px-0.5' : 'gap-1.5 px-1'}`}
-        >
-          <Key compact={compact} variant="func" label={symbols ? 'abc' : '#+='} onPress={() => setSymbols((s) => !s)} title="Symbols" />
-          <Key big compact={compact} onPress={() => press(' ')} title="Space">
-            <span className="text-gray-400 text-xs">space</span>
-          </Key>
-          {onSwitchToOS && (
-            <Key compact={compact} variant="func" onPress={onSwitchToOS} title="Use device keyboard">
-              <Keyboard className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
+            <Key compact={compact} variant="func" label={symbols ? 'abc' : '#+='} onPress={() => { setSymbols((s) => !s); tap('key'); }} title="Symbols" />
+            <Key big compact={compact} onPress={() => press(' ')} title="Space">
+              <span className="text-gray-400 text-xs">space</span>
             </Key>
-          )}
-          <Key compact={compact} variant="func" onPress={onClose} title="Hide keyboard">
-            <ChevronDown className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
-          </Key>
-          <Key wide compact={compact} variant="action" onPress={onEnter} title="Enter">
-            <CornerDownLeft className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
-          </Key>
-        </motion.div>
-      </div>
-    </motion.div>
+            {onSwitchToOS && (
+              <Key compact={compact} variant="func" onPress={() => { onSwitchToOS(); tap('key'); }} title="Use device keyboard">
+                <Keyboard className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
+              </Key>
+            )}
+            <Key compact={compact} variant="func" onPress={() => { onClose(); tap('key'); }} title="Hide keyboard">
+              <ChevronDown className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
+            </Key>
+            <Key wide compact={compact} variant="action" onPress={tapEnter} title="Enter">
+              <CornerDownLeft className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
+            </Key>
+          </motion.div>
+        </div>
+
+        {/* corner resize grip */}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label="Resize keyboard"
+          onPointerDown={grabResize}
+          onPointerMove={dragMove}
+          onPointerUp={release}
+          onPointerCancel={release}
+          className="absolute bottom-0.5 right-0.5 p-1 text-gray-400 dark:text-gray-600
+            cursor-nwse-resize rotate-90"
+        >
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
+      </motion.div>
+    </Portal>
   );
 };
 

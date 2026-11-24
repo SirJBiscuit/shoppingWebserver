@@ -667,3 +667,7 @@ release note. No Devin/Windsurf attribution in commits, ever.
 ## Custom keyboard — mobile fit + OS-keyboard switch key
 - AnimatedKeyboard: compact mode now triggers on narrow screens too (width < 400, not just landscape height) — tighter gaps/padding/keys; space bar widened to flex-3 like a real kb; new bottom-row key (Keyboard icon) switches to the device OS keyboard when provided.
 - Login.js: preferOS flag — the kb's OS-switch key drops our sheet, makes the field editable, and blur+refocuses so the OS keyboard opens; the form's Keyboard toggle flips back to ours. All OS-suppression conditions go through useCustomKb (isTouch && !preferOS).
+
+## Custom keyboard — floating popout via autoPlacement + key sounds
+- AnimatedKeyboard rewritten as a floating window through the autoPlacement Portal (fixed truly = viewport, immune to transformed ancestors — the root cause class behind keys escaping the screen). Drag-handle bar floats it anywhere, every move clamped through placeInViewport so it can never leave the screen; corner grip resizes 280-560px; position+size persist per device in localStorage.
+- Key click sounds via soundManager — typing keys play the 'key' synth category (25ms tick), Enter plays 'check', function keys tick; haptic 4ms retained; honors global/user sound prefs and falls back to any uploaded file the admin binds.
