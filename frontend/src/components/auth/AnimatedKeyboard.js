@@ -38,7 +38,7 @@ const Key = ({ label, onPress, wide, big, compact, variant = 'letter', children,
     whileTap={{ y: 3 }}
     transition={{ type: 'spring', stiffness: 800, damping: 22 }}
     className={`${big ? 'flex-[3]' : wide ? 'flex-[1.6]' : 'flex-1'} ${compact ? 'h-9' : 'h-11'} rounded-lg select-none
-      min-w-0 ${compact ? 'text-xs' : 'text-sm'} font-medium flex items-center justify-center
+      min-w-0 overflow-hidden ${compact ? 'text-xs' : 'text-sm'} font-medium flex items-center justify-center shrink
       bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100
       border border-gray-200 dark:border-gray-600
       shadow-[0_3px_0_rgba(0,0,0,0.18)] dark:shadow-[0_3px_0_rgba(0,0,0,0.5)]
@@ -91,11 +91,11 @@ const AnimatedKeyboard = ({ onKey, onBackspace, onEnter, onClose, onSwitchToOS }
       animate={{ y: 0 }}
       exit={{ y: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-      className={`fixed bottom-0 left-0 right-0 z-[90] ${compact ? 'p-1' : 'p-2'} pb-[max(0.5rem,env(safe-area-inset-bottom))]
+      className={`fixed bottom-0 left-0 right-0 z-[90] w-full overflow-hidden ${compact ? 'p-1' : 'p-2'} pb-[max(0.5rem,env(safe-area-inset-bottom))]
         bg-gray-100/95 dark:bg-gray-900/95 backdrop-blur-md touch-none select-none
         border-t border-gray-300 dark:border-gray-700 shadow-2xl`}
     >
-      <div className={`max-w-md mx-auto ${compact ? 'space-y-1' : 'space-y-1.5'}`}>
+      <div className={`max-w-md w-full min-w-0 mx-auto ${compact ? 'space-y-1' : 'space-y-1.5'}`}>
         {rows.map((row, ri) => (
           <motion.div
             key={row.join('')}
@@ -107,7 +107,7 @@ const AnimatedKeyboard = ({ onKey, onBackspace, onEnter, onClose, onSwitchToOS }
             {ri === 3 && (
               <Key wide compact={compact} variant="func" onPress={symbols ? () => setSymbols(false) : tapShift}
                 title={symbols ? 'Back to letters' : caps ? 'Caps lock' : 'Shift'}>
-                {symbols ? 'abc' : caps ? <ArrowBigUpDash className="w-5 h-5" /> : <ArrowBigUp className={`w-5 h-5 ${shift ? 'text-primary-500' : ''}`} />}
+                {symbols ? 'abc' : caps ? <ArrowBigUpDash className={compact ? 'w-4 h-4' : 'w-5 h-5'} /> : <ArrowBigUp className={`${compact ? 'w-4 h-4' : 'w-5 h-5'} ${shift ? 'text-primary-500' : ''}`} />}
               </Key>
             )}
             {row.map((k) => (
@@ -116,7 +116,7 @@ const AnimatedKeyboard = ({ onKey, onBackspace, onEnter, onClose, onSwitchToOS }
             ))}
             {ri === 3 && (
               <Key wide compact={compact} variant="func" onPress={onBackspace} title="Backspace">
-                <Delete className="w-5 h-5" />
+                <Delete className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
               </Key>
             )}
           </motion.div>
@@ -133,14 +133,14 @@ const AnimatedKeyboard = ({ onKey, onBackspace, onEnter, onClose, onSwitchToOS }
           </Key>
           {onSwitchToOS && (
             <Key compact={compact} variant="func" onPress={onSwitchToOS} title="Use device keyboard">
-              <Keyboard className="w-5 h-5" />
+              <Keyboard className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
             </Key>
           )}
           <Key compact={compact} variant="func" onPress={onClose} title="Hide keyboard">
-            <ChevronDown className="w-5 h-5" />
+            <ChevronDown className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
           </Key>
           <Key wide compact={compact} variant="action" onPress={onEnter} title="Enter">
-            <CornerDownLeft className="w-5 h-5" />
+            <CornerDownLeft className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
           </Key>
         </motion.div>
       </div>
