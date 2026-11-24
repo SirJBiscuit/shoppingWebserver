@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Delete, KeyboardHide, CornerDownLeft, ArrowBigUp, ArrowBigUpDash } from 'lucide-react';
+import { Delete, ChevronDown, CornerDownLeft, ArrowBigUp, ArrowBigUpDash } from 'lucide-react';
 
 /**
  * AnimatedKeyboard — on-screen keyboard with physical key-cap feel.
@@ -122,7 +122,7 @@ const AnimatedKeyboard = ({ onKey, onBackspace, onEnter, onClose }) => {
             <span className="text-gray-400 text-xs">space</span>
           </Key>
           <Key wide variant="func" onPress={onClose} title="Hide keyboard">
-            <KeyboardHide className="w-5 h-5" />
+            <ChevronDown className="w-5 h-5" />
           </Key>
           <Key wide variant="action" onPress={onEnter} title="Enter">
             <CornerDownLeft className="w-5 h-5" />
