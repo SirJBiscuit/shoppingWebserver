@@ -310,7 +310,7 @@ const Login = () => {
                 onClick={() => openBeta('login')}
                 className="w-full flex items-center gap-3 px-4 py-3.5 text-left text-sm text-gray-800 dark:text-gray-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors"
               >
-                <LogIn className="w-5 h-5 text-purple-500 shrink-0" />
+                <LogIn className="w-5 h-5 text-green-500 shrink-0" />
                 <span>
                   <span className="block font-medium">Beta tester sign in</span>
                   <span className="block text-xs text-gray-500 dark:text-gray-400">I already have a tester account</span>
