@@ -8,6 +8,10 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // axios defaults to no timeout — a stalled backend (deadlocked query,
+  // half-dead container) pends forever and every button looks dead.
+  // 20s turns a hang into a real error the UI can report.
+  timeout: 20000,
 });
 
 api.interceptors.request.use(

@@ -34,6 +34,14 @@ const Recipes = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [notice, setNotice] = useState(null); // {ok, text} — replaces alert() so failures are visible but non-blocking
+  // In-flight recipe actions — rows disable their buttons while their own
+  // request runs, so a slow API can't produce stacked duplicate calls.
+  const [busyIds, setBusyIds] = useState(() => new Set());
+  const markBusy = (id, on) => setBusyIds((s) => {
+    const n = new Set(s);
+    if (on) n.add(id); else n.delete(id);
+    return n;
+  });
 
   useEffect(() => {
     if (!notice) return;
@@ -64,12 +72,15 @@ const Recipes = () => {
   // Quick icon/image change — PATCHes image_url straight from the list.
   const updateRecipeIcon = async (value) => {
     if (!iconTarget) return;
+    markBusy(iconTarget.id, true);
     try {
       await api.patch(`/recipes/${iconTarget.id}`, { image_url: value });
       fetchRecipes();
     } catch (error) {
       console.error('Failed to update recipe icon:', error);
+      setNotice({ ok: false, text: 'Could not update the icon — server unreachable, try again' });
     } finally {
+      markBusy(iconTarget.id, false);
       setIconTarget(null);
     }
   };
@@ -103,21 +114,33 @@ const Recipes = () => {
   };
 
   const handleAddToShoppingList = async (recipeId) => {
+    if (busyIds.has(recipeId)) return;
+    markBusy(recipeId, true);
     try {
       await recipesAPI.recipeToShoppingList(recipeId, {});
       setNotice({ ok: true, text: 'Recipe added to shopping list!' });
     } catch (error) {
       console.error('Failed to add to shopping list:', error);
-      setNotice({ ok: false, text: 'Could not add recipe — server unreachable, try again' });
+      const timeout = error.code === 'ECONNABORTED';
+      setNotice({ ok: false, text: timeout
+        ? 'Server took too long — try again'
+        : 'Could not add recipe — server unreachable, try again' });
+    } finally {
+      markBusy(recipeId, false);
     }
   };
 
   const handleToggleFavorite = async (recipe) => {
+    if (busyIds.has(recipe.id)) return;
+    markBusy(recipe.id, true);
     try {
       await recipesAPI.updateRecipe(recipe.id, { is_favorite: !recipe.is_favorite });
       fetchRecipes();
     } catch (error) {
       console.error('Failed to update favorite:', error);
+      setNotice({ ok: false, text: 'Could not update favorite — server unreachable, try again' });
+    } finally {
+      markBusy(recipe.id, false);
     }
   };
 
@@ -158,6 +181,7 @@ const Recipes = () => {
     const id = deleteTarget?.id ?? deleteTarget;
     setDeleteTarget(null);
     if (!id) return;
+    markBusy(id, true);
     try {
       await recipesAPI.deleteRecipe(id);
       fetchRecipes();
@@ -165,7 +189,12 @@ const Recipes = () => {
     } catch (error) {
       console.error('Failed to delete recipe:', error);
       const status = error.response?.status;
-      setNotice({ ok: false, text: status ? `Delete failed — server error ${status}` : 'Delete failed — server unreachable, try again' });
+      const timeout = error.code === 'ECONNABORTED';
+      setNotice({ ok: false, text: timeout
+        ? 'Delete timed out — server is busy, try again'
+        : status ? `Delete failed — server error ${status}` : 'Delete failed — server unreachable, try again' });
+    } finally {
+      markBusy(id, false);
     }
   };
 
@@ -312,6 +341,7 @@ const Recipes = () => {
               ) : (
                 <RecipeListView
                   recipes={filteredRecipes}
+                  busyIds={busyIds}
                   onOpen={openRecipe}
                   onEdit={editRecipe}
                   onPickIcon={setIconTarget}
@@ -457,7 +487,7 @@ const Recipes = () => {
 };
 
 /** Searchable list view — click = view sheet; pencil = edit; icon = icon picker. */
-const RecipeListView = ({ recipes, onOpen, onEdit, onPickIcon, onToggleFavorite, onAddToList, onDelete }) => (
+const RecipeListView = ({ recipes, busyIds, onOpen, onEdit, onPickIcon, onToggleFavorite, onAddToList, onDelete }) => (
   <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
     <div
       className="divide-y divide-gray-100 dark:divide-gray-700 max-h-[560px] overflow-y-auto scrollbar-3d"
@@ -469,10 +499,14 @@ const RecipeListView = ({ recipes, onOpen, onEdit, onPickIcon, onToggleFavorite,
       {recipes.map((r) => {
         const mins = r.total_time || (r.prep_time || 0) + (r.cook_time || 0);
         const isEmoji = r.image_url?.startsWith('emoji:');
+        const busy = busyIds?.has(r.id);
+        // Shared control styling — real button affordances, ≥32px targets.
+        const ctl = `p-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed`;
         return (
           <div key={r.id} onClick={() => onOpen(r)}
-            className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/40 cursor-pointer">
+            className={`flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/40 cursor-pointer ${busy ? 'opacity-70' : ''}`}>
             <button
+              type="button"
               onClick={(e) => { e.stopPropagation(); onPickIcon(r); }}
               title="Change icon / image"
               className="w-9 h-9 flex-shrink-0 rounded-lg flex items-center justify-center text-xl hover:bg-gray-100 dark:hover:bg-gray-600 hover:ring-2 ring-primary-400 transition-shadow overflow-hidden"
@@ -491,18 +525,20 @@ const RecipeListView = ({ recipes, onOpen, onEdit, onPickIcon, onToggleFavorite,
             {r.avg_rating > 0 && (
               <span className="text-[10px] text-amber-500 flex-shrink-0">★ {r.avg_rating}</span>
             )}
-            <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(r); }} className="p-1.5" title="Toggle favorite">
-              <Star className={`w-4 h-4 ${r.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
-            </button>
-            <button onClick={(e) => { e.stopPropagation(); onEdit(r); }} className="p-1.5 text-gray-400 hover:text-primary-600" title="Edit recipe">
-              <Edit2 className="w-4 h-4" />
-            </button>
-            <button onClick={(e) => { e.stopPropagation(); onAddToList(r.id); }} className="p-1.5 text-primary-600 dark:text-primary-400" title="Add ingredients to shopping list">
-              <ShoppingCart className="w-4 h-4" />
-            </button>
-            <button onClick={(e) => { e.stopPropagation(); onDelete(r.id); }} className="p-1.5 text-red-500" title="Delete recipe">
-              <Trash2 className="w-4 h-4" />
-            </button>
+            <div className="flex items-center flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+              <button type="button" disabled={busy} onClick={() => onToggleFavorite(r)} className={ctl} title="Toggle favorite">
+                <Star className={`w-4 h-4 ${r.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400 hover:text-yellow-400'}`} />
+              </button>
+              <button type="button" disabled={busy} onClick={() => onEdit(r)} className={`${ctl} text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30`} title="Edit recipe">
+                <Edit2 className="w-4 h-4" />
+              </button>
+              <button type="button" disabled={busy} onClick={() => onAddToList(r.id)} className={`${ctl} text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/30`} title="Add ingredients to shopping list">
+                <ShoppingCart className="w-4 h-4" />
+              </button>
+              <button type="button" disabled={busy} onClick={() => onDelete(r.id)} className={`${ctl} text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30`} title="Delete recipe">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         );
       })}

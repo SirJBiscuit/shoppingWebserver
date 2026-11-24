@@ -680,3 +680,10 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Keys pop UP with a primary-color glow (scale 1.12, ring + sky shadow) when pressed/swiped over instead of pressing down; keys slimmed to h-8/h-10 so the kb sits well under OS-kb height.
 - Login.js deselecting fixes: readOnly removed (it caused iOS select/blur weirdness — inputMode="none" alone suppresses the OS kb), field labels no longer dismiss the kb, scrollIntoView only fires on first open (not every field switch).
 - Beta access dropdown (uncommitted earlier): BetaAccessModal gains initialMode; the beta button on Login opens an autoPlacement Popup (bottom-sheet on mobile) choosing "Beta tester sign in" vs "New beta tester".
+
+## Recipe book list-mode controls — hang-proofing + button fixes
+- Root cause candidate found: api.js axios instance had NO timeout — any stalled backend request pends forever, so control buttons looked dead and the page felt unresponsive. Added timeout: 20000 — hangs now surface as real errors (ECONNABORTED → "took too long" notice) instead of a silent dead page.
+- busyIds Set tracks in-flight recipe actions: a row disables its control buttons (opacity drop) while its own request runs — no stacked duplicate PATCH/POST/DELETE calls from impatient taps.
+- Silent failures surfaced: toggle-favorite and icon-update errors previously only console.error'd — both now show the notice banner like delete/add already did.
+- List-mode row buttons: type="button" added, targets bumped p-1.5→p-2 (~32px), hover backgrounds for real affordance, controls wrapped in a stopPropagation group so taps between buttons don't open the view modal.
+- Verified backend already hardened: numeric-id guards on /:id routes, COALESCE PATCH (partial updates safe, sort_order kept), FK-discovering DELETE in a transaction, NULL item_name skip in to-shopping-list, pool clients released in finally.
