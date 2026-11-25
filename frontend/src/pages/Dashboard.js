@@ -2736,6 +2736,7 @@ const Dashboard = () => {
                 storeName={activeList?.store_name}
                 onLookForThis={handleLookForThis}
                 onQuantityChange={handleQuantityChange}
+                onPriceUpdate={handlePriceUpdate}
                 onEdit={async (updatedItem) => {
                   try {
                     console.log('Updating item:', updatedItem);
@@ -3433,6 +3434,7 @@ const Dashboard = () => {
             storeName={activeList?.store_name}
             onLookForThis={handleLookForThis}
             onQuantityChange={handleQuantityChange}
+                onPriceUpdate={handlePriceUpdate}
             onEdit={async (updatedItem) => {
               try {
                 const updateData = {

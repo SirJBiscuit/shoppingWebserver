@@ -27,11 +27,12 @@ router.get('/', authenticateToken, async (req, res) => {
     // The Recipe Book shows the user's own recipes — public/community recipes
     // only join when a surface explicitly asks for them (include_public=true).
     let query = `
-      SELECT r.*, 
+      SELECT r.*, u.username AS added_by_name,
         (SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id) as ingredient_count,
         (SELECT ROUND(AVG(rating)::numeric, 1) FROM recipe_ratings WHERE recipe_id = r.id) as avg_rating,
         (SELECT COUNT(*) FROM recipe_ratings WHERE recipe_id = r.id) as rating_count
       FROM recipes r
+      LEFT JOIN users u ON r.user_id = u.id
       WHERE (r.user_id = $1${include_public === 'true' ? ' OR r.is_public = true' : ''})
     `;
     const params = [req.user.id];

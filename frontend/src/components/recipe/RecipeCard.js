@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, Users, Heart, ChefHat, ShoppingCart, Eye, Trash2 } from 'lucide-react';
+import { Clock, Users, Heart, ChefHat, ShoppingCart, Eye, Trash2, CalendarPlus } from 'lucide-react';
 import RecipeCategoryBadge, { DifficultyBadge, CanMakeBadge } from './RecipeCategoryBadge';
 
 /**
@@ -30,6 +30,8 @@ const RecipeCard = ({
     servings,
     is_favorite,
     ingredient_count,
+    created_at,
+    added_by_name,
     // Inventory comparison data (if available)
     canMake,
     matchPercentage,
@@ -131,6 +133,18 @@ const RecipeCard = ({
             <div className="flex items-center gap-1">
               <ChefHat size={16} />
               <span>{ingredient_count} ingredients</span>
+            </div>
+          )}
+          {created_at && (
+            <div
+              className="flex items-center gap-1 text-xs"
+              title={`Added ${new Date(created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}${added_by_name ? ` by ${added_by_name}` : ''}`}
+            >
+              <CalendarPlus size={14} />
+              <span>
+                {new Date(created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                {added_by_name ? ` · ${added_by_name}` : ''}
+              </span>
             </div>
           )}
         </div>

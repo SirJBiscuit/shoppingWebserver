@@ -5,7 +5,8 @@ import CustomEditPanel from './CustomEditPanel';
 import CustomContextMenu from './CustomContextMenu';
 import FavoritePicker from './FavoritePicker';
 import { getFavorites } from '../api/mdl';
-import { Portal } from '../utils/autoPlacement';
+import { Portal, useIsMobile } from '../utils/autoPlacement';
+import CustomNumberPad from './CustomNumberPad';
 // import ItemTooltip from './ItemTooltip'; // Component doesn't exist
 // import SmartSuggestionTooltip from './SmartSuggestionTooltip'; // Component doesn't exist
 import { detectIcon, detectCategory, canonicalizeCategory, getCategoryIcon, getCategoryOrder } from '../utils/categoryDetector';
@@ -78,6 +79,7 @@ const ItemListContent = (props) => {
     storeName = null, 
     onLookForThis,
     onQuantityChange,
+    onPriceUpdate,
     onToggleCategories,
     ghostItems = [],
     onGhostAdd,
@@ -341,6 +343,7 @@ const ItemListContent = (props) => {
               onLookForThis={onLookForThis}
               onEdit={onEdit}
               onQuantityChange={onQuantityChange}
+              onPriceUpdate={onPriceUpdate}
               priceCompare={priceCompare}
               showButtonLabels={showButtonLabels}
               showCheckboxes={showCheckboxes}
@@ -398,6 +401,7 @@ const ItemListContent = (props) => {
                   onEdit={onEdit}
                   onLookForThis={onLookForThis}
                   onQuantityChange={onQuantityChange}
+                  onPriceUpdate={onPriceUpdate}
                   priceCompare={priceCompare}
                   showButtonLabels={showButtonLabels}
                   showCheckboxes={showCheckboxes}
@@ -579,7 +583,7 @@ const StorePriceBadge = ({ itemName, currentPrice, priceCompare }) => {
   );
 };
 
-const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit, onQuantityChange, priceCompare, showButtonLabels, favorites, onOpenFavorites, onOpenEdit, onQuickIcon }) => {
+const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit, onQuantityChange, priceCompare, showButtonLabels, favorites, onOpenFavorites, onOpenEdit, onQuickIcon, onPriceUpdate }) => {
   const [editingAisle, setEditingAisle] = useState(false);
   const [catAnchor, setCatAnchor] = useState(null); // anchor for animated category popup
 
@@ -603,8 +607,24 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
   const [smartSuggestion, setSmartSuggestion] = useState(null);
   const [showSuggestion, setShowSuggestion] = useState(true);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showPricePad, setShowPricePad] = useState(false);
+  const [padPrice, setPadPrice] = useState('');
+  const isMobile = useIsMobile();
   const itemRef = useRef(null);
   const iconRef = useRef(null);
+
+  const openPricePad = (e) => {
+    e.stopPropagation();
+    setPadPrice(item.price != null ? String(item.price) : '');
+    setShowPricePad(true);
+  };
+
+  const savePricePad = async () => {
+    const parsed = parseFloat(padPrice);
+    const price = !isNaN(parsed) && parsed >= 0 ? parsed : 0;
+    setShowPricePad(false);
+    if (onPriceUpdate) await onPriceUpdate(item, price);
+  };
 
   // DB returns quantity as "1.00" — must be a number for +/- to work
   const itemQty = parseFloat(item.totalQuantity) || 1;
@@ -945,8 +965,28 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                         </span>
                       )}
                       {item.totalPrice > 0 && (
-                        <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-bold">
-                          ${item.totalPrice.toFixed(2)}
+                        onPriceUpdate ? (
+                          <button
+                            type="button"
+                            onClick={openPricePad}
+                            title="Tap to edit price"
+                            className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-bold cursor-pointer hover:bg-green-200 dark:hover:bg-green-800/50 active:scale-95 transition-all"
+                          >
+                            ${item.totalPrice.toFixed(2)}
+                          </button>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-bold">
+                            ${item.totalPrice.toFixed(2)}
+                          </span>
+                        )
+                      )}
+                      {item.added_at && (
+                        <span
+                          className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700/60 text-gray-500 dark:text-gray-400 rounded-full text-[10px] font-medium"
+                          title={`Added ${new Date(item.added_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}${item.added_by_name ? ` by ${item.added_by_name}` : ''}`}
+                        >
+                          {new Date(item.added_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          {item.added_by_name ? ` · ${item.added_by_name}` : ''}
                         </span>
                       )}
                       <StorePriceBadge
@@ -1163,6 +1203,27 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
           onSelect={applyCategory}
           onClose={() => setCatAnchor(null)}
         />
+      )}
+
+      {/* Price badge numpad — mobile docks bottom, desktop/tablet centered */}
+      {showPricePad && (
+        <Portal>
+          <>
+            <div className="fixed inset-0 z-[100] bg-black/10" onClick={() => setShowPricePad(false)} />
+            <div className={isMobile
+              ? 'fixed bottom-0 left-0 right-0 z-[101]'
+              : 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101]'}>
+              <CustomNumberPad
+                value={padPrice}
+                onChange={setPadPrice}
+                device={isMobile ? 'mobile' : 'desktop'}
+                onSave={savePricePad}
+                onCancel={() => setShowPricePad(false)}
+                maxDigits={6}
+              />
+            </div>
+          </>
+        </Portal>
       )}
     </div>
   );

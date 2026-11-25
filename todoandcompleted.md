@@ -758,3 +758,10 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Every AdminStatsStrip tile is a button: testers/suspended/errors → BTCS float panel (beta:openBtcs); pins/bugs/ideas/chat/polls → admin viewer (beta:openViewer); users/uptime → /admin; codes → /admin/beta; items → /stats; MDL tiles → /admin/products; code tiles → listzy:open-changelog.
 - Beta stack gained its own collapse chevron (red, below the Pin button) — testers and admins alike can fold it to the edge restore tab (betaStackHidden persisted).
 - Color coding: app column collapse = purple, beta stack collapse + restore tab = red, admin rail collapse tab = amber.
+
+## Price badge numpad + item/recipe attribution + mobile collapse fixes
+- ItemList price badge is now a button: opens CustomNumberPad (mobile bottom-sheet, desktop/tablet centered, Portal-rendered) and saves via Dashboard's existing handlePriceUpdate -> shoppingAPI.updateItem path. Grouped items still show the aggregate total; editing applies the per-unit price.
+- Inline "added on" badge on list items: shopping_list_items.added_at rendered as a small date chip (tooltip shows full date + added_by_name).
+- Migration 118: added_by column on shopping_list_items (FK users, indexed) — seeds household "who added what" profiles. INSERT now stamps req.user.id; GET /lists/:id joins users for added_by_name.
+- Recipes: GET /recipes joins users for added_by_name; RecipeCard shows a CalendarPlus date chip with "Added <date> by <name>" tooltip.
+- Mobile/tablet collapse fixes: admin rail + BTCS float trigger now render on md+ (tablets), chevrons got 44px tap targets, beta collapse chevron on all sizes.

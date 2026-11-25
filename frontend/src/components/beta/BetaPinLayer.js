@@ -2600,8 +2600,9 @@ const BetaPinLayer = () => {
               testers and admins; persisted via betaStackHidden). */}
           <div className="flex flex-col w-12 items-center gap-1">
             <button
+              type="button"
               onClick={() => setStackHidden(true)}
-              className="w-8 h-8 rounded-full shadow-lg flex items-center justify-center transition bg-red-500/80 text-white hover:bg-red-500"
+              className="w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition bg-red-500/80 text-white hover:bg-red-500 touch-manipulation"
               title="Hide beta controls — slim tab stays on the edge"
             >
               {floatSide === 'left'
@@ -2617,7 +2618,7 @@ const BetaPinLayer = () => {
         <button
           ref={restoreRef}
           onClick={() => setStackHidden(false)}
-          className={`fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-lg border-l-0' : 'right-0 rounded-l-lg border-r-0'} z-[46] bg-slate-900/90 border border-red-500/50 px-1 py-3 text-red-400 hover:text-red-300 shadow-xl transition-transform duration-300`}
+          className={`fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-lg border-l-0' : 'right-0 rounded-l-lg border-r-0'} z-[46] bg-slate-900/90 border border-red-500/50 px-2 py-4 text-red-400 hover:text-red-300 shadow-xl transition-transform duration-300 touch-manipulation`}
           title="Show beta controls"
           style={{ bottom: betaOnly + 4, transform: `translateX(${-panelShift}px)` }}
         >
@@ -2676,12 +2677,13 @@ const BetaPinLayer = () => {
       {isAdmin && canUse && !dropMode && !moving && (
         <div
           ref={railRef}
-          className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-0 lg:left-72' : 'right-0'} z-[46] flex-col items-center gap-1 transition-all duration-300`}
+          className={`hidden md:flex fixed ${floatSide === 'left' ? 'left-0 lg:left-72' : 'right-0'} z-[46] flex-col items-center gap-1 transition-all duration-300`}
           style={{ bottom: railBelow + 68, transform: `translateX(${-panelShift}px)` }}
         >
           <button
+            type="button"
             onClick={() => setRailCollapsed(!railCollapsed)}
-            className={`bg-slate-900/90 border border-amber-600/50 ${floatSide === 'left' ? 'rounded-r-lg border-l-0' : 'rounded-l-lg border-r-0'} px-1.5 py-1 text-amber-400 hover:text-amber-300 shadow-xl transition`}
+            className={`bg-slate-900/90 border border-amber-600/50 ${floatSide === 'left' ? 'rounded-r-lg border-l-0' : 'rounded-l-lg border-r-0'} px-2 py-1.5 text-amber-400 hover:text-amber-300 shadow-xl transition touch-manipulation`}
             title={railCollapsed ? 'Show admin rail' : 'Hide admin rail'}
           >
             {floatSide === 'left'
@@ -2744,7 +2746,7 @@ const BetaPinLayer = () => {
       {/* Service status popover — sits beside the admin rail */}
       {isAdmin && svcOpen && !dropMode && !moving && !railCollapsed && (
         <div
-          className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-14 lg:left-[328px]' : 'right-14'} z-[46] flex-col w-64 bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl overflow-hidden transition-all duration-300`}
+          className={`hidden md:flex fixed ${floatSide === 'left' ? 'left-14 lg:left-[328px]' : 'right-14'} z-[46] flex-col w-64 bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl overflow-hidden transition-all duration-300`}
           style={{ bottom: railBelow + 4, transform: `translateX(${-panelShift}px)` }}
         >
           <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800">
