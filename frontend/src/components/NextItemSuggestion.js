@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, Plus, Minus, Eye, FileText, AlertCircle, Store, HelpCircle, DollarSign, ArrowLeft, MoreHorizontal } from 'lucide-react';
+import WidgetChip from './WidgetChip';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
@@ -670,7 +671,8 @@ const NextItemSuggestionContent = ({
                 </button>
               </div>
 
-              {/* Checkbox Button */}
+              {/* Found checkbox — same 3D spring check as the list rows,
+                  scaled up so it stays the primary action on this card */}
               <motion.button
                 ref={checkboxRef}
                 onClick={async () => {
@@ -680,7 +682,7 @@ const NextItemSuggestionContent = ({
                   if (!isNaN(priceValue) && priceValue >= 0 && onPriceUpdate) {
                     await onPriceUpdate(nextItem.id, priceValue);
                   }
-                  
+
                   // Trigger checkmark animation from this button to the item's checkbox
                   if (triggerCheckmarkAnimation && checkboxRef.current && nextItem) {
                     // Find the target checkbox in the item list
@@ -689,35 +691,51 @@ const NextItemSuggestionContent = ({
                       triggerCheckmarkAnimation(nextItem, checkboxRef.current, targetCheckbox);
                     }
                   }
-                  
+
                   if (onCheck) onCheck();
                 }}
-                className={`flex items-center justify-center gap-2 sm:gap-3 px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg sm:rounded-xl transition-all flex-shrink-0 shadow-md hover:shadow-lg ${
-                  isChecked
-                    ? 'bg-green-500'
-                    : 'bg-white dark:bg-gray-800 hover:bg-green-50 dark:hover:bg-green-900/20'
-                }`}
-                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-3 flex-shrink-0 select-none"
+                whileTap={{ scale: 0.92 }}
+                title={isChecked ? 'Found!' : 'Mark item as found'}
               >
-                {isChecked && <Check className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={4} />}
+                <motion.span
+                  animate={isChecked
+                    ? { scale: [1, 1.25, 0.95, 1.05, 1], rotate: [0, -10, 10, -5, 0] }
+                    : { scale: 1 }}
+                  transition={{ duration: 0.45, ease: 'easeOut' }}
+                  className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl border-2 border-b-4 flex items-center justify-center transition-colors ${
+                    isChecked
+                      ? 'bg-green-500 border-green-500 border-b-green-700'
+                      : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-500 border-b-gray-400 dark:border-b-gray-600 hover:border-green-400 dark:hover:border-green-500 hover:border-b-green-500'
+                  }`}
+                >
+                  {isChecked && (
+                    <motion.span
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+                    >
+                      <Check className="w-6 h-6 text-white" strokeWidth={4} />
+                    </motion.span>
+                  )}
+                </motion.span>
                 <span className={`font-bold text-sm sm:text-base ${
-                  isChecked ? 'text-white' : 'text-gray-700 dark:text-gray-300'
+                  isChecked ? 'text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'
                 }`}>
                   {isChecked ? 'Found!' : 'Mark Found'}
                 </span>
               </motion.button>
-              
-              {/* Aisle button - next to Mark Found */}
+
+              {/* Aisle chip - next to Mark Found */}
               {storeName && (
-                <motion.button
+                <WidgetChip
+                  icon={MapPin}
+                  label="Aisle"
+                  color="purple"
                   onClick={() => setShowAisleReport(true)}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg min-h-[44px]"
-                  whileTap={{ scale: 0.95 }}
                   title="Report which aisle you found this in"
-                >
-                  <MapPin className="w-5 h-5" />
-                  <span className="font-bold text-sm sm:text-base">Aisle</span>
-                </motion.button>
+                  className="!px-4 !py-2.5 !text-sm sm:!text-base min-h-[44px]"
+                />
               )}
             </div>
             

@@ -5,7 +5,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useCartAnimation } from '../contexts/CartAnimationContext';
 import { useOptimization } from '../contexts/OptimizationContext';
 import { useEditor } from '../contexts/EditorContext';
-import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
+import { DragDropContext, Draggable } from 'react-beautiful-dnd';
 import {
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, CheckCircle, Edit2, X,
   AlertCircle, TrendingUp, Package, DollarSign, ChefHat, Settings, 
@@ -85,6 +86,8 @@ import HidableWidget from '../components/HidableWidget';
 import AdminStatsStrip from '../components/admin/AdminStatsStrip';
 import useHiddenWidgets from '../hooks/useHiddenWidgets';
 import useWidgetOrder from '../hooks/useWidgetOrder';
+import StrictModeDroppable from '../components/StrictModeDroppable';
+import WidgetChip from '../components/WidgetChip';
 import useScrollSound from '../hooks/useScrollSound';
 import { playSound } from '../utils/soundEffects';
 import { savePreference, getPreference, trackItem, reportAisle } from '../api/mdl';
@@ -93,33 +96,55 @@ import { Portal } from '../utils/autoPlacement';
 // SortableWidget — one Reorder.Item per sidebar widget. The drag is
 // handle-only (dragListener off) so buttons/inputs inside widgets keep
 // working; the grip lives in HidableWidget's top-left corner.
-// Default sidebar widget order — useWidgetOrder merges the saved
-// arrangement with this list (new widgets append at the end).
-const SIDEBAR_WIDGETS = ['animated-cart', 'budget-tracker', 'leveling', 'pantry-quick-view'];
+// Widget zones — the dashboard grid's two columns are independent
+// droppables, so any widget can live in either. Default placements;
+// useWidgetOrder merges the saved arrangement with these lists.
+const DEFAULT_MAIN_WIDGETS = [
+  'admin-live-stats', 'add-items', 'list-recipes', 'looking-for-next',
+  'smart-suggestions', 'item-search', 'item-list', 'list-actions',
+];
+const DEFAULT_SIDEBAR_WIDGETS = ['animated-cart', 'budget-tracker', 'leveling', 'pantry-quick-view'];
 
-const SortableWidget = ({ id, label, hidden, onHide, onUnhide, children }) => {
-  const dragControls = useDragControls();
-  return (
-    <Reorder.Item
-      as="div"
-      value={id}
-      dragListener={false}
-      dragControls={dragControls}
-      className="relative"
-    >
-      <HidableWidget
-        id={id}
-        label={label}
-        hidden={hidden}
-        onHide={onHide}
-        onUnhide={onUnhide}
-        dragControls={dragControls}
-      >
-        {children}
-      </HidableWidget>
-    </Reorder.Item>
-  );
+const WIDGET_LABELS = {
+  'admin-live-stats': 'Live Stats',
+  'add-items': 'Add Items',
+  'list-recipes': 'List Recipes',
+  'looking-for-next': 'Looking for Next',
+  'smart-suggestions': 'Smart Suggestions',
+  'item-search': 'Item Search',
+  'item-list': 'Shopping List',
+  'list-actions': 'Trip Actions',
+  'animated-cart': 'Shopping Cart',
+  'budget-tracker': 'Budget Tracker',
+  'leveling': 'Leveling',
+  'pantry-quick-view': 'Home Inventory',
 };
+
+// DraggableWidget — one RBD <Draggable> per widget. The drag is
+// handle-only via the grip in HidableWidget's top-left corner, so
+// buttons/inputs inside widgets keep working.
+const DraggableWidget = ({ id, index, label, hidden, onHide, onUnhide, children }) => (
+  <Draggable draggableId={id} index={index}>
+    {(drag, snapshot) => (
+      <div
+        ref={drag.innerRef}
+        {...drag.draggableProps}
+        className={`${snapshot.isDragging ? 'z-30' : ''}`}
+      >
+        <HidableWidget
+          id={id}
+          label={label}
+          hidden={hidden}
+          onHide={onHide}
+          onUnhide={onUnhide}
+          dragHandleProps={drag.dragHandleProps}
+        >
+          {children}
+        </HidableWidget>
+      </div>
+    )}
+  </Draggable>
+);
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -131,7 +156,12 @@ const Dashboard = () => {
   const { hasFeature } = useFeatureFlags();
   const { isHidden, hide, unhide } = useHiddenWidgets();
   const { orderedIds: widgetOrder, reorder: reorderWidgets } = useWidgetOrder();
-  const sidebarOrder = widgetOrder('dashboard-sidebar', SIDEBAR_WIDGETS);
+  const sidebarOrder = widgetOrder('dashboard-sidebar', DEFAULT_SIDEBAR_WIDGETS);
+  const mainOrder = widgetOrder('dashboard-main', DEFAULT_MAIN_WIDGETS);
+  const addItemsChips = widgetOrder('additems-chips', [
+    'shortcuts',
+    ...(hasFeature('price_learning') ? ['learn-prices'] : []),
+  ]);
   const dashboardProps = widgetProperties['dashboard'] || {};
   const addButtonRef = useRef(null);
   const rootRef = useRef(null);
@@ -1791,459 +1821,42 @@ const Dashboard = () => {
     );
   }
 
-  return (
-    <PageTransition>
-      {/* AVE Editor Mode Indicator */}
-      <EditorModeIndicator isActive={isEditorActive} targetArea="Dashboard & Widgets" />
-      
-      {/* AVE (Admin Visual Editor) Toolbar - Shows when editor is active */}
-      <EditorToolbar />
-      
-      {/* AVE Properties Panel - Shows when widget is selected */}
-      <PropertiesPanel />
-      
-      <div ref={rootRef} className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
-        {/* Sidebar Navigation */}
-        <div data-tutorial="sidebar">
-          <Sidebar onAction={(action) => {
-            if (action === 'stores') setShowStoreManager(true);
-            else if (action === 'share') setShowShare(true);
-            else if (action === 'notepad') openNotepad();
-          }} />
-        </div>
+  // ---- Widget zones (dashboard-main / dashboard-sidebar) ------------
+  // Any widget can live in either column; order + zone persist per user.
+  const isWidgetAvailable = (wid) => {
+    switch (wid) {
+      case 'admin-live-stats': return !!user?.isAdmin;
+      case 'list-recipes': return !!activeList;
+      case 'looking-for-next': return items.length > 0 && !!getNextItem();
+      case 'item-search':
+      case 'list-actions': return items.length > 0;
+      default: return true;
+    }
+  };
+  const mainWidgets = mainOrder.filter(isWidgetAvailable);
+  const sidebarWidgets = sidebarOrder.filter(isWidgetAvailable);
 
-        {/* Main Content */}
-        <div className="flex-1 min-w-0">
-          {/* Simple Top Bar for Notifications and Logout */}
-          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 pl-16 pr-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
-            {/* Version Indicator - Left Side (with padding for mobile menu button) */}
-            {hasFeature('changelog') && (
-            <button
-              onClick={() => setShowChangelog(true)}
-              className="flex items-center space-x-2 text-xs sm:text-sm hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-colors"
-              title="View Changelog & Features"
-            >
-              <div className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
-                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="font-medium hidden sm:inline">v{versionInfo.version}</span>
-              </div>
-            </button>
-            )}
+  const handleWidgetDragEnd = (result) => {
+    const { source, destination, draggableId, type } = result;
+    if (!destination || type !== 'widget') return;
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+    const orderFor = (z) => (z === 'dashboard-sidebar' ? sidebarWidgets : mainWidgets);
+    const srcIds = [...orderFor(source.droppableId)];
+    const dstIds = source.droppableId === destination.droppableId ? srcIds : [...orderFor(destination.droppableId)];
+    srcIds.splice(source.index, 1);
+    dstIds.splice(destination.index, 0, draggableId);
+    reorderWidgets(source.droppableId, srcIds);
+    if (dstIds !== srcIds) reorderWidgets(destination.droppableId, dstIds);
+  };
 
-            {/* User-facing updates are handled solely by the UpdateBanner
-                popup (build-hash change → "Update now" reload). */}
-
-            {/* AVE (Admin Visual Editor) Toggle - Admin Only */}
-            {user?.isAdmin && (
-              <button
-                onClick={toggleEditor}
-                className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all duration-200 ${
-                  isEditorActive
-                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-                title={isEditorActive ? 'AVE (Admin Visual Editor) ON' : 'AVE (Admin Visual Editor) OFF'}
-              >
-                <Wand2 className={`w-4 h-4 sm:w-5 sm:h-5 ${isEditorActive ? 'animate-pulse' : ''}`} />
-                <span className="hidden md:inline font-medium text-sm">
-                  {isEditorActive ? 'AVE' : 'AVE'}
-                </span>
-              </button>
-            )}
-
-            {/* Right Side - Help, Cache, Optimization Toggle, Notifications and Logout */}
-            <div className="flex items-center space-x-2 sm:space-x-4" data-tutorial="top-toolbar">
-              {/* Help Button */}
-              <HelpButton userId={user?.id || user?.username} />
-              
-              {/* Cache Refresh Button — gated: admins can hide from beta testers */}
-              {hasFeature('clear_cache') && (
-              <button
-                onClick={() => {
-                  confirm('Clear app cache and reload?', () => {
-                    // Preserve auth token and user data
-                    const token = localStorage.getItem('token');
-                    const userId = localStorage.getItem('userId');
-                    const username = localStorage.getItem('username');
-                    
-                    // Clear everything
-                    localStorage.clear();
-                    sessionStorage.clear();
-                    
-                    // Restore auth data
-                    if (token) localStorage.setItem('token', token);
-                    if (userId) localStorage.setItem('userId', userId);
-                    if (username) localStorage.setItem('username', username);
-                    
-                    // Reload
-                    window.location.reload();
-                  }, null, 'Clear Cache');
-                }}
-                className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-                title="Clear Cache & Reload (preserves login)"
-              >
-                <RefreshCw className="w-5 h-5" />
-              </button>
-              )}
-              
-              {/* Console Viewer (for debugging on tablets) — gated */}
-              {hasFeature('console_viewer') && <ConsoleViewer />}
-              
-              {/* Optimization Mode Toggle */}
-              <button
-                onClick={toggleOptimization}
-                className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all duration-200 ${
-                  optimizationMode
-                    ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-                title={optimizationMode ? 'Optimization Mode ON (Faster Performance)' : 'Optimization Mode OFF (Full Features)'}
-              >
-                <Zap className={`w-4 h-4 sm:w-5 sm:h-5 ${optimizationMode ? 'animate-pulse' : ''}`} />
-                <span className="hidden md:inline font-medium text-sm">
-                  {optimizationMode ? 'Optimized' : 'Full Mode'}
-                </span>
-              </button>
-              
-              <NotificationCenter />
-              <button
-                onClick={logout}
-                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
-                title="Logout"
-              >
-                <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline font-medium text-sm">Logout</span>
-              </button>
-            </div>
-          </div>
-
-          <main className="p-4 lg:p-8">
-            <div className="max-w-7xl mx-auto">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <EditableContainer
-              isEditorActive={isEditorActive}
-              componentName="Dashboard"
-              onSelect={() => selectWidget('dashboard', 'dashboard')}
-              isSelected={selectedWidget?.id === 'dashboard'}
-            >
-              <div 
-                className="card"
-                style={{
-                  backgroundColor: dashboardProps.backgroundColor || undefined,
-                  borderRadius: dashboardProps.borderRadius ? `${dashboardProps.borderRadius}px` : undefined
-                }}
-              >
-              {/* Shopping List Header */}
-              {(dashboardProps.showHeader !== false) && (
-              <div className={dashboardProps.compactMode ? 'mb-3' : 'mb-6'}>
-                {/* Title and Dropdown Row */}
-                {(dashboardProps.showListSelector !== false) && (
-                <div className={`flex items-center justify-between ${dashboardProps.compactMode ? 'mb-2' : 'mb-4'}`}>
-                  {/* Wraps on phones/tablets — the selector drops to a full-width row
-                      instead of overflowing the card edge */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 flex-1 min-w-0">
-                    <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white shrink-0">Shopping List</h2>
-                    {lists.length > 0 && (
-                      <div data-tutorial="list-dropdown" className="min-w-0 flex-1 basis-48 sm:max-w-xs">
-                        <CustomDropdownList
-                          items={lists}
-                          value={activeList}
-                          onChange={(list) => setActiveList(list)}
-                          renderValue={(list) => (
-                            <span className="flex items-center gap-2 min-w-0">
-                              <span className="truncate">{list.name} ({list.item_count || 0} items)</span>
-                              {list.id === activeList?.id && items.length > 0 && (
-                                <span className={`flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full border ${
-                                  checkedCount === items.length
-                                    ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700'
-                                    : checkedCount > 0
-                                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700'
-                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border-gray-300 dark:border-gray-600'
-                                }`}>
-                                  {checkedCount}/{items.length}
-                                </span>
-                              )}
-                            </span>
-                          )}
-                          renderItem={(list) => (
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex flex-col min-w-0">
-                                <span className="font-medium truncate">{list.name}</span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">
-                                  {list.item_count || 0} items
-                                </span>
-                              </div>
-                              {/* role="button" span, not <button>: renderItem sits
-                                  inside the dropdown's own <button> — nesting a real
-                                  one is invalid HTML. stopPropagation keeps the row
-                                  from also selecting the list. */}
-                              {lists.length > 1 && (
-                                <span
-                                  role="button"
-                                  tabIndex={0}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    deleteList(list.id);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      deleteList(list.id);
-                                    }
-                                  }}
-                                  className="tap-target p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/30 transition-colors flex-shrink-0"
-                                  title={`Delete "${list.name}"`}
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          searchable={lists.length > 5}
-                          searchPlaceholder="Search lists..."
-                          onAddNew={() => setShowNewListModal(true)}
-                          addNewLabel="New List"
-                          menuFooter={(close) => (
-                            <div className="py-1">
-                              <button
-                                type="button"
-                                onClick={() => { close(); setSmartSort(!smartSort); }}
-                                className={`w-full px-4 py-2.5 flex items-center gap-2 text-sm transition-colors ${
-                                  smartSort
-                                    ? 'text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                                }`}
-                              >
-                                <ArrowUpDown className="w-4 h-4" />
-                                {smartSort
-                                  ? (activeList?.store_name ? `Sorted by ${activeList.store_name} aisles` : 'Sorted by store layout')
-                                  : (activeList?.store_name ? `Sort by ${activeList.store_name} aisles` : 'Sort by store layout')}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => { close(); setListViewMode(!hideCategories); }}
-                                className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                              >
-                                {hideCategories ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                                {hideCategories ? 'Show categories' : 'Hide categories'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => { close(); loadCompletedLists(); }}
-                                className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                              >
-                                <History className="w-4 h-4" />
-                                Recover completed lists
-                              </button>
-                              {lists.length > 1 && activeList && (
-                                <>
-                                  <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
-                                  <button
-                                    type="button"
-                                    onClick={() => { close(); deleteList(activeList.id); }}
-                                    className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                    Delete this list
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          )}
-                          className="w-full"
-                        />
-                      </div>
-                    )}
-                    {/* New list — compact + beside the selector; the full
-                        "New List" option also lives inside the dropdown */}
-                    <button
-                      type="button"
-                      onClick={() => setShowNewListModal(true)}
-                      className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-primary-600 hover:border-primary-400 hover:bg-primary-50 dark:hover:text-primary-400 dark:hover:border-primary-600 dark:hover:bg-primary-900/20 transition-colors flex-shrink-0"
-                      title="New list"
-                      data-tutorial="new-list-button"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-                )}
-
-                {/* Active List Header - Ultra Compact Mobile */}
-                {activeList && (dashboardProps.showHeader !== false) && (
-                  <div className="mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl flex-shrink-0">📋</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base sm:text-lg font-bold text-primary-600 dark:text-primary-400 truncate">
-                            {activeList.name}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setNewListName(activeList.name);
-                              setNewListStore(activeList.store_name || '');
-                              setNewStoreNick(storeNicks[(activeList.store_name || '').toLowerCase()] || '');
-                              setEditingListName(true);
-                            }}
-                            className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-primary-600 hover:border-primary-300 dark:hover:text-primary-400 dark:hover:border-primary-600 transition-colors flex-shrink-0"
-                            title="Rename list"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          {/* Only flag types that change how the list behaves —
-                              'general'/'store' are already obvious from the store
-                              dropdown below, so they earn no chip. */}
-                          {activeList.list_type && !['general', 'store'].includes(activeList.list_type) && (
-                            <span
-                              className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700"
-                              title={`This is a ${activeList.list_type} list`}
-                            >
-                              {activeList.list_type === 'lab' && <FlaskConical className="w-3 h-3" />}
-                              {activeList.list_type === 'lab' ? 'Lab list' : activeList.list_type}
-                            </span>
-                          )}
-                          {/* Progress pill — big, right-aligned, reads at a glance.
-                              Also mirrored inside the list dropdown trigger. */}
-                          <span
-                            className={`ml-auto flex-shrink-0 text-sm font-bold px-3 py-1 rounded-full border ${
-                              checkedCount === items.length && items.length > 0
-                                ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700'
-                                : checkedCount > 0
-                                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border-gray-300 dark:border-gray-600'
-                            }`}
-                            title={`${checkedCount} of ${items.length} items checked off`}
-                          >
-                            {checkedCount}/{items.length}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Store Info */}
-                {activeList && (
-                  <div className="mb-4">
-                    {/* Store Location Section - Redesigned */}
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {activeList.store_name ? (
-                        <>
-                          {/* Store menu — the badge is the trigger; the chevron
-                              signals it opens options instead of 3 loose buttons */}
-                          <div className="relative" data-header-menu>
-                            <button
-                              type="button"
-                              onClick={() => setHeaderMenu(headerMenu === 'store' ? null : 'store')}
-                              className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
-                              title="Store options"
-                            >
-                              <Store className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                              <span className="text-sm font-semibold text-blue-700 dark:text-blue-300" title={storeNicks[(activeList.store_name || '').toLowerCase()] ? `Nickname for ${activeList.store_name}` : undefined}>
-                                {storeNicks[(activeList.store_name || '').toLowerCase()] || activeList.store_name}
-                              </span>
-                              <ChevronDown className={`w-4 h-4 text-blue-500 dark:text-blue-400 transition-transform ${headerMenu === 'store' ? 'rotate-180' : ''}`} />
-                            </button>
-                            <AnimatePresence>
-                              {headerMenu === 'store' && (
-                                <motion.div
-                                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
-                                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                                  exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                                  transition={{ duration: 0.12 }}
-                                  className="absolute left-0 z-50 mt-2 w-52 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden"
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setHeaderMenu(null);
-                                      setNewListName(activeList.name);
-                                      setNewListStore(activeList.store_name || '');
-                                      setNewStoreNick(storeNicks[(activeList.store_name || '').toLowerCase()] || '');
-                                      setEditingListName(true);
-                                    }}
-                                    className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                                  >
-                                    <Edit2 className="w-4 h-4" />
-                                    Change store
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => { setHeaderMenu(null); setShowAisleConfig(true); }}
-                                    className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-                                  >
-                                    <MapPin className="w-4 h-4" />
-                                    Configure aisles
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => { setHeaderMenu(null); setShowStoreManager(true); }}
-                                    className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
-                                  >
-                                    <Store className="w-4 h-4" />
-                                    My Stores
-                                  </button>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          {/* Set Store Location Button */}
-                          <button
-                            onClick={() => {
-                              setNewListName(activeList.name);
-                              setNewListStore('');
-                              setNewStoreNick('');
-                              setEditingListName(true);
-                            }}
-                            className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-sm tap-affordance"
-                          >
-                            <Store className="w-4 h-4" />
-                            Set Store Location
-                          </button>
-                          
-                          {/* My Stores Button - Also available when no store set */}
-                          <button
-                            onClick={() => setShowStoreManager(true)}
-                            className="px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors flex items-center gap-1"
-                            title="View and manage your saved stores"
-                          >
-                            <Store className="w-3.5 h-3.5" />
-                            My Stores
-                          </button>
-                        </>
-                      )}
-                    </div>
-                    {activeList.notes && (
-                      <div className="mt-2 text-sm text-gray-500 dark:text-gray-400 italic">
-                        {activeList.notes}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Action row retired — list actions live inside the list
-                    dropdown (menuFooter), New List is the + beside it, and
-                    Shortcuts/Learn Prices moved into the Add Items header. */}
-              </div>
-              )}
-
-              {/* Live stats — admin-only strip of real app vitals */}
-              {user?.isAdmin && (
-                <div className="mb-4">
-                  <HidableWidget id="admin-live-stats" label="Live Stats" hidden={isHidden('admin-live-stats')} onHide={() => hide('admin-live-stats')} onUnhide={() => unhide('admin-live-stats')}>
-                    <AdminStatsStrip />
-                  </HidableWidget>
-                </div>
-              )}
-
-              {/* Add Item Section - Highlighted */}
+  // renderWidget — one case per widget id; returns the block's JSX
+  // without its HidableWidget wrapper (DraggableWidget supplies it).
+  const renderWidget = (wid) => {
+    switch (wid) {
+      case 'admin-live-stats':
+        return <AdminStatsStrip />;
+      case 'add-items':
+        return (
               <div className="mb-6 p-6 rounded-xl bg-gradient-to-br from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 border-2 border-primary-300 dark:border-primary-600 shadow-lg">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center">
@@ -2256,24 +1869,44 @@ const Dashboard = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setShowItemShortcuts(true)}
-                      className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors"
-                      title="Item Shortcuts — learned & unlearned items, press / anywhere"
+                    {/* Action chips — labeled, draggable to rearrange; order
+                        persists per user (additems-chips group). Reorder is
+                        self-contained so it works inside the widget zone. */}
+                    <Reorder.Group
+                      as="div"
+                      axis="x"
+                      values={addItemsChips}
+                      onReorder={(ids) => reorderWidgets('additems-chips', ids)}
+                      className="flex items-center gap-1.5"
                     >
-                      <Zap className="w-4 h-4" />
-                    </button>
-                    {hasFeature('price_learning') && (
-                    <button
-                      type="button"
-                      onClick={() => setShowPriceLearning(true)}
-                      className="p-2 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors"
-                      title="Learn prices"
-                    >
-                      <DollarSign className="w-4 h-4" />
-                    </button>
-                    )}
+                      {addItemsChips.map((chipId) => (
+                        <Reorder.Item
+                          as="div"
+                          key={chipId}
+                          value={chipId}
+                          whileDrag={{ scale: 1.05, zIndex: 30 }}
+                        >
+                          {chipId === 'shortcuts' && (
+                            <WidgetChip
+                              icon={Zap}
+                              label="Shortcuts"
+                              color="indigo"
+                              onClick={() => setShowItemShortcuts(true)}
+                              title="Item Shortcuts — learned & unlearned items, press / anywhere. Drag to rearrange."
+                            />
+                          )}
+                          {chipId === 'learn-prices' && (
+                            <WidgetChip
+                              icon={DollarSign}
+                              label="Prices"
+                              color="yellow"
+                              onClick={() => setShowPriceLearning(true)}
+                              title="Learn prices. Drag to rearrange."
+                            />
+                          )}
+                        </Reorder.Item>
+                      ))}
+                    </Reorder.Group>
                     <button
                       onClick={() => setAddItemsMinimized(!addItemsMinimized)}
                       className="p-2 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-lg transition-colors"
@@ -2624,24 +2257,18 @@ const Dashboard = () => {
                 </div></Portal>
               )}
               </div>
-              {/* End Add Item Section */}
-
-              {/* Show recipes associated with this shopping list */}
-              {activeList && (
-                <div className="mb-6">
-                  <HidableWidget id="list-recipes" label="List Recipes" hidden={isHidden('list-recipes')} onHide={() => hide('list-recipes')} onUnhide={() => unhide('list-recipes')}>
-                    <ShoppingListRecipes listId={activeList.id} />
-                  </HidableWidget>
-                </div>
-              )}
-
+        );
+      case 'list-recipes':
+        return activeList ? <ShoppingListRecipes listId={activeList.id} /> : null;
+      case 'looking-for-next':
+        return (
+          <>
               {/* Next Item Suggestion - Smart aisle-based */}
               {!hideNextItem && items.length > 0 && (() => {
                 const nextItem = getNextItem();
                 const sameAisleItems = nextItem ? getSameAisleItems(nextItem) : [];
                 return nextItem ? (
                   <div data-tutorial="looking-for-next">
-                    <HidableWidget id="looking-for-next" label="Looking for Next" hidden={isHidden('looking-for-next')} onHide={() => hide('looking-for-next')} onUnhide={() => unhide('looking-for-next')}>
                     <NextItemSuggestion 
                     nextItem={nextItem} 
                     sameAisleItems={sameAisleItems}
@@ -2686,8 +2313,7 @@ const Dashboard = () => {
                       }
                     }}
                   />
-                    </HidableWidget>
-                  </div>
+                                      </div>
                 ) : null;
               })()}
               
@@ -2706,9 +2332,10 @@ const Dashboard = () => {
                   </button>
                 </div>
               )}
-
-              {/* Smart Suggestions — compact chip strip under Looking for Next */}
-              <HidableWidget id="smart-suggestions" label="Smart Suggestions" hidden={isHidden('smart-suggestions')} onHide={() => hide('smart-suggestions')} onUnhide={() => unhide('smart-suggestions')}>
+          </>
+        );
+      case 'smart-suggestions':
+        return (
                 <div className="mb-6">
                   <StoreUsuals
                     storeName={activeList?.store_name}
@@ -2723,10 +2350,9 @@ const Dashboard = () => {
                     storeName={activeList?.store_name}
                   />
                 </div>
-              </HidableWidget>
-
-              {/* Item Search Bar - Moved below Looking for Next */}
-              {items.length > 0 && (
+        );
+      case 'item-search':
+        return (
                 <div className="mb-6">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -2752,8 +2378,9 @@ const Dashboard = () => {
                     </p>
                   )}
                 </div>
-              )}
-
+        );
+      case 'item-list':
+        return (
               <ItemList
                 items={getFilteredItems()}
                 ghostItems={suggestions}
@@ -2812,8 +2439,9 @@ const Dashboard = () => {
                   }
                 }}
               />
-
-              {items.length > 0 && (
+        );
+      case 'list-actions':
+        return (
                 <div className="mt-6 space-y-2">
                   <button
                     onClick={completeList}
@@ -2830,56 +2458,20 @@ const Dashboard = () => {
                     Save as Template
                   </button>
                 </div>
-              )}
-            </div>
-            </EditableContainer>
+        );
+      case 'animated-cart':
+        return <AnimatedCart items={getSortedItems()} sortedByZone={smartSort} />;
+      case 'budget-tracker':
+        return (
+          <div data-tutorial="budget-tracker">
+            <BudgetTracker items={items} totalCost={totalCost} listId={activeList?.id} />
           </div>
-
-          <Reorder.Group
-            as="div"
-            axis="y"
-            values={sidebarOrder}
-            onReorder={(ids) => reorderWidgets('dashboard-sidebar', ids)}
-            className="space-y-6"
-          >
-            {sidebarOrder.map((wid) => {
-              const shared = {
-                hidden: isHidden(wid),
-                onHide: () => hide(wid),
-                onUnhide: () => unhide(wid),
-              };
-              switch (wid) {
-                case 'animated-cart':
-                  return (
-                    <SortableWidget key={wid} id="animated-cart" label="Shopping Cart" {...shared}>
-                      <AnimatedCart
-                        items={getSortedItems()}
-                        sortedByZone={smartSort}
-                      />
-                    </SortableWidget>
-                  );
-                case 'budget-tracker':
-                  return (
-                    <div key={wid} data-tutorial="budget-tracker">
-                      <SortableWidget id="budget-tracker" label="Budget Tracker" {...shared}>
-                        <BudgetTracker
-                          items={items}
-                          totalCost={totalCost}
-                          listId={activeList?.id}
-                        />
-                      </SortableWidget>
-                    </div>
-                  );
-                case 'leveling':
-                  return (
-                    <SortableWidget key={wid} id="leveling" label="Leveling" {...shared}>
-                      <LevelingSystem userId={user?.id || user?.username} />
-                    </SortableWidget>
-                  );
-                case 'pantry-quick-view':
-                  return (
-                    <SortableWidget key={wid} id="pantry-quick-view" label="Home Inventory" {...shared}>
-                    <div className="card">
+        );
+      case 'leveling':
+        return <LevelingSystem userId={user?.id || user?.username} />;
+      case 'pantry-quick-view':
+        return (
+<div className="card">
                       <PantryQuickView
                         pantryItems={inventory}
                         onAddToList={async (itemData) => {
@@ -2927,14 +2519,461 @@ const Dashboard = () => {
                         }}
                       />
                     </div>
-                    </SortableWidget>
-                  );
-                default:
-                  return null;
-              }
-            })}
-          </Reorder.Group>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <PageTransition>
+      {/* AVE Editor Mode Indicator */}
+      <EditorModeIndicator isActive={isEditorActive} targetArea="Dashboard & Widgets" />
+      
+      {/* AVE (Admin Visual Editor) Toolbar - Shows when editor is active */}
+      <EditorToolbar />
+      
+      {/* AVE Properties Panel - Shows when widget is selected */}
+      <PropertiesPanel />
+      
+      <div ref={rootRef} className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+        {/* Sidebar Navigation */}
+        <div data-tutorial="sidebar">
+          <Sidebar onAction={(action) => {
+            if (action === 'stores') setShowStoreManager(true);
+            else if (action === 'share') setShowShare(true);
+            else if (action === 'notepad') openNotepad();
+          }} />
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 min-w-0">
+          {/* Simple Top Bar for Notifications and Logout */}
+          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 pl-16 pr-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
+            {/* Version Indicator - Left Side (with padding for mobile menu button) */}
+            {hasFeature('changelog') && (
+            <button
+              onClick={() => setShowChangelog(true)}
+              className="flex items-center space-x-2 text-xs sm:text-sm hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-colors"
+              title="View Changelog & Features"
+            >
+              <div className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
+                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="font-medium hidden sm:inline">v{versionInfo.version}</span>
               </div>
+            </button>
+            )}
+
+            {/* User-facing updates are handled solely by the UpdateBanner
+                popup (build-hash change → "Update now" reload). */}
+
+            {/* AVE (Admin Visual Editor) Toggle - Admin Only */}
+            {user?.isAdmin && (
+              <button
+                onClick={toggleEditor}
+                className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all duration-200 ${
+                  isEditorActive
+                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title={isEditorActive ? 'AVE (Admin Visual Editor) ON' : 'AVE (Admin Visual Editor) OFF'}
+              >
+                <Wand2 className={`w-4 h-4 sm:w-5 sm:h-5 ${isEditorActive ? 'animate-pulse' : ''}`} />
+                <span className="hidden md:inline font-medium text-sm">
+                  {isEditorActive ? 'AVE' : 'AVE'}
+                </span>
+              </button>
+            )}
+
+            {/* Right Side - Help, Cache, Optimization Toggle, Notifications and Logout */}
+            <div className="flex items-center space-x-2 sm:space-x-4" data-tutorial="top-toolbar">
+              {/* Help Button */}
+              <HelpButton userId={user?.id || user?.username} />
+              
+              {/* Cache Refresh Button — gated: admins can hide from beta testers */}
+              {hasFeature('clear_cache') && (
+              <button
+                onClick={() => {
+                  confirm('Clear app cache and reload?', () => {
+                    // Preserve auth token and user data
+                    const token = localStorage.getItem('token');
+                    const userId = localStorage.getItem('userId');
+                    const username = localStorage.getItem('username');
+                    
+                    // Clear everything
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    
+                    // Restore auth data
+                    if (token) localStorage.setItem('token', token);
+                    if (userId) localStorage.setItem('userId', userId);
+                    if (username) localStorage.setItem('username', username);
+                    
+                    // Reload
+                    window.location.reload();
+                  }, null, 'Clear Cache');
+                }}
+                className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                title="Clear Cache & Reload (preserves login)"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
+              )}
+              
+              {/* Console Viewer (for debugging on tablets) — gated */}
+              {hasFeature('console_viewer') && <ConsoleViewer />}
+              
+              {/* Optimization Mode Toggle */}
+              <button
+                onClick={toggleOptimization}
+                className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all duration-200 ${
+                  optimizationMode
+                    ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title={optimizationMode ? 'Optimization Mode ON (Faster Performance)' : 'Optimization Mode OFF (Full Features)'}
+              >
+                <Zap className={`w-4 h-4 sm:w-5 sm:h-5 ${optimizationMode ? 'animate-pulse' : ''}`} />
+                <span className="hidden md:inline font-medium text-sm">
+                  {optimizationMode ? 'Optimized' : 'Full Mode'}
+                </span>
+              </button>
+              
+              <NotificationCenter />
+              <button
+                onClick={logout}
+                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
+                title="Logout"
+              >
+                <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline font-medium text-sm">Logout</span>
+              </button>
+            </div>
+          </div>
+
+          <main className="p-4 lg:p-8">
+            <div className="max-w-7xl mx-auto">
+              <DragDropContext onDragEnd={handleWidgetDragEnd}>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <EditableContainer
+              isEditorActive={isEditorActive}
+              componentName="Dashboard"
+              onSelect={() => selectWidget('dashboard', 'dashboard')}
+              isSelected={selectedWidget?.id === 'dashboard'}
+            >
+              <div 
+                className="card"
+                style={{
+                  backgroundColor: dashboardProps.backgroundColor || undefined,
+                  borderRadius: dashboardProps.borderRadius ? `${dashboardProps.borderRadius}px` : undefined
+                }}
+              >
+              {/* Shopping List Header */}
+              {(dashboardProps.showHeader !== false) && (
+              <div className={dashboardProps.compactMode ? 'mb-3' : 'mb-6'}>
+                {/* Title and Dropdown Row */}
+                {(dashboardProps.showListSelector !== false) && (
+                <div className={`flex items-center justify-between ${dashboardProps.compactMode ? 'mb-2' : 'mb-4'}`}>
+                  {/* Wraps on phones/tablets — the selector drops to a full-width row
+                      instead of overflowing the card edge */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 flex-1 min-w-0">
+                    <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white shrink-0">Shopping List</h2>
+                    {lists.length > 0 && (
+                      <div data-tutorial="list-dropdown" className="min-w-0 flex-1 basis-48 sm:max-w-xs">
+                        <CustomDropdownList
+                          items={lists}
+                          value={activeList}
+                          onChange={(list) => setActiveList(list)}
+                          renderValue={(list) => (
+                            <span className="flex items-center gap-2 min-w-0">
+                              <span className="truncate">{list.name} ({list.item_count || 0} items)</span>
+                              {list.id === activeList?.id && items.length > 0 && (
+                                <span className={`flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full border ${
+                                  checkedCount === items.length
+                                    ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700'
+                                    : checkedCount > 0
+                                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border-gray-300 dark:border-gray-600'
+                                }`}>
+                                  {checkedCount}/{items.length}
+                                </span>
+                              )}
+                            </span>
+                          )}
+                          renderItem={(list) => (
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-medium truncate">{list.name}</span>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  {list.item_count || 0} items
+                                </span>
+                              </div>
+                              {/* role="button" span, not <button>: renderItem sits
+                                  inside the dropdown's own <button> — nesting a real
+                                  one is invalid HTML. stopPropagation keeps the row
+                                  from also selecting the list. */}
+                              {lists.length > 1 && (
+                                <span
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteList(list.id);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      deleteList(list.id);
+                                    }
+                                  }}
+                                  className="tap-target p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/30 transition-colors flex-shrink-0"
+                                  title={`Delete "${list.name}"`}
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          searchable={lists.length > 5}
+                          searchPlaceholder="Search lists..."
+                          onAddNew={() => setShowNewListModal(true)}
+                          addNewLabel="New List"
+                          menuFooter={(close) => (
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                onClick={() => { close(); setSmartSort(!smartSort); }}
+                                className={`w-full px-4 py-2.5 flex items-center gap-2 text-sm transition-colors ${
+                                  smartSort
+                                    ? 'text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                }`}
+                              >
+                                <ArrowUpDown className="w-4 h-4" />
+                                {smartSort
+                                  ? (activeList?.store_name ? `Sorted by ${activeList.store_name} aisles` : 'Sorted by store layout')
+                                  : (activeList?.store_name ? `Sort by ${activeList.store_name} aisles` : 'Sort by store layout')}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { close(); setListViewMode(!hideCategories); }}
+                                className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                              >
+                                {hideCategories ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                                {hideCategories ? 'Show categories' : 'Hide categories'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { close(); loadCompletedLists(); }}
+                                className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                              >
+                                <History className="w-4 h-4" />
+                                Recover completed lists
+                              </button>
+                              {lists.length > 1 && activeList && (
+                                <>
+                                  <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                                  <button
+                                    type="button"
+                                    onClick={() => { close(); deleteList(activeList.id); }}
+                                    className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete this list
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                          className="w-full"
+                        />
+                      </div>
+                    )}
+                    {/* New list — labeled chip beside the selector; the full
+                        "New List" option also lives inside the dropdown */}
+                    <WidgetChip
+                      icon={Plus}
+                      label="New"
+                      color="primary"
+                      onClick={() => setShowNewListModal(true)}
+                      title="Create a new shopping list"
+                      className="flex-shrink-0"
+                      data-tutorial="new-list-button"
+                    />
+                  </div>
+                </div>
+                )}
+
+                {/* Active List Header - Ultra Compact Mobile */}
+                {activeList && (dashboardProps.showHeader !== false) && (
+                  <div className="mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl flex-shrink-0">📋</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base sm:text-lg font-bold text-primary-600 dark:text-primary-400 truncate">
+                            {activeList.name}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewListName(activeList.name);
+                              setNewListStore(activeList.store_name || '');
+                              setNewStoreNick(storeNicks[(activeList.store_name || '').toLowerCase()] || '');
+                              setEditingListName(true);
+                            }}
+                            className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-primary-600 hover:border-primary-300 dark:hover:text-primary-400 dark:hover:border-primary-600 transition-colors flex-shrink-0"
+                            title="Rename list"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          {/* Only flag types that change how the list behaves —
+                              'general'/'store' are already obvious from the store
+                              chip, so they earn no chip. */}
+                          {activeList.list_type && !['general', 'store'].includes(activeList.list_type) && (
+                            <span
+                              className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700"
+                              title={`This is a ${activeList.list_type} list`}
+                            >
+                              {activeList.list_type === 'lab' && <FlaskConical className="w-3 h-3" />}
+                              {activeList.list_type === 'lab' ? 'Lab list' : activeList.list_type}
+                            </span>
+                          )}
+                          {/* Store chip — right of the edit chip; opens the
+                              store menu (change store / aisles / my stores) */}
+                          <div className="relative flex-shrink-0" data-header-menu>
+                            <WidgetChip
+                              icon={Store}
+                              color="blue"
+                              onClick={() => setHeaderMenu(headerMenu === 'store' ? null : 'store')}
+                              title="Store options"
+                              label={activeList.store_name
+                                ? (storeNicks[(activeList.store_name || '').toLowerCase()] || activeList.store_name)
+                                : 'Set store'}
+                              trailing={<ChevronDown className={`w-3.5 h-3.5 transition-transform ${headerMenu === 'store' ? 'rotate-180' : ''}`} />}
+                            />
+                            <AnimatePresence>
+                              {headerMenu === 'store' && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                                  exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                                  transition={{ duration: 0.12 }}
+                                  className="absolute left-0 z-50 mt-2 w-52 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setHeaderMenu(null);
+                                      setNewListName(activeList.name);
+                                      setNewListStore(activeList.store_name || '');
+                                      setNewStoreNick(storeNicks[(activeList.store_name || '').toLowerCase()] || '');
+                                      setEditingListName(true);
+                                    }}
+                                    className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                    {activeList.store_name ? 'Change store' : 'Set store'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setHeaderMenu(null); setShowAisleConfig(true); }}
+                                    className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                                  >
+                                    <MapPin className="w-4 h-4" />
+                                    Configure aisles
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setHeaderMenu(null); setShowStoreManager(true); }}
+                                    className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                                  >
+                                    <Store className="w-4 h-4" />
+                                    My Stores
+                                  </button>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                          {/* Aisle chip — straight to the aisle configurator */}
+                          {activeList.store_name && (
+                            <WidgetChip
+                              icon={MapPin}
+                              label="Aisles"
+                              color="purple"
+                              onClick={() => setShowAisleConfig(true)}
+                              title="Configure store aisle layout"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {activeList.notes && (
+                      <div className="mt-1 text-sm text-gray-500 dark:text-gray-400 italic">
+                        {activeList.notes}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Action row retired — list actions live inside the list
+                    dropdown (menuFooter), New List is the + beside it, and
+                    Shortcuts/Learn Prices moved into the Add Items header. */}
+              </div>
+              )}
+
+              {/* Widget zone — everything below the header is a draggable
+                  widget; order + zone persist per user (dashboard-main). */}
+              <StrictModeDroppable droppableId="dashboard-main" type="widget">
+                {(mainProv) => (
+                  <div ref={mainProv.innerRef} {...mainProv.droppableProps}>
+                    {mainWidgets.map((wid, index) => (
+                      <DraggableWidget
+                        key={wid}
+                        id={wid}
+                        index={index}
+                        label={WIDGET_LABELS[wid] || wid}
+                        hidden={isHidden(wid)}
+                        onHide={() => hide(wid)}
+                        onUnhide={() => unhide(wid)}
+                      >
+                        {renderWidget(wid)}
+                      </DraggableWidget>
+                    ))}
+                    {mainProv.placeholder}
+                  </div>
+                )}
+              </StrictModeDroppable>
+            </div>
+            </EditableContainer>
+          </div>
+
+          {/* Sidebar widget zone — drag any widget between here and the
+              main column (dashboard-sidebar). */}
+          <StrictModeDroppable droppableId="dashboard-sidebar" type="widget">
+            {(sideProv) => (
+              <div ref={sideProv.innerRef} {...sideProv.droppableProps} className="space-y-6">
+                {sidebarWidgets.map((wid, index) => (
+                  <DraggableWidget
+                    key={wid}
+                    id={wid}
+                    index={index}
+                    label={WIDGET_LABELS[wid] || wid}
+                    hidden={isHidden(wid)}
+                    onHide={() => hide(wid)}
+                    onUnhide={() => unhide(wid)}
+                  >
+                    {renderWidget(wid)}
+                  </DraggableWidget>
+                ))}
+                {sideProv.placeholder}
+              </div>
+            )}
+          </StrictModeDroppable>
+              </div>
+              </DragDropContext>
             </div>
           </main>
 

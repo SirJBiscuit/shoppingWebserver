@@ -789,3 +789,12 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - New `useWidgetOrder` hook — persists per-user widget order to mdl_user_preferences (key `widget_order`), mirrors localStorage, debounces the server save during drags
 - Sidebar widget stack (cart / budget / leveling / pantry) is now a Reorder.Group — drag the new grip handle (top-left of each widget) to rearrange; order persists across devices
 - HidableWidget: optional `dragControls` prop renders the grip affordance beside the hide eye
+
+## Cross-column widget zones + chip system (latest)
+- WidgetChip: new standard chip component — icon + label, 3D press (thick bottom edge collapses on tap), color variants, optional RBD dragHandleProps
+- Header: old progress pill removed (it lives in the dropdown trigger); New chip is labeled; store chip moved into the list-name row right of edit, opens the store menu; Aisles chip beside it opens the configurator
+- Add Items chips: Shortcuts + Prices are labeled WidgetChips in a framer Reorder.Group (drag to rearrange, order persisted)
+- NextItemSuggestion: Mark Found is now a large 3D spring checkbox matching list rows (still fires the flying checkmark animation); Aisle button is a purple WidgetChip
+- Widget zones: react-beautiful-dnd DragDropContext + two droppables (dashboard-main, dashboard-sidebar) — every block below the header is a widget (live stats, add items, recipes, looking-for-next, suggestions, search, item list, trip actions + sidebar stack); any widget drags between columns; order/zone saved per user via useWidgetOrder (mdl_user_preferences)
+- HidableWidget: grip handle now driven by RBD dragHandleProps
+- StrictModeDroppable: new util so react-beautiful-dnd works under React 18 StrictMode dev double-mount
