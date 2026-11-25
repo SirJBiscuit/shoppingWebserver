@@ -3,6 +3,7 @@ import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye, Mor
 import { motion } from 'framer-motion';
 import CustomEditPanel from './CustomEditPanel';
 import CustomContextMenu from './CustomContextMenu';
+import CustomSwipeActions from './CustomSwipeActions';
 import FavoritePicker from './FavoritePicker';
 import { getFavorites, reportAisle } from '../api/mdl';
 import { Portal, useIsMobile } from '../utils/autoPlacement';
@@ -822,8 +823,23 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
         />
       )} */}
       
-      {/* Item Card — wrapped in CustomContextMenu for right-click / long-press */}
+      {/* Item Card — context menu + (mobile) swipe-to-reveal actions */}
       <CustomContextMenu items={contextMenuItems} trigger="both">
+        <CustomSwipeActions
+          disabled={!isMobile}
+          leftActions={[
+            { icon: Edit2, color: 'bg-blue-500', bgColor: 'rgba(59, 130, 246, 1)',
+              onClick: () => onOpenEdit(item) },
+            { icon: FileText, color: 'bg-teal-500', bgColor: 'rgba(20, 184, 166, 1)',
+              onClick: () => { setNoteItem(item); setNoteText(item.notes || ''); } },
+          ]}
+          rightActions={[
+            onCopyMove && { icon: Copy, color: 'bg-green-500', bgColor: 'rgba(34, 197, 94, 1)',
+              onClick: () => onCopyMove(item) },
+            { icon: Trash2, color: 'bg-red-500', bgColor: 'rgba(239, 68, 68, 1)',
+              onClick: () => (item.ids || [item.id]).forEach(id => onDelete(id)) },
+          ].filter(Boolean)}
+        >
               <div
                 ref={itemRef}
                 id={`item-${item.ids ? item.ids[0] : item.id}`}
@@ -1105,21 +1121,33 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                   />
                 </div>
 
-                {/* Mobile: compact overflow menu — full-width rows w/ big touch targets */}
+                {/* Mobile: ⋮ opens a bottom-sheet action menu */}
                 <div className="sm:hidden relative flex-shrink-0">
                   <button
-                    onClick={() => setShowMobileMenu(v => !v)}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setShowMobileMenu(v => !v); }}
                     className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     title="Item actions"
                   >
                     <MoreVertical className="w-5 h-5" />
                   </button>
                   {showMobileMenu && (
-                    <Portal><>
-                      <div className="fixed inset-0 z-30" onClick={() => setShowMobileMenu(false)} />
-                      <div className="absolute right-0 top-full mt-1 z-40 w-44 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl py-1">
+                    <Portal>
+                      <div className="fixed inset-0 z-[70] bg-black/20" onClick={() => setShowMobileMenu(false)} />
+                      <motion.div
+                        initial={{ opacity: 0, y: 60 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 60 }}
+                        transition={{ type: 'spring', damping: 22, stiffness: 320 }}
+                        className="fixed inset-x-0 bottom-0 z-[71] bg-white dark:bg-gray-800 rounded-t-2xl border-t border-gray-200 dark:border-gray-700 shadow-2xl max-h-[72vh] overflow-y-auto custom-scrollbar"
+                      >
+                        <div className="mx-auto mt-2 mb-1 h-1.5 w-10 rounded-full bg-gray-300 dark:bg-gray-600" />
+                        <div className="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 truncate border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
+                          <ItemIcon icon={item.item_icon || item.item_image} fallback="🛒" emojiClass="text-base" imgClass="w-5 h-5 rounded object-cover" />
+                          {item.item_name}
+                        </div>
                         {item.count === 1 && (onQuantityChange || onEdit) && (
-                          <div className="flex items-center justify-between px-3 py-1.5">
+                          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-700">
                             <QuantityStepper
                               value={itemQty}
                               unit={item.unit}
@@ -1131,44 +1159,74 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                           </div>
                         )}
                         <button
+                          type="button"
                           onClick={() => { setShowMobileMenu(false); onOpenEdit(item); }}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          className="w-full flex items-center gap-3 px-4 py-3.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-700"
                         >
                           <Edit2 className="w-5 h-5 text-blue-500" /> Edit
                         </button>
                         <button
+                          type="button"
                           onClick={() => { setShowMobileMenu(false); setNoteItem(item); setNoteText(item.notes || ''); }}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          className="w-full flex items-center gap-3 px-4 py-3.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-700"
                         >
                           <FileText className="w-5 h-5 text-teal-500" /> Note
                         </button>
+                        {onPriceUpdate && (
+                          <button
+                            type="button"
+                            onClick={(e) => { setShowMobileMenu(false); openPricePad(e); }}
+                            className="w-full flex items-center gap-3 px-4 py-3.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-700"
+                          >
+                            <Tag className="w-5 h-5 text-green-500" /> Set price
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => { setShowMobileMenu(false); openAislePicker(e); }}
+                          className="w-full flex items-center gap-3 px-4 py-3.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-700"
+                        >
+                          <MapPin className="w-5 h-5 text-blue-500" /> Set aisle
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { setShowMobileMenu(false); openCategoryPicker(e); }}
+                          className="w-full flex items-center gap-3 px-4 py-3.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-700"
+                        >
+                          <span className="w-5 h-5 flex items-center justify-center text-amber-500 text-base leading-none">{getCategoryIcon(category)}</span> Category
+                        </button>
                         {onLookForThis && !item.is_checked && (
                           <button
+                            type="button"
                             onClick={() => { setShowMobileMenu(false); onLookForThis(item); }}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            className="w-full flex items-center gap-3 px-4 py-3.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-700"
                           >
                             <Eye className="w-5 h-5 text-purple-500" /> Find
                           </button>
                         )}
                         {onCopyMove && (
                           <button
+                            type="button"
                             onClick={() => { setShowMobileMenu(false); onCopyMove(item); }}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            className="w-full flex items-center gap-3 px-4 py-3.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-700"
                           >
                             <Copy className="w-5 h-5 text-green-500" /> Move
                           </button>
                         )}
                         <button
+                          type="button"
                           onClick={() => { setShowMobileMenu(false); item.ids.forEach(id => onDelete(id)); }}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          className="w-full flex items-center gap-3 px-4 py-3.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-50 dark:active:bg-red-900/20"
                         >
                           <Trash2 className="w-5 h-5" /> Delete
                         </button>
-                      </div>
-                    </></Portal>
+                        <div className="h-[env(safe-area-inset-bottom)]" />
+                      </motion.div>
+                    </Portal>
                   )}
                 </div>
               </div>
+        </CustomSwipeActions>
       </CustomContextMenu>
 
       {catAnchor !== null && (

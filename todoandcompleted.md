@@ -774,3 +774,8 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Aisle badge now shows the real sli.aisle_number first (solid blue); falls back to the static store-layout guess as an unconfirmed "Aisle N?" style; "+ Aisle" chip opens the picker even without a store. aisle_name displayed under the name row.
 - Fixes: PATCH now accepts aisle_name; applyAisle updates every duplicate id in a grouped item via handleAisleChange -> shoppingAPI.updateItem + loadListItems (was mutating item.aisle silently and only patching the first id); MDL report sends the resolved store name + canonical category.
 - price-history POST now also upserts mdl_location_prices (same aggregation as track-item) so manually saved prices — incl. beta testers' — feed the shared prediction pool. Best-effort, never breaks the save.
+
+## Mobile item menu → bottom sheet fix + swipe actions
+- The mobile ⋮ menu was dead: it rendered inside a Portal (document.body) while keeping `absolute right-0 top-full` — so it opened at the bottom of the whole page, invisible. Replaced with a real bottom sheet matching the app's other GUIs: spring-up motion, drag handle, dimmed backdrop, item icon+name header, safe-area padding.
+- Sheet is now a mobile control center: quantity stepper, Edit, Note, Set price (numpad), Set aisle (QuickAislePicker), Category (QuickCategoryPicker), Find, Move, Delete.
+- CustomSwipeActions wired into ItemCard (mobile only): swipe left reveals Move (green) + Delete (red), swipe right reveals Edit (blue) + Note (teal) — same handlers as the sheet.
