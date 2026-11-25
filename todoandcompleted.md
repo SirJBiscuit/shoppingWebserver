@@ -724,3 +724,10 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Admin controls: PATCH /admin/testers/:id accepts canChat; BtcsModal has a "Chatroom access" checkbox. Suspended testers locked out server-side.
 - Viewer renames: "Messages" → "Submissions" in Beta + Admin viewer tab bars.
 - Tester pins: GET /beta/pins?mine=1&page=all (own pins across pages), DELETE /beta/pins/:id owner-delete (same snapshot→history flow as admin). Beta viewer gains "My Pins" and "Chat" tabs.
+
+## Poll completions, pin quota, changelog depth, rail menu, beta backups
+- Admin viewer polls: "Shipped" → "Completed"; completing a poll inserts a notification for every beta tester and moves the poll into the History tab under "Completed polls" (with Reopen).
+- Pin quota: GET /beta/pins returns quota {used, limit} (override → tier → 30); Pin button badge shows remaining count, disables at cap.
+- Changelog: -n 600 → 5000 (changelog.js + update-server.sh + update-quick.sh); admin timeline windows at 200 with Show more/Show all, stagger capped.
+- Admin rail: BTCS button opens a shortcut menu (BTCS panel, Testers/Codes/Feedback/Beta chat tabs, JSON backup download).
+- Backups: GET /beta/admin/backup (testers + overrides + codes + thank-yous JSON) + POST /beta/admin/backup/restore (transactional upsert); AdminBtcs header has Backup/Restore buttons.
