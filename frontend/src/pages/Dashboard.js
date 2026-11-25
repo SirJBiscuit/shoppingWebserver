@@ -82,6 +82,7 @@ import ChangelogViewer from '../components/ChangelogViewer';
 import { useFeatureFlags } from '../context/FeatureFlagContext';
 import CalculatorWidget from '../components/CalculatorWidget';
 import HidableWidget from '../components/HidableWidget';
+import AdminStatsStrip from '../components/admin/AdminStatsStrip';
 import useHiddenWidgets from '../hooks/useHiddenWidgets';
 import useScrollSound from '../hooks/useScrollSound';
 import { playSound } from '../utils/soundEffects';
@@ -2219,6 +2220,15 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
+              )}
+
+              {/* Live stats — admin-only strip of real app vitals */}
+              {user?.isAdmin && (
+                <div className="mb-4">
+                  <HidableWidget id="admin-live-stats" label="Live Stats" hidden={isHidden('admin-live-stats')} onHide={() => hide('admin-live-stats')} onUnhide={() => unhide('admin-live-stats')}>
+                    <AdminStatsStrip />
+                  </HidableWidget>
+                </div>
               )}
 
               {/* Add Item Section - Highlighted */}

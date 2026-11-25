@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Grid, List, MoveHorizontal, BookOpen, BellRing } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Grid, List, MoveHorizontal, BookOpen, BellRing, PanelRightClose, PanelLeftClose, PanelRightOpen, PanelLeftOpen } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Portal, useIsMobile, useCornerOffset, usePanelShift, setPanelShift, useFloatSide, setFloatSide, useNavDrawerOpen, useFloatsCollapsed } from '../utils/autoPlacement';
+import { Portal, useIsMobile, useCornerOffset, usePanelShift, setPanelShift, useFloatSide, setFloatSide, useNavDrawerOpen, useFloatsCollapsed, setFloatsCollapsed } from '../utils/autoPlacement';
 
 // Floating action buttons — same visual scheme as the beta pin layer:
 // circular buttons in one bottom-corner stack with a small visible label
@@ -49,8 +49,9 @@ const FloatingButtons = ({
   // to cover this column — hide ourselves while it's open instead of
   // floating above the dimmed backdrop.
   const navDrawerOpen = useNavDrawerOpen();
-  // One global collapse switch (edge tab lives in BetaPinLayer) — the
-  // column slides fully off its edge and stops taking clicks.
+  // This column's own collapse switch — the chevron at the column's bottom
+  // folds the buttons away, leaving just itself as the restore handle.
+  // Works for every role (it's part of this component, not the beta layer).
   const collapsed = useFloatsCollapsed();
 
   // The Active List panel slides in from the right at z-201 — instead of
@@ -67,16 +68,20 @@ const FloatingButtons = ({
   // users), we snap back to the corner itself.
   const bottom = spacing;
   const colShift = belowPx > 0 ? 66 : 0;
-  let tx = position === 'right' ? -(panelShift + colShift) : colShift;
-  // Collapsed: slide the whole column off-screen in its own direction.
-  if (collapsed) tx += position === 'right' ? 140 : -140;
+  const tx = position === 'right' ? -(panelShift + colShift) : colShift;
+  const CollapseIcon = collapsed
+    ? (position === 'left' ? PanelRightOpen : PanelLeftOpen)
+    : (position === 'left' ? PanelLeftClose : PanelRightClose);
 
   return (
     <Portal>
       <div
-        className={`fixed ${side} z-50 flex flex-col gap-3 transition-all duration-300 ${navDrawerOpen || collapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+        className={`fixed ${side} z-50 flex flex-col gap-3 transition-all duration-300 ${navDrawerOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
         style={{ bottom, transform: `translateX(${tx}px)` }}
       >
+        <AnimatePresence initial={false}>
+        {!collapsed && (
+        <>
         {/* Apps menu */}
         {showApps && (
           <div className="relative flex flex-col w-12 items-center gap-1">
@@ -107,6 +112,18 @@ const FloatingButtons = ({
                   >
                     <BellRing className="w-5 h-5 text-gray-500 dark:text-gray-300" />
                     <span className="font-medium text-gray-900 dark:text-white">Notifications</span>
+                  </button>
+                )}
+                {showRecipes && !onRecipesPage && (
+                  <button
+                    onClick={() => {
+                      navigate('/recipes');
+                      setShowAppsMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600 transition-colors text-left touch-manipulation border-t border-gray-100 dark:border-gray-700"
+                  >
+                    <BookOpen className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                    <span className="font-medium text-gray-900 dark:text-white">Recipe book</span>
                   </button>
                 )}
                 <button
@@ -142,22 +159,6 @@ const FloatingButtons = ({
           </div>
         )}
 
-        {/* Recipe book — quick jump to Recipes (hidden while on that page) */}
-        {showRecipes && !onRecipesPage && (
-          <div className="flex flex-col w-12 items-center gap-1">
-            <motion.button
-              onClick={() => navigate('/recipes')}
-              className="w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition bg-amber-500 text-white hover:bg-amber-600"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              title="Recipe book"
-            >
-              <BookOpen className="w-5 h-5" />
-            </motion.button>
-            <Label>Recipes</Label>
-          </div>
-        )}
-
         {/* Active shopping list — toggles the slide-out panel open/closed */}
         {showActiveList && (
           <div className="flex flex-col w-12 items-center gap-1">
@@ -184,6 +185,25 @@ const FloatingButtons = ({
             <Label>Active List</Label>
           </div>
         )}
+        </>
+        )}
+        </AnimatePresence>
+
+        {/* Collapse handle — always rendered at the column's bottom so it
+            sits beside the pin stack when expanded, and becomes the only
+            button left when the column is folded away. Works for every
+            role since it's part of this column, not the beta layer. */}
+        <div className="flex flex-col w-12 items-center gap-1">
+          <motion.button
+            onClick={() => setFloatsCollapsed(!collapsed)}
+            className="w-8 h-8 rounded-full shadow-lg flex items-center justify-center transition bg-slate-700/80 text-slate-300 hover:bg-slate-600 hover:text-white"
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
+            title={collapsed ? 'Show floating buttons' : 'Hide floating buttons'}
+          >
+            <CollapseIcon className="w-4 h-4" />
+          </motion.button>
+        </div>
       </div>
     </Portal>
   );

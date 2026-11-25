@@ -82,6 +82,18 @@ EOF
 # not inside the backend container, which is why /api/changelog reads this file.
 git log --no-merges -n 5000 --pretty=format:'%H|%ai|%s|%an' > changelog.txt 2>/dev/null || true
 
+# Export code stats for the admin live-stats widget (LOC, commit count,
+# estimated dev hours from commit gaps). Same story as changelog.txt: git
+# exists on the host, not inside the container.
+{
+  CS_COMMITS=$(git rev-list --count HEAD 2>/dev/null || echo 0)
+  CS_LOC=$(git ls-files 2>/dev/null | grep -vE 'package-lock|yarn\.lock|changelog\.txt|\.min\.|\.png|\.jpe?g|\.gif|\.ico|\.woff|\.ttf|\.mp3|\.wav' | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
+  CS_HOURS=$(git log --format=%at --reverse 2>/dev/null | awk '{ if (prev) { d=$1-prev; s+=(d<7200)?d:3600 } else s=3600; prev=$1 } END { printf "%d", s/3600 }')
+  CS_FIRST=$(git log --reverse --format=%aI 2>/dev/null | head -1)
+  printf '{"loc": %s, "commits": %s, "hours_est": %s, "first_commit": "%s"}\n' \
+    "${CS_LOC:-0}" "${CS_COMMITS:-0}" "${CS_HOURS:-0}" "${CS_FIRST}" > codestats.json
+} || true
+
 # Rebuild only the requested service(s). docker compose recreates a container
 # only when its image/config changed — untouched services keep running.
 SERVICES=$([ "$TARGET" = "all" ] && echo "frontend backend" || echo "$TARGET")

@@ -457,10 +457,10 @@ export const useNavDrawerOpen = () =>
   );
 
 // ---------------------------------------------------------------------------
-// Collapsed floating columns — ONE switch slides every corner column (apps/
-// active-list stack, beta pin stack, admin rail) off the edge together.
-// A small always-visible edge tab (rendered by BetaPinLayer) brings them
-// back. Persisted so the choice survives reloads.
+// Collapsed floating columns — the APP's corner column (apps / active-list)
+// collapses down to a single chevron button at the column's bottom. The
+// chevron lives inside FloatingButtons so it works for every role — admin,
+// beta tester, regular user. Persisted so the choice survives reloads.
 const FLOATS_COLLAPSED_KEY = 'floatsCollapsed';
 let floatsCollapsed = false;
 try { floatsCollapsed = localStorage.getItem(FLOATS_COLLAPSED_KEY) === '1'; } catch { /* ignore */ }
@@ -480,6 +480,30 @@ export const useFloatsCollapsed = () =>
   useSyncExternalStore(
     (cb) => { stackSubs.add(cb); return () => stackSubs.delete(cb); },
     () => floatsCollapsed
+  );
+
+// Collapsed admin rail — separate switch for the right-edge tool column so
+// hiding the rail never takes the app buttons with it. The collapse tab is
+// pinned directly above the rail (rendered by BetaPinLayer).
+const RAIL_COLLAPSED_KEY = 'railCollapsed';
+let railCollapsed = false;
+try { railCollapsed = localStorage.getItem(RAIL_COLLAPSED_KEY) === '1'; } catch { /* ignore */ }
+
+export const setRailCollapsed = (v) => {
+  const nv = v === true;
+  if (railCollapsed === nv) return;
+  railCollapsed = nv;
+  try {
+    if (nv) localStorage.setItem(RAIL_COLLAPSED_KEY, '1');
+    else localStorage.removeItem(RAIL_COLLAPSED_KEY);
+  } catch { /* ignore */ }
+  notifyStacks();
+};
+
+export const useRailCollapsed = () =>
+  useSyncExternalStore(
+    (cb) => { stackSubs.add(cb); return () => stackSubs.delete(cb); },
+    () => railCollapsed
   );
 
 // ---------------------------------------------------------------------------

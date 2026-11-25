@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import FormattedNote from '../FormattedNote';
 import BetaChatroom from './BetaChatroom';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
-import { Popup, Portal, Connector, ScrollStrip, useCornerStack, useCornerOffset, usePanelShift, setPanelShift, useIsMobile, useFloatSide, useFloatsCollapsed, setFloatsCollapsed } from '../../utils/autoPlacement';
+import { Popup, Portal, Connector, ScrollStrip, useCornerStack, useCornerOffset, usePanelShift, setPanelShift, useIsMobile, useFloatSide, useRailCollapsed, setRailCollapsed } from '../../utils/autoPlacement';
 import BtcsFloatPanel from '../admin/BtcsFloatPanel';
 import { pinDisplayPos, usePinLayerTick, selectorFor, describeElement } from '../../utils/pinLayer';
 import {
@@ -623,7 +623,7 @@ const BetaPinLayer = () => {
   // button dot always reflects the worst service state.
   const [svcOpen, setSvcOpen] = useState(false);
   const [btcsPanelOpen, setBtcsPanelOpen] = useState(false);
-  const floatsCollapsed = useFloatsCollapsed(); // global collapse switch for all corner columns
+  const railCollapsed = useRailCollapsed(); // the admin rail folds away to a tab above itself
   const [services, setServices] = useState(null);
   useEffect(() => {
     if (!isAdmin || !canUse) return undefined;
@@ -2527,7 +2527,7 @@ const BetaPinLayer = () => {
       {/* Floating controls — pushed LEFT of the app's own bottom-right
           button column (Apps / Active List / editor) and kept under their
           z-layer so the app buttons always win clicks. */}
-      {!dropMode && !moving && !stackHidden && !floatsCollapsed && (
+      {!dropMode && !moving && !stackHidden && (
         <div
           ref={stackRef}
           className={`bp-floating fixed bottom-5 ${floatSide === 'left' ? 'left-4 lg:left-[304px] items-start' : 'right-4 items-end'} z-[45] flex flex-col gap-3 transition-transform duration-300`}
@@ -2598,7 +2598,7 @@ const BetaPinLayer = () => {
       )}
 
       {/* Restore tab — visible when the beta controls stack is hidden */}
-      {canUse && stackHidden && !dropMode && !moving && !floatsCollapsed && (
+      {canUse && stackHidden && !dropMode && !moving && (
         <button
           ref={restoreRef}
           onClick={() => setStackHidden(false)}
@@ -2655,13 +2655,26 @@ const BetaPinLayer = () => {
       )}
 
       {/* Admin sidebar — thin desktop-only tool column on the right edge.
-          Hidden on mobile/tablet (lg+): inspect, ghosts, viewer. */}
-      {isAdmin && canUse && !dropMode && !moving && !floatsCollapsed && (
+          Hidden on mobile/tablet (lg+): inspect, ghosts, viewer. The small
+          tab pinned above it is the rail's own collapse switch — folding
+          the rail never takes the app button column with it. */}
+      {isAdmin && canUse && !dropMode && !moving && (
         <div
           ref={railRef}
-          className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-xl border-l-0' : 'right-0 rounded-l-xl border-r-0'} z-[46] flex-col items-center gap-1 bg-slate-900/90 border border-slate-700 py-2 px-1.5 shadow-xl transition-all duration-300`}
+          className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-0 lg:left-72' : 'right-0'} z-[46] flex-col items-center gap-1 transition-all duration-300`}
           style={{ bottom: railBelow + 68, transform: `translateX(${-panelShift}px)` }}
         >
+          <button
+            onClick={() => setRailCollapsed(!railCollapsed)}
+            className={`bg-slate-900/90 border border-slate-700 ${floatSide === 'left' ? 'rounded-r-lg border-l-0' : 'rounded-l-lg border-r-0'} px-1.5 py-1 text-slate-400 hover:text-slate-200 shadow-xl transition`}
+            title={railCollapsed ? 'Show admin rail' : 'Hide admin rail'}
+          >
+            {floatSide === 'left'
+              ? (railCollapsed ? <PanelRightOpen className="w-3.5 h-3.5" /> : <PanelRightClose className="w-3.5 h-3.5" />)
+              : (railCollapsed ? <PanelRightClose className="w-3.5 h-3.5" /> : <PanelRightOpen className="w-3.5 h-3.5" />)}
+          </button>
+          {!railCollapsed && (
+          <div className={`flex flex-col items-center gap-1 bg-slate-900/90 border border-slate-700 ${floatSide === 'left' ? 'rounded-r-xl border-l-0' : 'rounded-l-xl border-r-0'} py-2 px-1.5 shadow-xl`}>
           <button
             onClick={() => { setInspectMode((v) => !v); setInspectData(null); }}
             className={`p-2 rounded-lg transition ${inspectMode ? 'bg-cyan-600/30 text-cyan-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
@@ -2702,6 +2715,8 @@ const BetaPinLayer = () => {
               unknown: 'bg-gray-500',
             }[svcWorst]}`} />
           </button>
+          </div>
+          )}
         </div>
       )}
 
@@ -2711,25 +2726,8 @@ const BetaPinLayer = () => {
         <BtcsFloatPanel onClose={() => setBtcsPanelOpen(false)} />
       )}
 
-      {/* Collapse handle — the ONE always-visible edge tab that hides or
-          restores every floating column (apps/active-list, beta stack,
-          admin rail) together. Lives mid-edge so it never collides with
-          the corner stacks. */}
-      {canUse && !dropMode && !moving && (
-        <button
-          onClick={() => setFloatsCollapsed(!floatsCollapsed)}
-          className={`fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-lg border-l-0' : 'right-0 rounded-l-lg border-r-0'} z-[47] bg-slate-900/90 border border-slate-700 px-1 py-3 text-slate-400 hover:text-slate-200 shadow-xl transition-all duration-300`}
-          title={floatsCollapsed ? 'Show floating buttons' : 'Hide all floating buttons'}
-          style={{ top: '42%' }}
-        >
-          {floatSide === 'left'
-            ? (floatsCollapsed ? <PanelRightOpen className="w-4 h-4" /> : <PanelRightClose className="w-4 h-4" />)
-            : (floatsCollapsed ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />)}
-        </button>
-      )}
-
       {/* Service status popover — sits beside the admin rail */}
-      {isAdmin && svcOpen && !dropMode && !moving && !floatsCollapsed && (
+      {isAdmin && svcOpen && !dropMode && !moving && !railCollapsed && (
         <div
           className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-14 lg:left-[328px]' : 'right-14'} z-[46] flex-col w-64 bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl overflow-hidden transition-all duration-300`}
           style={{ bottom: railBelow + 4, transform: `translateX(${-panelShift}px)` }}

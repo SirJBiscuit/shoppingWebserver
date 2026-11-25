@@ -782,6 +782,132 @@ router.get('/admin/stats/overview', authenticateToken, isAdmin, async (req, res)
   }
 });
 
+// ---------------------------------------------------------------------------
+// Live app vitals for the admin stats widget — one cheap call that the
+// widget polls. Every table probe is independent so a missing table (e.g.
+// app_error_log pre-migration) degrades to null instead of a 500.
+// Code stats come from codestats.json written by update-server.sh /
+// update-quick.sh on the deploy host (the container has no .git); in dev we
+// fall back to a short-timeout git call.
+// ---------------------------------------------------------------------------
+const fsP = require('fs').promises;
+const pathMod = require('path');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+const execFileP = promisify(execFile);
+const STATS_ROOT = pathMod.join(__dirname, '..', '..', '..');
+const codeStatsCache = { at: 0, stats: null };
+
+const estimateHours = (timestamps) => {
+  // Session-gap heuristic: consecutive commits <2h apart belong to one
+  // session (add the real gap); each session start adds a 1h baseline.
+  let total = 0;
+  let prev = 0;
+  for (const t of timestamps) {
+    if (!prev) { total += 3600; }
+    else total += (t - prev < 7200) ? (t - prev) : 3600;
+    prev = t;
+  }
+  return Math.round(total / 3600);
+};
+
+const loadCodeStats = async () => {
+  if (Date.now() - codeStatsCache.at < 10 * 60 * 1000 && codeStatsCache.stats) {
+    return codeStatsCache.stats;
+  }
+  // 1. Deploy-host export (production path)
+  for (const p of [pathMod.join(STATS_ROOT, 'codestats.json'), '/opt/cloudmc-shop/codestats.json']) {
+    try {
+      const parsed = JSON.parse(await fsP.readFile(p, 'utf8'));
+      codeStatsCache.at = Date.now();
+      codeStatsCache.stats = parsed;
+      return parsed;
+    } catch { /* try next */ }
+  }
+  // 2. Dev fallback — git in-process, short timeout, never throws
+  try {
+    const opts = { cwd: STATS_ROOT, timeout: 15000, maxBuffer: 8 * 1024 * 1024 };
+    const [count, times, loc] = await Promise.all([
+      execFileP('git', ['rev-list', '--count', 'HEAD'], opts).then((r) => r.stdout.trim()),
+      execFileP('git', ['log', '--format=%at', '--reverse'], opts).then((r) => r.stdout),
+      execFileP('git', ['ls-files'], opts).then(async (r) => {
+        const files = r.stdout.split('\n').filter((f) =>
+          f && !/package-lock|yarn\.lock|changelog\.txt|\.min\.|\.png|\.jpe?g|\.gif|\.ico|\.svg|\.woff|\.ttf|\.mp3|\.wav/i.test(f));
+        // read each tracked text file's line count (bounded concurrency)
+        let total = 0;
+        for (let i = 0; i < files.length; i += 25) {
+          const counts = await Promise.all(files.slice(i, i + 25).map(async (f) => {
+            try {
+              const buf = await fsP.readFile(pathMod.join(STATS_ROOT, f));
+              let n = 0;
+              for (let j = 0; j < buf.length; j++) if (buf[j] === 10) n++;
+              return n;
+            } catch { return 0; }
+          }));
+          total += counts.reduce((a, b) => a + b, 0);
+        }
+        return total;
+      }),
+    ]);
+    const stamps = times.split('\n').map(Number).filter(Boolean);
+    const parsed = {
+      loc, commits: parseInt(count, 10) || stamps.length,
+      hours_est: estimateHours(stamps),
+      first_commit: stamps.length ? new Date(stamps[0] * 1000).toISOString() : null,
+    };
+    codeStatsCache.at = Date.now();
+    codeStatsCache.stats = parsed;
+    return parsed;
+  } catch {
+    codeStatsCache.at = Date.now();
+    codeStatsCache.stats = null;
+    return null;
+  }
+};
+
+const probe = (sql, params) =>
+  db.query(sql, params).then((r) => r.rows[0]).catch(() => null);
+
+router.get('/admin/stats/live', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const [users, testers, pins, errors24h, lists, items, chat, code] = await Promise.all([
+      probe(`SELECT COUNT(*)::int AS total,
+                    COUNT(*) FILTER (WHERE last_login > NOW() - INTERVAL '7 days'
+                                      OR created_at > NOW() - INTERVAL '7 days')::int AS active_7d
+             FROM users`),
+      probe(`SELECT COUNT(*)::int AS total,
+                    COUNT(*) FILTER (WHERE last_active > NOW() - INTERVAL '7 days')::int AS active_7d,
+                    COUNT(*) FILTER (WHERE suspended)::int AS suspended
+             FROM beta_testers`),
+      probe(`SELECT COUNT(*)::int AS total,
+                    COUNT(*) FILTER (WHERE status = 'open')::int AS open
+             FROM beta_pins`),
+      probe(`SELECT COUNT(*)::int AS count FROM app_error_log
+             WHERE created_at > NOW() - INTERVAL '24 hours'`),
+      probe(`SELECT COUNT(*)::int AS total FROM shopping_lists`),
+      probe(`SELECT COUNT(*)::int AS total FROM shopping_list_items`),
+      probe(`SELECT COUNT(*)::int AS count FROM beta_chatroom_messages
+             WHERE created_at > NOW() - INTERVAL '24 hours'`),
+      loadCodeStats(),
+    ]);
+    res.json({
+      users: users || { total: null, active_7d: null },
+      testers: testers || { total: null, active_7d: null, suspended: null },
+      pins: pins || { total: null, open: null },
+      errors_24h: errors24h ? errors24h.count : null,
+      lists_total: lists ? lists.total : null,
+      items_total: items ? items.total : null,
+      chat_24h: chat ? chat.count : null,
+      uptime_sec: Math.round(process.uptime()),
+      code: code || null,
+      at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error('Live stats failed:', e);
+    res.status(500).json({ error: 'Failed to load stats' });
+  }
+});
+
 // Real MDL coverage metrics for the analytics dashboard
 router.get('/admin/stats/mdl-impact', authenticateToken, isAdmin, async (req, res) => {
   try {
