@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { FlaskConical, BarChart3, Key, Users, MessageSquare } from 'lucide-react';
 import BetaAnalyticsCFS from '../components/admin/BetaAnalyticsCFS';
 import BetaCodeManagerCFS from '../components/admin/BetaCodeManagerCFS';
@@ -11,6 +13,7 @@ import BetaChat from '../components/beta/BetaChat';
  * Central hub for managing the beta testing program
  */
 const AdminBetaDashboard = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('analytics');
 
   // Sidebar shortcuts (e.g. "BTCS Scores") jump straight to a tab
@@ -21,6 +24,12 @@ const AdminBetaDashboard = () => {
     window.addEventListener('setBetaTab', onSetTab);
     return () => window.removeEventListener('setBetaTab', onSetTab);
   }, []);
+
+  // BTCS + tester management are admin-only — route is PrivateRoute-gated
+  // (logged in) but not role-gated, so bounce non-admins here.
+  if (user && user.is_admin !== true) {
+    return <Navigate to="/" replace />;
+  }
 
   const tabs = [
     { 
