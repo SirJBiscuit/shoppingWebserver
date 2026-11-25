@@ -21,6 +21,7 @@ const MDLProducts = () => {
   const [newProduct, setNewProduct] = useState({
     product_name: '', category: '', average_price: '', icon_emoji: '', common_size: '', common_unit: ''
   });
+  const [downloading, setDownloading] = useState(false);
 
   if (!user?.isAdmin) {
     navigate('/');
@@ -48,7 +49,6 @@ const MDLProducts = () => {
     }
   };
 
-  const [downloading, setDownloading] = useState(false);
   const handleExport = async () => {
     if (downloading) return;
     setDownloading(true);
