@@ -280,7 +280,7 @@ router.post('/lists/:id/items',
 
 const updateShoppingListItem = async (req, res) => {
   const { listId, itemId } = req.params;
-  const { quantity, price, isChecked, item_name, item_icon, notes, category, unit, package_count, count_per_package, aisle_number } = req.body;
+  const { quantity, price, isChecked, item_name, item_icon, notes, category, unit, package_count, count_per_package, aisle_number, aisle_name } = req.body;
 
   console.log('PATCH /lists/:listId/items/:itemId - Request body:', req.body);
   console.log('Icon received:', item_icon);
@@ -329,6 +329,10 @@ const updateShoppingListItem = async (req, res) => {
     if (aisle_number !== undefined) {
       updates.push(`aisle_number = $${paramCount++}`);
       values.push(aisle_number);
+    }
+    if (aisle_name !== undefined) {
+      updates.push(`aisle_name = $${paramCount++}`);
+      values.push(aisle_name);
     }
     if (isChecked !== undefined) {
       updates.push(`is_checked = $${paramCount++}`);
@@ -782,15 +786,45 @@ router.post('/price-history', async (req, res) => {
 
   try {
     const result = await db.query(
-      `INSERT INTO price_history 
+      `INSERT INTO price_history
        (user_id, item_name, price, quantity, store_name, notes, status, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, 'approved', NOW())
        RETURNING *`,
       [req.user.id, item_name, parseFloat(price), quantity || 1, store_name || 'Unknown', notes || '']
     );
-    
-    res.json({ 
-      success: true, 
+
+    // Feed the shared MDL location-price pool so manually saved prices
+    // (incl. beta testers') improve predictions for everyone. Best-effort —
+    // never let learning break the save path.
+    try {
+      const nameId = (await db.query(
+        'SELECT get_or_create_item_name($1) AS id', [item_name.trim()]
+      )).rows[0]?.id;
+      const userState = (await db.query(
+        'SELECT state FROM user_locations WHERE user_id = $1 LIMIT 1', [req.user.id]
+      )).rows[0]?.state;
+      if (nameId && userState) {
+        await db.query(
+          `INSERT INTO mdl_location_prices
+             (item_name_id, state, average_price, min_price, max_price, sample_size, confidence_score)
+           VALUES ($1,$2,$3,$3,$3,1,0.1)
+           ON CONFLICT (item_name_id, (COALESCE(state, '')), (COALESCE(store_chain, '')), (COALESCE(specific_store_id, 0))) DO UPDATE SET
+             average_price = ROUND(((mdl_location_prices.average_price * mdl_location_prices.sample_size) + $3)
+                                   / (mdl_location_prices.sample_size + 1), 2),
+             min_price = LEAST(mdl_location_prices.min_price, $3),
+             max_price = GREATEST(mdl_location_prices.max_price, $3),
+             sample_size = mdl_location_prices.sample_size + 1,
+             confidence_score = LEAST(0.95, (mdl_location_prices.sample_size + 1) / 20.0),
+             last_updated = NOW()`,
+          [nameId, userState, parseFloat(price)]
+        );
+      }
+    } catch (learnErr) {
+      console.warn('price-history -> location prices skipped:', learnErr.message);
+    }
+
+    res.json({
+      success: true,
       message: 'Price saved to history',
       data: result.rows[0]
     });

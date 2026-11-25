@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import PageTransition from '../components/PageTransition';
 import MDLProductsPanel from '../components/admin/MDLProductsPanel';
-import { createProduct, searchProducts } from '../api/mdl';
+import { createProduct, downloadMdlBackup } from '../api/mdl';
 import { CANONICAL_CATEGORIES, detectCategory, detectIcon } from '../utils/categoryDetector';
 
 /**
@@ -48,20 +48,20 @@ const MDLProducts = () => {
     }
   };
 
+  const [downloading, setDownloading] = useState(false);
   const handleExport = async () => {
-    const products = await searchProducts('', '', 5000);
-    if (!products.length) {
-      flash('Nothing to export', true);
-      return;
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      // Full-MDL dump (every mdl_* table + catalog/location data) straight
+      // to the computer — generated fresh on the server.
+      await downloadMdlBackup();
+      flash('Full MDL backup downloaded');
+    } catch (e) {
+      flash('Backup download failed', true);
+    } finally {
+      setDownloading(false);
     }
-    const blob = new Blob([JSON.stringify(products, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `mdl-products-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    flash(`Exported ${products.length} products`);
   };
 
   return (
@@ -86,9 +86,11 @@ const MDLProducts = () => {
               <div className="flex gap-2">
                 <button
                   onClick={handleExport}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 font-medium transition-colors"
+                  disabled={downloading}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 font-medium transition-colors disabled:opacity-50"
+                  title="Download the entire MDL database (all mdl_* tables) as JSON"
                 >
-                  <Download className="w-4 h-4" /> Export JSON
+                  <Download className="w-4 h-4" /> {downloading ? 'Downloading…' : 'Backup to computer'}
                 </button>
                 <button
                   onClick={() => setShowAddForm(!showAddForm)}

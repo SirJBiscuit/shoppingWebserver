@@ -3,11 +3,11 @@ import {
   Database, Search, Pencil, X, RefreshCw, Save,
   Archive, DollarSign, Package, Layers, Brain, ListOrdered,
   Store, Star, MapPin, Tag, Plus, Trash2, ChevronDown,
-  Heart, Smile
+  Heart, Smile, Download
 } from 'lucide-react';
 import {
   getAdminStats, searchProducts, getProductCategories,
-  updateProduct, addPriceRecord, runMdlBackup,
+  updateProduct, addPriceRecord, runMdlBackup, downloadMdlBackup,
   getProductVariants, saveProductVariant, deleteProductVariant, markBestVariant,
   getFavorites
 } from '../../api/mdl';
@@ -278,6 +278,22 @@ const MDLProductsPanel = () => {
         </button>
         <button onClick={runBackup} className="btn-secondary text-sm flex items-center gap-2">
           <Archive className="w-4 h-4" /> Backup Now
+        </button>
+        <button
+          onClick={async () => {
+            setNotice('Preparing download…');
+            try {
+              await downloadMdlBackup();
+              setNotice('MDL backup downloaded');
+            } catch {
+              setNotice('Download failed.');
+            }
+            setTimeout(() => setNotice(''), 4000);
+          }}
+          className="btn-secondary text-sm flex items-center gap-2"
+          title="Download the entire MDL database to your computer"
+        >
+          <Download className="w-4 h-4" /> Download
         </button>
       </div>
 

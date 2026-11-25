@@ -991,6 +991,22 @@ const Dashboard = () => {
     }
   };
 
+  // Aisle change from the QuickAislePicker — applies to every duplicate
+  // row in a grouped item, then reloads so badges refresh properly
+  const handleAisleChange = async (item, aisleNumber, aisleName) => {
+    const ids = item.ids || [item.id];
+    try {
+      await Promise.all(ids.map(id =>
+        shoppingAPI.updateItem(activeList.id, id, { aisle_number: aisleNumber, aisle_name: aisleName })
+      ));
+      await loadListItems(activeList.id);
+      success(aisleNumber != null ? `Aisle set to ${aisleNumber}` : 'Aisle cleared');
+    } catch (err) {
+      console.error('Error updating aisle:', err);
+      error('Failed to update aisle');
+    }
+  };
+
   // Quick quantity change - Optimistic update for instant feedback
   const handleQuantityChange = async (item, delta) => {
     let updatedQuantity;
@@ -2737,6 +2753,7 @@ const Dashboard = () => {
                 onLookForThis={handleLookForThis}
                 onQuantityChange={handleQuantityChange}
                 onPriceUpdate={handlePriceUpdate}
+                onAisleChange={handleAisleChange}
                 onEdit={async (updatedItem) => {
                   try {
                     console.log('Updating item:', updatedItem);
@@ -3434,7 +3451,8 @@ const Dashboard = () => {
             storeName={activeList?.store_name}
             onLookForThis={handleLookForThis}
             onQuantityChange={handleQuantityChange}
-                onPriceUpdate={handlePriceUpdate}
+            onPriceUpdate={handlePriceUpdate}
+            onAisleChange={handleAisleChange}
             onEdit={async (updatedItem) => {
               try {
                 const updateData = {

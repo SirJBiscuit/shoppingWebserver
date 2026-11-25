@@ -10,6 +10,8 @@ const { authenticateToken } = require('../middleware/auth');
 const { canonicalizeCategory } = require('../utils/canonicalCategory');
 const { detectCategoryForName } = require('../utils/categories');
 const mdlQuality = require('../services/mdlQuality');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Learn a name -> canonical category mapping (064 mdl_category_learned).
@@ -1463,6 +1465,40 @@ router.get('/backups', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error listing backups:', error);
     res.status(500).json({ error: 'Failed to list backups' });
+  }
+});
+
+// Fresh full-MDL dump streamed straight to the browser — "backup to computer"
+router.get('/backups/download', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const { dump } = await mdlBackup.buildDump();
+    const filename = `mdl-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(JSON.stringify(dump));
+  } catch (error) {
+    console.error('Error downloading MDL backup:', error);
+    res.status(500).json({ error: 'Download failed' });
+  }
+});
+
+// Download a stored snapshot file by name
+router.get('/backups/:filename/download', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const filename = path.basename(String(req.params.filename));
+    if (!/^mdl-backup-[\w.-]+\.json$/.test(filename)) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+    const filePath = path.join(mdlBackup.BACKUP_DIR, filename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Backup not found' });
+    }
+    res.download(filePath, filename);
+  } catch (error) {
+    console.error('Error downloading backup file:', error);
+    res.status(500).json({ error: 'Download failed' });
   }
 });
 

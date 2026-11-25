@@ -765,3 +765,12 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Migration 118: added_by column on shopping_list_items (FK users, indexed) — seeds household "who added what" profiles. INSERT now stamps req.user.id; GET /lists/:id joins users for added_by_name.
 - Recipes: GET /recipes joins users for added_by_name; RecipeCard shows a CalendarPlus date chip with "Added <date> by <name>" tooltip.
 - Mobile/tablet collapse fixes: admin rail + BTCS float trigger now render on md+ (tablets), chevrons got 44px tap targets, beta collapse chevron on all sizes.
+
+## MDL backup-to-computer + aisle system rework + price prediction feed
+- mdlBackup.js: table list is now dynamic — every mdl_* table resolved from information_schema (+ extras: product_master_data, user_product_preferences, user_locations, store_locations, user_store_layouts, item_training_submissions) so the dump always covers the entire MDL. buildDump() shared by runBackup and the download route; tables dump in parallel.
+- New routes: GET /api/mdl/backups/download (fresh full dump streamed as attachment) + GET /api/mdl/backups/:filename/download (stored snapshot, filename-validated). Both admin-gated.
+- api/mdl.js: downloadMdlBackup + downloadMdlBackupFile helpers (blob -> file). MDLProducts page "Backup to computer" button now downloads the full dump (was catalog-only 5000-row export); MDLProductsPanel gains a Download button next to Backup Now.
+- Aisle UX: new QuickAislePicker — anchored autoPlacement popup matching QuickCategoryPicker (spring-in, backdrop, mobile bottom sheet), MDL learned suggestion chip with confidence, 1-24 quick grid, custom number + aisle-name input, clear button.
+- Aisle badge now shows the real sli.aisle_number first (solid blue); falls back to the static store-layout guess as an unconfirmed "Aisle N?" style; "+ Aisle" chip opens the picker even without a store. aisle_name displayed under the name row.
+- Fixes: PATCH now accepts aisle_name; applyAisle updates every duplicate id in a grouped item via handleAisleChange -> shoppingAPI.updateItem + loadListItems (was mutating item.aisle silently and only patching the first id); MDL report sends the resolved store name + canonical category.
+- price-history POST now also upserts mdl_location_prices (same aggregation as track-item) so manually saved prices — incl. beta testers' — feed the shared prediction pool. Best-effort, never breaks the save.

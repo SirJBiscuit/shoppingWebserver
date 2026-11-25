@@ -14,17 +14,9 @@ const BACKUP_DIR = process.env.MDL_BACKUP_DIR || path.join(__dirname, '../../bac
 const RETENTION_DAYS = parseInt(process.env.MDL_BACKUP_RETENTION_DAYS || '14', 10);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const TABLES = [
-  'mdl_item_names',
-  'mdl_user_item_history',
-  'mdl_user_patterns',
-  'mdl_location_prices',
-  'mdl_location_aisles',
-  'mdl_aisle_reports',
-  'mdl_category_aisles',
-  'mdl_training_queue',
-  'mdl_user_preferences',
-  'mdl_price_history',
+// MDL-adjacent tables that don't carry the mdl_ prefix but are part of the
+// product/location learning data.
+const EXTRA_TABLES = [
   'product_master_data',
   'user_product_preferences',
   'user_locations',
@@ -32,6 +24,18 @@ const TABLES = [
   'user_store_layouts',
   'item_training_submissions'
 ];
+
+// Every table in the backup = all mdl_* tables (resolved live so new MDL
+// tables are picked up automatically) + the extras above.
+const listTables = async () => {
+  const { rows } = await db.query(
+    `SELECT table_name FROM information_schema.tables
+     WHERE table_schema = 'public' AND table_name LIKE 'mdl\\_%'`
+  );
+  const names = new Set(rows.map(r => r.table_name));
+  EXTRA_TABLES.forEach(t => names.add(t));
+  return [...names].sort();
+};
 
 const listBackupFiles = () => {
   if (!fs.existsSync(BACKUP_DIR)) return [];
@@ -53,25 +57,36 @@ const pruneOldBackups = () => {
 };
 
 /**
- * Export all MDL tables to a single timestamped JSON file.
+ * Build the full MDL dump in memory. Shared by runBackup (writes a file)
+ * and the download-to-computer route (streams straight to the admin).
  * Tables that don't exist yet are recorded as errors, not thrown.
  */
-const runBackup = async (createdBy = 'auto') => {
-  fs.mkdirSync(BACKUP_DIR, { recursive: true });
-
+const buildDump = async () => {
+  const tables = await listTables();
   const dump = { created_at: new Date().toISOString(), tables: {} };
   const counts = {};
 
-  for (const table of TABLES) {
+  await Promise.all(tables.map(async (table) => {
     try {
-      const result = await db.query(`SELECT * FROM ${table}`);
+      const result = await db.query(`SELECT * FROM "${table}"`);
       dump.tables[table] = result.rows;
       counts[table] = result.rows.length;
     } catch (error) {
       dump.tables[table] = { error: error.message };
       counts[table] = -1;
     }
-  }
+  }));
+
+  return { dump, counts };
+};
+
+/**
+ * Export all MDL tables to a single timestamped JSON file.
+ */
+const runBackup = async (createdBy = 'auto') => {
+  fs.mkdirSync(BACKUP_DIR, { recursive: true });
+
+  const { dump, counts } = await buildDump();
 
   const filename = `mdl-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
   const filePath = path.join(BACKUP_DIR, filename);
@@ -108,4 +123,4 @@ const startDailyBackup = () => {
   console.log(`📦 MDL auto-backup scheduled (daily, keeping last ${RETENTION_DAYS})`);
 };
 
-module.exports = { runBackup, startDailyBackup, listBackupFiles };
+module.exports = { runBackup, buildDump, startDailyBackup, listBackupFiles, BACKUP_DIR };

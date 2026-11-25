@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import CustomEditPanel from './CustomEditPanel';
 import CustomContextMenu from './CustomContextMenu';
 import FavoritePicker from './FavoritePicker';
-import { getFavorites } from '../api/mdl';
+import { getFavorites, reportAisle } from '../api/mdl';
 import { Portal, useIsMobile } from '../utils/autoPlacement';
 import CustomNumberPad from './CustomNumberPad';
 // import ItemTooltip from './ItemTooltip'; // Component doesn't exist
@@ -18,6 +18,7 @@ import { useEditor } from '../contexts/EditorContext';
 import ItemIcon from './ItemIcon';
 import QuickIconPicker from './QuickIconPicker';
 import QuickCategoryPicker from './QuickCategoryPicker';
+import QuickAislePicker from './QuickAislePicker';
 import QuantityStepper from './QuantityStepper';
 
 const ItemList = (props) => {
@@ -80,6 +81,7 @@ const ItemListContent = (props) => {
     onLookForThis,
     onQuantityChange,
     onPriceUpdate,
+    onAisleChange,
     onToggleCategories,
     ghostItems = [],
     onGhostAdd,
@@ -344,6 +346,7 @@ const ItemListContent = (props) => {
               onEdit={onEdit}
               onQuantityChange={onQuantityChange}
               onPriceUpdate={onPriceUpdate}
+              onAisleChange={onAisleChange}
               priceCompare={priceCompare}
               showButtonLabels={showButtonLabels}
               showCheckboxes={showCheckboxes}
@@ -402,6 +405,7 @@ const ItemListContent = (props) => {
                   onLookForThis={onLookForThis}
                   onQuantityChange={onQuantityChange}
                   onPriceUpdate={onPriceUpdate}
+                  onAisleChange={onAisleChange}
                   priceCompare={priceCompare}
                   showButtonLabels={showButtonLabels}
                   showCheckboxes={showCheckboxes}
@@ -583,8 +587,7 @@ const StorePriceBadge = ({ itemName, currentPrice, priceCompare }) => {
   );
 };
 
-const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit, onQuantityChange, priceCompare, showButtonLabels, favorites, onOpenFavorites, onOpenEdit, onQuickIcon, onPriceUpdate }) => {
-  const [editingAisle, setEditingAisle] = useState(false);
+const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit, onQuantityChange, priceCompare, showButtonLabels, favorites, onOpenFavorites, onOpenEdit, onQuickIcon, onPriceUpdate, onAisleChange }) => {
   const [catAnchor, setCatAnchor] = useState(null); // anchor for animated category popup
 
   const openCategoryPicker = (e) => {
@@ -600,8 +603,6 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
     });
     playSound('pop');
   };
-  const [aisleNumber, setAisleNumber] = useState('');
-  const [aisleName, setAisleName] = useState('');
   const [checkAnimKey, setCheckAnimKey] = useState(0);
   const [inventoryCheck, setInventoryCheck] = useState(null);
   const [smartSuggestion, setSmartSuggestion] = useState(null);
@@ -609,6 +610,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showPricePad, setShowPricePad] = useState(false);
   const [padPrice, setPadPrice] = useState('');
+  const [aisleAnchor, setAisleAnchor] = useState(null);
   const isMobile = useIsMobile();
   const itemRef = useRef(null);
   const iconRef = useRef(null);
@@ -637,9 +639,11 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
     }
   };
   
-  // Get aisle information if store is specified
+  // Get aisle information — manually-set DB aisle wins, then the static
+  // store-layout guess is shown as an unconfirmed estimate ("Aisle 4?")
   const category = canonicalizeCategory(item.category_name || item.category);
   const aisle = storeName ? getAisleForCategory(storeName, category) : null;
+  const dbAisle = item.aisle != null && item.aisle !== '' ? parseInt(item.aisle, 10) : null;
   
   // Check if item exists in inventory and get smart suggestions
   useEffect(() => {
@@ -699,53 +703,39 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
     }
   }, [item.item_name, item.is_checked]);
   
-  const saveAisle = async () => {
-    if (!aisleNumber.trim()) return;
-    
-    try {
-      const token = localStorage.getItem('token');
-      const aisleNum = parseInt(aisleNumber);
-      
-      // Report to MDL system for learning
-      const storeId = encodeURIComponent(storeName || 'unknown');
-      await fetch('/api/mdl/aisle/report', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          itemName: item.item_name,
-          aisleNumber: aisleNum,
-          storeId: storeId,
-          wasCorrect: null, // User is manually setting, no prediction to compare
-          categoryId: item.category
-        })
+  const openAislePicker = (e) => {
+    e.stopPropagation();
+    const r = e.currentTarget?.getBoundingClientRect?.();
+    setAisleAnchor(r ? { cx: r.left + r.width / 2, top: r.top, bottom: r.bottom } : null);
+  };
+
+  const applyAisle = async (aisleNum, aisleName) => {
+    // Report to MDL for learning — needs a store to attach the report to
+    if (storeName) {
+      reportAisle({
+        itemName: item.item_name,
+        aisleNumber: aisleNum,
+        storeId: storeName,
+        wasCorrect: null,
+        category
       });
-      
-      // Update the item's aisle field in the database
-      const response = await fetch(`/api/shopping/lists/${item.shopping_list_id}/items/${item.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          aisle_number: aisleNum
-        })
-      });
-      
-      if (response.ok) {
-        // Update local state
-        item.aisle = aisleNum;
-        setEditingAisle(false);
-        playSound('success');
-        console.log(`✅ Aisle ${aisleNum} saved for ${item.item_name}`);
-      } else {
-        console.error('Failed to update item aisle');
-      }
-    } catch (err) {
-      console.error('Error saving aisle:', err);
+    }
+    // Persist on every row in the group, then let the parent reload
+    if (onAisleChange) {
+      await onAisleChange(item, aisleNum, aisleName || null);
+    } else {
+      item.aisle = aisleNum;
+      item.aisle_name = aisleName || null;
+    }
+    playSound('success');
+  };
+
+  const clearAisle = async () => {
+    if (onAisleChange) {
+      await onAisleChange(item, null, null);
+    } else {
+      item.aisle = null;
+      item.aisle_name = null;
     }
   };
   
@@ -1003,56 +993,42 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                       >
                         {getCategoryIcon(category)} {category}
                       </button>
-                      {editingAisle ? (
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            value={aisleNumber}
-                            onChange={(e) => setAisleNumber(e.target.value)}
-                            placeholder="Aisle #"
-                            className="w-16 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                            autoFocus
-                          />
-                          <button
-                            onClick={saveAisle}
-                            className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
-                          >
-                            ✓
-                          </button>
-                          <button
-                            onClick={() => setEditingAisle(false)}
-                            className="px-2 py-1 bg-gray-400 dark:bg-gray-600 text-white text-xs rounded hover:bg-gray-500 dark:hover:bg-gray-700"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : aisle ? (
-                        <span 
-                          onClick={() => {
-                            setAisleNumber(aisle.number.toString());
-                            setAisleName(aisle.name || '');
-                            setEditingAisle(true);
-                          }}
-                          className="inline-flex items-center px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-medium cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800/40"
-                          title="Click to edit aisle"
-                        >
-                          <MapPin className="w-3 h-3 mr-1" />
-                          Aisle {aisle.number}
-                        </span>
-                      ) : storeName && (
+                      {dbAisle != null ? (
                         <button
-                          onClick={() => setEditingAisle(true)}
-                          className="inline-flex items-center px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600"
+                          type="button"
+                          onClick={openAislePicker}
+                          className="inline-flex items-center px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-semibold cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800/40 active:scale-95 transition-all"
+                          title={`Aisle ${dbAisle}${item.aisle_name ? ` (${item.aisle_name})` : ''} — tap to change`}
                         >
                           <MapPin className="w-3 h-3 mr-1" />
-                          + Add Aisle
+                          Aisle {dbAisle}
+                        </button>
+                      ) : aisle ? (
+                        <button
+                          type="button"
+                          onClick={openAislePicker}
+                          className="inline-flex items-center px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-500 dark:text-blue-400 rounded-full text-xs font-medium cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/40 active:scale-95 transition-all ring-1 ring-blue-200 dark:ring-blue-800"
+                          title={`Estimated aisle ${aisle.number} from store layout — tap to confirm or change`}
+                        >
+                          <MapPin className="w-3 h-3 mr-1" />
+                          Aisle {aisle.number}?
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={openAislePicker}
+                          className="inline-flex items-center px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-95 transition-all"
+                          title="Set the aisle for this item"
+                        >
+                          <MapPin className="w-3 h-3 mr-1" />
+                          + Aisle
                         </button>
                       )}
                     </div>
                     {/* Show aisle name if available */}
-                    {aisle && (
+                    {(item.aisle_name || aisle?.name) && (
                       <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                        {aisle.name}
+                        {item.aisle_name || aisle.name}
                       </p>
                     )}
                     {/* Show notes if present */}
@@ -1202,6 +1178,19 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
           anchor={catAnchor}
           onSelect={applyCategory}
           onClose={() => setCatAnchor(null)}
+        />
+      )}
+
+      {aisleAnchor !== null && (
+        <QuickAislePicker
+          itemName={item.item_name}
+          currentAisle={dbAisle}
+          currentAisleName={item.aisle_name}
+          storeName={storeName}
+          anchor={aisleAnchor}
+          onSelect={applyAisle}
+          onClear={clearAisle}
+          onClose={() => setAisleAnchor(null)}
         />
       )}
 

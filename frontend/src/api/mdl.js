@@ -248,6 +248,28 @@ export const runMdlBackup = async () => {
   }
 };
 
+/** Download the full MDL dump to the computer (fresh, all mdl_* tables). */
+export const downloadMdlBackup = async () => {
+  const response = await mdlAPI.get('/backups/download', { responseType: 'blob' });
+  const url = URL.createObjectURL(response.data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `mdl-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+/** Download a stored server-side snapshot by filename. */
+export const downloadMdlBackupFile = async (filename) => {
+  const response = await mdlAPI.get(`/backups/${encodeURIComponent(filename)}/download`, { responseType: 'blob' });
+  const url = URL.createObjectURL(response.data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 // ============================================================================
 // SIZE / WEIGHT / UNIT PRESETS
 // ============================================================================
