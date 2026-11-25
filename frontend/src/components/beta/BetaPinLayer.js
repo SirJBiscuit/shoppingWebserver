@@ -14,7 +14,7 @@ import {
   Check, Clock, Trash2, Layers, ExternalLink,
   BarChart3, ThumbsUp, ThumbsDown, Lock, Pencil, Move, Download, RotateCcw,
   LocateFixed, Copy, Flag, Bug, Lightbulb, AlertTriangle, HelpCircle, Star,
-  Crosshair, Ghost, PanelRightClose, PanelRightOpen, Pin, Archive,
+  Crosshair, Ghost, PanelRightClose, PanelRightOpen, PanelLeftClose, Pin, Archive,
   Search, SlidersHorizontal, ListChecks, StickyNote, MapPinned, Activity, Award
 } from 'lucide-react';
 
@@ -2594,6 +2594,21 @@ const BetaPinLayer = () => {
             </button>
             <FabLabel>Pin</FabLabel>
           </div>
+
+          {/* Collapse — red tint marks this as the BETA stack's handle.
+              Folds the stack to the slim edge restore tab (works for
+              testers and admins; persisted via betaStackHidden). */}
+          <div className="flex flex-col w-12 items-center gap-1">
+            <button
+              onClick={() => setStackHidden(true)}
+              className="w-8 h-8 rounded-full shadow-lg flex items-center justify-center transition bg-red-500/80 text-white hover:bg-red-500"
+              title="Hide beta controls — slim tab stays on the edge"
+            >
+              {floatSide === 'left'
+                ? <PanelLeftClose className="w-4 h-4" />
+                : <PanelRightClose className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
       )}
 
@@ -2602,7 +2617,7 @@ const BetaPinLayer = () => {
         <button
           ref={restoreRef}
           onClick={() => setStackHidden(false)}
-          className={`fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-lg border-l-0' : 'right-0 rounded-l-lg border-r-0'} z-[46] bg-slate-900/90 border border-slate-700 px-1 py-3 text-slate-400 hover:text-slate-200 shadow-xl transition-transform duration-300`}
+          className={`fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-lg border-l-0' : 'right-0 rounded-l-lg border-r-0'} z-[46] bg-slate-900/90 border border-red-500/50 px-1 py-3 text-red-400 hover:text-red-300 shadow-xl transition-transform duration-300`}
           title="Show beta controls"
           style={{ bottom: betaOnly + 4, transform: `translateX(${-panelShift}px)` }}
         >
@@ -2666,7 +2681,7 @@ const BetaPinLayer = () => {
         >
           <button
             onClick={() => setRailCollapsed(!railCollapsed)}
-            className={`bg-slate-900/90 border border-slate-700 ${floatSide === 'left' ? 'rounded-r-lg border-l-0' : 'rounded-l-lg border-r-0'} px-1.5 py-1 text-slate-400 hover:text-slate-200 shadow-xl transition`}
+            className={`bg-slate-900/90 border border-amber-600/50 ${floatSide === 'left' ? 'rounded-r-lg border-l-0' : 'rounded-l-lg border-r-0'} px-1.5 py-1 text-amber-400 hover:text-amber-300 shadow-xl transition`}
             title={railCollapsed ? 'Show admin rail' : 'Hide admin rail'}
           >
             {floatSide === 'left'

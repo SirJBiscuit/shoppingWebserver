@@ -753,3 +753,8 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - /admin/stats/live extended: feedback bugs/ideas breakdown, codes active, open polls, MDL coverage (items, priced %, aisle %, reports, stores), chat totals, error totals.
 - App age tile: derived from codestats.json first_commit (shows "since <date>" + age like 8mo).
 - LOC never shows "—": after codestats.json and in-process git fallbacks, the backend walks the deployed source tree and counts lines directly.
+
+## Interactive stat tiles + beta-stack collapse + color coding
+- Every AdminStatsStrip tile is a button: testers/suspended/errors → BTCS float panel (beta:openBtcs); pins/bugs/ideas/chat/polls → admin viewer (beta:openViewer); users/uptime → /admin; codes → /admin/beta; items → /stats; MDL tiles → /admin/products; code tiles → listzy:open-changelog.
+- Beta stack gained its own collapse chevron (red, below the Pin button) — testers and admins alike can fold it to the edge restore tab (betaStackHidden persisted).
+- Color coding: app column collapse = purple, beta stack collapse + restore tab = red, admin rail collapse tab = amber.

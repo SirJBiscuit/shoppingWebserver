@@ -196,7 +196,7 @@ const FloatingButtons = ({
         <div className="flex flex-col w-12 items-center gap-1">
           <motion.button
             onClick={() => setFloatsCollapsed(!collapsed)}
-            className="w-8 h-8 rounded-full shadow-lg flex items-center justify-center transition bg-slate-700/80 text-slate-300 hover:bg-slate-600 hover:text-white"
+            className="w-8 h-8 rounded-full shadow-lg flex items-center justify-center transition bg-purple-600/80 text-purple-100 hover:bg-purple-500 hover:text-white"
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
             title={collapsed ? 'Show floating buttons' : 'Hide floating buttons'}

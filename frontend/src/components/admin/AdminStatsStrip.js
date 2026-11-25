@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Users, ShieldCheck, MapPin, AlertTriangle, MessageSquare,
   ListChecks, Code, GitCommitHorizontal, Timer, RefreshCw,
@@ -10,8 +11,9 @@ import { useAuth } from '../../context/AuthContext';
 
 // Live app vitals for admins — one cheap poll of /beta/admin/stats/live.
 // Compact tile grid (grouped: People / Beta / Catalog / Code) inside a
-// fixed-height panel with a 3D-styled scrollbar. Code stats come from
-// codestats.json written at deploy time.
+// fixed-height panel with the 3D scrollbar. Every tile is interactive:
+// it opens the panel/page it reports on (beta viewer, BTCS panel, MDL,
+// admin, changelog).
 
 const POLL_MS = 60 * 1000;
 
@@ -38,7 +40,7 @@ const fmtAge = (iso) => {
   return `${days}d`;
 };
 
-const Tile = ({ icon: Icon, label, value, sub, tone = 'slate' }) => {
+const Tile = ({ icon: Icon, label, value, sub, tone = 'slate', onClick }) => {
   const tones = {
     slate: 'text-slate-500 dark:text-slate-300',
     amber: 'text-amber-600 dark:text-amber-400',
@@ -48,15 +50,17 @@ const Tile = ({ icon: Icon, label, value, sub, tone = 'slate' }) => {
     violet: 'text-violet-600 dark:text-violet-400',
   };
   return (
-    <div
-      className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/70 dark:bg-slate-800/70 border border-gray-200/80 dark:border-slate-700/80 min-w-0"
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/70 dark:bg-slate-800/70 border border-gray-200/80 dark:border-slate-700/80 min-w-0 hover:bg-white dark:hover:bg-slate-800 hover:border-gray-300 dark:hover:border-slate-600 hover:shadow-sm active:scale-95 transition cursor-pointer"
       title={sub ? `${label} — ${sub}` : label}
     >
       <Icon className={`w-3 h-3 flex-shrink-0 ${tones[tone]}`} />
       <span className={`text-[11px] font-bold ${tones[tone]} tabular-nums`}>{value}</span>
       <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 dark:text-slate-500 truncate">{label}</span>
       {sub && <span className="text-[9px] text-gray-400 dark:text-slate-500 truncate hidden xl:inline">({sub})</span>}
-    </div>
+    </button>
   );
 };
 
@@ -66,6 +70,7 @@ const GroupLabel = ({ children }) => (
 
 const AdminStatsStrip = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [spinning, setSpinning] = useState(false);
   const timer = useRef(null);
@@ -92,6 +97,13 @@ const AdminStatsStrip = () => {
   const code = s.code || {};
   const mdl = s.mdl || {};
 
+  // Tile actions — each opens the surface it reports on. Panels use the
+  // same custom events the context menu / rail use so no navigation needed.
+  const openBtcs = () => window.dispatchEvent(new CustomEvent('beta:openBtcs'));
+  const openViewer = () => window.dispatchEvent(new CustomEvent('beta:openViewer'));
+  const openChangelog = () => window.dispatchEvent(new CustomEvent('listzy:open-changelog'));
+  const go = (path) => () => navigate(path);
+
   return (
     <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50/80 dark:bg-slate-900/60 shadow-sm">
       <div className="flex items-center justify-between px-3 pt-2">
@@ -111,39 +123,39 @@ const AdminStatsStrip = () => {
       <div className="scrollbar-3d max-h-[132px] overflow-y-auto px-3 pb-2.5 pt-1 space-y-1.5">
         <div className="flex flex-wrap gap-1">
           <GroupLabel>People</GroupLabel>
-          <Tile icon={Users} label="users" value={fmt(s.users?.total)} sub={`${s.users?.active_7d ?? '—'} this wk`} tone="blue" />
-          <Tile icon={ShieldCheck} label="testers" value={fmt(s.testers?.total)} sub={`${s.testers?.active_7d ?? '—'} active`} tone="amber" />
-          <Tile icon={ShieldCheck} label="suspended" value={fmt(s.testers?.suspended)} tone={s.testers?.suspended > 0 ? 'red' : 'slate'} />
-          <Tile icon={Activity} label="uptime" value={fmtUptime(s.uptime_sec)} tone="emerald" />
+          <Tile icon={Users} label="users" value={fmt(s.users?.total)} sub={`${s.users?.active_7d ?? '—'} this wk`} tone="blue" onClick={go('/admin')} />
+          <Tile icon={ShieldCheck} label="testers" value={fmt(s.testers?.total)} sub={`${s.testers?.active_7d ?? '—'} active`} tone="amber" onClick={openBtcs} />
+          <Tile icon={ShieldCheck} label="suspended" value={fmt(s.testers?.suspended)} tone={s.testers?.suspended > 0 ? 'red' : 'slate'} onClick={openBtcs} />
+          <Tile icon={Activity} label="uptime" value={fmtUptime(s.uptime_sec)} tone="emerald" onClick={go('/admin')} />
         </div>
 
         <div className="flex flex-wrap gap-1">
           <GroupLabel>Beta</GroupLabel>
-          <Tile icon={MapPin} label="open pins" value={fmt(s.pins?.open)} sub={`${fmt(s.pins?.total)} total`} tone="violet" />
-          <Tile icon={Bug} label="bugs" value={fmt(s.feedback?.bugs)} tone={s.feedback?.bugs > 0 ? 'red' : 'slate'} />
-          <Tile icon={Lightbulb} label="ideas" value={fmt(s.feedback?.features)} tone="blue" />
-          <Tile icon={AlertTriangle} label="errors 24h" value={fmt(s.errors?.last_24h)} tone={s.errors?.last_24h > 0 ? 'red' : 'emerald'} />
-          <Tile icon={MessageSquare} label="chat 24h" value={fmt(s.chat?.last_24h)} sub={`${fmt(s.chat?.total)} total`} tone="blue" />
-          <Tile icon={KeyRound} label="codes" value={fmt(s.codes?.active)} sub={`${fmt(s.codes?.total)} total`} tone="slate" />
-          <Tile icon={Vote} label="open polls" value={fmt(s.polls?.open)} sub={`${fmt(s.polls?.total)} total`} tone="slate" />
+          <Tile icon={MapPin} label="open pins" value={fmt(s.pins?.open)} sub={`${fmt(s.pins?.total)} total`} tone="violet" onClick={openViewer} />
+          <Tile icon={Bug} label="bugs" value={fmt(s.feedback?.bugs)} tone={s.feedback?.bugs > 0 ? 'red' : 'slate'} onClick={openViewer} />
+          <Tile icon={Lightbulb} label="ideas" value={fmt(s.feedback?.features)} tone="blue" onClick={openViewer} />
+          <Tile icon={AlertTriangle} label="errors 24h" value={fmt(s.errors?.last_24h)} tone={s.errors?.last_24h > 0 ? 'red' : 'emerald'} onClick={openBtcs} />
+          <Tile icon={MessageSquare} label="chat 24h" value={fmt(s.chat?.last_24h)} sub={`${fmt(s.chat?.total)} total`} tone="blue" onClick={openViewer} />
+          <Tile icon={KeyRound} label="codes" value={fmt(s.codes?.active)} sub={`${fmt(s.codes?.total)} total`} tone="slate" onClick={go('/admin/beta')} />
+          <Tile icon={Vote} label="open polls" value={fmt(s.polls?.open)} sub={`${fmt(s.polls?.total)} total`} tone="slate" onClick={openViewer} />
         </div>
 
         <div className="flex flex-wrap gap-1">
           <GroupLabel>Catalog</GroupLabel>
-          <Tile icon={ListChecks} label="items" value={fmt(s.items_total)} sub={`${fmt(s.lists_total)} lists`} tone="emerald" />
-          <Tile icon={Database} label="mdl items" value={fmt(mdl.items)} tone="slate" />
-          <Tile icon={DollarSign} label="priced" value={mdl.price_pct != null ? `${mdl.price_pct}%` : '—'} sub={`${fmt(mdl.price_reports)} reports`} tone="emerald" />
-          <Tile icon={Signpost} label="aisles" value={mdl.aisle_pct != null ? `${mdl.aisle_pct}%` : '—'} sub={`${fmt(mdl.aisle_reports)} reports`} tone="violet" />
-          <Tile icon={Store} label="stores" value={fmt(mdl.stores)} tone="slate" />
+          <Tile icon={ListChecks} label="items" value={fmt(s.items_total)} sub={`${fmt(s.lists_total)} lists`} tone="emerald" onClick={go('/stats')} />
+          <Tile icon={Database} label="mdl items" value={fmt(mdl.items)} tone="slate" onClick={go('/admin/products')} />
+          <Tile icon={DollarSign} label="priced" value={mdl.price_pct != null ? `${mdl.price_pct}%` : '—'} sub={`${fmt(mdl.price_reports)} reports`} tone="emerald" onClick={go('/admin/products')} />
+          <Tile icon={Signpost} label="aisles" value={mdl.aisle_pct != null ? `${mdl.aisle_pct}%` : '—'} sub={`${fmt(mdl.aisle_reports)} reports`} tone="violet" onClick={go('/admin/products')} />
+          <Tile icon={Store} label="stores" value={fmt(mdl.stores)} tone="slate" onClick={go('/admin/products')} />
         </div>
 
         <div className="flex flex-wrap gap-1">
           <GroupLabel>Code</GroupLabel>
-          <Tile icon={Code} label="loc" value={fmt(code.loc)} tone="slate" />
-          <Tile icon={GitCommitHorizontal} label="commits" value={fmt(code.commits)} tone="slate" />
-          <Tile icon={Timer} label="est. hours" value={code.hours_est != null ? `~${fmt(code.hours_est)}` : '—'} tone="slate" />
+          <Tile icon={Code} label="loc" value={fmt(code.loc)} tone="slate" onClick={openChangelog} />
+          <Tile icon={GitCommitHorizontal} label="commits" value={fmt(code.commits)} tone="slate" onClick={openChangelog} />
+          <Tile icon={Timer} label="est. hours" value={code.hours_est != null ? `~${fmt(code.hours_est)}` : '—'} tone="slate" onClick={openChangelog} />
           <Tile icon={CalendarDays} label="app age" value={fmtAge(code.first_commit)}
-            sub={code.first_commit ? `since ${new Date(code.first_commit).toLocaleDateString()}` : null} tone="slate" />
+            sub={code.first_commit ? `since ${new Date(code.first_commit).toLocaleDateString()}` : null} tone="slate" onClick={openChangelog} />
         </div>
       </div>
     </div>
