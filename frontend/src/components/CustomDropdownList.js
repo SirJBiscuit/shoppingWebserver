@@ -26,6 +26,7 @@ const CustomDropdownList = ({
   renderValue,
   onAddNew,
   addNewLabel = 'Add New',
+  menuFooter, // node or (close) => node — action rows pinned to the menu bottom
   disabled = false,
   className = '',
   maxHeight = '300px',
@@ -306,6 +307,15 @@ const CustomDropdownList = ({
                   <Plus className="w-4 h-4" />
                   <span className="text-sm font-medium">{addNewLabel}</span>
                 </button>
+              </div>
+            )}
+
+            {/* Pinned action rows — list actions, view toggles, etc. */}
+            {menuFooter && (
+              <div className="border-t border-gray-200 dark:border-gray-700">
+                {typeof menuFooter === 'function'
+                  ? menuFooter(() => { setIsOpen(false); setSearchQuery(''); })
+                  : menuFooter}
               </div>
             )}
           </motion.div>

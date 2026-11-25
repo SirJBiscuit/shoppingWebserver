@@ -1,6 +1,5 @@
-import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { EyeOff, Eye } from 'lucide-react';
+import { EyeOff, Eye, GripVertical } from 'lucide-react';
 
 /**
  * HidableWidget — wraps a dashboard widget with hide/show controls.
@@ -18,8 +17,11 @@ import { EyeOff, Eye } from 'lucide-react';
  *   onHide    — () => void
  *   onUnhide  — () => void
  *   className — extra classes for the wrapper
+ *   dragControls — optional framer-motion DragControls; renders a grip
+ *                  handle (top-left) that starts the drag on pointerdown.
+ *                  Pair with <Reorder.Item dragListener={false}>.
  */
-const HidableWidget = ({ id, label, hidden, onHide, onUnhide, className = '', children }) => (
+const HidableWidget = ({ id, label, hidden, onHide, onUnhide, className = '', dragControls = null, children }) => (
   <div className={`relative group/hw ${className}`} data-hidable-widget={id}>
     <AnimatePresence mode="wait" initial={false}>
       {hidden ? (
@@ -46,6 +48,7 @@ const HidableWidget = ({ id, label, hidden, onHide, onUnhide, className = '', ch
         >
           {/* hide affordance — fades in on hover, always faintly present on touch */}
           <button
+            type="button"
             onClick={onHide}
             title={`Hide ${label}`}
             aria-label={`Hide ${label}`}
@@ -53,6 +56,19 @@ const HidableWidget = ({ id, label, hidden, onHide, onUnhide, className = '', ch
           >
             <EyeOff className="w-3.5 h-3.5" />
           </button>
+          {/* drag affordance — same reveal as hide, opposite corner.
+              touch-none keeps the gesture for the drag instead of scroll. */}
+          {dragControls && (
+            <button
+              type="button"
+              onPointerDown={(e) => { e.preventDefault(); dragControls.start(e); }}
+              title={`Drag to move ${label}`}
+              aria-label={`Drag to move ${label}`}
+              className="absolute -top-2 -left-2 z-20 w-6 h-6 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-sm flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:border-gray-400 opacity-0 max-md:opacity-60 group-hover/hw:opacity-100 focus:opacity-100 transition-opacity cursor-grab active:cursor-grabbing touch-none"
+            >
+              <GripVertical className="w-3.5 h-3.5" />
+            </button>
+          )}
           {children}
         </motion.div>
       )}

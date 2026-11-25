@@ -5,7 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useCartAnimation } from '../contexts/CartAnimationContext';
 import { useOptimization } from '../contexts/OptimizationContext';
 import { useEditor } from '../contexts/EditorContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import {
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, CheckCircle, Edit2, X,
   AlertCircle, TrendingUp, Package, DollarSign, ChefHat, Settings, 
@@ -84,10 +84,42 @@ import CalculatorWidget from '../components/CalculatorWidget';
 import HidableWidget from '../components/HidableWidget';
 import AdminStatsStrip from '../components/admin/AdminStatsStrip';
 import useHiddenWidgets from '../hooks/useHiddenWidgets';
+import useWidgetOrder from '../hooks/useWidgetOrder';
 import useScrollSound from '../hooks/useScrollSound';
 import { playSound } from '../utils/soundEffects';
 import { savePreference, getPreference, trackItem, reportAisle } from '../api/mdl';
 import { Portal } from '../utils/autoPlacement';
+
+// SortableWidget — one Reorder.Item per sidebar widget. The drag is
+// handle-only (dragListener off) so buttons/inputs inside widgets keep
+// working; the grip lives in HidableWidget's top-left corner.
+// Default sidebar widget order — useWidgetOrder merges the saved
+// arrangement with this list (new widgets append at the end).
+const SIDEBAR_WIDGETS = ['animated-cart', 'budget-tracker', 'leveling', 'pantry-quick-view'];
+
+const SortableWidget = ({ id, label, hidden, onHide, onUnhide, children }) => {
+  const dragControls = useDragControls();
+  return (
+    <Reorder.Item
+      as="div"
+      value={id}
+      dragListener={false}
+      dragControls={dragControls}
+      className="relative"
+    >
+      <HidableWidget
+        id={id}
+        label={label}
+        hidden={hidden}
+        onHide={onHide}
+        onUnhide={onUnhide}
+        dragControls={dragControls}
+      >
+        {children}
+      </HidableWidget>
+    </Reorder.Item>
+  );
+};
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -98,6 +130,8 @@ const Dashboard = () => {
   const { isEditorActive, toggleEditor, selectWidget, selectedWidget, widgetProperties } = useEditor();
   const { hasFeature } = useFeatureFlags();
   const { isHidden, hide, unhide } = useHiddenWidgets();
+  const { orderedIds: widgetOrder, reorder: reorderWidgets } = useWidgetOrder();
+  const sidebarOrder = widgetOrder('dashboard-sidebar', SIDEBAR_WIDGETS);
   const dashboardProps = widgetProperties['dashboard'] || {};
   const addButtonRef = useRef(null);
   const rootRef = useRef(null);
@@ -1916,7 +1950,22 @@ const Dashboard = () => {
                           items={lists}
                           value={activeList}
                           onChange={(list) => setActiveList(list)}
-                          renderValue={(list) => `${list.name} (${list.item_count || 0} items)`}
+                          renderValue={(list) => (
+                            <span className="flex items-center gap-2 min-w-0">
+                              <span className="truncate">{list.name} ({list.item_count || 0} items)</span>
+                              {list.id === activeList?.id && items.length > 0 && (
+                                <span className={`flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full border ${
+                                  checkedCount === items.length
+                                    ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700'
+                                    : checkedCount > 0
+                                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border-gray-300 dark:border-gray-600'
+                                }`}>
+                                  {checkedCount}/{items.length}
+                                </span>
+                              )}
+                            </span>
+                          )}
                           renderItem={(list) => (
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex flex-col min-w-0">
@@ -1956,22 +2005,68 @@ const Dashboard = () => {
                           searchPlaceholder="Search lists..."
                           onAddNew={() => setShowNewListModal(true)}
                           addNewLabel="New List"
+                          menuFooter={(close) => (
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                onClick={() => { close(); setSmartSort(!smartSort); }}
+                                className={`w-full px-4 py-2.5 flex items-center gap-2 text-sm transition-colors ${
+                                  smartSort
+                                    ? 'text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                }`}
+                              >
+                                <ArrowUpDown className="w-4 h-4" />
+                                {smartSort
+                                  ? (activeList?.store_name ? `Sorted by ${activeList.store_name} aisles` : 'Sorted by store layout')
+                                  : (activeList?.store_name ? `Sort by ${activeList.store_name} aisles` : 'Sort by store layout')}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { close(); setListViewMode(!hideCategories); }}
+                                className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                              >
+                                {hideCategories ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                                {hideCategories ? 'Show categories' : 'Hide categories'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { close(); loadCompletedLists(); }}
+                                className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                              >
+                                <History className="w-4 h-4" />
+                                Recover completed lists
+                              </button>
+                              {lists.length > 1 && activeList && (
+                                <>
+                                  <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                                  <button
+                                    type="button"
+                                    onClick={() => { close(); deleteList(activeList.id); }}
+                                    className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete this list
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
                           className="w-full"
                         />
                       </div>
                     )}
-                    {/* Quick delete for the current list — confirm happens
-                        inside deleteList via the custom modal */}
-                    {activeList && lists.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => deleteList(activeList.id)}
-                        className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-400 hover:text-red-600 hover:border-red-300 hover:bg-red-50 dark:hover:text-red-400 dark:hover:border-red-700 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
-                        title={`Delete "${activeList.name}"`}
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
+                    {/* New list — compact + beside the selector; the full
+                        "New List" option also lives inside the dropdown */}
+                    <button
+                      type="button"
+                      onClick={() => setShowNewListModal(true)}
+                      className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-primary-600 hover:border-primary-400 hover:bg-primary-50 dark:hover:text-primary-400 dark:hover:border-primary-600 dark:hover:bg-primary-900/20 transition-colors flex-shrink-0"
+                      title="New list"
+                      data-tutorial="new-list-button"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
                 )}
@@ -2011,7 +2106,8 @@ const Dashboard = () => {
                               {activeList.list_type === 'lab' ? 'Lab list' : activeList.list_type}
                             </span>
                           )}
-                          {/* Progress pill — big, right-aligned, reads at a glance */}
+                          {/* Progress pill — big, right-aligned, reads at a glance.
+                              Also mirrored inside the list dropdown trigger. */}
                           <span
                             className={`ml-auto flex-shrink-0 text-sm font-bold px-3 py-1 rounded-full border ${
                               checkedCount === items.length && items.length > 0
@@ -2132,109 +2228,9 @@ const Dashboard = () => {
                   </div>
                 )}
 
-                {/* Action Buttons Row */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => createNewList()}
-                    className="btn-secondary text-sm flex items-center"
-                    title="Create a new shopping list"
-                    data-tutorial="new-list-button"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    New List
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowItemShortcuts(true)}
-                    className="btn-secondary text-sm flex items-center bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/30"
-                    title="Item Shortcuts — learned & unlearned items, press / anywhere"
-                  >
-                    <Zap className="w-4 h-4 mr-1" />
-                    Shortcuts
-                  </button>
-                  {hasFeature('price_learning') && (
-                  <button
-                    type="button"
-                    onClick={() => setShowPriceLearning(true)}
-                    className="btn-secondary text-sm flex items-center bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
-                    title="Learn prices"
-                  >
-                    <DollarSign className="w-4 h-4 mr-1" />
-                    Learn Prices
-                  </button>
-                  )}
-                  {/* View toggles + rare/destructive actions, right-aligned */}
-                  <div className="ml-auto flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSmartSort(!smartSort)}
-                      className={`btn-secondary text-sm flex items-center ${smartSort ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300' : ''}`}
-                      title={smartSort
-                        ? (activeList?.store_name ? `Sorted by ${activeList.store_name} aisles` : 'Sorted by store layout')
-                        : (activeList?.store_name ? `Sort by ${activeList.store_name} aisles` : 'Sort by store layout')
-                      }
-                    >
-                      <ArrowUpDown className="w-4 h-4 mr-1" />
-                      {smartSort ? (activeList?.store_name ? '🏪' : `${calculateEfficiency(items)}%`) : 'Sort'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setListViewMode(!hideCategories)}
-                      className={`btn-secondary text-sm flex items-center ${hideCategories ? 'bg-gray-200 dark:bg-gray-700' : ''}`}
-                      title={hideCategories ? 'Show categories' : 'Hide categories'}
-                    >
-                      {hideCategories ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
-                      {hideCategories ? 'Show' : 'Hide'}
-                    </button>
-                    {/* Overflow menu — occasional/destructive list actions stay
-                        off the direct click path */}
-                    <div className="relative" data-header-menu>
-                      <button
-                        type="button"
-                        onClick={() => setHeaderMenu(headerMenu === 'more' ? null : 'more')}
-                        className="btn-secondary text-sm flex items-center gap-1"
-                        title="Recover completed lists or delete this list"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                        List actions
-                      </button>
-                      <AnimatePresence>
-                        {headerMenu === 'more' && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -6, scale: 0.97 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                            transition={{ duration: 0.12 }}
-                            className="absolute right-0 z-50 mt-2 w-56 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => { setHeaderMenu(null); loadCompletedLists(); }}
-                              className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                            >
-                              <History className="w-4 h-4" />
-                              Recover completed lists
-                            </button>
-                            {lists.length > 1 && activeList && (
-                              <>
-                                <div className="border-t border-gray-200 dark:border-gray-700" />
-                                <button
-                                  type="button"
-                                  onClick={() => { setHeaderMenu(null); deleteList(activeList.id); }}
-                                  className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                  Delete this list
-                                </button>
-                              </>
-                            )}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </div>
-                </div>
+                {/* Action row retired — list actions live inside the list
+                    dropdown (menuFooter), New List is the + beside it, and
+                    Shortcuts/Learn Prices moved into the Add Items header. */}
               </div>
               )}
 
@@ -2259,17 +2255,37 @@ const Dashboard = () => {
                       <p className="text-sm text-gray-600 dark:text-gray-400">Type a name — smart suggestions fill in price, size and icon</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setAddItemsMinimized(!addItemsMinimized)}
-                    className="p-2 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-lg transition-colors"
-                    title={addItemsMinimized ? "Expand" : "Minimize"}
-                  >
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowItemShortcuts(true)}
+                      className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors"
+                      title="Item Shortcuts — learned & unlearned items, press / anywhere"
+                    >
+                      <Zap className="w-4 h-4" />
+                    </button>
+                    {hasFeature('price_learning') && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPriceLearning(true)}
+                      className="p-2 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors"
+                      title="Learn prices"
+                    >
+                      <DollarSign className="w-4 h-4" />
+                    </button>
+                    )}
+                    <button
+                      onClick={() => setAddItemsMinimized(!addItemsMinimized)}
+                      className="p-2 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-lg transition-colors"
+                      title={addItemsMinimized ? "Expand" : "Minimize"}
+                    >
                     {addItemsMinimized ? (
                       <ChevronDown className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                     ) : (
                       <ChevronUp className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                     )}
-                  </button>
+                    </button>
+                  </div>
                 </div>
               
               {!addItemsMinimized && (
@@ -2819,82 +2835,105 @@ const Dashboard = () => {
             </EditableContainer>
           </div>
 
-          <div className="space-y-6">
-            {/* Animated Shopping Cart */}
-            <HidableWidget id="animated-cart" label="Shopping Cart" hidden={isHidden('animated-cart')} onHide={() => hide('animated-cart')} onUnhide={() => unhide('animated-cart')}>
-              <AnimatedCart
-                items={getSortedItems()}
-                sortedByZone={smartSort}
-              />
-            </HidableWidget>
-
-            {/* Budget Tracker */}
-            <div data-tutorial="budget-tracker">
-              <HidableWidget id="budget-tracker" label="Budget Tracker" hidden={isHidden('budget-tracker')} onHide={() => hide('budget-tracker')} onUnhide={() => unhide('budget-tracker')}>
-                <BudgetTracker
-                  items={items}
-                  totalCost={totalCost}
-                  listId={activeList?.id}
-                />
-              </HidableWidget>
-            </div>
-
-            {/* Leveling System */}
-            <HidableWidget id="leveling" label="Leveling" hidden={isHidden('leveling')} onHide={() => hide('leveling')} onUnhide={() => unhide('leveling')}>
-              <LevelingSystem userId={user?.id || user?.username} />
-            </HidableWidget>
-
-            <HidableWidget id="pantry-quick-view" label="Home Inventory" hidden={isHidden('pantry-quick-view')} onHide={() => hide('pantry-quick-view')} onUnhide={() => unhide('pantry-quick-view')}>
-            <div className="card">
-              <PantryQuickView
-                pantryItems={inventory}
-                onAddToList={async (itemData) => {
-                  if (!activeList) {
-                    warning('Please create or select a shopping list first');
-                    return;
-                  }
-                  try {
-                    await shoppingAPI.addItem(activeList.id, itemData);
-                    await loadListItems(activeList.id);
-                    if (window.addXP) {
-                      window.addXP(XP_REWARDS.ADD_ITEM, 'Added item from pantry');
-                      showXPNotification(XP_REWARDS.ADD_ITEM, 'Added from pantry!');
-                    }
-                  } catch (error) {
-                    console.error('Error adding item from pantry:', error);
-                  }
-                }}
-                onViewPantry={() => navigate('/pantry-new-v2')}
-                onDeleteItem={async (itemId) => {
-                  try {
-                    await inventoryAPI.deleteItem(itemId);
-                    await loadInventory();
-                    success('Item removed from inventory');
-                  } catch (error) {
-                    console.error('Error deleting item:', error);
-                    error('Failed to delete item');
-                  }
-                }}
-                onClearAll={() => {
-                  confirmDelete(
-                    'Clear All Inventory?',
-                    'This will permanently delete all items from your Pantry, Fridge, and Freezer. This action cannot be undone.',
-                    async () => {
-                      try {
-                        await inventoryAPI.clearAll();
-                        await loadInventory();
-                        success('All items cleared from inventory');
-                      } catch (err) {
-                        console.error('Error clearing inventory:', err);
-                        error('Failed to clear inventory');
-                      }
-                    }
+          <Reorder.Group
+            as="div"
+            axis="y"
+            values={sidebarOrder}
+            onReorder={(ids) => reorderWidgets('dashboard-sidebar', ids)}
+            className="space-y-6"
+          >
+            {sidebarOrder.map((wid) => {
+              const shared = {
+                hidden: isHidden(wid),
+                onHide: () => hide(wid),
+                onUnhide: () => unhide(wid),
+              };
+              switch (wid) {
+                case 'animated-cart':
+                  return (
+                    <SortableWidget key={wid} id="animated-cart" label="Shopping Cart" {...shared}>
+                      <AnimatedCart
+                        items={getSortedItems()}
+                        sortedByZone={smartSort}
+                      />
+                    </SortableWidget>
                   );
-                }}
-              />
-            </div>
-            </HidableWidget>
-          </div>
+                case 'budget-tracker':
+                  return (
+                    <div key={wid} data-tutorial="budget-tracker">
+                      <SortableWidget id="budget-tracker" label="Budget Tracker" {...shared}>
+                        <BudgetTracker
+                          items={items}
+                          totalCost={totalCost}
+                          listId={activeList?.id}
+                        />
+                      </SortableWidget>
+                    </div>
+                  );
+                case 'leveling':
+                  return (
+                    <SortableWidget key={wid} id="leveling" label="Leveling" {...shared}>
+                      <LevelingSystem userId={user?.id || user?.username} />
+                    </SortableWidget>
+                  );
+                case 'pantry-quick-view':
+                  return (
+                    <SortableWidget key={wid} id="pantry-quick-view" label="Home Inventory" {...shared}>
+                    <div className="card">
+                      <PantryQuickView
+                        pantryItems={inventory}
+                        onAddToList={async (itemData) => {
+                          if (!activeList) {
+                            warning('Please create or select a shopping list first');
+                            return;
+                          }
+                          try {
+                            await shoppingAPI.addItem(activeList.id, itemData);
+                            await loadListItems(activeList.id);
+                            if (window.addXP) {
+                              window.addXP(XP_REWARDS.ADD_ITEM, 'Added item from pantry');
+                              showXPNotification(XP_REWARDS.ADD_ITEM, 'Added from pantry!');
+                            }
+                          } catch (error) {
+                            console.error('Error adding item from pantry:', error);
+                          }
+                        }}
+                        onViewPantry={() => navigate('/pantry-new-v2')}
+                        onDeleteItem={async (itemId) => {
+                          try {
+                            await inventoryAPI.deleteItem(itemId);
+                            await loadInventory();
+                            success('Item removed from inventory');
+                          } catch (error) {
+                            console.error('Error deleting item:', error);
+                            error('Failed to delete item');
+                          }
+                        }}
+                        onClearAll={() => {
+                          confirmDelete(
+                            'Clear All Inventory?',
+                            'This will permanently delete all items from your Pantry, Fridge, and Freezer. This action cannot be undone.',
+                            async () => {
+                              try {
+                                await inventoryAPI.clearAll();
+                                await loadInventory();
+                                success('All items cleared from inventory');
+                              } catch (err) {
+                                console.error('Error clearing inventory:', err);
+                                error('Failed to clear inventory');
+                              }
+                            }
+                          );
+                        }}
+                      />
+                    </div>
+                    </SortableWidget>
+                  );
+                default:
+                  return null;
+              }
+            })}
+          </Reorder.Group>
               </div>
             </div>
           </main>

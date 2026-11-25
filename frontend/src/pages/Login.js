@@ -39,6 +39,14 @@ const Login = () => {
   const [preferOS, setPreferOS] = useState(false); // user chose the device keyboard
   const usernameRef = useRef(null);
   const useCustomKb = isTouch && !preferOS;
+  // Live deploy status — while update-server.sh runs, the maintenance
+  // placeholder answers every route with X-Listzy-Maintenance and serves
+  // progress.txt/changes.txt. If this tab was already open when a deploy
+  // started, show that progress here instead of a dead login form.
+  // { step, total, label, changes, failed } | 'back' | null
+  const [updateStatus, setUpdateStatus] = useState(null);
+  const updatingRef = useRef(false);
+  const healthProbeRef = useRef(null);
 
   const focusWith = (field) => (e) => {
     setFocusedField(field);
@@ -113,6 +121,87 @@ const Login = () => {
     return () => document.removeEventListener('pointerdown', onDown, { capture: true });
   }, [kbOpen, isTouch]);
 
+  // Probe the stack: /api/health answers JSON only from the real backend —
+  // the maintenance placeholder returns its HTML page with
+  // X-Listzy-Maintenance. While maintenance is detected, progress.txt and
+  // changes.txt (bind-mounted into the placeholder) carry live deploy data.
+  // When health comes back mid-session, reload for fresh assets.
+  useEffect(() => {
+    let alive = true;
+    let progressTimer = null;
+    let healthTimer = null;
+    let reloadTimer = null;
+    let progressPolling = false;
+
+    const fetchText = (url) =>
+      fetch(url, { cache: 'no-store' })
+        .then((r) => {
+          const ct = r.headers.get('content-type') || '';
+          return r.ok && ct.includes('text/plain') ? r.text() : null;
+        })
+        .catch(() => null);
+
+    const pollProgress = async () => {
+      const [prog, changes] = await Promise.all([fetchText('/progress.txt'), fetchText('/changes.txt')]);
+      if (!alive) return;
+      if (prog) {
+        const t = prog.trim();
+        let st = null;
+        let m = /^fail\|(\d+)\|(.+)$/.exec(t);
+        if (m) st = { failed: true, step: 0, total: +m[1], label: m[2] };
+        else {
+          m = /^done\|(\d+)\|(.+)$/.exec(t);
+          if (m) st = { step: +m[1], total: +m[1], label: m[2] };
+          else {
+            m = /^(\d+)\|(\d+)\|(.+)$/.exec(t);
+            if (m) st = { step: +m[1], total: +m[2], label: m[3] };
+          }
+        }
+        if (st) {
+          setUpdateStatus({
+            ...st,
+            changes: changes
+              ? changes.split('\n').map((l) => l.trim()).filter((l) => l && l[0] !== '<').slice(0, 6)
+              : [],
+          });
+        }
+      }
+      if (alive) progressTimer = setTimeout(pollProgress, 2000);
+    };
+
+    const checkHealth = async () => {
+      let up = false;
+      try {
+        const r = await fetch('/api/health', { cache: 'no-store' });
+        const maint = r.headers.get('x-listzy-maintenance');
+        const ct = r.headers.get('content-type') || '';
+        up = r.ok && !maint && ct.includes('json');
+      } catch { up = false; }
+      if (!alive) return;
+      if (!up) {
+        updatingRef.current = true;
+        setUpdateStatus((s) =>
+          s && s !== 'back' ? s : { step: 0, total: 1, label: 'Connecting to the update…', changes: [] });
+        if (!progressPolling) { progressPolling = true; pollProgress(); }
+        healthTimer = setTimeout(checkHealth, 4000);
+      } else if (updatingRef.current) {
+        setUpdateStatus('back');
+        reloadTimer = setTimeout(() => window.location.reload(), 1200);
+      }
+      // up && !updatingRef: app is healthy and was never seen mid-update —
+      // schedule nothing; the probe costs a single request per page load.
+    };
+    healthProbeRef.current = checkHealth;
+
+    checkHealth();
+    return () => {
+      alive = false;
+      clearTimeout(progressTimer);
+      clearTimeout(healthTimer);
+      clearTimeout(reloadTimer);
+    };
+  }, []);
+
   const persistUsername = () => {
     try {
       if (remember && username.trim()) localStorage.setItem(REMEMBER_KEY, username.trim());
@@ -134,6 +223,9 @@ const Login = () => {
     } else {
       setError(result.error);
       setLoading(false);
+      // A dead request can mean a deploy just started — probe for the
+      // maintenance placeholder so we can show live progress.
+      healthProbeRef.current?.();
     }
   };
 
@@ -149,7 +241,63 @@ const Login = () => {
         </div>
         
         <h2 className="text-2xl font-semibold text-center mb-6 text-gray-900 dark:text-gray-100">Welcome Back</h2>
-        
+
+        <AnimatePresence>
+        {updateStatus && updateStatus !== 'back' && (
+          <motion.div
+            key="update-status"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="mb-4 rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50/70 dark:bg-primary-900/20 p-3"
+          >
+            <div className="flex items-center gap-2 text-sm font-semibold text-primary-700 dark:text-primary-300">
+              {updateStatus.failed ? (
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+              ) : (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              )}
+              {updateStatus.failed ? 'Update interrupted — restoring…' : 'Listzy is updating'}
+            </div>
+            <div className="mt-2 h-1.5 rounded-full bg-primary-100 dark:bg-primary-900/50 overflow-hidden">
+              <motion.div
+                className="h-full bg-primary-500 rounded-full"
+                animate={{
+                  width: `${Math.min(100, Math.round(
+                    (updateStatus.step / Math.max(1, updateStatus.total)) * 100))}%`,
+                }}
+                transition={{ ease: 'easeOut', duration: 0.4 }}
+              />
+            </div>
+            <p className="mt-1.5 text-xs text-primary-600 dark:text-primary-400">
+              {updateStatus.failed
+                ? `The update hit a problem${updateStatus.label ? ` during "${updateStatus.label}"` : ''} — the previous version is being restored.`
+                : `${updateStatus.label}${updateStatus.step > 0 ? ` — step ${updateStatus.step} of ${updateStatus.total}` : ''}`}
+            </p>
+            {updateStatus.changes?.length > 0 && (
+              <ul className="mt-2 space-y-0.5 text-xs text-gray-600 dark:text-gray-400">
+                {updateStatus.changes.map((c) => (
+                  <li key={c} className="truncate">• {c}</li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-500">
+              This page reloads automatically when the update finishes.
+            </p>
+          </motion.div>
+        )}
+        {updateStatus === 'back' && (
+          <motion.div
+            key="update-back"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mb-4 rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-4 py-3 text-sm font-medium"
+          >
+            Update complete — reloading…
+          </motion.div>
+        )}
+        </AnimatePresence>
+
         {error && (
           <motion.div
             key={error}

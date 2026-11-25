@@ -779,3 +779,13 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - The mobile ⋮ menu was dead: it rendered inside a Portal (document.body) while keeping `absolute right-0 top-full` — so it opened at the bottom of the whole page, invisible. Replaced with a real bottom sheet matching the app's other GUIs: spring-up motion, drag handle, dimmed backdrop, item icon+name header, safe-area padding.
 - Sheet is now a mobile control center: quantity stepper, Edit, Note, Set price (numpad), Set aisle (QuickAislePicker), Category (QuickCategoryPicker), Find, Move, Delete.
 - CustomSwipeActions wired into ItemCard (mobile only): swipe left reveals Move (green) + Delete (red), swipe right reveals Edit (blue) + Note (teal) — same handlers as the sheet.
+
+## Header consolidation + widgets + login update status (latest)
+- CustomDropdownList: new `menuFooter` prop — renders action rows under the items list, above Add New
+- Dashboard: sort toggle, hide/show toggle, recover-completed, and delete-list all moved into the list dropdown's menuFooter; old action button row deleted
+- Progress pill (checked/total) moved into the dropdown trigger; `+` button beside the dropdown creates a new list
+- Shortcuts + Learn Prices moved to compact icon chips in the Add Items section header (top-right, beside minimize)
+- Login page: probes /api/health for X-Listzy-Maintenance — if a deploy is in flight, shows live progress (progress.txt) + changes (changes.txt) in the login card; reloads when the stack is back. Also probes on failed login attempts.
+- New `useWidgetOrder` hook — persists per-user widget order to mdl_user_preferences (key `widget_order`), mirrors localStorage, debounces the server save during drags
+- Sidebar widget stack (cart / budget / leveling / pantry) is now a Reorder.Group — drag the new grip handle (top-left of each widget) to rearrange; order persists across devices
+- HidableWidget: optional `dragControls` prop renders the grip affordance beside the hide eye
