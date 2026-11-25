@@ -7,8 +7,10 @@ import './styles/tutorial.css';
 import './styles/scrollbar.css';
 import App from './App';
 import { installSessionGuard } from './services/sessionGuard';
+import { installErrorReporter } from './utils/errorReporter';
 
 installSessionGuard();
+installErrorReporter();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

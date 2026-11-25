@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Grid, List, MoveHorizontal, BookOpen, BellRing } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Portal, useIsMobile, useCornerOffset, usePanelShift, setPanelShift, useFloatSide, setFloatSide, useNavDrawerOpen } from '../utils/autoPlacement';
+import { Portal, useIsMobile, useCornerOffset, usePanelShift, setPanelShift, useFloatSide, setFloatSide, useNavDrawerOpen, useFloatsCollapsed } from '../utils/autoPlacement';
 
 // Floating action buttons — same visual scheme as the beta pin layer:
 // circular buttons in one bottom-corner stack with a small visible label
@@ -49,6 +49,9 @@ const FloatingButtons = ({
   // to cover this column — hide ourselves while it's open instead of
   // floating above the dimmed backdrop.
   const navDrawerOpen = useNavDrawerOpen();
+  // One global collapse switch (edge tab lives in BetaPinLayer) — the
+  // column slides fully off its edge and stops taking clicks.
+  const collapsed = useFloatsCollapsed();
 
   // The Active List panel slides in from the right at z-201 — instead of
   // hiding this column underneath it, shift every corner column left so
@@ -64,12 +67,14 @@ const FloatingButtons = ({
   // users), we snap back to the corner itself.
   const bottom = spacing;
   const colShift = belowPx > 0 ? 66 : 0;
-  const tx = position === 'right' ? -(panelShift + colShift) : colShift;
+  let tx = position === 'right' ? -(panelShift + colShift) : colShift;
+  // Collapsed: slide the whole column off-screen in its own direction.
+  if (collapsed) tx += position === 'right' ? 140 : -140;
 
   return (
     <Portal>
       <div
-        className={`fixed ${side} z-50 flex flex-col gap-3 transition-all duration-300 ${navDrawerOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+        className={`fixed ${side} z-50 flex flex-col gap-3 transition-all duration-300 ${navDrawerOpen || collapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
         style={{ bottom, transform: `translateX(${tx}px)` }}
       >
         {/* Apps menu */}
@@ -158,7 +163,7 @@ const FloatingButtons = ({
           <div className="flex flex-col w-12 items-center gap-1">
             <motion.button
               onClick={() => setShowListPanel((v) => !v)}
-              className={`relative w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition text-white bg-gradient-to-br from-emerald-400 to-green-600 ${
+              className={`relative w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition text-white bg-gradient-to-br from-purple-400 to-purple-700 ${
                 showListPanel ? 'ring-2 ring-white/70' : ''
               }`}
               whileHover={{ scale: 1.05 }}

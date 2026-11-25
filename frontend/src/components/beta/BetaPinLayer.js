@@ -6,7 +6,8 @@ import { motion } from 'framer-motion';
 import FormattedNote from '../FormattedNote';
 import BetaChatroom from './BetaChatroom';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
-import { Popup, Portal, Connector, ScrollStrip, useCornerStack, useCornerOffset, usePanelShift, setPanelShift, useIsMobile, useFloatSide } from '../../utils/autoPlacement';
+import { Popup, Portal, Connector, ScrollStrip, useCornerStack, useCornerOffset, usePanelShift, setPanelShift, useIsMobile, useFloatSide, useFloatsCollapsed, setFloatsCollapsed } from '../../utils/autoPlacement';
+import BtcsFloatPanel from '../admin/BtcsFloatPanel';
 import { pinDisplayPos, usePinLayerTick, selectorFor, describeElement } from '../../utils/pinLayer';
 import {
   MapPin, Plus, X, Eye, EyeOff, MessageSquare, ChevronRight,
@@ -14,7 +15,7 @@ import {
   BarChart3, ThumbsUp, ThumbsDown, Lock, Pencil, Move, Download, RotateCcw,
   LocateFixed, Copy, Flag, Bug, Lightbulb, AlertTriangle, HelpCircle, Star,
   Crosshair, Ghost, PanelRightClose, PanelRightOpen, Pin, Archive,
-  Search, SlidersHorizontal, ListChecks, StickyNote, MapPinned, Activity, Award, Users
+  Search, SlidersHorizontal, ListChecks, StickyNote, MapPinned, Activity, Award
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -621,7 +622,8 @@ const BetaPinLayer = () => {
   // Admin service health — polled while an admin is present so the rail
   // button dot always reflects the worst service state.
   const [svcOpen, setSvcOpen] = useState(false);
-  const [btcsMenuOpen, setBtcsMenuOpen] = useState(false);
+  const [btcsPanelOpen, setBtcsPanelOpen] = useState(false);
+  const floatsCollapsed = useFloatsCollapsed(); // global collapse switch for all corner columns
   const [services, setServices] = useState(null);
   useEffect(() => {
     if (!isAdmin || !canUse) return undefined;
@@ -965,6 +967,32 @@ const BetaPinLayer = () => {
     setError(''); setHoverRect(null); setHoverLabel('');
     setDropMode(false);
   };
+
+  // Right-click "pin a bug here" hands off to the real pin flow — same
+  // anchor picking, draft UI, quota and reload as drop-mode pins.
+  const beginDropRef = useRef(beginDrop);
+  beginDropRef.current = beginDrop;
+  useEffect(() => {
+    const onDropAt = (e) => {
+      const { clientX, clientY } = e.detail || {};
+      if (Number.isFinite(clientX) && Number.isFinite(clientY)) {
+        beginDropRef.current({ clientX, clientY });
+      }
+    };
+    const openBtcs = () => setBtcsPanelOpen(true);
+    const openViewer = () => setPanelOpen(true);
+    const toggleInspect = () => setInspectMode((v) => !v);
+    window.addEventListener('beta:dropPinAt', onDropAt);
+    window.addEventListener('beta:openBtcs', openBtcs);
+    window.addEventListener('beta:openViewer', openViewer);
+    window.addEventListener('beta:toggleInspect', toggleInspect);
+    return () => {
+      window.removeEventListener('beta:dropPinAt', onDropAt);
+      window.removeEventListener('beta:openBtcs', openBtcs);
+      window.removeEventListener('beta:openViewer', openViewer);
+      window.removeEventListener('beta:toggleInspect', toggleInspect);
+    };
+  }, []);
 
   const submitPin = async () => {
     if (!draftNote.trim()) { setError('Describe what\'s happening here'); return; }
@@ -2499,7 +2527,7 @@ const BetaPinLayer = () => {
       {/* Floating controls — pushed LEFT of the app's own bottom-right
           button column (Apps / Active List / editor) and kept under their
           z-layer so the app buttons always win clicks. */}
-      {!dropMode && !moving && !stackHidden && (
+      {!dropMode && !moving && !stackHidden && !floatsCollapsed && (
         <div
           ref={stackRef}
           className={`bp-floating fixed bottom-5 ${floatSide === 'left' ? 'left-4 lg:left-[304px] items-start' : 'right-4 items-end'} z-[45] flex flex-col gap-3 transition-transform duration-300`}
@@ -2570,7 +2598,7 @@ const BetaPinLayer = () => {
       )}
 
       {/* Restore tab — visible when the beta controls stack is hidden */}
-      {canUse && stackHidden && !dropMode && !moving && (
+      {canUse && stackHidden && !dropMode && !moving && !floatsCollapsed && (
         <button
           ref={restoreRef}
           onClick={() => setStackHidden(false)}
@@ -2628,7 +2656,7 @@ const BetaPinLayer = () => {
 
       {/* Admin sidebar — thin desktop-only tool column on the right edge.
           Hidden on mobile/tablet (lg+): inspect, ghosts, viewer. */}
-      {isAdmin && canUse && !dropMode && !moving && (
+      {isAdmin && canUse && !dropMode && !moving && !floatsCollapsed && (
         <div
           ref={railRef}
           className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-xl border-l-0' : 'right-0 rounded-l-xl border-r-0'} z-[46] flex-col items-center gap-1 bg-slate-900/90 border border-slate-700 py-2 px-1.5 shadow-xl transition-all duration-300`}
@@ -2650,9 +2678,9 @@ const BetaPinLayer = () => {
             title="Admin Viewer — pins, messages, polls & history"
           ><MessageSquare className="w-4 h-4" /></button>
           <button
-            onClick={() => setBtcsMenuOpen((v) => !v)}
-            className={`p-2 rounded-lg transition ${btcsMenuOpen ? 'bg-amber-600/30 text-amber-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
-            title="Beta admin shortcuts — BTCS, testers, codes, feedback, backup"
+            onClick={() => setBtcsPanelOpen((v) => !v)}
+            className={`p-2 rounded-lg transition ${btcsPanelOpen ? 'bg-amber-600/30 text-amber-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+            title="BTCS panel — testers, scores, features, backups & recovery (floating panel)"
           ><Award className="w-4 h-4" /></button>
           <div className="w-6 h-px bg-slate-700 my-0.5" />
           <button
@@ -2677,54 +2705,31 @@ const BetaPinLayer = () => {
         </div>
       )}
 
-      {/* BTCS shortcut menu — quick beta-admin controls beside the rail */}
-      {isAdmin && btcsMenuOpen && !dropMode && !moving && (
-        <div
-          className={`fixed z-[46] w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-xl py-1.5 ${floatSide === 'left' ? 'left-16 lg:left-[22rem]' : 'right-14'}`}
-          style={{ bottom: railBelow + 68, transform: `translateX(${-panelShift}px)` }}
+      {/* BTCS floating panel — the rail Award button opens this instead
+          of navigating: testers, global features, recovery & errors */}
+      {isAdmin && btcsPanelOpen && (
+        <BtcsFloatPanel onClose={() => setBtcsPanelOpen(false)} />
+      )}
+
+      {/* Collapse handle — the ONE always-visible edge tab that hides or
+          restores every floating column (apps/active-list, beta stack,
+          admin rail) together. Lives mid-edge so it never collides with
+          the corner stacks. */}
+      {canUse && !dropMode && !moving && (
+        <button
+          onClick={() => setFloatsCollapsed(!floatsCollapsed)}
+          className={`fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-lg border-l-0' : 'right-0 rounded-l-lg border-r-0'} z-[47] bg-slate-900/90 border border-slate-700 px-1 py-3 text-slate-400 hover:text-slate-200 shadow-xl transition-all duration-300`}
+          title={floatsCollapsed ? 'Show floating buttons' : 'Hide all floating buttons'}
+          style={{ top: '42%' }}
         >
-          <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400 border-b border-slate-800 mb-1">
-            Beta controls
-          </div>
-          {[
-            ['BTCS panel', Award, () => navigate('/admin/btcs')],
-            ['Testers', Users, () => { navigate('/admin/beta'); setTimeout(() => window.dispatchEvent(new CustomEvent('setBetaTab', { detail: 'testers' })), 100); }],
-            ['Beta codes', Lock, () => { navigate('/admin/beta'); setTimeout(() => window.dispatchEvent(new CustomEvent('setBetaTab', { detail: 'codes' })), 100); }],
-            ['Feedback', MessageSquare, () => { navigate('/admin/beta'); setTimeout(() => window.dispatchEvent(new CustomEvent('setBetaTab', { detail: 'feedback' })), 100); }],
-            ['Beta chat', ChevronRight, () => { navigate('/admin/beta'); setTimeout(() => window.dispatchEvent(new CustomEvent('setBetaTab', { detail: 'chat' })), 100); }],
-          ].map(([label, Icon, go]) => (
-            <button
-              key={label}
-              onClick={() => { setBtcsMenuOpen(false); go(); }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800 text-left"
-            >
-              <Icon className="w-4 h-4 text-slate-500" /> {label}
-            </button>
-          ))}
-          <div className="border-t border-slate-800 my-1" />
-          <button
-            onClick={async () => {
-              setBtcsMenuOpen(false);
-              try {
-                const { data } = await api.get('/beta/admin/backup', { responseType: 'blob' });
-                const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `beta-testers-backup-${new Date().toISOString().slice(0, 10)}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-              } catch { /* silent */ }
-            }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800 text-left"
-            title="Download all beta tester data as JSON — testers, codes, overrides"
-          >
-            <Download className="w-4 h-4 text-slate-500" /> Backup testers (JSON)
-          </button>
-        </div>
+          {floatSide === 'left'
+            ? (floatsCollapsed ? <PanelRightOpen className="w-4 h-4" /> : <PanelRightClose className="w-4 h-4" />)
+            : (floatsCollapsed ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />)}
+        </button>
       )}
 
       {/* Service status popover — sits beside the admin rail */}
-      {isAdmin && svcOpen && !dropMode && !moving && (
+      {isAdmin && svcOpen && !dropMode && !moving && !floatsCollapsed && (
         <div
           className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-14 lg:left-[328px]' : 'right-14'} z-[46] flex-col w-64 bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl overflow-hidden transition-all duration-300`}
           style={{ bottom: railBelow + 4, transform: `translateX(${-panelShift}px)` }}

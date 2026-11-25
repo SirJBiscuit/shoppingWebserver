@@ -457,6 +457,32 @@ export const useNavDrawerOpen = () =>
   );
 
 // ---------------------------------------------------------------------------
+// Collapsed floating columns — ONE switch slides every corner column (apps/
+// active-list stack, beta pin stack, admin rail) off the edge together.
+// A small always-visible edge tab (rendered by BetaPinLayer) brings them
+// back. Persisted so the choice survives reloads.
+const FLOATS_COLLAPSED_KEY = 'floatsCollapsed';
+let floatsCollapsed = false;
+try { floatsCollapsed = localStorage.getItem(FLOATS_COLLAPSED_KEY) === '1'; } catch { /* ignore */ }
+
+export const setFloatsCollapsed = (v) => {
+  const nv = v === true;
+  if (floatsCollapsed === nv) return;
+  floatsCollapsed = nv;
+  try {
+    if (nv) localStorage.setItem(FLOATS_COLLAPSED_KEY, '1');
+    else localStorage.removeItem(FLOATS_COLLAPSED_KEY);
+  } catch { /* ignore */ }
+  notifyStacks();
+};
+
+export const useFloatsCollapsed = () =>
+  useSyncExternalStore(
+    (cb) => { stackSubs.add(cb); return () => stackSubs.delete(cb); },
+    () => floatsCollapsed
+  );
+
+// ---------------------------------------------------------------------------
 // ScrollStrip — automatic GUI arrangement for horizontal rows.
 //
 // Drop-in replacement for `flex` rows (tab bars, filter chips, toolbars,

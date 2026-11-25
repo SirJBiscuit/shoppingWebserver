@@ -218,7 +218,6 @@ const Sidebar = ({ onAction }) => {
   const settingsItems = [
     { action: 'stores', icon: Store, label: 'Manage Stores', color: 'text-blue-600', feature: 'store_management' },
     { path: '/stats', icon: BarChart3, label: 'Stats', color: 'text-pink-600', feature: 'statistics' },
-    { path: '/admin/customize', icon: Sparkles, label: 'ACH Customization', color: 'text-purple-600', special: true, feature: 'ach_customization' },
     { path: '/settings', icon: Settings, label: 'Settings', color: 'text-gray-600' },
   ];
   

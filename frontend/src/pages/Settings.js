@@ -13,6 +13,7 @@ import Sidebar from '../components/Sidebar';
 import SoundSettings from '../components/SoundSettings';
 import NtfySettings from '../components/NtfySettings';
 import QuickLoginSetup from '../components/admin/QuickLoginSetup';
+import MyBackupCard from '../components/MyBackupCard';
 
 const Settings = () => {
   const { user } = useAuth();
@@ -368,6 +369,9 @@ const Settings = () => {
                 <QuickLoginSetup />
               </motion.div>
             )}
+
+            {/* Backup & Restore — self-service save points + download */}
+            <MyBackupCard />
 
             {/* Custom Units */}
             <motion.div

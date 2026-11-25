@@ -29,7 +29,7 @@ const hasFeatureAccess = async (userId, featureKey) => {
 
     // Get feature requirements
     const featureResult = await db.query(
-      'SELECT is_enabled, min_tier, hide_from_beta, admin_only, is_limbo FROM feature_flags WHERE feature_key = $1',
+      'SELECT is_enabled, min_tier, hide_from_beta, admin_only, is_limbo, beta_default FROM feature_flags WHERE feature_key = $1',
       [featureKey]
     );
 
@@ -64,6 +64,11 @@ const hasFeatureAccess = async (userId, featureKey) => {
     ).catch(() => ({ rows: [] }));
     if (ov.rows.length) {
       return ov.rows[0].allowed === true;
+    }
+
+    // Global beta default — one switch for every tester (override still won)
+    if (isBetaTester && feature.beta_default !== null && feature.beta_default !== undefined) {
+      return feature.beta_default === true;
     }
 
     // Beta testers lose access to admin-hidden features
@@ -104,7 +109,7 @@ const getUserFeatures = async (userId) => {
 
     // Get all enabled features that user has access to
     const featuresResult = await db.query(
-      `SELECT feature_key, feature_name, description, category, min_tier, hide_from_beta, admin_only, is_limbo
+      `SELECT feature_key, feature_name, description, category, min_tier, hide_from_beta, admin_only, is_limbo, beta_default
        FROM feature_flags
        WHERE is_enabled = true`
     );
@@ -121,6 +126,10 @@ const getUserFeatures = async (userId) => {
       if (feature.admin_only && !isAdminUser) return false;
       // BTCS per-tester override beats tier/beta rules (never kill-switches)
       if (feature.feature_key in ovMap) return ovMap[feature.feature_key] === true;
+      // Global beta default sits between override and hide_from_beta
+      if (isBetaTester && feature.beta_default !== null && feature.beta_default !== undefined) {
+        return feature.beta_default === true;
+      }
       if (isBetaTester && feature.hide_from_beta) return false;
       const minTierLevel = TIER_HIERARCHY[feature.min_tier] || 0;
       return userTierLevel >= minTierLevel;

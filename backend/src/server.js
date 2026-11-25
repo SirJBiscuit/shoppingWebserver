@@ -77,6 +77,9 @@ app.use(cors({
   origin: (origin, cb) => cb(null, !origin || allowedOrigins.includes(origin)),
 }));
 
+// Restore uploads are full-DB JSON dumps — way past the global 5mb cap.
+// This parser runs first; the global one skips already-parsed bodies.
+app.use('/api/beta/admin/backup/restore', express.json({ limit: '250mb' }));
 app.use(express.json({ limit: '5mb' }));
 
 const limiter = rateLimit({
@@ -178,8 +181,14 @@ app.get('/api/health', (req, res) => {
 // endpoints rack up failures fast; one legit typo won't).
 app.use('/api', ipGuard.notFoundGuard);
 
+app.use('/api/errors', require('./routes/errors'));
+app.use('/api/backup', require('./routes/selfBackup'));
+
 app.use((err, req, res, next) => {
   console.error('Error:', err);
+  // Feed the admin diagnostics log — "what caused the problem" next to
+  // the save points in the BTCS recovery panel.
+  try { require('./services/errorLog').recordRouteError(err, req); } catch { /* never break the error handler */ }
   res.status(500).json({ error: 'Internal server error' });
 });
 
@@ -203,6 +212,20 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
     require('./services/mdlBackup').startDailyBackup();
   } catch (error) {
     console.error('❌ Failed to start MDL backup service:', error.message);
+  }
+
+  // Beta program auto-backups — interval/dir from beta_backup_settings
+  try {
+    require('./services/betaBackup').startScheduler();
+  } catch (error) {
+    console.error('❌ Failed to start beta backup scheduler:', error.message);
+  }
+
+  // Process-level crash capture → app_error_log
+  try {
+    require('./services/errorLog').installProcessHooks();
+  } catch (error) {
+    console.error('❌ Failed to install error hooks:', error.message);
   }
 
   // Initialize auto-updater (non-blocking, runs in background)

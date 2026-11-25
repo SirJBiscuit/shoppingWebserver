@@ -1937,6 +1937,8 @@ const Dashboard = () => {
                           )}
                           searchable={lists.length > 5}
                           searchPlaceholder="Search lists..."
+                          onAddNew={() => setShowNewListModal(true)}
+                          addNewLabel="New List"
                           className="w-full"
                         />
                       </div>

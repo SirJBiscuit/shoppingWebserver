@@ -38,7 +38,6 @@ const Statistics = lazy(() => import('./pages/Statistics'));
 const Settings = lazy(() => import('./pages/Settings'));
 // const History = lazy(() => import('./pages/History')); // Disabled
 const Admin = lazy(() => import('./pages/Admin'));
-const AdminCustomization = lazy(() => import('./pages/AdminCustomization'));
 const AdminTraining = lazy(() => import('./pages/AdminTraining'));
 const MDLProducts = lazy(() => import('./pages/MDLProducts'));
 // const Subscription = lazy(() => import('./pages/Subscription')); // Disabled
@@ -129,7 +128,6 @@ const AnimatedRoutes = () => {
         {/* <Route path="/premium" element={<PrivateRoute><Premium /></PrivateRoute>} /> */} {/* Disabled - not ready */}
         {/* <Route path="/history" element={<PrivateRoute><History /></PrivateRoute>} /> */} {/* Disabled - will redo with new systems */}
         <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
-        <Route path="/admin/customize" element={<PrivateRoute><AdminCustomization /></PrivateRoute>} />
         <Route path="/admin/training" element={<PrivateRoute><AdminTraining /></PrivateRoute>} />
         <Route path="/admin/products" element={<PrivateRoute><MDLProducts /></PrivateRoute>} />
         <Route path="/admin/beta" element={<PrivateRoute><AdminBetaDashboard /></PrivateRoute>} />

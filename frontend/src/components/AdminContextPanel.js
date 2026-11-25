@@ -3,11 +3,10 @@ import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Bug, Copy, Info, EyeOff, LayoutDashboard, Activity, RefreshCw,
-  X, Send, Check, ChevronDown, ChevronUp, Shield
+  X, Check, ChevronUp, Shield, Crosshair, Award, Code, LocateFixed
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useEditor } from '../contexts/EditorContext';
-import api from '../services/api';
 import { Portal } from '../utils/autoPlacement';
 
 /**
@@ -79,11 +78,7 @@ const AdminContextPanel = () => {
   const location = useLocation();
 
   const [menu, setMenu] = useState(null);        // { x, y, el, selector, label }
-  const [view, setView] = useState('menu');      // 'menu' | 'pin' | 'info'
-  const [pinNote, setPinNote] = useState('');
-  const [pinSev, setPinSev] = useState('minor');
-  const [pinSending, setPinSending] = useState(false);
-  const [pinSent, setPinSent] = useState(false);
+  const [view, setView] = useState('menu');      // 'menu' | 'info'
   const [copied, setCopied] = useState('');
   const [hideCount, setHideCount] = useState(0);
 
@@ -100,7 +95,7 @@ const AdminContextPanel = () => {
 
       e.preventDefault();
       setView('menu');
-      setPinNote(''); setPinSev('minor'); setPinSent(false); setCopied('');
+      setCopied('');
       setMenu({
         x: Math.min(e.clientX, window.innerWidth - MENU_W - 8),
         y: Math.min(e.clientY, window.innerHeight - MENU_H - 8),
@@ -132,12 +127,6 @@ const AdminContextPanel = () => {
   if (!isAdmin || !menu) return null;
 
   const widgetEl = menu.el.closest('[data-widget-id]');
-  const offsetInEl = () => {
-    const r = menu.el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0
-      ? { offX: (menu.px - r.left) / r.width, offY: (menu.py - r.top) / r.height }
-      : { offX: 0.5, offY: 0.5 };
-  };
 
   const copy = async (text, tag) => {
     try {
@@ -147,26 +136,15 @@ const AdminContextPanel = () => {
     } catch { /* clipboard denied */ }
   };
 
-  const submitPin = async () => {
-    if (!pinNote.trim() || pinSending) return;
-    setPinSending(true);
-    try {
-      const { offX, offY } = offsetInEl();
-      await api.post('/beta/pins', {
-        pagePath: location.pathname,
-        x: (menu.px / window.innerWidth) * 100,
-        y: ((menu.py + window.scrollY) / document.documentElement.scrollHeight) * 100,
-        severity: pinSev,
-        note: pinNote.trim(),
-        selector: menu.selector,
-        offX, offY,
-        elementLabel: menu.label,
-      });
-      setPinSent(true);
-      setTimeout(() => setMenu(null), 900);
-    } catch {
-      setPinSending(false);
-    }
+  // Hand pinning off to the REAL pin layer — BetaPinLayer listens for
+  // this event and opens its own draft composer with full anchor picking,
+  // icon/kind/severity controls, quota and list refresh. The old inline
+  // form bypassed all of that, which is why its pins landed broken.
+  const dropPinHere = () => {
+    window.dispatchEvent(new CustomEvent('beta:dropPinAt', {
+      detail: { clientX: menu.px, clientY: menu.py }
+    }));
+    setMenu(null);
   };
 
   const hideElement = () => {
@@ -199,7 +177,9 @@ const AdminContextPanel = () => {
 
           {view === 'menu' && (
             <div className="p-1.5">
-              <CtxItem icon={Bug} label="Pin a bug here" hint="beta" onClick={() => setView('pin')} />
+              <CtxItem icon={Bug} label="Pin a bug here" hint="pin layer" onClick={dropPinHere} />
+              <CtxItem icon={Crosshair} label="Inspect elements" hint="toggle"
+                onClick={() => { window.dispatchEvent(new CustomEvent('beta:toggleInspect')); setMenu(null); }} />
               <CtxItem icon={Info} label="Element info" onClick={() => setView('info')} />
               <CtxItem
                 icon={copied === 'sel' ? Check : Copy}
@@ -210,6 +190,11 @@ const AdminContextPanel = () => {
                 icon={copied === 'txt' ? Check : Copy}
                 label={copied === 'txt' ? 'Text copied' : 'Copy element text'}
                 onClick={() => copy((menu.el.textContent || '').trim(), 'txt')}
+              />
+              <CtxItem
+                icon={copied === 'html' ? Check : Code}
+                label={copied === 'html' ? 'HTML copied' : 'Copy element HTML'}
+                onClick={() => copy((menu.el.outerHTML || '').slice(0, 20000), 'html')}
               />
               <div className="my-1 border-t border-slate-700/60" />
               {widgetEl && (
@@ -230,91 +215,65 @@ const AdminContextPanel = () => {
                 hint="session"
                 onClick={hideElement}
               />
+              <CtxItem icon={LocateFixed} label="Scroll element into view"
+                onClick={() => { menu.el.scrollIntoView({ behavior: 'smooth', block: 'center' }); setMenu(null); }} />
               <div className="my-1 border-t border-slate-700/60" />
+              <CtxItem icon={Award} label="BTCS panel"
+                onClick={() => { window.dispatchEvent(new CustomEvent('beta:openBtcs')); setMenu(null); }} />
+              <CtxItem icon={Activity} label="Beta viewer"
+                onClick={() => { window.dispatchEvent(new CustomEvent('beta:openViewer')); setMenu(null); }} />
               <CtxItem icon={Activity} label="Admin panel" onClick={() => { navigate('/admin'); setMenu(null); }} />
               <CtxItem icon={RefreshCw} label="Reload page" onClick={() => window.location.reload()} />
             </div>
           )}
 
-          {view === 'pin' && (
-            <div className="p-3 space-y-2">
-              {pinSent ? (
-                <div className="flex items-center gap-2 text-emerald-400 text-sm py-4 justify-center">
-                  <Check className="w-4 h-4" /> Pin dropped
-                </div>
-              ) : (
-                <>
-                  <textarea
-                    autoFocus
-                    value={pinNote}
-                    onChange={(e) => setPinNote(e.target.value)}
-                    placeholder="Describe the issue on this element…"
-                    rows={3}
-                    className="w-full text-xs rounded-lg bg-slate-800 border border-slate-700 px-2.5 py-2 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 resize-none"
-                  />
-                  <div className="flex gap-1">
-                    {['minor', 'major', 'critical'].map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => setPinSev(s)}
-                        className={`flex-1 text-[11px] py-1 rounded-lg border capitalize transition ${
-                          pinSev === s ? 'border-blue-400 text-blue-300 bg-blue-900/30' : 'border-slate-700 text-slate-400 hover:border-slate-500'
-                        }`}
-                      >
-                        {s}
-                      </button>
-                    ))}
+          {view === 'info' && (() => {
+            const cs = getComputedStyle(menu.el);
+            const r = menu.el.getBoundingClientRect();
+            const dataAttrs = Object.keys(menu.el.dataset || {});
+            return (
+              <div className="p-3 space-y-1.5 text-[11px] max-h-80 overflow-y-auto">
+                {[
+                  ['Tag', menu.el.tagName.toLowerCase()],
+                  ['ID', menu.el.id || '—'],
+                  ['Label', menu.label],
+                  ['Role', menu.el.getAttribute('role') || '—'],
+                  ['Classes', (typeof menu.el.className === 'string' ? menu.el.className : '').split(' ').filter(Boolean).slice(0, 10).join(' ') || '—'],
+                  ['data-*', dataAttrs.length ? dataAttrs.map((k) => `${k}="${menu.el.dataset[k]}"`).join(' ') : '—'],
+                  ['Widget', widgetEl?.dataset.widgetId || '—'],
+                  ['Tutorial', menu.el.closest('[data-tutorial]')?.dataset.tutorial || '—'],
+                  ['Link/src', menu.el.getAttribute('href') || menu.el.getAttribute('src') || '—'],
+                  ['Size', `${Math.round(r.width)}×${Math.round(r.height)}`],
+                  ['Position', `${Math.round(r.x)}, ${Math.round(r.y)} viewport`],
+                  ['z-index', cs.zIndex],
+                  ['Display', `${cs.display} / ${cs.visibility} / opacity ${cs.opacity}`],
+                  ['Pointer', `${cs.pointerEvents} · cursor ${cs.cursor}`],
+                  ['Page', location.pathname],
+                ].map(([k, v]) => (
+                  <div key={k} className="flex gap-2">
+                    <span className="w-14 flex-shrink-0 text-slate-500 font-semibold">{k}</span>
+                    <span className="text-slate-300 break-all">{v}</span>
                   </div>
-                  <div className="flex gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setView('menu')}
-                      className="flex-1 text-xs py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800"
-                    >
-                      Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={submitPin}
-                      disabled={!pinNote.trim() || pinSending}
-                      className="flex-1 text-xs py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center gap-1 disabled:opacity-50"
-                    >
-                      <Send className="w-3 h-3" /> {pinSending ? 'Pinning…' : 'Drop pin'}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {view === 'info' && (
-            <div className="p-3 space-y-1.5 text-[11px]">
-              {[
-                ['Tag', menu.el.tagName.toLowerCase()],
-                ['Label', menu.label],
-                ['Classes', (menu.el.className && typeof menu.el.className === 'string' ? menu.el.className : '').split(' ').filter(Boolean).slice(0, 8).join(' ') || '—'],
-                ['Widget', widgetEl?.dataset.widgetId || '—'],
-                ['Tutorial', menu.el.closest('[data-tutorial]')?.dataset.tutorial || '—'],
-                ['Size', `${Math.round(menu.el.getBoundingClientRect().width)}×${Math.round(menu.el.getBoundingClientRect().height)}`],
-                ['Page', location.pathname],
-              ].map(([k, v]) => (
-                <div key={k} className="flex gap-2">
-                  <span className="w-14 flex-shrink-0 text-slate-500 font-semibold">{k}</span>
-                  <span className="text-slate-300 break-all">{v}</span>
+                ))}
+                <div className="pt-1 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setView('menu')}
+                    className="text-[11px] text-slate-500 hover:text-slate-300 flex items-center gap-1"
+                  >
+                    <ChevronUp className="w-3 h-3" /> Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => copy(JSON.stringify({ selector: menu.selector, rect: { x: r.x, y: r.y, w: r.width, h: r.height }, computed: { zIndex: cs.zIndex, display: cs.display } }, null, 2), 'info')}
+                    className="text-[11px] text-slate-500 hover:text-slate-300 flex items-center gap-1"
+                  >
+                    <Copy className="w-3 h-3" /> {copied === 'info' ? 'Copied' : 'Copy JSON'}
+                  </button>
                 </div>
-              ))}
-              <div className="pt-1">
-                <button
-                  type="button"
-                  onClick={() => setView('menu')}
-                  className="text-[11px] text-slate-500 hover:text-slate-300 flex items-center gap-1"
-                >
-                  {view === 'info' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />} Back
-                </button>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </motion.div>
       </div>
     </Portal>

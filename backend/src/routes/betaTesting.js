@@ -6,6 +6,7 @@ const db = require('../database/db');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 const ntfy = require('../services/ntfyService');
 const btcs = require('../services/btcs');
+const betaBackup = require('../services/betaBackup');
 
 // Shared code-validation helper (table: beta_testing_codes — migration 043)
 const validateCode = async (code) => {
@@ -440,7 +441,7 @@ router.get('/admin/testers/:id/activity', authenticateToken, isAdmin, async (req
     }
 
     // Each source is best-effort — a missing MDL table shouldn't blank the feed
-    const [feedback, pins, items, aisles] = await Promise.all([
+    const [feedback, pins, items, aisles, errors] = await Promise.all([
       db.query(
         `SELECT id, type, title, severity, status, created_at
          FROM beta_feedback WHERE user_id = $1
@@ -465,6 +466,11 @@ router.get('/admin/testers/:id/activity', authenticateToken, isAdmin, async (req
          WHERE r.user_id = $1
          ORDER BY r.reported_at DESC LIMIT 50`, [uid]
       ).catch(() => ({ rows: [] })),
+      db.query(
+        `SELECT id, source, message, path, created_at
+         FROM app_error_log WHERE user_id = $1
+         ORDER BY created_at DESC LIMIT 30`, [uid]
+      ).catch(() => ({ rows: [] })),
     ]);
 
     const feed = [
@@ -486,6 +492,11 @@ router.get('/admin/testers/:id/activity', authenticateToken, isAdmin, async (req
       ...aisles.rows.map((r) => ({
         kind: 'aisle', id: null,
         label: `reported aisle ${r.aisle_number}${r.name ? ` for "${r.name}"` : ''}`,
+        status: null, at: r.created_at
+      })),
+      ...errors.rows.map((r) => ({
+        kind: 'error', id: r.id,
+        label: `${r.source} error${r.path ? ` at ${r.path}` : ''}: ${r.message}`,
         status: null, at: r.created_at
       })),
     ]
@@ -875,9 +886,13 @@ router.get('/admin/testers/:id/features', authenticateToken, isAdmin, async (req
     const uid = parseInt(req.params.id, 10);
     if (!Number.isFinite(uid)) return res.status(400).json({ error: 'Invalid user id' });
     const [flags, overrides] = await Promise.all([
+      // admin_only + limbo flags can never apply to a beta tester —
+      // leaving them in the list just adds noise.
       db.query(`SELECT feature_key, feature_name, description, category,
-                       is_enabled, min_tier, hide_from_beta, admin_only, is_limbo
-                FROM feature_flags ORDER BY category, feature_name`),
+                       is_enabled, min_tier, hide_from_beta, beta_default
+                FROM feature_flags
+                WHERE admin_only IS NOT TRUE AND is_limbo IS NOT TRUE
+                ORDER BY category, feature_name`),
       db.query('SELECT feature_key, allowed, reason FROM beta_tester_feature_overrides WHERE user_id = $1', [uid])
         .catch(() => ({ rows: [] })),
     ]);
@@ -939,94 +954,249 @@ router.put('/admin/testers/:id/features', authenticateToken, isAdmin, async (req
   }
 });
 
+// ============================================================================
+// GLOBAL BETA FEATURE DEFAULTS — one switch per feature that applies to
+// every beta tester (per-tester overrides still win). beta_default:
+// NULL = follow normal flags, TRUE = grant all testers, FALSE = deny all.
+// ============================================================================
+
+router.get('/admin/features', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT feature_key, feature_name, description, category,
+              is_enabled, min_tier, hide_from_beta, beta_default
+       FROM feature_flags
+       WHERE admin_only IS NOT TRUE AND is_limbo IS NOT TRUE
+       ORDER BY category, feature_name`
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching beta feature defaults:', error);
+    res.status(500).json({ error: 'Failed to fetch features' });
+  }
+});
+
+// Body: {beta_default: true|false|null}
+router.put('/admin/features/:key', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const key = req.params.key;
+    if (!/^[\w.-]{1,100}$/.test(key)) return res.status(400).json({ error: 'Invalid feature key' });
+    const val = req.body?.beta_default;
+    if (val !== null && val !== undefined && typeof val !== 'boolean') {
+      return res.status(400).json({ error: 'beta_default must be true, false, or null' });
+    }
+    const r = await db.query(
+      `UPDATE feature_flags SET beta_default = $1 WHERE feature_key = $2 RETURNING feature_key`,
+      [val ?? null, key]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: 'Unknown feature' });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error setting beta feature default:', error);
+    res.status(500).json({ error: 'Failed to update feature default' });
+  }
+});
+
 // BTCS scoring metadata — tier ladder + point weights, for the panel legend.
 router.get('/admin/btcs/meta', authenticateToken, isAdmin, (req, res) => {
   res.json({ tiers: btcs.TIERS, weights: btcs.WEIGHTS });
 });
 
 // ============================================================================
-// BACKUP / RECOVERY — beta tester data as downloadable JSON + upsert restore.
-// The testers' user accounts themselves are NOT included (auth lives in
-// users) — restore re-links tester rows to existing user ids.
+// BACKUP / RECOVERY — services/betaBackup.js owns the dump format (v2):
+// users (beta testers + admins) + every beta_* table. Download to the
+// admin's computer, save to the server disk, or let the interval
+// scheduler write snapshots automatically (beta_backup_settings row).
 // ============================================================================
 
 router.get('/admin/backup', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const [testers, overrides, codes, messages] = await Promise.all([
-      db.query(`SELECT bt.*, u.username, u.email FROM beta_testers bt
-                LEFT JOIN users u ON u.id = bt.user_id ORDER BY bt.id`),
-      db.query('SELECT * FROM beta_tester_feature_overrides').catch(() => ({ rows: [] })),
-      db.query('SELECT * FROM beta_testing_codes ORDER BY id'),
-      db.query('SELECT * FROM beta_thank_you_messages ORDER BY id').catch(() => ({ rows: [] })),
-    ]);
+    const dump = await betaBackup.buildBackup();
     res.setHeader('Content-Disposition',
-      `attachment; filename="beta-testers-backup-${new Date().toISOString().slice(0, 10)}.json"`);
-    res.json({
-      version: 1,
-      exported_at: new Date().toISOString(),
-      testers: testers.rows,
-      feature_overrides: overrides.rows,
-      codes: codes.rows,
-      thank_you_messages: messages.rows,
-    });
+      `attachment; filename="beta-backup-${new Date().toISOString().slice(0, 10)}.json"`);
+    res.json(dump);
   } catch (error) {
     console.error('Error exporting beta backup:', error);
     res.status(500).json({ error: 'Failed to export backup' });
   }
 });
 
-// Restore — upserts beta_testers by user_id + replays feature overrides.
-// Skips testers whose user_id no longer exists (reported in `skipped`).
-router.post('/admin/backup/restore', authenticateToken, isAdmin, async (req, res) => {
-  const testers = Array.isArray(req.body?.testers) ? req.body.testers : [];
-  const overrides = Array.isArray(req.body?.feature_overrides) ? req.body.feature_overrides : [];
-  if (!testers.length && !overrides.length) {
-    return res.status(400).json({ error: 'Nothing to restore' });
-  }
-  const client = await db.pool.connect();
-  let restored = 0, skipped = 0;
+// Server-side snapshots — save now, list, download, delete.
+router.get('/admin/backups', authenticateToken, isAdmin, async (req, res) => {
   try {
-    await client.query('BEGIN');
-    for (const t of testers.slice(0, 2000)) {
-      const exists = await client.query('SELECT 1 FROM users WHERE id = $1', [t.user_id]);
-      if (!exists.rows.length) { skipped++; continue; }
-      await client.query(
-        `INSERT INTO beta_testers (user_id, display_name, beta_username, admin_notes,
-           suspended, beta_expires_at, pin_limit, score_bonus, can_chat, registered_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, COALESCE($10, NOW()))
-         ON CONFLICT (user_id) DO UPDATE SET
-           display_name = EXCLUDED.display_name,
-           beta_username = EXCLUDED.beta_username,
-           admin_notes = EXCLUDED.admin_notes,
-           suspended = EXCLUDED.suspended,
-           beta_expires_at = EXCLUDED.beta_expires_at,
-           pin_limit = EXCLUDED.pin_limit,
-           score_bonus = EXCLUDED.score_bonus,
-           can_chat = EXCLUDED.can_chat`,
-        [t.user_id, t.display_name || null, t.beta_username || null, t.admin_notes || null,
-         !!t.suspended, t.beta_expires_at || null, t.pin_limit ?? null,
-         parseInt(t.score_bonus, 10) || 0, t.can_chat !== false, t.registered_at || null]
-      );
-      restored++;
-    }
-    for (const o of overrides.slice(0, 5000)) {
-      if (!o.user_id || !/^[\w.-]{1,100}$/.test(o.feature_key || '')) continue;
-      await client.query(
-        `INSERT INTO beta_tester_feature_overrides (user_id, feature_key, allowed, granted_by, reason, updated_at)
-         VALUES ($1,$2,$3,$4,$5, NOW())
-         ON CONFLICT (user_id, feature_key) DO UPDATE SET allowed = EXCLUDED.allowed`,
-        [o.user_id, o.feature_key, o.allowed === true, req.user.id, o.reason || 'restored from backup']
-      );
-    }
-    await client.query('COMMIT');
-  } catch (e) {
-    try { await client.query('ROLLBACK'); } catch { /* already rolled back */ }
-    console.error('Error restoring beta backup:', e);
-    return res.status(500).json({ error: 'Failed to restore backup' });
-  } finally {
-    client.release();
+    res.json(await betaBackup.listBackups());
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to list backups' });
   }
-  res.json({ restored, skipped, overrides: overrides.length });
+});
+
+router.post('/admin/backups/save', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    res.json(await betaBackup.runBackup(`manual:${req.user.id}`));
+  } catch (error) {
+    console.error('Error saving beta backup:', error);
+    res.status(500).json({ error: 'Failed to save backup' });
+  }
+});
+
+// Per-user save point — instant even with millions of rows elsewhere:
+// only this account's data is dumped.
+router.post('/admin/backups/save-user', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const uid = parseInt(req.body?.user_id, 10);
+    if (!Number.isFinite(uid)) return res.status(400).json({ error: 'user_id required' });
+    res.json(await betaBackup.runBackup(`manual-user:${req.user.id}`, { userId: uid }));
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save user snapshot' });
+  }
+});
+
+router.get('/admin/backups/:file/download', authenticateToken, isAdmin, async (req, res) => {
+  const p = await betaBackup.resolveBackupPath(req.params.file);
+  if (!p || !require('fs').existsSync(p)) return res.status(404).json({ error: 'Backup not found' });
+  // Admins get plain .json — decompress .gz snapshots on the fly
+  if (p.endsWith('.gz')) {
+    try {
+      const raw = require('zlib').gunzipSync(require('fs').readFileSync(p));
+      res.setHeader('Content-Disposition',
+        `attachment; filename="${require('path').basename(p, '.gz')}"`);
+      res.setHeader('Content-Type', 'application/json');
+      res.send(raw);
+    } catch {
+      res.status(500).json({ error: 'Failed to decompress backup' });
+    }
+    return;
+  }
+  res.download(p);
+});
+
+router.delete('/admin/backups/:file', authenticateToken, isAdmin, async (req, res) => {
+  const p = await betaBackup.resolveBackupPath(req.params.file);
+  if (!p) return res.status(400).json({ error: 'Invalid filename' });
+  try {
+    require('fs').unlinkSync(p);
+    res.json({ success: true });
+  } catch {
+    res.status(404).json({ error: 'Backup not found' });
+  }
+});
+
+// Scheduler settings: {enabled, interval_minutes, directory, keep}
+router.get('/admin/backups/settings', authenticateToken, isAdmin, async (req, res) => {
+  res.json(await betaBackup.getSettings());
+});
+
+router.put('/admin/backups/settings', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const interval = parseInt(b.interval_minutes, 10);
+    const keep = parseInt(b.keep, 10);
+    if (b.interval_minutes !== undefined && (!Number.isFinite(interval) || interval < 15 || interval > 43200)) {
+      return res.status(400).json({ error: 'interval_minutes must be 15–43200' });
+    }
+    if (b.keep !== undefined && (!Number.isFinite(keep) || keep < 1 || keep > 500)) {
+      return res.status(400).json({ error: 'keep must be 1–500' });
+    }
+    const dir = typeof b.directory === 'string' && b.directory.trim() ? b.directory.trim().slice(0, 500) : null;
+    await db.query(
+      `UPDATE beta_backup_settings SET
+         enabled = COALESCE($1, enabled),
+         interval_minutes = COALESCE($2, interval_minutes),
+         directory = $3,
+         keep = COALESCE($4, keep)
+       WHERE id = TRUE`,
+      [typeof b.enabled === 'boolean' ? b.enabled : null,
+       Number.isFinite(interval) ? interval : null, dir, Number.isFinite(keep) ? keep : null]
+    );
+    res.json(await betaBackup.getSettings());
+  } catch (error) {
+    console.error('Error updating backup settings:', error);
+    res.status(500).json({ error: 'Failed to update backup settings' });
+  }
+});
+
+// Restore — accepts v2 dumps ({tables:{…}}) and the original v1 shape
+// ({testers, feature_overrides}). Shared restore logic lives in
+// services/betaBackup.restoreDump (uploads, server snapshots and
+// single-user point-in-time restores all go through it).
+router.post('/admin/backup/restore', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    // Safety snapshot first — a restore with no rollback point refuses to run.
+    const safety = await betaBackup.runBackup(`pre-restore:${req.user.id}`);
+    const out = await betaBackup.restoreDump(req.body, req.user.id);
+    out.safety_snapshot = safety.filename;
+    if (!out.restored && !out.usersRestored && !out.userRows && !out.sharedRows) {
+      return res.status(400).json({ error: 'Nothing to restore' });
+    }
+    res.json(out);
+  } catch (e) {
+    console.error('Error restoring beta backup:', e);
+    res.status(500).json({ error: 'Failed to restore backup' });
+  }
+});
+
+// Point-in-time restores from a server snapshot:
+//   POST /admin/backups/:file/restore            → whole snapshot
+//   POST /admin/backups/:file/restore-user {user_id} → one account only
+router.post('/admin/backups/:file/restore', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const dump = await betaBackup.readBackupFile(req.params.file);
+    if (!dump) return res.status(404).json({ error: 'Backup not found' });
+    const safety = await betaBackup.runBackup(`pre-restore:${req.user.id}`);
+    const out = await betaBackup.restoreDump(dump, req.user.id);
+    out.safety_snapshot = safety.filename;
+    res.json(out);
+  } catch (e) {
+    console.error('Error restoring snapshot:', e);
+    res.status(500).json({ error: 'Failed to restore snapshot' });
+  }
+});
+
+// What changed between this snapshot and right now — per-table counts.
+// ?user_id= scopes the diff to one account's rows.
+router.get('/admin/backups/:file/diff', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const dump = await betaBackup.readBackupFile(req.params.file);
+    if (!dump) return res.status(404).json({ error: 'Backup not found' });
+    const uid = req.query.user_id ? parseInt(req.query.user_id, 10) : null;
+    res.json({
+      exported_at: dump.exported_at,
+      user_id: Number.isFinite(uid) ? uid : null,
+      changes: await betaBackup.diffSnapshot(dump, { userId: Number.isFinite(uid) ? uid : null }),
+    });
+  } catch (e) {
+    console.error('Error diffing snapshot:', e);
+    res.status(500).json({ error: 'Failed to diff snapshot' });
+  }
+});
+
+// Who's inside a snapshot — feeds the "restore a user to this point" picker
+router.get('/admin/backups/:file/users', authenticateToken, isAdmin, async (req, res) => {
+  const dump = await betaBackup.readBackupFile(req.params.file);
+  if (!dump) return res.status(404).json({ error: 'Backup not found' });
+  const users = (Array.isArray(dump.tables?.users) ? dump.tables.users : [])
+    .map((u) => ({
+      id: u.id, username: u.username, email: u.email,
+      is_beta_tester: u.is_beta_tester === true, is_admin: u.is_admin === true,
+    }));
+  res.json({ exported_at: dump.exported_at, users });
+});
+
+router.post('/admin/backups/:file/restore-user', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const uid = parseInt(req.body?.user_id, 10);
+    if (!Number.isFinite(uid)) return res.status(400).json({ error: 'user_id required' });
+    const dump = await betaBackup.readBackupFile(req.params.file);
+    if (!dump) return res.status(404).json({ error: 'Backup not found' });
+    const safety = await betaBackup.runBackup(`pre-restore:${req.user.id}`);
+    // Scoped to THIS user only — other testers/admins are never touched.
+    const out = await betaBackup.restoreDump(dump, req.user.id, { onlyUserId: uid });
+    out.safety_snapshot = safety.filename;
+    res.json(out);
+  } catch (e) {
+    console.error('Error restoring user from snapshot:', e);
+    res.status(500).json({ error: 'Failed to restore user' });
+  }
 });
 
 module.exports = router;
