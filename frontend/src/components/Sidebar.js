@@ -529,13 +529,16 @@ const Sidebar = ({ onAction }) => {
               .filter(item => item.isAdmin || !item.feature || hasFeature(item.feature))
               .map((item) => (
               <button
-                key={item.path || item.action}
+                key={item.label}
                 data-oi-path={item.path || undefined}
                 data-oi-action={item.action || undefined}
                 data-oi-label={item.label}
                 title={collapsed && isDesktop ? item.label : undefined}
                 onClick={() => {
-                  if (item.action) {
+                  if (item.onClick) {
+                    item.onClick();
+                    setIsOpen(false);
+                  } else if (item.action) {
                     onAction?.(item.action);
                     setIsOpen(false);
                   } else {
