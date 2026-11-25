@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+const btcs = require('../services/btcs');
 
 const SEVERITIES = [
   'critical', 'problem', 'annoying', 'needs_tweak',
@@ -58,13 +59,15 @@ router.post('/', authenticateToken, async (req, res) => {
     const vp = typeof viewport === 'string' && /^\d{2,5}x\d{2,5}$/.test(viewport)
       ? viewport : null;
 
-    // Light flood protection: 30 open pins per user per page max
+    // Flood protection: open pins per user per page. The cap comes from BTCS —
+    // per-tester override → tier perk → 30 (the old flat default).
+    const pinLimit = await btcs.pinLimitFor(req.user.id).catch(() => 30);
     const open = await db.query(
       `SELECT COUNT(*)::int AS c FROM beta_pins
        WHERE user_id = $1 AND page_path = $2 AND status = 'open'`,
       [req.user.id, pagePath]
     );
-    if (open.rows[0].c >= 30 && !req.user.isAdmin) {
+    if (open.rows[0].c >= pinLimit && !req.user.isAdmin) {
       return res.status(429).json({ error: 'Pin limit on this page — wait for admin triage' });
     }
 

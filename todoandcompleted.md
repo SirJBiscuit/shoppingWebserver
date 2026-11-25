@@ -706,3 +706,13 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - mdl_price_history only ever got rows from the admin-only /admin/product/:id/price endpoint — user price submissions never landed there, so the table stayed empty by construction.
 - product_master_data.average_price was write-once (COALESCE kept the first value forever) and the priceClean flag was computed but never used.
 - /track-item now writes each gate-passed price observation to mdl_price_history (source=track_item) and recomputes average_price from history — the same path the admin endpoint uses.
+- Migration 113 replays existing prices from mdl_user_item_history into mdl_price_history (idempotent NOT EXISTS guard), so prices logged before the fix aren't lost.
+
+## BTCS — Beta Tester Contribution System (admin-only XP layer)
+- Migration 114: beta_tester_feature_overrides(user_id, feature_key, allowed, granted_by, reason) + beta_testers.pin_limit + beta_testers.score_bonus.
+- services/btcs.js: score derived from data already collected — feedback 10 (+5 bug), pins 8 (+12 fixed), poll votes 2, distinct mdl items 3, priced observations 4, aisle reports 4, recipes 5, + admin score_bonus. Bulk computeForUsers/getScores: one query per source, missing tables contribute 0.
+- Tier ladder Rookie(0)→Contributor(100)→Veteran(300)→Elite(700); pin limit perk 30/50/100/250. betaPins uses beta_testers.pin_limit override → tier perk → 30.
+- Routes: GET /admin/testers merges btcs_score/btcs_tier/btcs_tier_label; GET /admin/testers/:id/btcs (score, tier, tiers, weights, bonus, pinLimitOverride, counts, breakdown); PATCH :id/btcs (score_bonus ±10000, pin_limit null=tier default 0-1000); GET|PUT :id/features (per-tester overrides, null clears to global flags).
+- featureAccess: per-tester override checked before tier checks (beta testers only); also fixed latent is_admin never being selected in getUserFeatures.
+- Admin UI (BetaTesterManagementCFS): amber BTCS chip on each tester card (score + tier label) + Award action in the radial menu + "Sort by BTCS". BtcsModal: score, tier badge, progress bar to next tier, unlocked perks, contribution breakdown, pin-limit/score-bonus settings, tri-state feature toggles (global → allow → deny).
+- Deferred per user: tester-visible badge system.

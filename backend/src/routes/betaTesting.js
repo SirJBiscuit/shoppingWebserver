@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../database/db');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 const ntfy = require('../services/ntfyService');
+const btcs = require('../services/btcs');
 
 // Shared code-validation helper (table: beta_testing_codes — migration 043)
 const validateCode = async (code) => {
@@ -395,6 +396,9 @@ router.get('/admin/testers', authenticateToken, isAdmin, async (req, res) => {
     const itemsByUser = Object.fromEntries(contrib.rows.map(r => [r.user_id, parseInt(r.items_added, 10)]));
     const aislesByUser = Object.fromEntries(aisles.rows.map(r => [r.user_id, parseInt(r.aisles_reported, 10)]));
 
+    // BTCS — bulk-score every tester in one pass (one query per source)
+    const scores = await btcs.getScores(result.rows.map((t) => t.id)).catch(() => new Map());
+
     res.json(result.rows.map((t) => {
       // Effective access end = per-tester expiry if set, else the code's expiry
       const effectiveExpiry = t.beta_expires_at || t.code_expires_at || null;
@@ -409,7 +413,10 @@ router.get('/admin/testers', authenticateToken, isAdmin, async (req, res) => {
         beta_expires_at: t.beta_expires_at || null,
         expires_at: effectiveExpiry,
         days_left: daysLeft,
-        admin_notes: t.admin_notes || null
+        admin_notes: t.admin_notes || null,
+        btcs_score: scores.get(t.id)?.score ?? 0,
+        btcs_tier: scores.get(t.id)?.tier?.key ?? 'rookie',
+        btcs_tier_label: scores.get(t.id)?.tier?.label ?? 'Rookie',
       };
     }));
   } catch (error) {
@@ -799,6 +806,134 @@ router.get('/admin/stats/mdl-impact', authenticateToken, isAdmin, async (req, re
   } catch (error) {
     console.error('Error fetching MDL impact:', error);
     res.status(500).json({ error: 'Failed to fetch MDL impact' });
+  }
+});
+
+// ============================================================================
+// BTCS — per-tester score detail + admin adjustments (admin only)
+// ============================================================================
+
+// Full score breakdown for one tester — backs the BTCS drill-down modal.
+router.get('/admin/testers/:id/btcs', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const uid = parseInt(req.params.id, 10);
+    if (!Number.isFinite(uid)) return res.status(400).json({ error: 'Invalid user id' });
+    const rec = await btcs.getScore(uid);
+    res.json({
+      score: rec.score,
+      tier: rec.tier,
+      tiers: btcs.TIERS,
+      weights: btcs.WEIGHTS,
+      bonus: rec.bonus,
+      pinLimitOverride: rec.pinLimitOverride,
+      counts: rec.counts,
+      breakdown: rec.breakdown,
+    });
+  } catch (error) {
+    console.error('Error fetching BTCS score:', error);
+    res.status(500).json({ error: 'Failed to fetch score' });
+  }
+});
+
+// Admin settings: score bonus (can be negative) + per-tester pin limit.
+// pin_limit null = back to tier default.
+router.patch('/admin/testers/:id/btcs', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const uid = parseInt(req.params.id, 10);
+    if (!Number.isFinite(uid)) return res.status(400).json({ error: 'Invalid user id' });
+
+    const sets = [];
+    const params = [uid];
+    if (req.body.score_bonus !== undefined) {
+      params.push(Math.max(-10000, Math.min(10000, parseInt(req.body.score_bonus, 10) || 0)));
+      sets.push(`score_bonus = $${params.length}`);
+    }
+    if (req.body.pin_limit !== undefined) {
+      const v = req.body.pin_limit;
+      params.push(v === null || v === '' ? null : Math.max(0, Math.min(1000, parseInt(v, 10) || 0)));
+      sets.push(`pin_limit = $${params.length}`);
+    }
+    if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
+
+    const result = await db.query(
+      `UPDATE beta_testers SET ${sets.join(', ')} WHERE user_id = $1 RETURNING user_id`,
+      params
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Beta tester not found' });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating BTCS settings:', error);
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+// Feature flags + this tester's override state, for the per-tester toggles UI.
+router.get('/admin/testers/:id/features', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const uid = parseInt(req.params.id, 10);
+    if (!Number.isFinite(uid)) return res.status(400).json({ error: 'Invalid user id' });
+    const [flags, overrides] = await Promise.all([
+      db.query(`SELECT feature_key, feature_name, description, category,
+                       is_enabled, min_tier, hide_from_beta, admin_only, is_limbo
+                FROM feature_flags ORDER BY category, feature_name`),
+      db.query('SELECT feature_key, allowed, reason FROM beta_tester_feature_overrides WHERE user_id = $1', [uid])
+        .catch(() => ({ rows: [] })),
+    ]);
+    const ov = Object.fromEntries(overrides.rows.map((r) => [r.feature_key, r]));
+    res.json(flags.rows.map((f) => ({
+      ...f,
+      override: ov[f.feature_key] ? ov[f.feature_key].allowed : null, // null = follow global flags
+      override_reason: ov[f.feature_key]?.reason || null,
+    })));
+  } catch (error) {
+    console.error('Error fetching tester features:', error);
+    res.status(500).json({ error: 'Failed to fetch features' });
+  }
+});
+
+// Set per-tester feature overrides. Body: {overrides: {key: true|false|null},
+// reason?} — true grants, false revokes, null clears back to global flags.
+router.put('/admin/testers/:id/features', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const uid = parseInt(req.params.id, 10);
+    if (!Number.isFinite(uid)) return res.status(400).json({ error: 'Invalid user id' });
+    const overrides = req.body?.overrides;
+    if (!overrides || typeof overrides !== 'object') {
+      return res.status(400).json({ error: 'overrides object required' });
+    }
+    const reason = typeof req.body.reason === 'string' ? req.body.reason.slice(0, 500) : null;
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const [key, val] of Object.entries(overrides)) {
+        if (!/^[\w.-]{1,100}$/.test(key)) continue;
+        if (val === null || val === undefined) {
+          await client.query(
+            'DELETE FROM beta_tester_feature_overrides WHERE user_id = $1 AND feature_key = $2',
+            [uid, key]
+          );
+        } else {
+          await client.query(
+            `INSERT INTO beta_tester_feature_overrides (user_id, feature_key, allowed, granted_by, reason, updated_at)
+             VALUES ($1, $2, $3, $4, $5, NOW())
+             ON CONFLICT (user_id, feature_key) DO UPDATE SET
+               allowed = EXCLUDED.allowed, granted_by = EXCLUDED.granted_by,
+               reason = EXCLUDED.reason, updated_at = NOW()`,
+            [uid, key, val === true, req.user.id, reason]
+          );
+        }
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      try { await client.query('ROLLBACK'); } catch { /* already rolled back */ }
+      throw e;
+    } finally {
+      client.release();
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating tester features:', error);
+    res.status(500).json({ error: 'Failed to update features' });
   }
 });
 

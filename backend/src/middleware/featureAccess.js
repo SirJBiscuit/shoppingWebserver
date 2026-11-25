@@ -55,6 +55,17 @@ const hasFeatureAccess = async (userId, featureKey) => {
       return false;
     }
 
+    // Per-tester BTCS override beats tier/beta rules — an admin grant lifts
+    // hide_from_beta/min_tier, a revoke denies outright. Global kill-switches
+    // (is_enabled, is_limbo, admin_only) still win.
+    const ov = await db.query(
+      'SELECT allowed FROM beta_tester_feature_overrides WHERE user_id = $1 AND feature_key = $2',
+      [userId, featureKey]
+    ).catch(() => ({ rows: [] }));
+    if (ov.rows.length) {
+      return ov.rows[0].allowed === true;
+    }
+
     // Beta testers lose access to admin-hidden features
     if (isBetaTester && feature.hide_from_beta) {
       return false;
@@ -77,7 +88,7 @@ const hasFeatureAccess = async (userId, featureKey) => {
 const getUserFeatures = async (userId) => {
   try {
     const userResult = await db.query(
-      'SELECT subscription_tier, is_guest, is_beta_tester FROM users WHERE id = $1',
+      'SELECT subscription_tier, is_guest, is_beta_tester, is_admin FROM users WHERE id = $1',
       [userId]
     );
 
@@ -98,10 +109,18 @@ const getUserFeatures = async (userId) => {
        WHERE is_enabled = true`
     );
 
+    const overrides = await db.query(
+      'SELECT feature_key, allowed FROM beta_tester_feature_overrides WHERE user_id = $1',
+      [userId]
+    ).catch(() => ({ rows: [] }));
+    const ovMap = Object.fromEntries(overrides.rows.map((r) => [r.feature_key, r.allowed]));
+
     // Filter by tier access + beta hiding + admin-only + limbo
     const accessibleFeatures = featuresResult.rows.filter(feature => {
       if (feature.is_limbo) return false;
       if (feature.admin_only && !isAdminUser) return false;
+      // BTCS per-tester override beats tier/beta rules (never kill-switches)
+      if (feature.feature_key in ovMap) return ovMap[feature.feature_key] === true;
       if (isBetaTester && feature.hide_from_beta) return false;
       const minTierLevel = TIER_HIERARCHY[feature.min_tier] || 0;
       return userTierLevel >= minTierLevel;
@@ -153,7 +172,7 @@ const getUserLimits = async (userId) => {
  */
 const requireFeature = (featureKey) => {
   return async (req, res, next) => {
-    if (!req.user || !req.user.id) {
+    if (!req.user?.id) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
