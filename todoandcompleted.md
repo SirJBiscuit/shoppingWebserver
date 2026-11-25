@@ -747,3 +747,9 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - AdminStatsStrip.js: hideable widget (id admin-live-stats, persisted via useHiddenWidgets) on the Dashboard for admins — chips for testers/users/pins/errors/chat/items/LOC/commits/est-hours/uptime, 60s poll + manual refresh.
 - Collapse rework: floatsCollapsed now only folds the APP button column — its chevron lives at the column bottom (inside FloatingButtons, so it works for every role). Admin rail gets its own collapse tab pinned directly above it (railCollapsed store, persisted). Old mid-edge global tab removed; beta stack + restore tab no longer collapse with the app column.
 - Recipe floating button removed — Recipe book now lives in the Apps menu (hidden while on /recipes).
+
+## Stats widget v2 — compact grid, 3D scrollbar, more stats
+- AdminStatsStrip rebuilt as a grouped tile panel (People / Beta / Catalog / Code) inside a fixed-height box using the existing .scrollbar-3d style — no more wide horizontal strip.
+- /admin/stats/live extended: feedback bugs/ideas breakdown, codes active, open polls, MDL coverage (items, priced %, aisle %, reports, stores), chat totals, error totals.
+- App age tile: derived from codestats.json first_commit (shows "since <date>" + age like 8mo).
+- LOC never shows "—": after codestats.json and in-process git fallbacks, the backend walks the deployed source tree and counts lines directly.

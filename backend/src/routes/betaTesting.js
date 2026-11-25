@@ -858,6 +858,36 @@ const loadCodeStats = async () => {
     codeStatsCache.at = Date.now();
     codeStatsCache.stats = parsed;
     return parsed;
+  } catch { /* fall through to the source walk */ }
+
+  // 3. Last resort — no git, no export (bare container). Walk the deployed
+  // source tree and count lines directly. Commits/hours can't be known
+  // here, but LOC never has to show "—".
+  try {
+    const TEXT_EXT = /\.(js|jsx|ts|tsx|css|scss|html|json|sql|sh|md|yml|yaml|py|env\.example)$/i;
+    const SKIP_DIR = /node_modules|\.git|build|dist|coverage|backups|uploads|\.cache/i;
+    let loc = 0;
+    const walk = async (dir, depth) => {
+      if (depth > 8) return;
+      let entries;
+      try { entries = await fsP.readdir(dir, { withFileTypes: true }); } catch { return; }
+      for (const e of entries) {
+        const p = pathMod.join(dir, e.name);
+        if (e.isDirectory()) {
+          if (!SKIP_DIR.test(e.name)) await walk(p, depth + 1);
+        } else if (TEXT_EXT.test(e.name) && !/package-lock|yarn\.lock|changelog\.txt|\.min\./i.test(e.name)) {
+          try {
+            const buf = await fsP.readFile(p);
+            for (let j = 0; j < buf.length; j++) if (buf[j] === 10) loc++;
+          } catch { /* skip unreadable */ }
+        }
+      }
+    };
+    await walk(STATS_ROOT, 0);
+    const parsed = { loc, commits: null, hours_est: null, first_commit: null };
+    codeStatsCache.at = Date.now();
+    codeStatsCache.stats = parsed;
+    return parsed;
   } catch {
     codeStatsCache.at = Date.now();
     codeStatsCache.stats = null;
@@ -870,34 +900,71 @@ const probe = (sql, params) =>
 
 router.get('/admin/stats/live', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const [users, testers, pins, errors24h, lists, items, chat, code] = await Promise.all([
+    const [users, testers, pins, errors, lists, items, chat, feedback, codes, polls, mdlNames, mdlPrices, mdlAisles, mdlStores, code] = await Promise.all([
       probe(`SELECT COUNT(*)::int AS total,
                     COUNT(*) FILTER (WHERE last_login > NOW() - INTERVAL '7 days'
-                                      OR created_at > NOW() - INTERVAL '7 days')::int AS active_7d
+                                      OR created_at > NOW() - INTERVAL '7 days')::int AS active_7d,
+                    COUNT(*) FILTER (WHERE is_beta_tester)::int AS beta_users
              FROM users`),
       probe(`SELECT COUNT(*)::int AS total,
                     COUNT(*) FILTER (WHERE last_active > NOW() - INTERVAL '7 days')::int AS active_7d,
                     COUNT(*) FILTER (WHERE suspended)::int AS suspended
              FROM beta_testers`),
       probe(`SELECT COUNT(*)::int AS total,
-                    COUNT(*) FILTER (WHERE status = 'open')::int AS open
+                    COUNT(*) FILTER (WHERE status = 'open')::int AS open,
+                    COUNT(*) FILTER (WHERE status = 'fixed')::int AS fixed
              FROM beta_pins`),
-      probe(`SELECT COUNT(*)::int AS count FROM app_error_log
-             WHERE created_at > NOW() - INTERVAL '24 hours'`),
+      probe(`SELECT COUNT(*)::int AS total,
+                    COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours')::int AS last_24h
+             FROM app_error_log`),
       probe(`SELECT COUNT(*)::int AS total FROM shopping_lists`),
       probe(`SELECT COUNT(*)::int AS total FROM shopping_list_items`),
-      probe(`SELECT COUNT(*)::int AS count FROM beta_chatroom_messages
-             WHERE created_at > NOW() - INTERVAL '24 hours'`),
+      probe(`SELECT COUNT(*)::int AS total,
+                    COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours')::int AS last_24h
+             FROM beta_chatroom_messages`),
+      probe(`SELECT COUNT(*)::int AS total,
+                    COUNT(*) FILTER (WHERE type = 'bug')::int AS bugs,
+                    COUNT(*) FILTER (WHERE type = 'feature')::int AS features,
+                    COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '7 days')::int AS last_7d
+             FROM beta_feedback`),
+      probe(`SELECT COUNT(*)::int AS total,
+                    COUNT(*) FILTER (WHERE is_active AND expires_at > NOW() AND current_uses < max_uses)::int AS active
+             FROM beta_testing_codes`),
+      probe(`SELECT COUNT(*)::int AS total,
+                    COUNT(*) FILTER (WHERE status = 'open')::int AS open
+             FROM beta_polls`),
+      probe(`SELECT COUNT(*)::int AS total FROM mdl_item_names`),
+      probe(`SELECT COUNT(*)::int AS reports,
+                    COUNT(DISTINCT item_name_id)::int AS items
+             FROM mdl_location_prices`),
+      probe(`SELECT COUNT(*)::int AS reports,
+                    COUNT(DISTINCT item_name_id)::int AS items
+             FROM mdl_aisle_reports`),
+      probe(`SELECT COUNT(*)::int AS total FROM store_locations`),
       loadCodeStats(),
     ]);
+    const names = mdlNames ? mdlNames.total : 0;
     res.json({
-      users: users || { total: null, active_7d: null },
+      users: users || { total: null, active_7d: null, beta_users: null },
       testers: testers || { total: null, active_7d: null, suspended: null },
-      pins: pins || { total: null, open: null },
-      errors_24h: errors24h ? errors24h.count : null,
+      pins: pins || { total: null, open: null, fixed: null },
+      errors: errors || { total: null, last_24h: null },
       lists_total: lists ? lists.total : null,
       items_total: items ? items.total : null,
-      chat_24h: chat ? chat.count : null,
+      chat: chat || { total: null, last_24h: null },
+      feedback: feedback || { total: null, bugs: null, features: null, last_7d: null },
+      codes: codes || { total: null, active: null },
+      polls: polls || { total: null, open: null },
+      mdl: {
+        items: names,
+        priced_items: mdlPrices ? mdlPrices.items : null,
+        price_reports: mdlPrices ? mdlPrices.reports : null,
+        aisle_items: mdlAisles ? mdlAisles.items : null,
+        aisle_reports: mdlAisles ? mdlAisles.reports : null,
+        stores: mdlStores ? mdlStores.total : null,
+        price_pct: names > 0 && mdlPrices ? Math.round((mdlPrices.items / names) * 100) : null,
+        aisle_pct: names > 0 && mdlAisles ? Math.round((mdlAisles.items / names) * 100) : null,
+      },
       uptime_sec: Math.round(process.uptime()),
       code: code || null,
       at: new Date().toISOString(),
