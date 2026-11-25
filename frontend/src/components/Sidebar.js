@@ -6,7 +6,7 @@ import {
   Settings, Shield, History, Search, Share2,
   Menu, X, Bell, Moon, Sun, Crown, Store, Sparkles, Home, GraduationCap,
   Book, DollarSign, Star, Users, Folder, Database, StickyNote, Flame, FlaskConical,
-  PanelLeftClose, PanelLeftOpen
+  PanelLeftClose, PanelLeftOpen, Award
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -243,6 +243,21 @@ const Sidebar = ({ onAction }) => {
       color: 'text-blue-600',
       isAdmin: true,
       adminSpecial: true
+    });
+    settingsItems.push({
+      path: '/admin/beta',
+      icon: Award,
+      label: 'BTCS Scores',
+      color: 'text-amber-600',
+      isAdmin: true,
+      adminSpecial: true,
+      onClick: () => {
+        navigate('/admin/beta');
+        // Jump straight to the Testers tab where the BTCS chips/modal live
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('setBetaTab', { detail: 'testers' }));
+        }, 100);
+      }
     });
     settingsItems.push({ 
       path: '/admin/training', 

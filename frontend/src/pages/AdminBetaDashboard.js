@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FlaskConical, BarChart3, Key, Users, MessageSquare } from 'lucide-react';
 import BetaAnalyticsCFS from '../components/admin/BetaAnalyticsCFS';
 import BetaCodeManagerCFS from '../components/admin/BetaCodeManagerCFS';
@@ -12,6 +12,15 @@ import BetaChat from '../components/beta/BetaChat';
  */
 const AdminBetaDashboard = () => {
   const [activeTab, setActiveTab] = useState('analytics');
+
+  // Sidebar shortcuts (e.g. "BTCS Scores") jump straight to a tab
+  useEffect(() => {
+    const onSetTab = (e) => {
+      if (typeof e.detail === 'string') setActiveTab(e.detail);
+    };
+    window.addEventListener('setBetaTab', onSetTab);
+    return () => window.removeEventListener('setBetaTab', onSetTab);
+  }, []);
 
   const tabs = [
     { 
