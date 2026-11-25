@@ -123,7 +123,13 @@ router.get('/', authenticateToken, async (req, res) => {
        LIMIT 200`,
       params
     );
-    res.json({ pins: rows });
+    // Pin quota for the badge — mirrors the POST flood check: open pins on
+    // THIS page count against the limit (admins aren't capped).
+    const quota = req.user.isAdmin ? null : {
+      used: rows.filter((p) => p.user_id === req.user.id && p.status === 'open' && (allPages || p.page_path === page)).length,
+      limit: await btcs.pinLimitFor(req.user.id).catch(() => 30),
+    };
+    res.json({ pins: rows, quota });
   } catch (e) {
     console.error('Error fetching pins:', e);
     res.status(500).json({ error: 'Failed to fetch pins' });

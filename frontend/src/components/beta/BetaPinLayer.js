@@ -14,7 +14,7 @@ import {
   BarChart3, ThumbsUp, ThumbsDown, Lock, Pencil, Move, Download, RotateCcw,
   LocateFixed, Copy, Flag, Bug, Lightbulb, AlertTriangle, HelpCircle, Star,
   Crosshair, Ghost, PanelRightClose, PanelRightOpen, Pin, Archive,
-  Search, SlidersHorizontal, ListChecks, StickyNote, MapPinned, Activity, Award
+  Search, SlidersHorizontal, ListChecks, StickyNote, MapPinned, Activity, Award, Users
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -49,7 +49,7 @@ const STATUS_META = {
   // Poll progress statuses
   thinking:    { label: 'Thinking',      cls: 'bg-amber-500/20 text-amber-300' },
   working:     { label: 'Working on it', cls: 'bg-violet-500/20 text-violet-300' },
-  shipped:     { label: 'Shipped',       cls: 'bg-emerald-500/20 text-emerald-300' },
+  shipped:     { label: 'Completed',     cls: 'bg-emerald-500/20 text-emerald-300' },
   dropped:     { label: 'Dropped',       cls: 'bg-red-500/20 text-red-300' },
 };
 
@@ -383,6 +383,7 @@ const BetaPinLayer = () => {
   const [testerTab, setTesterTab] = useState('votes');
   const [myFeedback, setMyFeedback] = useState([]);
   const [myPins, setMyPins] = useState(null); // own pins across all pages
+  const [pinQuota, setPinQuota] = useState(null); // {used, limit} from GET /pins
   const [fbForm, setFbForm] = useState({ type: 'idea', title: '', description: '' });
   const [fbSending, setFbSending] = useState(false);
   const [fbSent, setFbSent] = useState(false);
@@ -394,6 +395,7 @@ const BetaPinLayer = () => {
         params: { page, mine: isAdmin ? '0' : '1' }
       });
       setPins(data.pins || []);
+      setPinQuota(data.quota || null);
     } catch { /* silent — layer must never break the app */ }
   }, [page, isAdmin]);
 
@@ -619,6 +621,7 @@ const BetaPinLayer = () => {
   // Admin service health — polled while an admin is present so the rail
   // button dot always reflects the worst service state.
   const [svcOpen, setSvcOpen] = useState(false);
+  const [btcsMenuOpen, setBtcsMenuOpen] = useState(false);
   const [services, setServices] = useState(null);
   useEffect(() => {
     if (!isAdmin || !canUse) return undefined;
@@ -898,10 +901,21 @@ const BetaPinLayer = () => {
     }
     return [...list].sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
   }, [ideas, histEvent, histActor, histTime, histSearch]);
+  const filteredCompletedPolls = useMemo(() => {
+    if (histEvent !== 'all') return [];
+    let list = adminPolls.filter((p) => p.status === 'shipped');
+    if (histTime !== 'all') {
+      const cut = Date.now() - TIME_WINDOWS[histTime];
+      list = list.filter((p) => new Date(p.resolved_at || p.created_at).getTime() >= cut);
+    }
+    const q = histSearch.trim().toLowerCase();
+    if (q) list = list.filter((p) => String(p.title || '').toLowerCase().includes(q));
+    return [...list].sort((a, b) => new Date(b.resolved_at || b.created_at) - new Date(a.resolved_at || a.created_at));
+  }, [adminPolls, histEvent, histTime, histSearch]);
   const histVisibleCount =
     (histKind === 'all' || histKind === 'pins' ? filteredHistoryItems.length : 0)
     + (histKind === 'all' || histKind === 'ideas' ? filteredDeletedIdeas.length : 0)
-    + (histKind === 'all' || histKind === 'completed' ? filteredCompletedIdeas.length : 0);
+    + (histKind === 'all' || histKind === 'completed' ? filteredCompletedIdeas.length + filteredCompletedPolls.length : 0);
 
   const toggleSet = (set, setter, key) => setter((prev) => {
     const next = new Set(prev);
@@ -2536,10 +2550,19 @@ const BetaPinLayer = () => {
           <div className="flex flex-col w-12 items-center gap-1">
             <button
               onClick={() => setDropMode(true)}
-              className="w-12 h-12 rounded-full shadow-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition"
-              title="Pin feedback on this page"
+              disabled={pinQuota && pinQuota.used >= pinQuota.limit}
+              className="w-12 h-12 rounded-full shadow-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition relative disabled:opacity-50"
+              title={pinQuota ? `Pin feedback — ${Math.max(0, pinQuota.limit - pinQuota.used)} of ${pinQuota.limit} pins left on this page` : 'Pin feedback on this page'}
             >
               <Plus className="w-6 h-6" />
+              {pinQuota && (
+                <span className={`absolute -top-1 -right-1 text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center border-2 border-slate-900 ${
+                  pinQuota.used >= pinQuota.limit ? 'bg-red-600 text-white'
+                  : pinQuota.limit - pinQuota.used <= 3 ? 'bg-amber-500 text-white'
+                  : 'bg-emerald-600 text-white'}`}>
+                  {Math.max(0, pinQuota.limit - pinQuota.used)}
+                </span>
+              )}
             </button>
             <FabLabel>Pin</FabLabel>
           </div>
@@ -2627,9 +2650,9 @@ const BetaPinLayer = () => {
             title="Admin Viewer — pins, messages, polls & history"
           ><MessageSquare className="w-4 h-4" /></button>
           <button
-            onClick={() => navigate('/admin/btcs')}
-            className="p-2 rounded-lg transition text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-            title="BTCS — tester scores, chatroom & controls"
+            onClick={() => setBtcsMenuOpen((v) => !v)}
+            className={`p-2 rounded-lg transition ${btcsMenuOpen ? 'bg-amber-600/30 text-amber-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+            title="Beta admin shortcuts — BTCS, testers, codes, feedback, backup"
           ><Award className="w-4 h-4" /></button>
           <div className="w-6 h-px bg-slate-700 my-0.5" />
           <button
@@ -2650,6 +2673,52 @@ const BetaPinLayer = () => {
               down: 'bg-red-500 animate-pulse',
               unknown: 'bg-gray-500',
             }[svcWorst]}`} />
+          </button>
+        </div>
+      )}
+
+      {/* BTCS shortcut menu — quick beta-admin controls beside the rail */}
+      {isAdmin && btcsMenuOpen && !dropMode && !moving && (
+        <div
+          className={`fixed z-[46] w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-xl py-1.5 ${floatSide === 'left' ? 'left-16 lg:left-[22rem]' : 'right-14'}`}
+          style={{ bottom: railBelow + 68, transform: `translateX(${-panelShift}px)` }}
+        >
+          <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400 border-b border-slate-800 mb-1">
+            Beta controls
+          </div>
+          {[
+            ['BTCS panel', Award, () => navigate('/admin/btcs')],
+            ['Testers', Users, () => { navigate('/admin/beta'); setTimeout(() => window.dispatchEvent(new CustomEvent('setBetaTab', { detail: 'testers' })), 100); }],
+            ['Beta codes', Lock, () => { navigate('/admin/beta'); setTimeout(() => window.dispatchEvent(new CustomEvent('setBetaTab', { detail: 'codes' })), 100); }],
+            ['Feedback', MessageSquare, () => { navigate('/admin/beta'); setTimeout(() => window.dispatchEvent(new CustomEvent('setBetaTab', { detail: 'feedback' })), 100); }],
+            ['Beta chat', ChevronRight, () => { navigate('/admin/beta'); setTimeout(() => window.dispatchEvent(new CustomEvent('setBetaTab', { detail: 'chat' })), 100); }],
+          ].map(([label, Icon, go]) => (
+            <button
+              key={label}
+              onClick={() => { setBtcsMenuOpen(false); go(); }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800 text-left"
+            >
+              <Icon className="w-4 h-4 text-slate-500" /> {label}
+            </button>
+          ))}
+          <div className="border-t border-slate-800 my-1" />
+          <button
+            onClick={async () => {
+              setBtcsMenuOpen(false);
+              try {
+                const { data } = await api.get('/beta/admin/backup', { responseType: 'blob' });
+                const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `beta-testers-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+              } catch { /* silent */ }
+            }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800 text-left"
+            title="Download all beta tester data as JSON — testers, codes, overrides"
+          >
+            <Download className="w-4 h-4 text-slate-500" /> Backup testers (JSON)
           </button>
         </div>
       )}
@@ -3123,6 +3192,23 @@ const BetaPinLayer = () => {
                   ),
                 },
                 {
+                  key: 'completed', title: 'Completed polls', items: filteredCompletedPolls,
+                  show: histKind === 'all' || histKind === 'completed',
+                  render: (p) => (
+                    <div key={`polldone-${p.id}`} className="px-3 py-2 border-b border-slate-800/60">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] px-1.5 rounded-full bg-emerald-500/20 text-emerald-300">completed</span>
+                        <span className="text-[10px] px-1.5 rounded-full bg-blue-500/20 text-blue-300">poll</span>
+                        <span className="text-[10px] text-slate-600 ml-auto shrink-0">{relTime(p.resolved_at || p.created_at)}</span>
+                      </div>
+                      <p className="text-sm text-slate-200 mt-1 font-medium"><FormattedNote text={p.title} /></p>
+                      {p.total_votes != null && (
+                        <div className="text-[10px] text-slate-500 mt-0.5">{p.total_votes} votes</div>
+                      )}
+                    </div>
+                  ),
+                },
+                {
                   key: 'ideas', title: 'Deleted ideas', items: filteredDeletedIdeas,
                   show: histKind === 'all' || histKind === 'ideas',
                   render: (i) => (
@@ -3395,7 +3481,7 @@ const BetaPinLayer = () => {
                         <button onClick={() => setPollStatus(p.id, 'thinking')} className="text-[11px] px-2 py-1 rounded bg-amber-600/30 text-amber-200 hover:bg-amber-600/50">Thinking</button>
                         <button onClick={() => setPollStatus(p.id, 'in_progress')} className="text-[11px] px-2 py-1 rounded bg-blue-600/30 text-blue-200 hover:bg-blue-600/50">In progress</button>
                         <button onClick={() => setPollStatus(p.id, 'working')} className="text-[11px] px-2 py-1 rounded bg-violet-600/30 text-violet-200 hover:bg-violet-600/50">Working on it</button>
-                        <button onClick={() => setPollStatus(p.id, 'shipped')} className="text-[11px] px-2 py-1 rounded bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50">Shipped</button>
+                        <button onClick={() => setPollStatus(p.id, 'shipped')} className="text-[11px] px-2 py-1 rounded bg-emerald-600/30 text-emerald-200 hover:bg-emerald-600/50">Completed</button>
                         <button onClick={() => setPollStatus(p.id, 'dropped')} className="text-[11px] px-2 py-1 rounded bg-red-600/30 text-red-300 hover:bg-red-600/50">Drop</button>
                       </>}
                       {['shipped', 'dropped'].includes(p.status) && (

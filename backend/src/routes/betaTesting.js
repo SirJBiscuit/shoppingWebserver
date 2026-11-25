@@ -944,4 +944,89 @@ router.get('/admin/btcs/meta', authenticateToken, isAdmin, (req, res) => {
   res.json({ tiers: btcs.TIERS, weights: btcs.WEIGHTS });
 });
 
+// ============================================================================
+// BACKUP / RECOVERY — beta tester data as downloadable JSON + upsert restore.
+// The testers' user accounts themselves are NOT included (auth lives in
+// users) — restore re-links tester rows to existing user ids.
+// ============================================================================
+
+router.get('/admin/backup', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const [testers, overrides, codes, messages] = await Promise.all([
+      db.query(`SELECT bt.*, u.username, u.email FROM beta_testers bt
+                LEFT JOIN users u ON u.id = bt.user_id ORDER BY bt.id`),
+      db.query('SELECT * FROM beta_tester_feature_overrides').catch(() => ({ rows: [] })),
+      db.query('SELECT * FROM beta_testing_codes ORDER BY id'),
+      db.query('SELECT * FROM beta_thank_you_messages ORDER BY id').catch(() => ({ rows: [] })),
+    ]);
+    res.setHeader('Content-Disposition',
+      `attachment; filename="beta-testers-backup-${new Date().toISOString().slice(0, 10)}.json"`);
+    res.json({
+      version: 1,
+      exported_at: new Date().toISOString(),
+      testers: testers.rows,
+      feature_overrides: overrides.rows,
+      codes: codes.rows,
+      thank_you_messages: messages.rows,
+    });
+  } catch (error) {
+    console.error('Error exporting beta backup:', error);
+    res.status(500).json({ error: 'Failed to export backup' });
+  }
+});
+
+// Restore — upserts beta_testers by user_id + replays feature overrides.
+// Skips testers whose user_id no longer exists (reported in `skipped`).
+router.post('/admin/backup/restore', authenticateToken, isAdmin, async (req, res) => {
+  const testers = Array.isArray(req.body?.testers) ? req.body.testers : [];
+  const overrides = Array.isArray(req.body?.feature_overrides) ? req.body.feature_overrides : [];
+  if (!testers.length && !overrides.length) {
+    return res.status(400).json({ error: 'Nothing to restore' });
+  }
+  const client = await db.pool.connect();
+  let restored = 0, skipped = 0;
+  try {
+    await client.query('BEGIN');
+    for (const t of testers.slice(0, 2000)) {
+      const exists = await client.query('SELECT 1 FROM users WHERE id = $1', [t.user_id]);
+      if (!exists.rows.length) { skipped++; continue; }
+      await client.query(
+        `INSERT INTO beta_testers (user_id, display_name, beta_username, admin_notes,
+           suspended, beta_expires_at, pin_limit, score_bonus, can_chat, registered_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, COALESCE($10, NOW()))
+         ON CONFLICT (user_id) DO UPDATE SET
+           display_name = EXCLUDED.display_name,
+           beta_username = EXCLUDED.beta_username,
+           admin_notes = EXCLUDED.admin_notes,
+           suspended = EXCLUDED.suspended,
+           beta_expires_at = EXCLUDED.beta_expires_at,
+           pin_limit = EXCLUDED.pin_limit,
+           score_bonus = EXCLUDED.score_bonus,
+           can_chat = EXCLUDED.can_chat`,
+        [t.user_id, t.display_name || null, t.beta_username || null, t.admin_notes || null,
+         !!t.suspended, t.beta_expires_at || null, t.pin_limit ?? null,
+         parseInt(t.score_bonus, 10) || 0, t.can_chat !== false, t.registered_at || null]
+      );
+      restored++;
+    }
+    for (const o of overrides.slice(0, 5000)) {
+      if (!o.user_id || !/^[\w.-]{1,100}$/.test(o.feature_key || '')) continue;
+      await client.query(
+        `INSERT INTO beta_tester_feature_overrides (user_id, feature_key, allowed, granted_by, reason, updated_at)
+         VALUES ($1,$2,$3,$4,$5, NOW())
+         ON CONFLICT (user_id, feature_key) DO UPDATE SET allowed = EXCLUDED.allowed`,
+        [o.user_id, o.feature_key, o.allowed === true, req.user.id, o.reason || 'restored from backup']
+      );
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch { /* already rolled back */ }
+    console.error('Error restoring beta backup:', e);
+    return res.status(500).json({ error: 'Failed to restore backup' });
+  } finally {
+    client.release();
+  }
+  res.json({ restored, skipped, overrides: overrides.length });
+});
+
 module.exports = router;

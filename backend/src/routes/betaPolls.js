@@ -222,6 +222,24 @@ router.post('/admin/:id/status', authenticateToken, isAdmin, async (req, res) =>
       [req.params.id, status, terminal]
     );
     if (!rowCount) return res.status(404).json({ error: 'Poll not found' });
+
+    // Shipped → completed: tell every beta tester the feature landed.
+    // Best-effort — a notify failure must never block the status change.
+    if (status === 'shipped') {
+      try {
+        const poll = await db.query('SELECT title FROM beta_feature_polls WHERE id = $1', [req.params.id]);
+        await db.query(
+          `INSERT INTO user_notifications (user_id, type, title, message, data)
+           SELECT id, 'beta_feature_completed', $2, $3, $4 FROM users WHERE is_beta_tester = true`,
+          [req.params.id,
+           '🎉 Feature completed!',
+           `A feature from the beta polls just shipped: "${String(poll.rows[0]?.title || '').slice(0, 200)}"`,
+           JSON.stringify({ poll_id: req.params.id })]
+        );
+      } catch (notifyErr) {
+        console.error('Poll completion notify failed:', notifyErr.message);
+      }
+    }
     res.json({ updated: true });
   } catch (e) {
     console.error('Error updating poll status:', e);

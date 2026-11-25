@@ -36,6 +36,7 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
   const [filter, setFilter] = useState('all'); // all, feat, fix, perf, docs
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCommit, setExpandedCommit] = useState(null);
+  const [showCount, setShowCount] = useState(200); // admin timeline renders in windows — thousands of commits stay fast
   const [viewMode, setViewMode] = useState('timeline'); // timeline, grouped
   const [userView, setUserView] = useState(true); // true = user-friendly, false = admin detailed
   const [isAdmin, setIsAdmin] = useState(false);
@@ -458,7 +459,7 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
             </div>
           ) : viewMode === 'timeline' ? (
             <div className="space-y-4">
-              {(userView ? filteredChangelog.slice(-20).reverse() : filteredChangelog).map((commit, index) => {
+              {(userView ? filteredChangelog.slice(-20).reverse() : filteredChangelog.slice(0, showCount)).map((commit, index) => {
                 const type = categorizeCommit(commit.message);
                 const isExpanded = expandedCommit === commit.hash;
                 
@@ -467,7 +468,7 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
                     key={commit.hash}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
+                    transition={{ delay: Math.min(index, 20) * 0.05 }}
                     className={`border-2 rounded-xl p-4 ${getCommitColor(type)} hover:shadow-lg transition-all ${!userView ? 'cursor-pointer' : ''}`}
                     onClick={() => !userView && setExpandedCommit(isExpanded ? null : commit.hash)}
                   >
@@ -524,6 +525,24 @@ const ChangelogViewer = ({ isOpen, onClose }) => {
                   </motion.div>
                 );
               })}
+              {!userView && filteredChangelog.length > showCount && (
+                <div className="flex justify-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCount((c) => c + 400)}
+                    className="px-4 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                  >
+                    Show more ({filteredChangelog.length - showCount} left)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCount(filteredChangelog.length)}
+                    className="px-4 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                  >
+                    Show all {filteredChangelog.length}
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-6">

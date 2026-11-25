@@ -54,8 +54,8 @@ const loadCommits = async () => {
   try {
     const { stdout } = await execFileP(
       'git',
-      ['log', '--no-merges', '-n', '600', '--pretty=format:%H|%ai|%s|%an'],
-      { cwd: ROOT, timeout: 5000, maxBuffer: 4 * 1024 * 1024 }
+      ['log', '--no-merges', '-n', '5000', '--pretty=format:%H|%ai|%s|%an'],
+      { cwd: ROOT, timeout: 10000, maxBuffer: 16 * 1024 * 1024 }
     );
     const commits = parseGitLog(stdout);
     commitsCache = { at: Date.now(), commits };

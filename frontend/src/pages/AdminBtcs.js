@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { Award, Search, RefreshCw, Users, TrendingUp, Trophy } from 'lucide-react';
+import { Award, Search, RefreshCw, Users, TrendingUp, Trophy, Download, Upload } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import BtcsModal from '../components/admin/BtcsModal';
@@ -22,6 +22,37 @@ const AdminBtcs = () => {
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState('all');
   const [selected, setSelected] = useState(null);
+  const [backupMsg, setBackupMsg] = useState(null);
+  const restoreRef = React.useRef(null);
+
+  const downloadBackup = async () => {
+    try {
+      const { data } = await api.get('/beta/admin/backup', { responseType: 'blob' });
+      const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `beta-testers-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setBackupMsg('Backup downloaded');
+    } catch {
+      setBackupMsg('Backup failed');
+    }
+  };
+
+  const restoreBackup = async (file) => {
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      const { data } = await api.post('/beta/admin/backup/restore', parsed);
+      setBackupMsg(`Restored ${data.restored} testers${data.skipped ? ` (${data.skipped} skipped — no user account)` : ''}`);
+      load();
+    } catch (e) {
+      setBackupMsg(e.response?.data?.error || 'Restore failed — is this a valid backup file?');
+    } finally {
+      if (restoreRef.current) restoreRef.current.value = '';
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,11 +111,29 @@ const AdminBtcs = () => {
               <p className="text-sm text-gray-500 dark:text-gray-400">Beta Tester Contribution System — scores, tiers, chatroom & controls</p>
             </div>
           </div>
-          <button type="button" onClick={load} disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 disabled:opacity-50">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={downloadBackup}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50"
+              title="Download all beta tester data as JSON">
+              <Download className="w-4 h-4" /> Backup
+            </button>
+            <button type="button" onClick={() => restoreRef.current?.click()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50"
+              title="Restore tester rows from a backup JSON (upserts — safe to run repeatedly)">
+              <Upload className="w-4 h-4" /> Restore
+            </button>
+            <input ref={restoreRef} type="file" accept=".json,application/json" className="hidden"
+              onChange={(e) => restoreBackup(e.target.files?.[0])} />
+            <button type="button" onClick={load} disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 disabled:opacity-50">
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+            </button>
+          </div>
         </div>
+
+        {backupMsg && (
+          <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">{backupMsg}</p>
+        )}
 
         {/* Stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">

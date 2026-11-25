@@ -108,7 +108,7 @@ printf '%s\n' "$CHANGES" | grep . > maintenance/changes.txt 2>/dev/null \
 # Export commit history for the changelog viewer — git exists on the host but
 # not reliably inside the backend container, which is why /api/changelog
 # reads this file. (update-quick.sh already does this; the full script didn't.)
-git log --no-merges -n 600 --pretty=format:'%H|%ai|%s|%an' > changelog.txt 2>/dev/null || true
+git log --no-merges -n 5000 --pretty=format:'%H|%ai|%s|%an' > changelog.txt 2>/dev/null || true
 
 # Copy production config — moved ahead of the DB stamp so compose commands
 # below always run against the prod services.
