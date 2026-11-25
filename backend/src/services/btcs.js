@@ -85,7 +85,7 @@ const countContributions = async (userIds = null) => {
           FROM mdl_user_item_history ${filter} GROUP BY user_id`),
     safe(`SELECT user_id, COUNT(*)::int total FROM mdl_aisle_reports ${filter} GROUP BY user_id`),
     safe(`SELECT user_id, COUNT(*)::int total FROM recipes ${filter} GROUP BY user_id`),
-    safe(`SELECT user_id, score_bonus, pin_limit FROM beta_testers ${filter}`),
+    safe(`SELECT user_id, score_bonus, pin_limit, can_chat FROM beta_testers ${filter}`),
   ]);
 
   map = merge(map, feedback.rows, (c, r) => { c.feedback = r.total; c.bugs = r.bugs; });
@@ -108,6 +108,7 @@ const countContributions = async (userIds = null) => {
       tier: tierFor(score),
       bonus,
       pinLimitOverride: t.pin_limit ?? null,
+      canChat: t.can_chat !== false,
       counts,
       breakdown: {
         'Feedback': counts.feedback * WEIGHTS.feedback,
@@ -130,7 +131,7 @@ const countContributions = async (userIds = null) => {
 const getScore = async (userId) => {
   const map = await countContributions([userId]);
   return map.get(userId) || {
-    score: 0, tier: tierFor(0), bonus: 0, pinLimitOverride: null,
+    score: 0, tier: tierFor(0), bonus: 0, pinLimitOverride: null, canChat: true,
     counts: zeroCounts(), breakdown: {},
   };
 };

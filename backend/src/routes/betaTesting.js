@@ -502,7 +502,7 @@ router.get('/admin/testers/:id/activity', authenticateToken, isAdmin, async (req
 // Edit tester fields (admin only) — display name, admin notes, suspension
 router.patch('/admin/testers/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const { displayName, adminNotes, suspended, betaExpiresAt } = req.body;
+    const { displayName, adminNotes, suspended, betaExpiresAt, canChat } = req.body;
     const updates = [];
     const values = [];
     let i = 1;
@@ -515,6 +515,7 @@ router.patch('/admin/testers/:id', authenticateToken, isAdmin, async (req, res) 
       if (betaExpiresAt && isNaN(d.getTime())) return res.status(400).json({ error: 'Invalid expiry date' });
       updates.push(`beta_expires_at = $${i++}`); values.push(d);
     }
+    if (canChat !== undefined) { updates.push(`can_chat = $${i++}`); values.push(!!canChat); }
 
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
@@ -826,6 +827,7 @@ router.get('/admin/testers/:id/btcs', authenticateToken, isAdmin, async (req, re
       weights: btcs.WEIGHTS,
       bonus: rec.bonus,
       pinLimitOverride: rec.pinLimitOverride,
+      can_chat: rec.canChat,
       counts: rec.counts,
       breakdown: rec.breakdown,
     });
@@ -935,6 +937,11 @@ router.put('/admin/testers/:id/features', authenticateToken, isAdmin, async (req
     console.error('Error updating tester features:', error);
     res.status(500).json({ error: 'Failed to update features' });
   }
+});
+
+// BTCS scoring metadata — tier ladder + point weights, for the panel legend.
+router.get('/admin/btcs/meta', authenticateToken, isAdmin, (req, res) => {
+  res.json({ tiers: btcs.TIERS, weights: btcs.WEIGHTS });
 });
 
 module.exports = router;

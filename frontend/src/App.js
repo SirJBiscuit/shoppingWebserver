@@ -47,6 +47,7 @@ const IconCollectionGallery = lazy(() => import('./components/IconCollectionGall
 // const CustomizationHub = lazy(() => import('./backburner/components/CustomizationHub')); // Disabled - backburner
 const IconUploadPanel = lazy(() => import('./components/admin/IconUploadPanel'));
 const AdminBetaDashboard = lazy(() => import('./pages/AdminBetaDashboard'));
+const AdminBtcs = lazy(() => import('./pages/AdminBtcs'));
 const SpiceBlends = lazy(() => import('./pages/SpiceBlends'));
 const HomemadeLab = lazy(() => import('./pages/HomemadeLab'));
 const MixLab = lazy(() => import('./pages/MixLab'));
@@ -132,6 +133,7 @@ const AnimatedRoutes = () => {
         <Route path="/admin/training" element={<PrivateRoute><AdminTraining /></PrivateRoute>} />
         <Route path="/admin/products" element={<PrivateRoute><MDLProducts /></PrivateRoute>} />
         <Route path="/admin/beta" element={<PrivateRoute><AdminBetaDashboard /></PrivateRoute>} />
+        <Route path="/admin/btcs" element={<PrivateRoute><AdminBtcs /></PrivateRoute>} />
         <Route path="/icons" element={<PrivateRoute><IconCollectionGallery /></PrivateRoute>} />
         {/* <Route path="/customize" element={<PrivateRoute><CustomizationHub /></PrivateRoute>} /> */} {/* Disabled - backburner, replaced by AES */}
         <Route path="/admin/icons" element={<PrivateRoute><IconUploadPanel /></PrivateRoute>} />

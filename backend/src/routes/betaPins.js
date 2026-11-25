@@ -95,15 +95,17 @@ router.get('/', authenticateToken, async (req, res) => {
   try {
     const page = req.query.page || '/';
     const mineOnly = req.query.mine === '1';
-    const clauses = ['p.page_path = $1'];
-    const params = [page];
+    // page=all only with mine=1 — a tester's own pins across every page
+    const allPages = page === 'all' && mineOnly;
+    const clauses = allPages ? [] : ['p.page_path = $1'];
+    const params = allPages ? [] : [page];
 
     if (!req.user.isAdmin) {
       // Non-admins see live pins + their own (even if hidden by admin);
       // private admin pins are never visible to testers
       clauses.push(`p.is_private = FALSE`);
-      clauses.push(`(p.status IN ('open','in_progress','fixed') OR p.user_id = $2)`);
       params.push(req.user.id);
+      clauses.push(`(p.status IN ('open','in_progress','fixed') OR p.user_id = $${params.length})`);
     } else if (req.query.status && STATUSES.includes(req.query.status)) {
       clauses.push(`p.status = $${params.length + 1}`);
       params.push(req.query.status);
@@ -168,6 +170,28 @@ router.patch('/:id', authenticateToken, async (req, res) => {
   } catch (e) {
     console.error('Error updating pin:', e);
     res.status(500).json({ error: 'Failed to update pin' });
+  }
+});
+
+/**
+ * DELETE /api/beta/pins/:id
+ * A tester removes their own pin. Same snapshot-then-delete flow as the
+ * admin route so it still shows in History — just attributed to the author.
+ */
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const q = await db.query('SELECT * FROM beta_pins WHERE id = $1', [req.params.id]);
+    if (!q.rows.length) return res.status(404).json({ error: 'Pin not found' });
+    const pin = q.rows[0];
+    if (pin.user_id !== req.user.id && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Not your pin' });
+    }
+    await snapshotPin(pin, 'deleted', req.user.id);
+    await db.query('DELETE FROM beta_pins WHERE id = $1', [req.params.id]);
+    res.json({ deleted: true });
+  } catch (e) {
+    console.error('Error deleting pin:', e);
+    res.status(500).json({ error: 'Failed to delete pin' });
   }
 });
 

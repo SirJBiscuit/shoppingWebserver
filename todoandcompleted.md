@@ -716,3 +716,11 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - featureAccess: per-tester override checked before tier checks (beta testers only); also fixed latent is_admin never being selected in getUserFeatures.
 - Admin UI (BetaTesterManagementCFS): amber BTCS chip on each tester card (score + tier label) + Award action in the radial menu + "Sort by BTCS". BtcsModal: score, tier badge, progress bar to next tier, unlocked perks, contribution breakdown, pin-limit/score-bonus settings, tri-state feature toggles (global → allow → deny).
 - Deferred per user: tester-visible badge system.
+
+## BTCS panel + beta chatroom + tester self-service pins
+- BtcsModal extracted to components/admin/BtcsModal.js (shared by tester cards + the BTCS panel).
+- pages/AdminBtcs.js — dedicated /admin/btcs panel (admin-gated): stat cards, searchable leaderboard by score, tier-ladder + weights legend (GET /beta/admin/btcs/meta), embedded BetaChatroom, click a tester → BtcsModal. Admin rail Award button opens this page.
+- Beta chatroom (migration 115): beta_chatroom_messages + beta_testers.can_chat gate. Routes: GET/POST /room (polls ?after=, strips nicknames for non-admins, read-only when can_chat=false) + DELETE /room/:id (own or admin, soft-delete). BetaChatroom.js: 3s poll, gold + crown for admins, stable hash-colors + tier badges for testers.
+- Admin controls: PATCH /admin/testers/:id accepts canChat; BtcsModal has a "Chatroom access" checkbox. Suspended testers locked out server-side.
+- Viewer renames: "Messages" → "Submissions" in Beta + Admin viewer tab bars.
+- Tester pins: GET /beta/pins?mine=1&page=all (own pins across pages), DELETE /beta/pins/:id owner-delete (same snapshot→history flow as admin). Beta viewer gains "My Pins" and "Chat" tabs.

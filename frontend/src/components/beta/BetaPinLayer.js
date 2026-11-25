@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { motion } from 'framer-motion';
 import FormattedNote from '../FormattedNote';
+import BetaChatroom from './BetaChatroom';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
 import { Popup, Portal, Connector, ScrollStrip, useCornerStack, useCornerOffset, usePanelShift, setPanelShift, useIsMobile, useFloatSide } from '../../utils/autoPlacement';
 import { pinDisplayPos, usePinLayerTick, selectorFor, describeElement } from '../../utils/pinLayer';
@@ -381,6 +382,7 @@ const BetaPinLayer = () => {
   // Tester panel — own feedback threads + compose
   const [testerTab, setTesterTab] = useState('votes');
   const [myFeedback, setMyFeedback] = useState([]);
+  const [myPins, setMyPins] = useState(null); // own pins across all pages
   const [fbForm, setFbForm] = useState({ type: 'idea', title: '', description: '' });
   const [fbSending, setFbSending] = useState(false);
   const [fbSent, setFbSent] = useState(false);
@@ -394,6 +396,21 @@ const BetaPinLayer = () => {
       setPins(data.pins || []);
     } catch { /* silent — layer must never break the app */ }
   }, [page, isAdmin]);
+
+  const loadMyPins = useCallback(async () => {
+    try {
+      const { data } = await api.get('/beta/pins', { params: { page: 'all', mine: '1' } });
+      setMyPins(data.pins || []);
+    } catch { setMyPins([]); }
+  }, []);
+
+  const removeMyPin = async (id) => {
+    try {
+      await api.delete(`/beta/pins/${id}`);
+      setMyPins((prev) => (prev || []).filter((p) => p.id !== id));
+      setPins((prev) => prev.filter((p) => p.id !== id));
+    } catch { /* silent — layer must never break the app */ }
+  };
 
   const loadAdminPins = useCallback(async () => {
     if (!isAdmin) return;
@@ -476,6 +493,7 @@ const BetaPinLayer = () => {
 
   useEffect(() => { if (canUse) { loadPagePins(); loadPolls(); } }, [canUse, loadPagePins, loadPolls]);
   useEffect(() => { if (pollsOpen) { loadPolls(); loadMyFeedback(); } }, [pollsOpen, loadPolls, loadMyFeedback]);
+  useEffect(() => { if (pollsOpen && testerTab === 'pins') loadMyPins(); }, [pollsOpen, testerTab, loadMyPins]);
   useEffect(() => { if (isAdmin) loadAdminPins(); }, [isAdmin, loadAdminPins]);
   useEffect(() => { if (panelOpen) { loadAdminPins(); loadFeedback(); loadAdminPolls(); } },
     [panelOpen, loadAdminPins, loadFeedback, loadAdminPolls]);
@@ -2228,7 +2246,7 @@ const BetaPinLayer = () => {
         </Popup>
       )}
 
-      {/* Tester beta viewer — polls + messages with the admin */}
+      {/* Tester beta viewer — polls, submissions, own pins & the chatroom */}
       {pollsOpen && !isAdmin && (
         <div className="fixed top-0 right-0 bottom-0 z-[70] w-96 max-w-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-800">
@@ -2236,9 +2254,9 @@ const BetaPinLayer = () => {
             <ScrollStrip
               className="flex-1 min-w-0"
               innerClassName="gap-1 pr-1"
-              activeIndex={[['votes'], ['messages']].findIndex(([t]) => t === testerTab)}
+              activeIndex={['votes', 'messages', 'pins', 'chat'].findIndex((t) => t === testerTab)}
             >
-              {[['votes', 'Polls'], ['messages', 'Messages']].map(([t, label]) => (
+              {[['votes', 'Polls'], ['messages', 'Submissions'], ['pins', 'My Pins'], ['chat', 'Chat']].map(([t, label]) => (
                 <button
                   key={t}
                   onClick={() => setTesterTab(t)}
@@ -2411,7 +2429,54 @@ const BetaPinLayer = () => {
                   )}
                 </div>
               ))}
-              {!myFeedback.length && <p className="text-sm text-slate-500 text-center py-8">No messages yet — send one above!</p>}
+              {!myFeedback.length && <p className="text-sm text-slate-500 text-center py-8">No submissions yet — send one above!</p>}
+            </div>
+          )}
+
+          {testerTab === 'pins' && (
+            <div className="flex-1 overflow-y-auto scrollbar-3d">
+              {(myPins || []).map((p) => {
+                const PIcon = pinIconOf(p.icon);
+                return (
+                  <div key={p.id} className="px-3 py-2.5 border-b border-slate-800/60">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-slate-100 flex items-center gap-1.5">
+                          <PIcon className="w-4 h-4 shrink-0" />
+                          <span className="truncate"><FormattedNote text={p.note || '(no note)'} /></span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">
+                          {p.page_path} · {new Date(p.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${
+                        p.status === 'fixed' ? 'bg-emerald-500/20 text-emerald-300'
+                        : p.status === 'in_progress' ? 'bg-blue-500/20 text-blue-300'
+                        : 'bg-slate-700 text-slate-300'}`}>
+                        {p.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeMyPin(p.id)}
+                      className="mt-1.5 text-[11px] px-2 py-1 rounded bg-red-600/20 text-red-300 hover:bg-red-600/40 flex items-center gap-1"
+                      title="Remove this pin — it moves to history"
+                    >
+                      <Trash2 className="w-3 h-3" /> Remove
+                    </button>
+                  </div>
+                );
+              })}
+              {myPins && !myPins.length && (
+                <p className="text-sm text-slate-500 text-center py-8">You haven't dropped any pins yet</p>
+              )}
+              {!myPins && <p className="text-sm text-slate-500 text-center py-8">Loading…</p>}
+            </div>
+          )}
+
+          {testerTab === 'chat' && (
+            <div className="flex-1 min-h-0 p-2 flex flex-col">
+              <BetaChatroom className="flex-1 min-h-0" />
             </div>
           )}
         </div>
@@ -2562,12 +2627,9 @@ const BetaPinLayer = () => {
             title="Admin Viewer — pins, messages, polls & history"
           ><MessageSquare className="w-4 h-4" /></button>
           <button
-            onClick={() => {
-              navigate('/admin/beta');
-              setTimeout(() => window.dispatchEvent(new CustomEvent('setBetaTab', { detail: 'testers' })), 100);
-            }}
+            onClick={() => navigate('/admin/btcs')}
             className="p-2 rounded-lg transition text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-            title="BTCS — beta tester contribution scores"
+            title="BTCS — tester scores, chatroom & controls"
           ><Award className="w-4 h-4" /></button>
           <div className="w-6 h-px bg-slate-700 my-0.5" />
           <button
@@ -2645,13 +2707,13 @@ const BetaPinLayer = () => {
               innerClassName="gap-1 pr-1"
               activeIndex={['pins', 'messages', 'polls', 'ideas', 'history'].indexOf(tab)}
             >
-              {['pins', 'messages', 'polls', 'ideas', 'history'].map((t) => (
+              {[['pins', 'Pins'], ['messages', 'Submissions'], ['polls', 'Polls'], ['ideas', 'Ideas'], ['history', 'History']].map(([t, label]) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
-                  className={`text-sm px-3 py-1.5 rounded-lg capitalize ${tab === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                  className={`text-sm px-3 py-1.5 rounded-lg ${tab === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
                 >
-                  {t}
+                  {label}
                 </button>
               ))}
             </ScrollStrip>
