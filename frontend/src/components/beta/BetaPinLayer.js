@@ -13,7 +13,7 @@ import {
   BarChart3, ThumbsUp, ThumbsDown, Lock, Pencil, Move, Download, RotateCcw,
   LocateFixed, Copy, Flag, Bug, Lightbulb, AlertTriangle, HelpCircle, Star,
   Crosshair, Ghost, PanelRightClose, PanelRightOpen, Pin, Archive,
-  Search, SlidersHorizontal, ListChecks, StickyNote, MapPinned, Activity
+  Search, SlidersHorizontal, ListChecks, StickyNote, MapPinned, Activity, Award
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -2544,7 +2544,7 @@ const BetaPinLayer = () => {
         <div
           ref={railRef}
           className={`hidden lg:flex fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-xl border-l-0' : 'right-0 rounded-l-xl border-r-0'} z-[46] flex-col items-center gap-1 bg-slate-900/90 border border-slate-700 py-2 px-1.5 shadow-xl transition-all duration-300`}
-          style={{ bottom: railBelow + 4, transform: `translateX(${-panelShift}px)` }}
+          style={{ bottom: railBelow + 68, transform: `translateX(${-panelShift}px)` }}
         >
           <button
             onClick={() => { setInspectMode((v) => !v); setInspectData(null); }}
@@ -2561,6 +2561,14 @@ const BetaPinLayer = () => {
             className={`p-2 rounded-lg transition ${panelOpen ? 'bg-blue-600/30 text-blue-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
             title="Admin Viewer — pins, messages, polls & history"
           ><MessageSquare className="w-4 h-4" /></button>
+          <button
+            onClick={() => {
+              navigate('/admin/beta');
+              setTimeout(() => window.dispatchEvent(new CustomEvent('setBetaTab', { detail: 'testers' })), 100);
+            }}
+            className="p-2 rounded-lg transition text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            title="BTCS — beta tester contribution scores"
+          ><Award className="w-4 h-4" /></button>
           <div className="w-6 h-px bg-slate-700 my-0.5" />
           <button
             onClick={() => setStackHidden((v) => !v)}
