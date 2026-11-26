@@ -26,7 +26,8 @@ router.post('/', authenticateToken, async (req, res) => {
     const icon = String(req.body?.icon || '').trim() || '🏷️';
     if (!name) return res.status(400).json({ error: 'Category name is required' });
     if (name.length > 100) return res.status(400).json({ error: 'Category name too long (max 100 chars)' });
-    if (icon.length > 50) return res.status(400).json({ error: 'Icon too long' });
+    // Icon may be an emoji or an uploaded-image path (e.g. /storage/icons/x.png)
+    if (icon.length > 200) return res.status(400).json({ error: 'Icon too long' });
     const r = await db.query(
       `INSERT INTO categories (name, icon, sort_order, shopping_order)
        VALUES ($1, $2, 90, 90)

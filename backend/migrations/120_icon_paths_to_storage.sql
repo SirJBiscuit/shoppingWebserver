@@ -5,3 +5,6 @@
 UPDATE icons
 SET file_path = '/storage/icons/' || substring(file_path from '/([^/]+)$')
 WHERE file_path LIKE '/icons/%';
+
+-- Category icons may now be uploaded-image paths, not just emoji
+ALTER TABLE categories ALTER COLUMN icon TYPE VARCHAR(200);

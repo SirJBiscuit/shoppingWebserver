@@ -69,6 +69,17 @@ const QuickAislePicker = ({ itemName, currentAisle, currentAisleName, storeName,
     const raw = num.trim();
     if (!raw) return;
     const n = /^\d+$/.test(raw) ? parseInt(raw, 10) : raw;
+    // Teach MDL a custom aisle name — pending until an admin approves
+    if (name.trim()) {
+      fetch('/api/mdl/terms', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ kind: 'aisle', term: name.trim() }),
+      }).catch(() => {});
+    }
     pick(n, name);
   };
 

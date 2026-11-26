@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { motion, useDragControls } from 'framer-motion';
 import { Plus, X, Wand2, GripHorizontal } from 'lucide-react';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
+import QuickIconPicker, { isImageIcon } from './QuickIconPicker';
 import { Portal, useAnchoredPopup } from '../utils/autoPlacement';
 import { mergeDbCategories } from '../utils/categories';
 import { categoriesAPI } from '../services/api';
+import api from '../services/api';
 import {
   CANONICAL_CATEGORIES,
   canonicalizeCategory,
@@ -22,9 +24,11 @@ import {
 const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onClose }) => {
   const [query, setQuery] = useState('');
   const [dbRows, setDbRows] = useState(null);
+  const [learned, setLearned] = useState([]);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newIcon, setNewIcon] = useState('🏷️');
+  const [iconAnchor, setIconAnchor] = useState(null);
   const [saving, setSaving] = useState(false);
   const canonical = canonicalizeCategory(currentCategory);
   const detected = detectCategory(itemName || '');
@@ -36,11 +40,25 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
     categoriesAPI.getCategories()
       .then((r) => { if (!cancelled) setDbRows(Array.isArray(r.data) ? r.data : []); })
       .catch(() => { if (!cancelled) setDbRows([]); });
+    api.get('/mdl/terms', { params: { kind: 'category' } })
+      .then((r) => { if (!cancelled) setLearned(Array.isArray(r.data) ? r.data : []); })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
-  const allCats = (dbRows ? mergeDbCategories(dbRows) : CANONICAL_CATEGORIES.map((c) => ({ label: c.name, icon: c.icon })))
-    .map((c) => ({ name: c.label, icon: c.icon }));
+  const allCats = (() => {
+    const base = (dbRows ? mergeDbCategories(dbRows) : CANONICAL_CATEGORIES.map((c) => ({ label: c.name, icon: c.icon })))
+      .map((c) => ({ name: c.label, icon: c.icon }));
+    const seen = new Set(base.map((c) => c.name.toLowerCase()));
+    // Learned custom categories (admin-approved + own pending) join the grid
+    for (const t of learned) {
+      if (!seen.has(t.term.toLowerCase())) {
+        seen.add(t.term.toLowerCase());
+        base.push({ name: t.term, icon: '🧠' });
+      }
+    }
+    return base;
+  })();
 
   const list = query.trim()
     ? allCats.filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase()))
@@ -53,6 +71,9 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
     try {
       const r = await categoriesAPI.createCategory({ name, icon: newIcon || '🏷️' });
       setDbRows((rows) => [...(rows || []), r.data]);
+      // Teach MDL the custom category — pools as 'pending' until an admin
+      // approves it, then it autofills for everyone.
+      api.post('/mdl/terms', { kind: 'category', term: name }).catch(() => {});
       setCreating(false);
       onSelect(name);
       onClose();
@@ -178,7 +199,9 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-primary-900/30'
                   }`}
                 >
-                  <span className="text-base leading-none">{cat.icon}</span>
+                  {isImageIcon(cat.icon)
+                    ? <img src={cat.icon} alt="" className="w-5 h-5 object-contain" />
+                    : <span className="text-base leading-none">{cat.icon}</span>}
                   <span className="truncate">{cat.name}</span>
                 </motion.button>
               ))}
@@ -193,13 +216,16 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
         <div className="px-3 pb-3 pt-1.5 border-t border-gray-100 dark:border-gray-700">
           {creating ? (
             <div className="flex items-center gap-1.5">
-              <input
-                value={newIcon}
-                onChange={(e) => setNewIcon(e.target.value)}
-                maxLength={4}
-                className="w-10 px-1.5 py-1.5 text-center text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700"
-                title="Emoji icon"
-              />
+              <button
+                type="button"
+                onClick={(e) => setIconAnchor(e.currentTarget)}
+                title="Choose an icon"
+                className="w-9 h-9 shrink-0 flex items-center justify-center text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-primary-400 transition-colors overflow-hidden"
+              >
+                {isImageIcon(newIcon)
+                  ? <img src={newIcon} alt="" className="w-6 h-6 object-contain" />
+                  : newIcon}
+              </button>
               <input
                 autoFocus={!isMobile}
                 value={newName}
@@ -228,6 +254,16 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
           )}
         </div>
       </motion.div>
+      {iconAnchor && (
+        <QuickIconPicker
+          item={{ item_name: newName }}
+          anchor={iconAnchor}
+          currentIcon={newIcon}
+          onSelect={(ic) => { setNewIcon(ic); setIconAnchor(null); }}
+          onClose={() => setIconAnchor(null)}
+          zIndex={75}
+        />
+      )}
     </Portal>
   );
 };

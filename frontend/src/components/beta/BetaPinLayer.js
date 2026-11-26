@@ -15,8 +15,9 @@ import {
   BarChart3, ThumbsUp, ThumbsDown, Lock, Pencil, Move, Download, RotateCcw,
   LocateFixed, Copy, Flag, Bug, Lightbulb, AlertTriangle, HelpCircle, Star,
   Crosshair, Ghost, PanelRightClose, PanelRightOpen, PanelLeftClose, Pin, Archive,
-  Search, SlidersHorizontal, ListChecks, StickyNote, MapPinned, Activity, Award
+  Search, SlidersHorizontal, ListChecks, StickyNote, MapPinned, Activity, Award, Brain
 } from 'lucide-react';
+import MdlFloatPanel from '../admin/MdlFloatPanel';
 
 // ---------------------------------------------------------------------------
 // BetaPinLayer — global beta feedback overlay
@@ -623,6 +624,7 @@ const BetaPinLayer = () => {
   // button dot always reflects the worst service state.
   const [svcOpen, setSvcOpen] = useState(false);
   const [btcsPanelOpen, setBtcsPanelOpen] = useState(false);
+  const [mdlPanelOpen, setMdlPanelOpen] = useState(false);
   const railCollapsed = useRailCollapsed(); // the admin rail folds away to a tab above itself
   const [services, setServices] = useState(null);
   useEffect(() => {
@@ -2712,6 +2714,11 @@ const BetaPinLayer = () => {
             className={`p-2 rounded-lg transition ${btcsPanelOpen ? 'bg-amber-600/30 text-amber-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
             title="BTCS panel — testers, scores, features, backups & recovery (floating panel)"
           ><Award className="w-4 h-4" /></button>
+          <button
+            onClick={() => setMdlPanelOpen((v) => !v)}
+            className={`p-2 rounded-lg transition ${mdlPanelOpen ? 'bg-violet-600/30 text-violet-300' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+            title="MDL terms — approve/reject/forget learned vocabulary (custom units, categories, aisles, icons)"
+          ><Brain className="w-4 h-4" /></button>
           <div className="w-6 h-px bg-slate-700 my-0.5" />
           <button
             onClick={() => setStackHidden((v) => !v)}
@@ -2741,6 +2748,11 @@ const BetaPinLayer = () => {
           of navigating: testers, global features, recovery & errors */}
       {isAdmin && btcsPanelOpen && (
         <BtcsFloatPanel onClose={() => setBtcsPanelOpen(false)} />
+      )}
+
+      {/* MDL floating panel — learned-vocabulary review (rail Brain button) */}
+      {isAdmin && mdlPanelOpen && (
+        <MdlFloatPanel onClose={() => setMdlPanelOpen(false)} />
       )}
 
       {/* Service status popover — sits beside the admin rail */}
