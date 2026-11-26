@@ -384,6 +384,8 @@ const BetaPinLayer = () => {
   // Tester panel — own feedback threads + compose
   const [testerTab, setTesterTab] = useState('votes');
   const [limits, setLimits] = useState(null); // /api/beta/my-limits
+  const [abPair, setAbPair] = useState(null); // {a_id,a_term,b_id,b_term,kind} | 'empty'
+  const [abPicked, setAbPicked] = useState(null); // 'a' | 'b' — animates the pick
   const [myFeedback, setMyFeedback] = useState([]);
   const [myPins, setMyPins] = useState(null); // own pins across all pages
   const [pinQuota, setPinQuota] = useState(null); // {used, limit} from GET /pins
@@ -505,6 +507,25 @@ const BetaPinLayer = () => {
       .then((r) => setLimits(r.data))
       .catch(() => setLimits(null));
   }, [pollsOpen, testerTab]);
+
+  const loadAbPair = useCallback(() => {
+    api.get('/mdl/ab/next')
+      .then((r) => setAbPair(r.data || 'empty'))
+      .catch(() => setAbPair('empty'));
+  }, []);
+  useEffect(() => {
+    if (pollsOpen && testerTab === 'train') { setAbPair(null); loadAbPair(); }
+  }, [pollsOpen, testerTab, loadAbPair]);
+
+  const pickAb = (side) => {
+    if (!abPair || abPair === 'empty' || abPicked) return;
+    setAbPicked(side);
+    api.post('/mdl/ab/vote', {
+      term_a_id: abPair.a_id, term_b_id: abPair.b_id, choice: side,
+    }).catch(() => {});
+    // Brief celebrate-the-pick pause, then the next pair slides in
+    setTimeout(() => { setAbPicked(null); setAbPair(null); loadAbPair(); }, 450);
+  };
   useEffect(() => { if (isAdmin) loadAdminPins(); }, [isAdmin, loadAdminPins]);
   useEffect(() => { if (panelOpen) { loadAdminPins(); loadFeedback(); loadAdminPolls(); } },
     [panelOpen, loadAdminPins, loadFeedback, loadAdminPolls]);
@@ -2305,9 +2326,9 @@ const BetaPinLayer = () => {
             <ScrollStrip
               className="flex-1 min-w-0"
               innerClassName="gap-1 pr-1"
-              activeIndex={['votes', 'messages', 'pins', 'chat', 'limits'].findIndex((t) => t === testerTab)}
+              activeIndex={['votes', 'messages', 'pins', 'chat', 'train', 'limits'].findIndex((t) => t === testerTab)}
             >
-              {[['votes', 'Polls'], ['messages', 'Submissions'], ['pins', 'My Pins'], ['chat', 'Chat'], ['limits', 'Limits']].map(([t, label]) => (
+              {[['votes', 'Polls'], ['messages', 'Submissions'], ['pins', 'My Pins'], ['chat', 'Chat'], ['train', 'Help MDL'], ['limits', 'Limits']].map(([t, label]) => (
                 <button
                   key={t}
                   onClick={() => setTesterTab(t)}
@@ -2604,6 +2625,74 @@ const BetaPinLayer = () => {
                     <p className="text-[10px] text-slate-500 text-center">Chat is currently disabled on your account.</p>
                   )}
                 </>
+              )}
+            </div>
+          )}
+
+          {/* Help MDL — animated A/B suggestion box. Pick the better term;
+              votes feed the admin review so crowd-approved terms float up. */}
+          {testerTab === 'train' && (
+            <div className="flex-1 overflow-y-auto scrollbar-3d p-4 flex flex-col items-center justify-center">
+              {abPair === null && <p className="text-sm text-slate-500">Finding a pair…</p>}
+              {abPair === 'empty' && (
+                <div className="text-center space-y-2">
+                  <Brain className="w-10 h-10 mx-auto text-violet-400" />
+                  <p className="text-sm text-slate-300 font-semibold">All caught up!</p>
+                  <p className="text-xs text-slate-500 max-w-[220px]">
+                    No pending suggestions left to compare — check back when other testers teach the app new names, units or categories.
+                  </p>
+                </div>
+              )}
+              {abPair && abPair !== 'empty' && (
+                <div className="w-full max-w-xs">
+                  <p className="text-center text-[10px] font-bold uppercase tracking-wider text-violet-400 mb-1">
+                    Help train MDL — {abPair.kind}
+                  </p>
+                  <p className="text-center text-xs text-slate-500 mb-4">Which {abPair.kind} works better?</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[['a', abPair.a_term], ['b', abPair.b_term]].map(([side, term]) => (
+                      <motion.button
+                        key={`${abPair.a_id}-${abPair.b_id}-${side}`}
+                        type="button"
+                        initial={{ opacity: 0, y: 24, rotateX: -30, scale: 0.9 }}
+                        animate={
+                          abPicked === null
+                            ? { opacity: 1, y: 0, rotateX: 0, scale: 1 }
+                            : abPicked === side
+                              ? { opacity: 1, y: 0, rotateX: 0, scale: 1.08 }
+                              : { opacity: 0.35, y: 0, rotateX: 0, scale: 0.94 }
+                        }
+                        transition={{ type: 'spring', damping: 18, stiffness: 260, delay: abPicked ? 0 : (side === 'b' ? 0.08 : 0) }}
+                        whileHover={abPicked ? {} : { scale: 1.04, y: -2 }}
+                        whileTap={{ scale: 0.96 }}
+                        onClick={() => pickAb(side)}
+                        disabled={!!abPicked}
+                        className={`relative flex flex-col items-center justify-center min-h-[88px] px-3 py-4 rounded-2xl border-2 font-semibold text-sm break-words transition-colors ${
+                          abPicked === side
+                            ? 'border-emerald-400 bg-emerald-500/20 text-emerald-200 shadow-lg shadow-emerald-500/20'
+                            : 'border-slate-600 bg-slate-800/70 text-slate-200 hover:border-violet-500 hover:bg-violet-600/20'
+                        }`}
+                        style={{ transformStyle: 'preserve-3d' }}
+                      >
+                        <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-1">{side === 'a' ? 'A' : 'B'}</span>
+                        {term}
+                        {abPicked === side && (
+                          <motion.span
+                            initial={{ scale: 0, rotate: -90 }}
+                            animate={{ scale: 1, rotate: 0 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                            className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </motion.span>
+                        )}
+                      </motion.button>
+                    ))}
+                  </div>
+                  <p className="text-center text-[10px] text-slate-600 mt-4">
+                    Your picks help the admin approve the best suggestions faster
+                  </p>
+                </div>
               )}
             </div>
           )}

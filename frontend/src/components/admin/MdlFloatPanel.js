@@ -295,6 +295,11 @@ const MdlFloatPanel = ({ onClose }) => {
                     <div className="text-sm text-slate-100 font-medium truncate">{t.term}</div>
                     <div className="text-[10px] text-slate-500">
                       {t.kind} · used {t.usage_count}× · by {t.created_by_name || 'unknown'}
+                      {t.votes_for > 0 && (
+                        <span className="ml-1 px-1 py-0.5 rounded bg-violet-600/30 text-violet-300 font-bold" title="Beta tester A/B votes">
+                          ▲{t.votes_for}
+                        </span>
+                      )}
                       {t.approved_by_name && ` · ${t.status} by ${t.approved_by_name}`}
                     </div>
                   </div>

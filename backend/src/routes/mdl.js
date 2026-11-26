@@ -1930,6 +1930,83 @@ router.delete('/terms/:id', authenticateToken, async (req, res) => {
   }
 });
 
+/* ============================================================================
+   A/B choice trainer — beta testers compare two pending terms ("which do
+   you like more?"). Votes surface on the admin review rows so crowd-
+   approved terms float to the top before an admin ever looks.
+   ========================================================================= */
+
+/**
+ * GET /api/mdl/ab/next
+ * Next pair for the trainer — two pending terms of the same kind that
+ * this user hasn't compared yet. Uses the kind with the largest pending
+ * pool so pairs stay meaningful.
+ */
+router.get('/ab/next', authenticateToken, async (req, res) => {
+  try {
+    const r = await db.query(
+      `WITH pool AS (
+         SELECT kind FROM mdl_custom_terms
+         WHERE status = 'pending'
+         GROUP BY kind HAVING COUNT(*) >= 2
+         ORDER BY COUNT(*) DESC LIMIT 1
+       ), cand AS (
+         SELECT t.id, t.term, t.kind FROM mdl_custom_terms t
+         WHERE t.status = 'pending' AND t.kind = (SELECT kind FROM pool)
+       )
+       SELECT a.id AS a_id, a.term AS a_term, b.id AS b_id, b.term AS b_term, a.kind
+       FROM cand a JOIN cand b ON a.id < b.id
+       WHERE NOT EXISTS (
+         SELECT 1 FROM mdl_ab_votes v
+         WHERE v.user_id = $1 AND v.term_a_id = a.id AND v.term_b_id = b.id
+       )
+       ORDER BY RANDOM() LIMIT 1`,
+      [req.user.id]
+    );
+    res.json(r.rows[0] || null);
+  } catch (err) {
+    console.error('Error fetching AB pair:', err);
+    res.status(500).json({ error: 'Failed to fetch pair' });
+  }
+});
+
+/**
+ * POST /api/mdl/ab/vote { term_a_id, term_b_id, choice: 'a'|'b' }
+ * Records the pick — pair order is normalized (a < b) server-side so a
+ * pair shown in either order dedupes to one vote row per user.
+ */
+router.post('/ab/vote', authenticateToken, async (req, res) => {
+  try {
+    const a = parseInt(req.body.term_a_id, 10);
+    const b = parseInt(req.body.term_b_id, 10);
+    const choice = String(req.body.choice || '');
+    if (!a || !b || a === b || !['a', 'b'].includes(choice)) {
+      return res.status(400).json({ error: 'term_a_id, term_b_id and choice (a|b) required' });
+    }
+    const terms = await db.query(
+      'SELECT id, kind FROM mdl_custom_terms WHERE id = ANY($1::int[])',
+      [[Math.min(a, b), Math.max(a, b)]]
+    );
+    if (terms.rows.length !== 2 || terms.rows[0].kind !== terms.rows[1].kind) {
+      return res.status(400).json({ error: 'Terms must exist and share a kind' });
+    }
+    // Normalize: store lower id as term_a; flip the choice when the caller
+    // passed them reversed so the recorded winner is still correct.
+    const norm = a < b ? choice : (choice === 'a' ? 'b' : 'a');
+    await db.query(
+      `INSERT INTO mdl_ab_votes (user_id, kind, term_a_id, term_b_id, choice)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (user_id, term_a_id, term_b_id)
+       DO UPDATE SET choice = EXCLUDED.choice, created_at = NOW()`,
+      [req.user.id, terms.rows[0].kind, Math.min(a, b), Math.max(a, b), norm]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Error recording AB vote:', err);
+    res.status(500).json({ error: 'Failed to record vote' });
+  }
+});
+
 /**
  * GET /api/mdl/admin/terms?kind=&status=
  * Full review list for the MDL admin panel.
@@ -1939,14 +2016,17 @@ router.get('/admin/terms', authenticateToken, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
     const { kind, status = 'pending' } = req.query;
     const params = [];
-    let sql = `SELECT t.*, u.username AS created_by_name, a.username AS approved_by_name
+    let sql = `SELECT t.*, u.username AS created_by_name, a.username AS approved_by_name,
+                      (SELECT COUNT(*) FROM mdl_ab_votes v
+                       WHERE (v.term_a_id = t.id AND v.choice = 'a')
+                          OR (v.term_b_id = t.id AND v.choice = 'b'))::int AS votes_for
                FROM mdl_custom_terms t
                LEFT JOIN users u ON u.id = t.created_by
                LEFT JOIN users a ON a.id = t.approved_by
                WHERE 1=1`;
     if (status) { params.push(status); sql += ` AND t.status = $${params.length}`; }
     if (kind) { params.push(kind); sql += ` AND t.kind = $${params.length}`; }
-    sql += ' ORDER BY t.usage_count DESC, t.last_seen_at DESC LIMIT 300';
+    sql += ' ORDER BY votes_for DESC, t.usage_count DESC, t.last_seen_at DESC LIMIT 300';
     const result = await db.query(sql, params);
     res.json(result.rows);
   } catch (err) {
