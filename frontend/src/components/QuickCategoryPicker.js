@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { motion, useDragControls } from 'framer-motion';
-import { Plus, X, Wand2, GripHorizontal } from 'lucide-react';
+import { Plus, X, Wand2, GripHorizontal, Trash2 } from 'lucide-react';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
 import QuickIconPicker, { isImageIcon } from './QuickIconPicker';
 import { Portal, useAnchoredPopup } from '../utils/autoPlacement';
 import { mergeDbCategories } from '../utils/categories';
 import { categoriesAPI } from '../services/api';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import ConfirmModal from '../limbo/modals/ConfirmModal';
 import {
   CANONICAL_CATEGORIES,
   canonicalizeCategory,
@@ -30,6 +32,13 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
   const [newIcon, setNewIcon] = useState('🏷️');
   const [iconAnchor, setIconAnchor] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(null);
+  const { user } = useAuth();
+  // MDL share opt-in — remembered so users who don't want their custom
+  // categories suggested to others aren't asked every time.
+  const [shareMdl, setShareMdl] = useState(
+    () => localStorage.getItem('mdl_share_categories') !== '0'
+  );
   const canonical = canonicalizeCategory(currentCategory);
   const detected = detectCategory(itemName || '');
 
@@ -48,7 +57,7 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
 
   const allCats = (() => {
     const base = (dbRows ? mergeDbCategories(dbRows) : CANONICAL_CATEGORIES.map((c) => ({ label: c.name, icon: c.icon })))
-      .map((c) => ({ name: c.label, icon: c.icon }));
+      .map((c) => ({ name: c.label, icon: c.icon, id: c.id, user_id: c.user_id }));
     const seen = new Set(base.map((c) => c.name.toLowerCase()));
     // Learned custom categories (admin-approved + own pending) join the grid
     for (const t of learned) {
@@ -71,9 +80,11 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
     try {
       const r = await categoriesAPI.createCategory({ name, icon: newIcon || '🏷️' });
       setDbRows((rows) => [...(rows || []), r.data]);
-      // Teach MDL the custom category — pools as 'pending' until an admin
-      // approves it, then it autofills for everyone.
-      api.post('/mdl/terms', { kind: 'category', term: name }).catch(() => {});
+      // Teach MDL the custom category only when the user opted into
+      // sharing — it pools as 'pending' until an admin approves it.
+      if (shareMdl) {
+        api.post('/mdl/terms', { kind: 'category', term: name }).catch(() => {});
+      }
       setCreating(false);
       onSelect(name);
       onClose();
@@ -93,6 +104,18 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
   const pick = (name) => {
     onSelect(name);
     onClose();
+  };
+
+  const toggleShare = (v) => {
+    setShareMdl(v);
+    localStorage.setItem('mdl_share_categories', v ? '1' : '0');
+  };
+
+  const removeCat = (cat) => {
+    categoriesAPI.deleteCategory(cat.id)
+      .then(() => setDbRows((rows) => (rows || []).filter((r) => r.id !== cat.id)))
+      .catch(() => {})
+      .finally(() => setConfirmDel(null));
   };
 
   // Header (~40px) + detected-pill (~40px) + search (~48px) + padding
@@ -159,6 +182,7 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
 
         {detected && detected !== canonical && (
           <button
+            type="button"
             onClick={() => pick(detected)}
             className="mx-3 mt-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary-50 dark:bg-primary-900/40 ring-1 ring-primary-300 dark:ring-primary-700 text-xs font-semibold text-primary-700 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900/60 transition-colors"
             title="Auto-detected category"
@@ -186,25 +210,39 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
         >
           <div className="px-3 py-2">
             <div className="grid grid-cols-2 gap-1.5">
-              {list.map((cat, i) => (
-                <motion.button
-                  key={cat.name}
-                  initial={{ opacity: 0, y: 6, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ delay: Math.min(i * 0.025, 0.3), type: 'spring', damping: 20, stiffness: 300 }}
-                  onClick={() => pick(cat.name)}
-                  className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-xs font-medium transition-all hover:scale-[1.04] active:scale-95 ${
-                    canonical === cat.name
-                      ? 'bg-primary-100 dark:bg-primary-900/50 ring-1 ring-primary-500 text-primary-700 dark:text-primary-300'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-primary-900/30'
-                  }`}
-                >
-                  {isImageIcon(cat.icon)
-                    ? <img src={cat.icon} alt="" className="w-5 h-5 object-contain" />
-                    : <span className="text-base leading-none">{cat.icon}</span>}
-                  <span className="truncate">{cat.name}</span>
-                </motion.button>
-              ))}
+              {list.map((cat, i) => {
+                const mine = cat.user_id && cat.user_id === user?.id;
+                return (
+                  <motion.div
+                    key={cat.name}
+                    initial={{ opacity: 0, y: 6, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ delay: Math.min(i * 0.025, 0.3), type: 'spring', damping: 20, stiffness: 300 }}
+                    onClick={() => pick(cat.name)}
+                    title={mine ? 'Your custom category — click to pick' : cat.name}
+                    className={`group relative flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-xs font-medium cursor-pointer select-none transition-all hover:scale-[1.04] active:scale-95 ${
+                      canonical === cat.name
+                        ? 'bg-primary-100 dark:bg-primary-900/50 ring-1 ring-primary-500 text-primary-700 dark:text-primary-300'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-primary-900/30'
+                    }`}
+                  >
+                    {isImageIcon(cat.icon)
+                      ? <img src={cat.icon} alt="" className="w-5 h-5 object-contain" />
+                      : <span className="text-base leading-none">{cat.icon}</span>}
+                    <span className="truncate flex-1">{cat.name}</span>
+                    {mine && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setConfirmDel(cat); }}
+                        title={`Remove "${cat.name}"`}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 p-0.5 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </motion.div>
+                );
+              })}
               {list.length === 0 && (
                 <p className="col-span-2 text-center text-xs text-gray-400 py-3">No matches</p>
               )}
@@ -215,33 +253,47 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
         {/* Custom category creator — saved to the shared categories table */}
         <div className="px-3 pb-3 pt-1.5 border-t border-gray-100 dark:border-gray-700">
           {creating ? (
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={(e) => setIconAnchor(e.currentTarget)}
-                title="Choose an icon"
-                className="w-9 h-9 shrink-0 flex items-center justify-center text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-primary-400 transition-colors overflow-hidden"
+            <div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={(e) => setIconAnchor(e.currentTarget)}
+                  title="Choose an icon"
+                  className="w-9 h-9 shrink-0 flex items-center justify-center text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-primary-400 transition-colors overflow-hidden"
+                >
+                  {isImageIcon(newIcon)
+                    ? <img src={newIcon} alt="" className="w-6 h-6 object-contain" />
+                    : newIcon}
+                </button>
+                <input
+                  autoFocus={!isMobile}
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                  placeholder="Category name"
+                  className="flex-1 px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-primary-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={!newName.trim() || saving}
+                  className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-primary-600 text-white disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </div>
+              <label
+                className="mt-1.5 flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400 cursor-pointer select-none"
+                title="Let the app suggest this category to other users after admin approval"
               >
-                {isImageIcon(newIcon)
-                  ? <img src={newIcon} alt="" className="w-6 h-6 object-contain" />
-                  : newIcon}
-              </button>
-              <input
-                autoFocus={!isMobile}
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                placeholder="Category name"
-                className="flex-1 px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-primary-500 focus:outline-none"
-              />
-              <button
-                type="button"
-                onClick={handleCreate}
-                disabled={!newName.trim() || saving}
-                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-primary-600 text-white disabled:opacity-50"
-              >
-                Add
-              </button>
+                <input
+                  type="checkbox"
+                  checked={shareMdl}
+                  onChange={(e) => toggleShare(e.target.checked)}
+                  className="w-3 h-3 accent-primary-500"
+                />
+                Suggest to others — remembered
+              </label>
             </div>
           ) : (
             <button
@@ -263,6 +315,19 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
           onClose={() => setIconAnchor(null)}
           zIndex={75}
         />
+      )}
+      {confirmDel && (
+        <div className="relative z-[99999]">
+          <ConfirmModal
+            isOpen
+            type="danger"
+            title="Remove category?"
+            message={`"${confirmDel.name}" will be removed from your account. Items keep their saved category.`}
+            confirmText="Remove"
+            onConfirm={() => removeCat(confirmDel)}
+            onCancel={() => setConfirmDel(null)}
+          />
+        </div>
       )}
     </Portal>
   );

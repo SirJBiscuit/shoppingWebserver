@@ -69,6 +69,8 @@ export const mergeDbCategories = (rows = [], { valueFromLabel = 'value' } = {}) 
       icon: row.icon || '🏷️',
       color: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300',
       custom: true,
+      id: row.id,
+      user_id: row.user_id ?? null,
     });
   }
   return [...CATEGORIES, ...custom];

@@ -18,8 +18,10 @@ const router = express.Router();
   }
 })();
 
-// Create a custom category — stored in the shared `categories` table so
-// every picker (shopping, inventory, recipes) offers it.
+// Create a custom category — owned by the creator (user_id) so it saves
+// to their account and only their pickers offer it. Global/system rows
+// keep user_id NULL. Sharing flows through the MDL terms pipeline
+// (pending → admin approve → global).
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const name = String(req.body?.name || '').trim();
@@ -28,12 +30,27 @@ router.post('/', authenticateToken, async (req, res) => {
     if (name.length > 100) return res.status(400).json({ error: 'Category name too long (max 100 chars)' });
     // Icon may be an emoji or an uploaded-image path (e.g. /storage/icons/x.png)
     if (icon.length > 200) return res.status(400).json({ error: 'Icon too long' });
+
+    // Name is globally unique — on collision never overwrite another
+    // user's row or mutate a shared/global icon.
+    const existing = await db.query('SELECT * FROM categories WHERE name = $1', [name]);
+    if (existing.rows.length) {
+      const row = existing.rows[0];
+      if (row.user_id && row.user_id !== req.user.id) {
+        return res.status(409).json({ error: 'That category name is already in use' });
+      }
+      if (row.user_id === req.user.id && row.icon !== icon) {
+        await db.query('UPDATE categories SET icon = $1 WHERE id = $2', [icon, row.id]);
+        row.icon = icon;
+      }
+      return res.status(200).json(row);
+    }
+
     const r = await db.query(
-      `INSERT INTO categories (name, icon, sort_order, shopping_order)
-       VALUES ($1, $2, 90, 90)
-       ON CONFLICT (name) DO UPDATE SET icon = EXCLUDED.icon
+      `INSERT INTO categories (name, icon, sort_order, shopping_order, user_id)
+       VALUES ($1, $2, 90, 90, $3)
        RETURNING *`,
-      [name, icon]
+      [name, icon, req.user.id]
     );
     addCustomCategory(r.rows[0].name);
     res.status(201).json(r.rows[0]);
@@ -43,17 +60,37 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-// Get all categories with shopping order
+// Get categories — global/system rows plus the caller's own private ones
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT * FROM categories ORDER BY sort_order ASC'
+      'SELECT * FROM categories WHERE user_id IS NULL OR user_id = $1 ORDER BY sort_order ASC',
+      [req.user.id]
     );
-    
+
     res.json(result.rows);
   } catch (error) {
     console.error('Get categories error:', error);
     res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
+// Delete a private category — owner only (admins can remove any).
+// Items keep their stored category name; nothing else references the id.
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const isAdmin = !!(req.user.isAdmin || req.user.is_admin);
+    const result = await db.query(
+      `DELETE FROM categories WHERE id = $1 AND (user_id = $2 OR $3) RETURNING id, name`,
+      [req.params.id, req.user.id, isAdmin]
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'Category not found or not yours' });
+    }
+    res.json({ ok: true, deleted: result.rows[0].name });
+  } catch (error) {
+    console.error('Delete category error:', error);
+    res.status(500).json({ error: 'Failed to delete category' });
   }
 });
 
