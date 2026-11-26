@@ -824,3 +824,9 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - QuickCategoryPicker + QuickIconPicker: desktop drag grip, red X close, autoFocus={!isMobile} so the OS keyboard stays down until the user taps a field.
 - AisleConfigModal redesigned: focused editor — aisle pill rail across the top (with + Aisle), one aisle's config fills the whole panel (pager, # + name, category chips, select + free-text custom category), compact modern chrome matching the pickers. Still bulk-PUT saves.
 - Migration 119: mdl_custom_terms (kind/term/status/usage_count, pending→approved lifecycle). Routes: POST /api/mdl/terms (learn/upsert), GET /api/mdl/terms (autofill: approved + own pending), admin GET /admin/terms, POST /admin/terms/:id/status, DELETE /admin/terms/:id (forget).
+
+## Ghost save points + dnd swap + ntfy guard (latest)
+- Root cause of vanished BTCS save points: betaBackup/mdlBackup defaulted to backend/backups/ inside the container — wiped on every update-server.sh rebuild. docker-compose.prod.yml now mounts ./backups:/backups on the backend + sets BETA_BACKUP_DIR/MDL_BACKUP_DIR env vars.
+- Same ephemeral-FS bug fixed elsewhere: sounds.js uploadDir was /app/storage (one .. short of the mounted /storage volume); cosmetics.js icon uploads were /app/src/public/icons — now /storage/icons with file_path /storage/icons/* (migration 120 rewrites old /icons/* rows so they resolve through the nginx /storage proxy).
+- Swapped react-beautiful-dnd -> @hello-pangea/dnd (maintained fork): fixes the drag-clone scroll-offset drift + edge auto-scroll during window scroll. Placeholder CSS covers both data-rfd-* and data-rbd-* attrs; clone z-index raised above fixed chrome.
+- NtfySettings: content-type guard before res.json() on load/save/test — HTML error pages (502/maintenance) show "backend may be restarting" instead of the raw <!DOCTYPE parse error.
