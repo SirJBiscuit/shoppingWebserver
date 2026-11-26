@@ -8,6 +8,7 @@ import BetaChatroom from './BetaChatroom';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
 import { Popup, Portal, Connector, ScrollStrip, useCornerStack, useCornerOffset, usePanelShift, setPanelShift, useIsMobile, useFloatSide, useRailCollapsed, setRailCollapsed } from '../../utils/autoPlacement';
 import BtcsFloatPanel from '../admin/BtcsFloatPanel';
+import BetaOnboarding, { betaOnboardingKey } from './BetaOnboarding';
 import { pinDisplayPos, usePinLayerTick, selectorFor, describeElement } from '../../utils/pinLayer';
 import {
   MapPin, Plus, X, Eye, EyeOff, MessageSquare, ChevronRight,
@@ -383,6 +384,7 @@ const BetaPinLayer = () => {
   const [histActor, setHistActor] = useState('all');
   // Tester panel — own feedback threads + compose
   const [testerTab, setTesterTab] = useState('votes');
+  const [guideOpen, setGuideOpen] = useState(false); // beta tester tour
   const [limits, setLimits] = useState(null); // /api/beta/my-limits
   const [abPair, setAbPair] = useState(null); // {a_id,a_term,b_id,b_term,kind} | 'empty'
   const [abPicked, setAbPicked] = useState(null); // 'a' | 'b' — animates the pick
@@ -516,6 +518,30 @@ const BetaPinLayer = () => {
   useEffect(() => {
     if (pollsOpen && testerTab === 'train') { setAbPair(null); loadAbPair(); }
   }, [pollsOpen, testerTab, loadAbPair]);
+
+  // Beta tour — auto-fires once per tester, but only after the general
+  // onboarding has finished or been opted out of so the two modals never
+  // overlap. Replayable from the "?" button in the Beta Viewer header.
+  useEffect(() => {
+    if (!isBeta || isAdmin || !user) return undefined;
+    const uid = user.id || user.username;
+    if (localStorage.getItem(betaOnboardingKey(uid))) return undefined;
+    const generalDone = () =>
+      !!localStorage.getItem(`onboarding_never_${uid}`) ||
+      Object.keys(localStorage).some((k) => k.startsWith('onboarding_v') && k.endsWith(`_${uid}`));
+    const tryOpen = () => {
+      if (generalDone() && !localStorage.getItem(betaOnboardingKey(uid))) setGuideOpen(true);
+    };
+    const t1 = setTimeout(tryOpen, 1500);
+    const t2 = setTimeout(tryOpen, 20000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [isBeta, isAdmin, user]);
+
+  const closeGuide = () => {
+    const uid = user?.id || user?.username;
+    localStorage.setItem(betaOnboardingKey(uid), 'true');
+    setGuideOpen(false);
+  };
 
   const pickAb = (side) => {
     if (!abPair || abPair === 'empty' || abPicked) return;
@@ -2338,6 +2364,9 @@ const BetaPinLayer = () => {
                 </button>
               ))}
             </ScrollStrip>
+            <button type="button" onClick={() => setGuideOpen(true)} className="text-slate-500 hover:text-slate-300 shrink-0" title="Beta guide — replay the tester tour">
+              <HelpCircle className="w-5 h-5" />
+            </button>
             <button onClick={() => setPollsOpen(false)} className="text-slate-500 hover:text-slate-300 shrink-0"><X className="w-5 h-5" /></button>
           </div>
 
@@ -3816,6 +3845,10 @@ const BetaPinLayer = () => {
           {toast}
         </div>
       )}
+
+      {/* Beta tester guided tour — auto-fires once, replayable via the "?"
+          button in the Beta Viewer header */}
+      <BetaOnboarding open={guideOpen} onClose={closeGuide} />
     </>
     </Portal>
   );
