@@ -2794,9 +2794,9 @@ const BetaPinLayer = () => {
             <ScrollStrip
               className="flex-1 min-w-0"
               innerClassName="gap-1 pr-1"
-              activeIndex={['pins', 'messages', 'polls', 'ideas', 'history'].indexOf(tab)}
+              activeIndex={['pins', 'messages', 'polls', 'ideas', 'history', 'chat'].indexOf(tab)}
             >
-              {[['pins', 'Pins'], ['messages', 'Submissions'], ['polls', 'Polls'], ['ideas', 'Ideas'], ['history', 'History']].map(([t, label]) => (
+              {[['pins', 'Pins'], ['messages', 'Submissions'], ['polls', 'Polls'], ['ideas', 'Ideas'], ['history', 'History'], ['chat', 'Chat']].map(([t, label]) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -3595,6 +3595,10 @@ const BetaPinLayer = () => {
               })}
               {!adminPolls.length && <p className="text-sm text-slate-500 text-center py-8">No polls yet</p>}
             </div>
+          )}
+
+          {tab === 'chat' && (
+            <BetaChatroom className="flex-1 min-h-0" />
           )}
         </div>
       )}
