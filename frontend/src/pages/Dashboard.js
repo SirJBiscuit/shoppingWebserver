@@ -125,30 +125,44 @@ const WIDGET_LABELS = {
 // buttons/inputs inside widgets keep working. While dragging, the
 // widget lifts (tilt + shadow); the arrow pad beside the grip offers
 // click-to-move as a drag alternative (moves = which directions apply).
-const DraggableWidget = ({ id, index, label, hidden, onHide, onUnhide, onMove, moves, children }) => (
-  <Draggable draggableId={id} index={index}>
-    {(drag, snapshot) => (
-      <div
-        ref={drag.innerRef}
-        {...drag.draggableProps}
-        className={snapshot.isDragging ? 'z-30 rotate-[0.7deg] scale-[0.99] drop-shadow-2xl' : ''}
+//
+// renderClone is essential: framer-motion wrappers above this tree use
+// CSS transforms, which break position:fixed on an in-place dragged
+// element — producing a drag offset and killing edge auto-scroll.
+// Rendering the drag copy inside a Portal at document.body escapes
+// every transformed ancestor, so the clone tracks the cursor exactly.
+const DraggableWidget = ({ id, index, label, hidden, onHide, onUnhide, onMove, moves, children }) => {
+  const shell = (drag, snapshot) => (
+    <div
+      ref={drag.innerRef}
+      {...drag.draggableProps}
+      className={snapshot.isDragging ? 'z-30 rotate-[0.7deg] scale-[0.99] drop-shadow-2xl' : ''}
+    >
+      <HidableWidget
+        id={id}
+        label={label}
+        hidden={hidden}
+        onHide={onHide}
+        onUnhide={onUnhide}
+        dragHandleProps={drag.dragHandleProps}
+        onMove={onMove}
+        moves={moves}
       >
-        <HidableWidget
-          id={id}
-          label={label}
-          hidden={hidden}
-          onHide={onHide}
-          onUnhide={onUnhide}
-          dragHandleProps={drag.dragHandleProps}
-          onMove={onMove}
-          moves={moves}
-        >
-          {children}
-        </HidableWidget>
-      </div>
-    )}
-  </Draggable>
-);
+        {children}
+      </HidableWidget>
+    </div>
+  );
+
+  return (
+    <Draggable
+      draggableId={id}
+      index={index}
+      renderClone={(drag, snapshot) => <Portal>{shell(drag, snapshot)}</Portal>}
+    >
+      {shell}
+    </Draggable>
+  );
+};
 
 const Dashboard = () => {
   const { user, logout } = useAuth();

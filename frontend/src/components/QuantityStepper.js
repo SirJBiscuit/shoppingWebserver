@@ -80,10 +80,12 @@ const QuantityStepper = ({ value = 1, unit = '', onAdjust, itemName, size = 'sm'
           type="button"
           whileTap={{ scale: 0.85 }}
           onClick={onUnitClick}
-          title="Tap to change unit"
-          className="px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-xs font-semibold hover:bg-primary-100 dark:hover:bg-primary-900/40 hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
+          title={unit ? 'Tap to change unit' : 'No unit set — tap to set one'}
+          className={unit
+            ? 'px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-xs font-semibold hover:bg-primary-100 dark:hover:bg-primary-900/40 hover:text-primary-600 dark:hover:text-primary-300 transition-colors'
+            : 'px-1.5 py-0.5 rounded-md border border-dashed border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 text-xs font-semibold italic hover:border-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition-colors'}
         >
-          {unit || 'unit'}
+          {unit || 'unit?'}
         </motion.button>
       ) : (
         unit && <span>{unit}</span>

@@ -812,3 +812,8 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Removed the redundant "Aisles" chip beside the store chip — the store dropdown's "Configure aisles" row already covers it.
 - Looking-for-Next aisle button → state-aware WidgetChip ("Aisle N" blue when confirmed, "Guess: N" amber on MDL prediction, plain purple otherwise) opening QuickAislePicker (configured store aisles + prediction + custom) — replaces the old CustomKeypad 1-20 grid. reportAisle accepts string aisle numbers ("A1") + aisle_name, supports clearing, and skips the MDL report on clear.
 - Default Price label is brighter (white, bold, uppercase, drop-shadow) — was a low-contrast green-100 on green-500.
+
+## Widget drag offset + ghost fixes (latest)
+- renderClone on every widget Draggable: the dragged copy now renders in a document.body Portal — framer-motion's CSS transforms on ancestors were breaking position:fixed, which caused the cursor offset AND killed edge auto-scroll while dragging. The clone now tracks the cursor 1:1 and RBD's built-in edge auto-scroll works again.
+- In-place original keeps the dashed ghost placeholder (styled via data-rbd-placeholder-context-id) + .widget-dropzone-active ring on the hovered column.
+- Unset units now read "unit?" with dashed/italic styling (stepper chip + non-stepper fallback) instead of plain "unit".

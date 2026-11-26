@@ -994,10 +994,12 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                             <button
                               type="button"
                               onClick={openUnitPicker}
-                              title="Tap to change unit"
-                              className="px-1 rounded hover:bg-primary-100 dark:hover:bg-primary-900/40 hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
+                              title={item.unit ? 'Tap to change unit' : 'No unit set — tap to set one'}
+                              className={item.unit
+                                ? 'px-1 rounded hover:bg-primary-100 dark:hover:bg-primary-900/40 hover:text-primary-600 dark:hover:text-primary-300 transition-colors'
+                                : 'px-1 rounded border-b border-dashed border-gray-300 dark:border-gray-600 italic text-gray-400 dark:text-gray-500 hover:text-primary-500 hover:border-primary-400 transition-colors'}
                             >
-                              {item.unit || 'unit'}
+                              {item.unit || 'unit?'}
                             </button>
                           ) : item.unit}
                         </span>
