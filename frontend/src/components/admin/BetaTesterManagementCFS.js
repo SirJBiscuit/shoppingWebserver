@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Users, Star, MapPin, Calendar, Activity, MessageSquare, Award,
-  Send, UserCheck, UserX, Trash2, Clock, Package, Ban, TimerReset,
-  Search, Eye, Gift, AlertCircle, Edit, StickyNote, KeyRound, Copy, Pin
+import {
+  Users, Star, MapPin, Activity, MessageSquare, Award,
+  Send, UserCheck, Trash2, Clock, Package, Ban, TimerReset,
+  Search, Gift, AlertCircle, Edit, StickyNote, KeyRound, Copy, Pin,
+  ChevronRight, X
 } from 'lucide-react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import CustomNotification from '../CustomNotification';
 import CustomDatePicker from '../CustomDatePicker';
-import RadialActionMenu from '../RadialActionMenu';
 import { Portal } from '../../utils/autoPlacement';
 import BetaChat from '../beta/BetaChat';
 import BtcsModal from './BtcsModal';
@@ -19,7 +19,6 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
   const [testers, setTesters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTester, setSelectedTester] = useState(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
   const [thankYouMessage, setThankYouMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
@@ -122,6 +121,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
         try {
           await api.post(`/beta/admin/testers/${testerId}/convert`);
           setTesters(testers.filter(t => t.id !== testerId));
+          setSelectedTester(t => (t && t.id === testerId ? null : t));
           alert('Beta tester converted to full user successfully!');
         } catch (error) {
           console.error('Error converting tester:', error);
@@ -141,6 +141,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
         try {
           await api.delete(`/beta/admin/testers/${testerId}`);
           setTesters(testers.filter(t => t.id !== testerId));
+          setSelectedTester(t => (t && t.id === testerId ? null : t));
         } catch (error) {
           console.error('Error removing tester:', error);
           alert('Failed to remove tester');
@@ -162,7 +163,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
         t.id === selectedTester.id ? { ...t, beta_expires_at: res.data.beta_expires_at } : t
       ));
       setShowExtendModal(false);
-      setSelectedTester(null);
+      setSelectedTester(t => ({ ...t, beta_expires_at: res.data.beta_expires_at }));
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to extend access');
     } finally {
@@ -205,7 +206,12 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
           : t
       ));
       setShowEditModal(false);
-      setSelectedTester(null);
+      setSelectedTester(t => ({
+        ...t,
+        display_name: editForm.displayName,
+        admin_notes: editForm.adminNotes,
+        beta_expires_at: editForm.betaExpiresAt || null
+      }));
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to update tester');
     } finally {
@@ -233,7 +239,6 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       setPwResult(res.data.tempPassword || '');
       if (!res.data.tempPassword) {
         setShowPwModal(false);
-        setSelectedTester(null);
         alert('Password updated.');
       }
     } catch (error) {
@@ -454,65 +459,62 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
         </div>
       </div>
 
-      {/* Testers List */}
-      <div className="space-y-3">
-        {filteredTesters.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-8 text-center">
-            <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-600 dark:text-gray-400">No beta testers found</p>
-          </div>
-        ) : (
-          filteredTesters.map((tester) => (
-            <TesterCard
-              key={tester.id}
-              tester={tester}
-              qualityScore={calculateDataQuality(tester)}
-              activityLevel={getActivityLevel(tester)}
-              onViewDetails={() => {
-                setSelectedTester(tester);
-                setShowDetailsModal(true);
-              }}
-              onSendThankYou={() => {
-                setSelectedTester(tester);
-                setShowThankYouModal(true);
-              }}
-              onConvert={() => handleConvertToUser(tester.id)}
-              onRemove={() => handleRemoveTester(tester.id)}
-              onExtend={() => {
-                setSelectedTester(tester);
-                setExtendDays('30');
-                setShowExtendModal(true);
-              }}
-              onSuspend={() => handleToggleSuspend(tester)}
-              onEdit={() => openEditTester(tester)}
-              onResetPassword={() => openResetPassword(tester)}
-              onActivity={(kind) => openActivity(tester, kind)}
-              onChat={() => setChatTester(tester)}
-              onBtcs={() => setBtcsTester(tester)}
+      {/* Testers — master list + detail sidebar */}
+      <div className="flex flex-col lg:flex-row gap-4 items-start">
+        {/* Compact control list — click a row to manage that tester */}
+        <div className="w-full lg:w-80 shrink-0 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 space-y-1.5 lg:max-h-[70vh] overflow-y-auto scrollbar-3d">
+          {filteredTesters.length === 0 ? (
+            <div className="p-8 text-center">
+              <AlertCircle className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-600 dark:text-gray-400">No beta testers found</p>
+            </div>
+          ) : (
+            filteredTesters.map((tester) => (
+              <TesterRow
+                key={tester.id}
+                tester={tester}
+                qualityScore={calculateDataQuality(tester)}
+                activityLevel={getActivityLevel(tester)}
+                selected={selectedTester?.id === tester.id}
+                onSelect={() => setSelectedTester(tester)}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Detail sidebar — info + full control list for the selected tester */}
+        <div className="flex-1 w-full min-w-0">
+          {selectedTester ? (
+            <TesterSidebar
+              tester={testers.find(t => t.id === selectedTester.id) || selectedTester}
+              qualityScore={calculateDataQuality(selectedTester)}
+              activityLevel={getActivityLevel(selectedTester)}
+              onClose={() => setSelectedTester(null)}
+              onSendThankYou={() => setShowThankYouModal(true)}
+              onConvert={() => handleConvertToUser(selectedTester.id)}
+              onRemove={() => handleRemoveTester(selectedTester.id)}
+              onExtend={() => { setExtendDays('30'); setShowExtendModal(true); }}
+              onSuspend={() => handleToggleSuspend(testers.find(t => t.id === selectedTester.id) || selectedTester)}
+              onEdit={() => openEditTester(testers.find(t => t.id === selectedTester.id) || selectedTester)}
+              onResetPassword={() => openResetPassword(testers.find(t => t.id === selectedTester.id) || selectedTester)}
+              onActivity={(kind) => openActivity(testers.find(t => t.id === selectedTester.id) || selectedTester, kind)}
+              onChat={() => setChatTester(testers.find(t => t.id === selectedTester.id) || selectedTester)}
+              onBtcs={() => setBtcsTester(testers.find(t => t.id === selectedTester.id) || selectedTester)}
             />
-          ))
-        )}
+          ) : (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-12 text-center">
+              <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-500 dark:text-gray-400 font-medium">Select a tester to manage</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Their details and every control appear here</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* BTCS score breakdown + per-tester settings */}
       <AnimatePresence>
         {btcsTester && (
           <BtcsModal tester={btcsTester} onClose={() => setBtcsTester(null)} />
-        )}
-      </AnimatePresence>
-
-      {/* Details Modal */}
-      <AnimatePresence>
-        {showDetailsModal && selectedTester && (
-          <TesterDetailsModal
-            tester={selectedTester}
-            qualityScore={calculateDataQuality(selectedTester)}
-            activityLevel={getActivityLevel(selectedTester)}
-            onClose={() => {
-              setShowDetailsModal(false);
-              setSelectedTester(null);
-            }}
-          />
         )}
       </AnimatePresence>
 
@@ -532,7 +534,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
                   Extend Beta Access
                 </h3>
                 <button
-                  onClick={() => { setShowExtendModal(false); setSelectedTester(null); }}
+                  onClick={() => { setShowExtendModal(false); }}
                   className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 >
                   <AlertCircle className="w-6 h-6" />
@@ -606,7 +608,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => { setShowExtendModal(false); setSelectedTester(null); }}
+                  onClick={() => { setShowExtendModal(false); }}
                   className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   disabled={extending}
                 >
@@ -642,7 +644,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
                   Edit Tester
                 </h3>
                 <button
-                  onClick={() => { setShowEditModal(false); setSelectedTester(null); }}
+                  onClick={() => { setShowEditModal(false); }}
                   className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 >
                   <AlertCircle className="w-6 h-6" />
@@ -685,7 +687,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
                 </div>
                 <div className="flex gap-3 pt-2">
                   <button
-                    onClick={() => { setShowEditModal(false); setSelectedTester(null); }}
+                    onClick={() => { setShowEditModal(false); }}
                     className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     disabled={savingEdit}
                   >
@@ -749,7 +751,6 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
                 <button
                   onClick={() => {
                     setShowThankYouModal(false);
-                    setSelectedTester(null);
                     setThankYouMessage('');
                   }}
                   className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
@@ -775,7 +776,6 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
                 <button
                   onClick={() => {
                     setShowThankYouModal(false);
-                    setSelectedTester(null);
                     setThankYouMessage('');
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -822,7 +822,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
                   Reset Password
                 </h3>
                 <button
-                  onClick={() => { setShowPwModal(false); setSelectedTester(null); setPwValue(''); setPwResult(''); }}
+                  onClick={() => { setShowPwModal(false); setPwValue(''); setPwResult(''); }}
                   className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 >
                   <AlertCircle className="w-6 h-6" />
@@ -852,7 +852,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
                     </button>
                   </div>
                   <button
-                    onClick={() => { setShowPwModal(false); setSelectedTester(null); setPwResult(''); }}
+                    onClick={() => { setShowPwModal(false); setPwResult(''); }}
                     className="w-full mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
                   >
                     Done
@@ -875,7 +875,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
                   </div>
                   <div className="flex gap-3">
                     <button
-                      onClick={() => { setShowPwModal(false); setSelectedTester(null); setPwValue(''); }}
+                      onClick={() => { setShowPwModal(false); setPwValue(''); }}
                       className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                       disabled={pwBusy}
                     >
@@ -912,7 +912,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
                   {selectedTester.display_name || selectedTester.beta_username} — Activity
                 </h3>
                 <button
-                  onClick={() => { setShowActivityModal(false); setSelectedTester(null); setActivityItems([]); }}
+                  onClick={() => { setShowActivityModal(false); setActivityItems([]); }}
                   className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 >
                   <AlertCircle className="w-6 h-6" />
@@ -979,258 +979,221 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
   );
 };
 
-const TesterCard = ({ tester, qualityScore, activityLevel, onViewDetails, onSendThankYou, onConvert, onRemove, onExtend, onSuspend, onEdit, onResetPassword, onActivity, onChat, onBtcs }) => {
-  const stars = Math.round(qualityScore / 20);
-  
-  const activityColors = {
-    'very-high': 'green',
-    'high': 'blue',
-    'medium': 'yellow',
-    'low': 'orange',
-    'inactive': 'gray'
-  };
-  
-  const activityLabels = {
-    'very-high': 'Very Active',
-    'high': 'Active',
-    'medium': 'Moderate',
-    'low': 'Low Activity',
-    'inactive': 'Inactive'
-  };
+const ACTIVITY_DOTS = {
+  'very-high': 'bg-emerald-500',
+  high: 'bg-green-500',
+  medium: 'bg-amber-500',
+  low: 'bg-orange-400',
+  inactive: 'bg-gray-400'
+};
 
-  const color = activityColors[activityLevel];
+const ACTIVITY_LABELS = {
+  'very-high': 'Very Active',
+  high: 'Active',
+  medium: 'Moderate',
+  low: 'Low Activity',
+  inactive: 'Inactive'
+};
+
+const TesterRow = ({ tester, qualityScore, activityLevel, selected, onSelect }) => {
+  const expired = tester.days_left != null && tester.days_left <= 0;
+  const expiring = tester.days_left != null && tester.days_left > 0 && tester.days_left <= 7;
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-all ${
+        selected
+          ? 'bg-purple-100 dark:bg-purple-900/30 ring-2 ring-purple-500/60'
+          : 'hover:bg-gray-100 dark:hover:bg-gray-700/60'
+      }`}
+    >
+      <div className="relative w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
+        {(tester.display_name || tester.beta_username || '?')[0].toUpperCase()}
+        <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${ACTIVITY_DOTS[activityLevel]}`} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+            {tester.display_name || tester.beta_username}
+          </p>
+          {tester.suspended && <Ban className="w-3 h-3 text-red-500 shrink-0" />}
+          {(expired || expiring) && (
+            <Clock className={`w-3 h-3 shrink-0 ${expired ? 'text-red-500' : 'text-amber-500'}`} />
+          )}
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          <div className="flex-1 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div className="h-full bg-purple-500 rounded-full transition-all" style={{ width: `${qualityScore}%` }} />
+          </div>
+          <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 shrink-0">
+            {tester.btcs_score || 0}pt
+          </span>
+        </div>
+      </div>
+      <ChevronRight className={`w-4 h-4 shrink-0 transition ${selected ? 'text-purple-500' : 'text-gray-300 dark:text-gray-600'}`} />
+    </button>
+  );
+};
+
+const ControlItem = ({ icon: Icon, label, desc, onClick, tint, danger }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/60 text-left transition group"
+  >
+    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${tint} flex items-center justify-center shrink-0 shadow-sm`}>
+      <Icon className="w-4 h-4 text-white" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className={`text-sm font-semibold ${danger ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-100'}`}>{label}</p>
+      {desc && <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{desc}</p>}
+    </div>
+    <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:translate-x-0.5 transition-transform shrink-0" />
+  </button>
+);
+
+const TesterSidebar = ({ tester, qualityScore, activityLevel, onClose, onSendThankYou, onConvert, onRemove, onExtend, onSuspend, onEdit, onResetPassword, onActivity, onChat, onBtcs }) => {
+  const stars = Math.round(qualityScore / 20);
+  const expired = tester.days_left != null && tester.days_left <= 0;
 
   return (
     <motion.div
-      whileHover={{ scale: 1.01 }}
-      className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border-l-4 border-purple-500"
+      initial={{ opacity: 0, x: 12 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden"
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {tester.display_name || tester.beta_username}
-            </h4>
-            <span className={`px-2 py-1 bg-${color}-100 dark:bg-${color}-900/30 text-${color}-700 dark:text-${color}-300 text-xs font-medium rounded-full`}>
-              {activityLabels[activityLevel]}
+      {/* Header */}
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative w-12 h-12 rounded-full bg-white/20 border-2 border-white/40 flex items-center justify-center text-white text-lg font-bold shrink-0">
+              {(tester.display_name || tester.beta_username || '?')[0].toUpperCase()}
+              <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-indigo-600 ${ACTIVITY_DOTS[activityLevel]}`} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-lg font-bold text-white truncate">{tester.display_name || tester.beta_username}</h3>
+              <p className="text-xs text-white/70 truncate">
+                @{tester.beta_username} · {tester.state}, {tester.country}
+              </p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="text-white/60 hover:text-white shrink-0 lg:hidden" title="Close">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 mt-3">
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-white/15 text-white">
+            {ACTIVITY_LABELS[activityLevel]}
+          </span>
+          {tester.suspended && (
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-500/80 text-white">Suspended</span>
+          )}
+          {tester.days_left != null && (
+            <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${expired ? 'bg-red-500/80' : tester.days_left <= 7 ? 'bg-amber-500/80' : 'bg-white/15'} text-white`}>
+              {expired ? 'Expired' : tester.days_left === 1 ? '1 day left' : `${tester.days_left} days left`}
             </span>
-            {tester.suspended && (
-              <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-medium rounded-full">
-                Suspended
-              </span>
-            )}
-            {tester.days_left != null && (
-              <span className={`px-2 py-1 text-xs font-medium rounded-full inline-flex items-center gap-1 ${
-                tester.days_left <= 0
-                  ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-                  : tester.days_left <= 7
-                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-              }`}
-                title={tester.expires_at ? `Ends ${new Date(tester.expires_at).toLocaleDateString()}` : ''}
-              >
-                <Clock className="w-3 h-3" />
-                {tester.days_left <= 0
-                  ? 'Expired'
-                  : tester.days_left === 1
-                    ? '1 day left'
-                    : `${tester.days_left} days left`}
-              </span>
-            )}
-            <div className="flex">
+          )}
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-white/15 text-white">
+            Joined {new Date(tester.registered_at).toLocaleDateString()}
+          </span>
+        </div>
+      </div>
+
+      <div className="p-5 space-y-5 max-h-[62vh] overflow-y-auto scrollbar-3d">
+        {/* Quality + BTCS */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Data Quality</span>
+            <span className="flex items-center gap-1">
               {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  className={`w-4 h-4 ${
-                    i < stars
-                      ? 'text-yellow-500 fill-yellow-500'
-                      : 'text-gray-300 dark:text-gray-600'
-                  }`}
-                />
+                <Star key={i} className={`w-3.5 h-3.5 ${i < stars ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300 dark:text-gray-600'}`} />
               ))}
-            </div>
-            <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
-              {qualityScore}%
+              <span className="text-sm font-bold text-purple-600 dark:text-purple-400 ml-1">{qualityScore}%</span>
             </span>
           </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 dark:text-gray-400 mb-3">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              <span>{tester.state}, {tester.country}</span>
-            </div>
-            <button
-              onClick={() => onActivity('item')}
-              className="flex items-center gap-2 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-              title="View items this tester added"
-            >
-              <Package className="w-4 h-4" />
-              <span>{tester.items_added || 0} items</span>
-            </button>
-            <button
-              onClick={() => onActivity('feedback')}
-              className="flex items-center gap-2 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-              title="View this tester's feedback"
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span>{tester.feedback_count || 0} feedback</span>
-            </button>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              <span>Joined {new Date(tester.registered_at).toLocaleDateString()}</span>
-            </div>
+          <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full transition-all duration-500" style={{ width: `${qualityScore}%` }} />
           </div>
-
-          {/* BTCS score chip — opens the contribution breakdown + settings */}
           <button
             type="button"
             onClick={onBtcs}
-            className="inline-flex items-center gap-1.5 mb-3 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+            className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
             title="Beta Tester Contribution score — view breakdown"
           >
             <Award className="w-3.5 h-3.5" />
             {tester.btcs_score || 0} pts · {tester.btcs_tier_label || 'Rookie'}
           </button>
-
-          {tester.last_active && (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Last active: {new Date(tester.last_active).toLocaleDateString()}
-            </p>
-          )}
-          {tester.admin_notes && (
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
-              <StickyNote className="w-3 h-3" /> {tester.admin_notes}
-            </p>
-          )}
         </div>
 
-        <div className="ml-4 shrink-0">
-          <RadialActionMenu
-            size="sm"
-            primaryAction={{ label: 'Tester actions', className: 'bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700' }}
-            actions={[
-              { icon: Award, label: 'BTCS score', onClick: onBtcs, color: 'bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700' },
-              { icon: Eye, label: 'View details', onClick: onViewDetails, color: 'bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700' },
-              { icon: MessageSquare, label: 'Chat', onClick: onChat, color: 'bg-gradient-to-br from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700' },
-              { icon: Edit, label: 'Edit', onClick: onEdit, color: 'bg-gradient-to-br from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700' },
-              { icon: KeyRound, label: 'Password', onClick: onResetPassword, color: 'bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700' },
-              { icon: TimerReset, label: 'Extend', onClick: onExtend, color: 'bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700' },
-              { icon: Ban, label: tester.suspended ? 'Unsuspend' : 'Suspend', onClick: onSuspend, color: tester.suspended ? 'bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700' : 'bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700' },
-              { icon: Gift, label: 'Thank you', onClick: onSendThankYou, color: 'bg-gradient-to-br from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700' },
-              { icon: UserCheck, label: 'To full user', onClick: onConvert, color: 'bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700' },
-              { icon: Trash2, label: 'Remove', onClick: onRemove, color: 'bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700' },
-            ]}
-          />
+        {/* Contributions — click a stat to open the activity feed */}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { Icon: Package, label: 'Items', value: tester.items_added || 0, kind: 'item', tint: 'from-blue-500 to-blue-600' },
+            { Icon: MapPin, label: 'Aisles', value: tester.aisles_reported || 0, kind: 'aisle', tint: 'from-green-500 to-emerald-600' },
+            { Icon: MessageSquare, label: 'Feedback', value: tester.feedback_count || 0, kind: 'feedback', tint: 'from-violet-500 to-purple-600' },
+          ].map(({ Icon, label, value, kind, tint }) => (
+            <button
+              key={kind}
+              type="button"
+              onClick={() => onActivity(kind)}
+              className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 text-center hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-md transition-all"
+              title={`View ${label.toLowerCase()} activity`}
+            >
+              <div className={`w-7 h-7 mx-auto rounded-lg bg-gradient-to-br ${tint} flex items-center justify-center mb-1.5`}>
+                <Icon className="w-3.5 h-3.5 text-white" />
+              </div>
+              <p className="text-lg font-bold text-gray-900 dark:text-white leading-none">{value}</p>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{label}</p>
+            </button>
+          ))}
+        </div>
+
+        {tester.last_active && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
+            Last active: {new Date(tester.last_active).toLocaleString()}
+          </p>
+        )}
+        {tester.admin_notes && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2.5">
+            <StickyNote className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {tester.admin_notes}
+          </p>
+        )}
+
+        {/* Control list — every tester action, grouped */}
+        <div className="space-y-4">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">Communicate</p>
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700/60">
+              <ControlItem icon={MessageSquare} label="Chat" desc="Open the instant message thread" onClick={onChat} tint="from-violet-500 to-violet-600" />
+              <ControlItem icon={Gift} label="Send thank-you" desc="Personal appreciation message" onClick={onSendThankYou} tint="from-pink-500 to-pink-600" />
+            </div>
+          </div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">Account</p>
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700/60">
+              <ControlItem icon={Edit} label="Edit tester" desc="Name, expiry, admin notes" onClick={onEdit} tint="from-slate-500 to-slate-600" />
+              <ControlItem icon={KeyRound} label="Reset password" desc="Set or generate a new password" onClick={onResetPassword} tint="from-indigo-500 to-indigo-600" />
+              <ControlItem icon={TimerReset} label="Extend access" desc="Add days to beta access" onClick={onExtend} tint="from-teal-500 to-teal-600" />
+              <ControlItem
+                icon={Ban}
+                label={tester.suspended ? 'Unsuspend' : 'Suspend'}
+                desc={tester.suspended ? 'Restore beta access' : 'Pause beta access'}
+                onClick={onSuspend}
+                tint={tester.suspended ? 'from-green-500 to-green-600' : 'from-amber-500 to-amber-600'}
+              />
+            </div>
+          </div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">Danger zone</p>
+            <div className="rounded-xl border border-red-200 dark:border-red-900/50 divide-y divide-red-100 dark:divide-red-900/40">
+              <ControlItem icon={UserCheck} label="Convert to full user" desc="Loses beta tester status" onClick={onConvert} tint="from-emerald-500 to-emerald-600" danger />
+              <ControlItem icon={Trash2} label="Remove tester" desc="Permanently remove beta access" onClick={onRemove} tint="from-red-500 to-red-600" danger />
+            </div>
+          </div>
         </div>
       </div>
     </motion.div>
-  );
-};
-
-const TesterDetailsModal = ({ tester, qualityScore, activityLevel, onClose }) => {
-  return (
-    <Portal><div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Beta Tester Details
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-          >
-            <AlertCircle className="w-6 h-6" />
-          </button>
-        </div>
-
-        <div className="space-y-6">
-          {/* Basic Info */}
-          <div>
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Basic Information</h4>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600 dark:text-gray-400">Display Name:</span>
-                <p className="font-medium text-gray-900 dark:text-white">{tester.display_name}</p>
-              </div>
-              <div>
-                <span className="text-gray-600 dark:text-gray-400">Username:</span>
-                <p className="font-medium text-gray-900 dark:text-white">{tester.beta_username}</p>
-              </div>
-              <div>
-                <span className="text-gray-600 dark:text-gray-400">Location:</span>
-                <p className="font-medium text-gray-900 dark:text-white">{tester.state}, {tester.country}</p>
-              </div>
-              <div>
-                <span className="text-gray-600 dark:text-gray-400">Registered:</span>
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {new Date(tester.registered_at).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Quality Score */}
-          <div>
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Quality Score</h4>
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
-                  <div
-                    className="bg-purple-600 h-4 rounded-full transition-all duration-500"
-                    style={{ width: `${qualityScore}%` }}
-                  />
-                </div>
-              </div>
-              <span className="text-2xl font-bold text-purple-600">{qualityScore}%</span>
-            </div>
-          </div>
-
-          {/* Contributions */}
-          <div>
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Contributions</h4>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 text-center">
-                <Package className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{tester.items_added || 0}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Items Added</p>
-              </div>
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 text-center">
-                <MapPin className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{tester.aisles_reported || 0}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Aisles Reported</p>
-              </div>
-              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 text-center">
-                <MessageSquare className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{tester.feedback_count || 0}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Feedback</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Activity */}
-          {tester.last_active && (
-            <div>
-              <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Activity</h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Last active: {new Date(tester.last_active).toLocaleString()}
-              </p>
-            </div>
-          )}
-        </div>
-
-        <button
-          onClick={onClose}
-          className="w-full mt-6 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-        >
-          Close
-        </button>
-      </motion.div>
-    </div></Portal>
   );
 };
 
