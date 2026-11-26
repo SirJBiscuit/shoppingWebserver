@@ -383,6 +383,7 @@ const BetaPinLayer = () => {
   const [histActor, setHistActor] = useState('all');
   // Tester panel — own feedback threads + compose
   const [testerTab, setTesterTab] = useState('votes');
+  const [limits, setLimits] = useState(null); // /api/beta/my-limits
   const [myFeedback, setMyFeedback] = useState([]);
   const [myPins, setMyPins] = useState(null); // own pins across all pages
   const [pinQuota, setPinQuota] = useState(null); // {used, limit} from GET /pins
@@ -498,6 +499,12 @@ const BetaPinLayer = () => {
   useEffect(() => { if (canUse) { loadPagePins(); loadPolls(); } }, [canUse, loadPagePins, loadPolls]);
   useEffect(() => { if (pollsOpen) { loadPolls(); loadMyFeedback(); } }, [pollsOpen, loadPolls, loadMyFeedback]);
   useEffect(() => { if (pollsOpen && testerTab === 'pins') loadMyPins(); }, [pollsOpen, testerTab, loadMyPins]);
+  useEffect(() => {
+    if (!pollsOpen || testerTab !== 'limits') return;
+    api.get('/beta/my-limits')
+      .then((r) => setLimits(r.data))
+      .catch(() => setLimits(null));
+  }, [pollsOpen, testerTab]);
   useEffect(() => { if (isAdmin) loadAdminPins(); }, [isAdmin, loadAdminPins]);
   useEffect(() => { if (panelOpen) { loadAdminPins(); loadFeedback(); loadAdminPolls(); } },
     [panelOpen, loadAdminPins, loadFeedback, loadAdminPolls]);
@@ -2298,9 +2305,9 @@ const BetaPinLayer = () => {
             <ScrollStrip
               className="flex-1 min-w-0"
               innerClassName="gap-1 pr-1"
-              activeIndex={['votes', 'messages', 'pins', 'chat'].findIndex((t) => t === testerTab)}
+              activeIndex={['votes', 'messages', 'pins', 'chat', 'limits'].findIndex((t) => t === testerTab)}
             >
-              {[['votes', 'Polls'], ['messages', 'Submissions'], ['pins', 'My Pins'], ['chat', 'Chat']].map(([t, label]) => (
+              {[['votes', 'Polls'], ['messages', 'Submissions'], ['pins', 'My Pins'], ['chat', 'Chat'], ['limits', 'Limits']].map(([t, label]) => (
                 <button
                   key={t}
                   onClick={() => setTesterTab(t)}
@@ -2521,6 +2528,83 @@ const BetaPinLayer = () => {
           {testerTab === 'chat' && (
             <div className="flex-1 min-h-0 p-2 flex flex-col">
               <BetaChatroom className="flex-1 min-h-0" />
+            </div>
+          )}
+
+          {testerTab === 'limits' && (
+            <div className="flex-1 overflow-y-auto scrollbar-3d p-3 space-y-3">
+              {limits === null && <p className="text-sm text-slate-500 text-center py-10">Loading…</p>}
+              {limits && (
+                <>
+                  {/* Score + tier */}
+                  <div className="rounded-xl bg-slate-800/60 border border-slate-700 p-3 flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-violet-600/20 text-violet-300 flex items-center justify-center">
+                      <Award className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-lg font-bold text-slate-100">{limits.score} pts</div>
+                      <div className="text-[10px] uppercase tracking-wider text-violet-400 font-bold">
+                        {limits.tier?.name || 'Tester'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Icon quota */}
+                  <div className="rounded-xl bg-slate-800/60 border border-slate-700 p-3">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Icon uploads today</div>
+                    {limits.icons.unlimited ? (
+                      <p className="text-xs text-emerald-300 font-semibold">Unlimited — thank you for contributing!</p>
+                    ) : (
+                      <>
+                        <div className="flex justify-between text-xs text-slate-300 mb-1">
+                          <span>{limits.icons.used} / {limits.icons.limit} used</span>
+                          <span>{limits.icons.contribution}/{limits.icons.threshold} approved to unlock unlimited</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-500 transition-all"
+                            style={{ width: `${Math.min(100, (limits.icons.used / limits.icons.limit) * 100)}%` }}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Pin quota */}
+                  <div className="rounded-xl bg-slate-800/60 border border-slate-700 p-3">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Open pins</div>
+                    <div className="flex justify-between text-xs text-slate-300 mb-1">
+                      <span>{limits.pins.open} open</span>
+                      <span>up to {limits.pins.limit} per page</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 transition-all"
+                        style={{ width: `${Math.min(100, (limits.pins.open / Math.max(1, limits.pins.limit)) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Contribution breakdown */}
+                  {limits.breakdown && Object.keys(limits.breakdown).length > 0 && (
+                    <div className="rounded-xl bg-slate-800/60 border border-slate-700 p-3">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Where your points come from</div>
+                      <div className="space-y-1">
+                        {Object.entries(limits.breakdown).filter(([, v]) => v).map(([k, v]) => (
+                          <div key={k} className="flex justify-between text-xs">
+                            <span className="text-slate-400">{k}</span>
+                            <span className={v > 0 ? 'text-emerald-300' : 'text-red-300'}>{v > 0 ? '+' : ''}{v}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {!limits.canChat && (
+                    <p className="text-[10px] text-slate-500 text-center">Chat is currently disabled on your account.</p>
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>

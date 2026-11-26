@@ -7,6 +7,7 @@ const { authenticateToken, isAdmin } = require('../middleware/auth');
 const ntfy = require('../services/ntfyService');
 const btcs = require('../services/btcs');
 const betaBackup = require('../services/betaBackup');
+const { iconQuota } = require('../services/iconQuota');
 
 // Shared code-validation helper (table: beta_testing_codes — migration 043)
 const validateCode = async (code) => {
@@ -713,6 +714,36 @@ router.post('/testers/messages/read', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error marking messages read:', error);
     res.status(500).json({ error: 'Failed to update messages' });
+  }
+});
+
+// Tester-facing limits viewer — everything a beta tester can see about
+// their quotas, contribution score and tier perks in one payload.
+router.get('/my-limits', authenticateToken, async (req, res) => {
+  try {
+    const [score, quota, openPins] = await Promise.all([
+      btcs.getScore(req.user.id),
+      iconQuota(req.user.id),
+      db.query(
+        `SELECT COUNT(*)::int AS n FROM beta_pins WHERE user_id = $1 AND status = 'open'`,
+        [req.user.id]
+      ),
+    ]);
+    res.json({
+      score: score.score,
+      tier: score.tier,
+      breakdown: score.breakdown,
+      counts: score.counts,
+      icons: quota,
+      pins: {
+        open: openPins.rows[0].n,
+        limit: score.pinLimitOverride ?? score.tier?.perks?.pinLimit ?? 30,
+      },
+      canChat: score.canChat,
+    });
+  } catch (error) {
+    console.error('my-limits error:', error);
+    res.status(500).json({ error: 'Failed to fetch limits' });
   }
 });
 

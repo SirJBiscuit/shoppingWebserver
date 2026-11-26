@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
-import { X, ImagePlus, Loader2, Check, AlertCircle, RotateCw, GripHorizontal } from 'lucide-react';
+import { X, ImagePlus, Loader2, Check, AlertCircle, RotateCw, GripHorizontal, Globe } from 'lucide-react';
 import { ICON_DATA } from './IconPicker';
 import PickerSettingsButton from './PickerSettingsButton';
 import { Portal, useAnchoredPopup } from '../utils/autoPlacement';
@@ -32,7 +32,14 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex 
   const [upload, setUpload] = useState({ state: 'idle', pct: 0, msg: '' });
   const { prefs, setPref } = usePickerPrefs('icon');
   const fileRef = useRef(null);
+  const shareRef = useRef(false);
   const doneTimer = useRef(null);
+  // Donate opt-in — remembered so sharing isn't asked every upload.
+  // 'ask' (not chosen yet) | 'yes' | 'no'
+  const [shareChoice, setShareChoice] = useState(
+    () => localStorage.getItem('icon_share_optin') || 'ask'
+  );
+  const [shareAsk, setShareAsk] = useState(false);
 
   useEffect(() => () => clearTimeout(doneTimer.current), []);
 
@@ -64,13 +71,15 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const share = shareRef.current;
+    shareRef.current = false;
     setUpload({ state: 'uploading', pct: 0, msg: '' });
     try {
       const payload = await normalizeIconFile(file);
       const img = await uploadIcon(payload, file.name.replace(/\.[a-z]+$/i, '') + '.png',
-        (pct) => setUpload({ state: 'uploading', pct, msg: '' }));
+        (pct) => setUpload({ state: 'uploading', pct, msg: '' }), share);
       setCustomIcons((prev) => [img, ...prev].slice(0, 24));
-      setUpload({ state: 'done', pct: 100, msg: 'Icon uploaded' });
+      setUpload({ state: 'done', pct: 100, msg: share ? 'Icon donated — pending review' : 'Icon uploaded' });
       onSelect(img.image_url);
       markDone();
     } catch (err) {
@@ -79,6 +88,11 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex 
     } finally {
       e.target.value = '';
     }
+  };
+
+  const rememberShare = (v) => {
+    setShareChoice(v);
+    localStorage.setItem('icon_share_optin', v);
   };
 
   // Shared auto-placement: below the clicked icon when it fits, above when
@@ -205,30 +219,60 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex 
           </div>
         </div>
 
-        {/* custom icons + upload with inline animated status */}
+        {/* custom icons + upload with inline animated status.
+            Local uploads stay private; Global donates to everyone after
+            admin approval — the donate choice is remembered. */}
         <div className="px-3 pb-3 pt-2 border-t border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-2 overflow-x-auto">
             <button
-              onClick={() => fileRef.current?.click()}
+              type="button"
+              onClick={() => { shareRef.current = false; fileRef.current?.click(); }}
               disabled={upload.state === 'uploading'}
               className="w-9 h-9 flex items-center justify-center rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-400 hover:border-primary-500 hover:text-primary-500 flex-shrink-0 transition-colors disabled:opacity-50"
-              title="Upload a custom icon — any image ≤128×128 works, larger images are auto-downscaled"
+              title="Upload a private icon — any image ≤128×128 works, larger images are auto-downscaled"
             >
               {upload.state === 'uploading'
                 ? <Loader2 className="w-4 h-4 animate-spin" />
                 : <ImagePlus className="w-4 h-4" />}
             </button>
+            {shareChoice !== 'no' && (
+              <button
+                type="button"
+                onClick={() => {
+                  // First donate click asks once — the choice sticks.
+                  if (shareChoice === 'ask') { setShareAsk(true); return; }
+                  shareRef.current = true; fileRef.current?.click();
+                }}
+                disabled={upload.state === 'uploading'}
+                className="w-9 h-9 flex items-center justify-center rounded-lg border-2 border-dashed border-emerald-300 dark:border-emerald-700 text-emerald-500 hover:border-emerald-500 hover:text-emerald-600 flex-shrink-0 transition-colors disabled:opacity-50"
+                title="Donate an icon for everyone — goes live after admin approval"
+              >
+                <Globe className="w-4 h-4" />
+              </button>
+            )}
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
             {customIcons.slice(0, 8).map((img) => (
               <button
+                type="button"
                 key={img.id}
                 onClick={() => pick(img.image_url)}
-                title="Custom icon you uploaded"
-                className={`w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 ring-1 transition-transform hover:scale-110 ${
+                title={
+                  img.shared_status === 'pending' ? 'Your donated icon — awaiting admin approval'
+                  : img.shared_status === 'approved' && img.mine ? 'Your donated icon — shared with everyone'
+                  : img.shared_status === 'approved' ? 'Shared community icon'
+                  : 'Custom icon you uploaded'
+                }
+                className={`relative w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 ring-1 transition-transform hover:scale-110 ${
                   currentIcon === img.image_url ? 'ring-primary-500' : 'ring-gray-200 dark:ring-gray-600'
                 }`}
               >
                 <img src={img.thumbnail_url || img.image_url} alt="custom icon" className="w-full h-full object-cover" />
+                {img.shared_status === 'pending' && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-[9px] text-amber-300 font-bold">…</span>
+                )}
+                {img.shared_status === 'approved' && (
+                  <Globe className="absolute bottom-0 right-0 w-3 h-3 p-[1px] bg-emerald-500 text-white rounded-tl" />
+                )}
               </button>
             ))}
 
@@ -276,6 +320,7 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex 
                       <AlertCircle className="w-3 h-3" />
                       <span className="max-w-[110px] truncate">{upload.msg || 'Failed'}</span>
                       <button
+                        type="button"
                         onClick={() => fileRef.current?.click()}
                         className="flex items-center gap-0.5 underline underline-offset-2"
                         title="Try again"
@@ -288,6 +333,36 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex 
               )}
             </AnimatePresence>
           </div>
+
+          {/* One-time donate ask — remembered so it never repeats */}
+          {shareAsk && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 ring-1 ring-emerald-200 dark:ring-emerald-800">
+              <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                Share your icons with everyone?
+              </span>
+              <button
+                type="button"
+                onClick={() => { rememberShare('yes'); setShareAsk(false); shareRef.current = true; fileRef.current?.click(); }}
+                className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-600 text-white hover:bg-emerald-700"
+              >
+                Always
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShareAsk(false); shareRef.current = true; fileRef.current?.click(); }}
+                className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200"
+              >
+                This one
+              </button>
+              <button
+                type="button"
+                onClick={() => { rememberShare('no'); setShareAsk(false); }}
+                className="px-1.5 py-0.5 text-[10px] font-bold rounded text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
+              >
+                No
+              </button>
+            </div>
+          )}
         </div>
       </motion.div>
     </Portal>

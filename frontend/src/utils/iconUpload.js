@@ -54,10 +54,11 @@ export const normalizeIconFile = (file) => new Promise((resolve, reject) => {
  * POST the icon with real upload progress (fetch has none).
  * Resolves with the created image row, rejects with a user-facing message.
  */
-export const uploadIcon = (payload, fileName, onProgress) => new Promise((resolve, reject) => {
+export const uploadIcon = (payload, fileName, onProgress, share = false) => new Promise((resolve, reject) => {
   const fd = new FormData();
   fd.append('image', payload, fileName);
   fd.append('image_type', 'item_icon');
+  if (share) fd.append('share', '1');
   const xhr = new XMLHttpRequest();
   xhr.open('POST', '/api/images/upload');
   xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem('token')}`);

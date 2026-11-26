@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Brain, X, Minus, Check, Ban, Trash2, RefreshCw, Store, GitMerge, Pencil, Sparkles } from 'lucide-react';
+import { Brain, X, Minus, Check, Ban, Trash2, RefreshCw, Store, GitMerge, Pencil, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { Portal } from '../../utils/autoPlacement';
 import api from '../../services/api';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
@@ -22,11 +22,12 @@ const STATUS_META = {
 const MdlFloatPanel = ({ onClose }) => {
   const [pos, setPos] = useState(null);
   const [minimized, setMinimized] = useState(false);
-  const [view, setView] = useState('terms'); // terms | stores
+  const [view, setView] = useState('terms'); // terms | stores | icons
   const [status, setStatus] = useState('pending');
   const [kind, setKind] = useState('');
   const [terms, setTerms] = useState(null);
   const [stores, setStores] = useState(null);
+  const [icons, setIcons] = useState(null);
   const [editStore, setEditStore] = useState(null);
   const [forgetId, setForgetId] = useState(null); // {type:'term'|'store', id}
   const [msg, setMsg] = useState(null);
@@ -39,6 +40,15 @@ const MdlFloatPanel = ({ onClose }) => {
         setStores(Array.isArray(data) ? data : []);
       } catch {
         setStores([]);
+      }
+      return;
+    }
+    if (view === 'icons') {
+      try {
+        const { data } = await api.get('/images/admin/shared-icons', { params: { status } });
+        setIcons(Array.isArray(data) ? data : []);
+      } catch {
+        setIcons([]);
       }
       return;
     }
@@ -105,6 +115,15 @@ const MdlFloatPanel = ({ onClose }) => {
     }
   };
 
+  const iconAct = async (id, next) => {
+    try {
+      await api.post(`/images/admin/shared-icons/${id}/status`, { status: next });
+      load();
+    } catch {
+      setMsg('Action failed');
+    }
+  };
+
   const forget = async () => {
     if (!forgetId) return;
     const url = forgetId.type === 'store'
@@ -153,8 +172,12 @@ const MdlFloatPanel = ({ onClose }) => {
           className="flex items-center gap-2 px-3 py-2 bg-slate-900 border-b border-slate-700 cursor-move select-none touch-none shrink-0"
         >
           <Brain className="w-4 h-4 text-violet-400" />
-          <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">MDL Terms</span>
-          <span className="text-[10px] text-slate-500 hidden sm:inline">learned vocabulary — approve to go global</span>
+          <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">MDL</span>
+          <span className="text-[10px] text-slate-500 hidden sm:inline">
+            {view === 'terms' && 'learned vocabulary — approve to go global'}
+            {view === 'stores' && 'store locations — dedupe & merge'}
+            {view === 'icons' && 'donated icons — approve to share with everyone'}
+          </span>
           <div className="flex-1" />
           <button type="button" onClick={load} className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800" title="Refresh">
             <RefreshCw className="w-3.5 h-3.5" />
@@ -173,7 +196,7 @@ const MdlFloatPanel = ({ onClose }) => {
           <div className="flex-1 min-h-0 flex flex-col">
             {/* View switch — learned terms vs store locations */}
             <div className="flex gap-1 px-3 pt-2 shrink-0">
-              {[['terms', 'Terms', Brain], ['stores', 'Stores', Store]].map(([v, lbl, Ic]) => (
+              {[['terms', 'Terms', Brain], ['stores', 'Stores', Store], ['icons', 'Icons', ImageIcon]].map(([v, lbl, Ic]) => (
                 <button key={v} type="button" onClick={() => setView(v)}
                   className={`flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg font-medium ${view === v ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>
                   <Ic className="w-3 h-3" />{lbl}
@@ -181,8 +204,8 @@ const MdlFloatPanel = ({ onClose }) => {
               ))}
             </div>
 
-            {/* Filters — status tabs + kind chips (terms view only) */}
-            {view === 'terms' && (
+            {/* Filters — status tabs + kind chips */}
+            {(view === 'terms' || view === 'icons') && (
             <div className="px-3 pt-2 pb-1.5 border-b border-slate-800 bg-slate-900/60 shrink-0">
               <div className="flex gap-1">
                 {Object.entries(STATUS_META).map(([k, m]) => (
@@ -192,6 +215,7 @@ const MdlFloatPanel = ({ onClose }) => {
                   </button>
                 ))}
               </div>
+            {view === 'terms' && (
               <div className="flex gap-1 mt-1.5 flex-wrap">
                 <button type="button" onClick={() => setKind('')}
                   className={`text-[10px] px-2 py-0.5 rounded-full ${!kind ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}>
@@ -204,6 +228,7 @@ const MdlFloatPanel = ({ onClose }) => {
                   </button>
                 ))}
               </div>
+            )}
             </div>
             )}
 
@@ -300,6 +325,47 @@ const MdlFloatPanel = ({ onClose }) => {
                 <p className="text-sm text-slate-500 text-center py-10">No {status} terms{kind ? ` (${kind})` : ''}</p>
               )}
               {view === 'terms' && terms === null && <p className="text-sm text-slate-500 text-center py-10">Loading…</p>}
+              {view === 'icons' && (
+                <>
+                  {(icons || []).map((ic) => (
+                    <div key={ic.id} className="px-3 py-2 border-b border-slate-800/60 flex items-center gap-2.5">
+                      <img
+                        src={ic.thumbnail_url || ic.image_url}
+                        alt="shared icon"
+                        className="w-10 h-10 rounded-lg object-cover ring-1 ring-slate-700 shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm text-slate-100 font-medium truncate">
+                          {ic.image_url?.split('/').pop()?.slice(0, 40) || `icon #${ic.id}`}
+                        </div>
+                        <div className="text-[10px] text-slate-500">
+                          donated by {ic.uploaded_by_name || 'unknown'}
+                          {ic.shared_at && ` · ${new Date(ic.shared_at).toLocaleDateString()}`}
+                        </div>
+                      </div>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_META[ic.shared_status]?.cls || 'bg-slate-800 text-slate-400'}`}>
+                        {ic.shared_status}
+                      </span>
+                      <div className="flex gap-1 shrink-0">
+                        {ic.shared_status !== 'approved' && (
+                          <button type="button" onClick={() => iconAct(ic.id, 'approved')} title="Approve — visible to everyone"
+                            className="p-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/40">
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {ic.shared_status !== 'rejected' && (
+                          <button type="button" onClick={() => iconAct(ic.id, 'rejected')} title="Reject — stays private to the uploader"
+                            className="p-1.5 rounded-lg bg-amber-600/20 text-amber-300 hover:bg-amber-600/40">
+                            <Ban className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {icons && !icons.length && <p className="text-sm text-slate-500 text-center py-10">No {status} shared icons</p>}
+                  {icons === null && <p className="text-sm text-slate-500 text-center py-10">Loading…</p>}
+                </>
+              )}
             </div>
           </div>
         )}
