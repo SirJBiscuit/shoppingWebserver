@@ -1867,7 +1867,7 @@ router.get('/terms', authenticateToken, async (req, res) => {
   try {
     const kind = String(req.query.kind || '').trim().toLowerCase();
     const params = [req.user.id];
-    let sql = `SELECT id, kind, term, status, usage_count
+    let sql = `SELECT id, kind, term, status, usage_count, created_by
                FROM mdl_custom_terms
                WHERE (status = 'approved' OR (status = 'pending' AND created_by = $1))`;
     if (kind) { params.push(kind); sql += ' AND kind = $2'; }
@@ -1877,6 +1877,56 @@ router.get('/terms', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Error fetching terms:', err);
     res.status(500).json({ error: 'Failed to fetch terms' });
+  }
+});
+
+/**
+ * PUT /api/mdl/terms/:id { term }
+ * Rename a pending term you created — the pickers' in-panel modify.
+ * Approved terms are global and only change through admin review.
+ */
+router.put('/terms/:id', authenticateToken, async (req, res) => {
+  try {
+    const term = String(req.body.term || '').trim();
+    if (!term || term.length > 120) {
+      return res.status(400).json({ error: 'term (≤120 chars) required' });
+    }
+    const result = await db.query(
+      `UPDATE mdl_custom_terms SET term = $2, last_seen_at = NOW()
+       WHERE id = $1 AND created_by = $3 AND status = 'pending'
+       RETURNING id, kind, term, status`,
+      [req.params.id, term, req.user.id]
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'Term not found or not yours' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error renaming term:', err);
+    res.status(500).json({ error: 'Failed to rename term' });
+  }
+});
+
+/**
+ * DELETE /api/mdl/terms/:id
+ * Remove a pending term you created — the pickers' in-panel remove.
+ * Approved terms are global and only delete through admin review.
+ */
+router.delete('/terms/:id', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      `DELETE FROM mdl_custom_terms
+       WHERE id = $1 AND created_by = $2 AND status = 'pending'
+       RETURNING id`,
+      [req.params.id, req.user.id]
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'Term not found or not yours' });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Error removing term:', err);
+    res.status(500).json({ error: 'Failed to remove term' });
   }
 });
 

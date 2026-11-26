@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { motion, useDragControls } from 'framer-motion';
 import { Plus, X, Wand2, GripHorizontal, Trash2 } from 'lucide-react';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
+import PickerSettingsButton from './PickerSettingsButton';
 import QuickIconPicker, { isImageIcon } from './QuickIconPicker';
 import { Portal, useAnchoredPopup } from '../utils/autoPlacement';
+import { usePickerPrefs } from '../utils/pickerPrefs';
 import { mergeDbCategories } from '../utils/categories';
 import { categoriesAPI } from '../services/api';
 import api from '../services/api';
@@ -34,6 +36,7 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
   const [saving, setSaving] = useState(false);
   const [confirmDel, setConfirmDel] = useState(null);
   const { user } = useAuth();
+  const { prefs, setPref } = usePickerPrefs('category');
   // MDL share opt-in — remembered so users who don't want their custom
   // categories suggested to others aren't asked every time.
   const [shareMdl, setShareMdl] = useState(
@@ -60,10 +63,12 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
       .map((c) => ({ name: c.label, icon: c.icon, id: c.id, user_id: c.user_id }));
     const seen = new Set(base.map((c) => c.name.toLowerCase()));
     // Learned custom categories (admin-approved + own pending) join the grid
-    for (const t of learned) {
-      if (!seen.has(t.term.toLowerCase())) {
-        seen.add(t.term.toLowerCase());
-        base.push({ name: t.term, icon: '🧠' });
+    if (prefs.suggestions) {
+      for (const t of learned) {
+        if (!seen.has(t.term.toLowerCase())) {
+          seen.add(t.term.toLowerCase());
+          base.push({ name: t.term, icon: '🧠' });
+        }
       }
     }
     return base;
@@ -136,15 +141,15 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
       <div className="fixed inset-0 z-[70]" onClick={onClose} />
       <motion.div
         ref={ref}
-        initial={isMobile
+        initial={prefs.animations ? (isMobile
           ? { opacity: 0, y: 60 }
-          : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }}
+          : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }) : false}
         animate={isMobile
           ? { opacity: 1, y: 0 }
           : { opacity: 1, scale: 1, rotateX: 0, y: 0 }}
-        exit={isMobile
+        exit={prefs.animations ? (isMobile
           ? { opacity: 0, y: 60 }
-          : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }}
+          : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }) : { opacity: 0 }}
         transition={{ type: 'spring', damping: 22, stiffness: 320 }}
         drag={!isMobile}
         dragControls={dragControls}
@@ -170,17 +175,20 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
             )}
             Category for “{itemName || 'item'}”
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
-            title="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-0.5">
+            <PickerSettingsButton prefs={prefs} setPref={setPref} />
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        {detected && detected !== canonical && (
+        {detected && detected !== canonical && prefs.suggestions && (
           <button
             type="button"
             onClick={() => pick(detected)}
@@ -192,15 +200,17 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
           </button>
         )}
 
-        <div className="px-3 pt-2">
-          <input
-            autoFocus={!isMobile}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search categories…"
-            className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-primary-500 focus:outline-none"
-          />
-        </div>
+        {prefs.search && (
+          <div className="px-3 pt-2">
+            <input
+              autoFocus={!isMobile}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search categories…"
+              className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-primary-500 focus:outline-none"
+            />
+          </div>
+        )}
 
         <AnimatedScrollbar3D
           maxHeight={scrollMax}
@@ -215,9 +225,9 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
                 return (
                   <motion.div
                     key={cat.name}
-                    initial={{ opacity: 0, y: 6, scale: 0.9 }}
+                    initial={prefs.animations ? { opacity: 0, y: 6, scale: 0.9 } : { opacity: 1, y: 0, scale: 1 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ delay: Math.min(i * 0.025, 0.3), type: 'spring', damping: 20, stiffness: 300 }}
+                    transition={{ delay: prefs.animations ? Math.min(i * 0.025, 0.3) : 0, type: 'spring', damping: 20, stiffness: 300 }}
                     onClick={() => pick(cat.name)}
                     title={mine ? 'Your custom category — click to pick' : cat.name}
                     className={`group relative flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-xs font-medium cursor-pointer select-none transition-all hover:scale-[1.04] active:scale-95 ${

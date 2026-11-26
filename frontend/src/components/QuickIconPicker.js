@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { X, ImagePlus, Loader2, Check, AlertCircle, RotateCw, GripHorizontal } from 'lucide-react';
 import { ICON_DATA } from './IconPicker';
+import PickerSettingsButton from './PickerSettingsButton';
 import { Portal, useAnchoredPopup } from '../utils/autoPlacement';
+import { usePickerPrefs } from '../utils/pickerPrefs';
 import { isImageIcon, normalizeIconFile, uploadIcon, fetchCustomIcons } from '../utils/iconUpload';
 
 const ALL_ICONS = [...new Set(ICON_DATA.map((d) => d.icon))];
@@ -28,6 +30,7 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex 
   const [query, setQuery] = useState('');
   const [customIcons, setCustomIcons] = useState([]);
   const [upload, setUpload] = useState({ state: 'idle', pct: 0, msg: '' });
+  const { prefs, setPref } = usePickerPrefs('icon');
   const fileRef = useRef(null);
   const doneTimer = useRef(null);
 
@@ -101,9 +104,9 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex 
       <div className="fixed inset-0" style={{ zIndex }} onClick={onClose} />
       <motion.div
         ref={anchorRef}
-        initial={isMobile ? { opacity: 0, y: 60 } : { opacity: 0, scale: 0.9, y: 8 }}
+        initial={prefs.animations ? (isMobile ? { opacity: 0, y: 60 } : { opacity: 0, scale: 0.9, y: 8 }) : false}
         animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, scale: 1, y: 0 }}
-        exit={isMobile ? { opacity: 0, y: 60 } : { opacity: 0, scale: 0.9, y: 8 }}
+        exit={prefs.animations ? (isMobile ? { opacity: 0, y: 60 } : { opacity: 0, scale: 0.9, y: 8 }) : { opacity: 0 }}
         transition={{ type: 'spring', damping: 24, stiffness: 320 }}
         drag={!isMobile}
         dragControls={dragControls}
@@ -130,38 +133,43 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex 
             )}
             Icon for “{item?.item_name || item?.name || 'item'}”
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
-            title="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-0.5">
+            <PickerSettingsButton prefs={prefs} setPref={setPref} />
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* search — autofocus only on non-touch so the OS keyboard stays
             down until the user taps the field */}
-        <div className="px-3 pt-2">
-          <input
-            autoFocus={!isMobile}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search icons…"
-            className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-primary-500 focus:outline-none"
-          />
-        </div>
+        {prefs.search && (
+          <div className="px-3 pt-2">
+            <input
+              autoFocus={!isMobile}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search icons…"
+              className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-primary-500 focus:outline-none"
+            />
+          </div>
+        )}
 
         {/* suggestions */}
-        {suggestions.length > 0 && !query && (
+        {suggestions.length > 0 && !query && prefs.suggestions && (
           <div className="px-3 pt-2">
             <div className="flex gap-1.5">
               {suggestions.map((icon, i) => (
                 <motion.button
                   key={`s-${i}`}
-                  initial={{ opacity: 0, scale: 0.5 }}
+                  initial={prefs.animations ? { opacity: 0, scale: 0.5 } : { opacity: 1, scale: 1 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.04 }}
+                  transition={{ delay: prefs.animations ? i * 0.04 : 0 }}
                   onClick={() => pick(icon)}
                   title={`${labelFor(icon) || icon} — suggested for “${itemName}”`}
                   className="w-9 h-9 flex items-center justify-center text-xl rounded-lg bg-primary-50 dark:bg-primary-900/40 ring-1 ring-primary-300 dark:ring-primary-700 hover:scale-110 transition-transform"
@@ -229,7 +237,7 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex 
               {upload.state !== 'idle' && (
                 <motion.span
                   key={upload.state}
-                  initial={{ opacity: 0, x: -6, scale: 0.85 }}
+                  initial={prefs.animations ? { opacity: 0, x: -6, scale: 0.85 } : { opacity: 1, x: 0, scale: 1 }}
                   animate={{ opacity: 1, x: 0, scale: 1 }}
                   exit={{ opacity: 0, x: 6, scale: 0.85 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 26 }}

@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { motion, useDragControls } from 'framer-motion';
 import { X, Wand2, MapPin, Eraser, Check, Search, GripHorizontal } from 'lucide-react';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
+import PickerSettingsButton from './PickerSettingsButton';
 import { Portal, useAnchoredPopup } from '../utils/autoPlacement';
+import { usePickerPrefs } from '../utils/pickerPrefs';
 import { getAislePrediction } from '../api/mdl';
 
 const QUICK_AISLES = Array.from({ length: 24 }, (_, i) => i + 1);
@@ -24,6 +26,7 @@ const QuickAislePicker = ({ itemName, currentAisle, currentAisleName, storeName,
   const [num, setNum] = useState(currentAisle != null ? String(currentAisle) : '');
   const [name, setName] = useState(currentAisleName || '');
   const [storeAisles, setStoreAisles] = useState([]);
+  const { prefs, setPref } = usePickerPrefs('aisle');
   const { pos, ref, maxHeight, side, isMobile } = useAnchoredPopup(anchor, { width: 288, height: 460 });
   const dragControls = useDragControls();
 
@@ -107,15 +110,15 @@ const QuickAislePicker = ({ itemName, currentAisle, currentAisleName, storeName,
       <div className="fixed inset-0 z-[70]" onClick={onClose} />
       <motion.div
         ref={ref}
-        initial={isMobile
+        initial={prefs.animations ? (isMobile
           ? { opacity: 0, y: 60 }
-          : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }}
+          : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }) : false}
         animate={isMobile
           ? { opacity: 1, y: 0 }
           : { opacity: 1, scale: 1, rotateX: 0, y: 0 }}
-        exit={isMobile
+        exit={prefs.animations ? (isMobile
           ? { opacity: 0, y: 60 }
-          : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }}
+          : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }) : { opacity: 0 }}
         transition={{ type: 'spring', damping: 22, stiffness: 320 }}
         drag={!isMobile}
         dragControls={dragControls}
@@ -142,18 +145,21 @@ const QuickAislePicker = ({ itemName, currentAisle, currentAisleName, storeName,
             <MapPin className="w-3.5 h-3.5 text-blue-500" />
             Aisle for “{itemName || 'item'}”{storeName ? ` · ${storeName}` : ''}
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
-            title="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-0.5">
+            <PickerSettingsButton prefs={prefs} setPref={setPref} />
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* MDL learned suggestion */}
-        {prediction && prediction.aisle !== currentAisle && (
+        {prediction && prediction.aisle !== currentAisle && prefs.suggestions && (
           <button
             type="button"
             onClick={() => pick(prediction.aisle)}
@@ -166,18 +172,20 @@ const QuickAislePicker = ({ itemName, currentAisle, currentAisleName, storeName,
         )}
 
         {/* Search — filters configured aisles by number, name or category */}
-        <div className="px-3 pt-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search aisles…"
-              className="w-full pl-7 pr-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
-            />
+        {prefs.search && (
+          <div className="px-3 pt-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search aisles…"
+                className="w-full pl-7 pr-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <AnimatedScrollbar3D
           maxHeight={`${Math.max(120, maxHeight - (storeAisles.length ? 250 : 230))}px`}
@@ -195,9 +203,9 @@ const QuickAislePicker = ({ itemName, currentAisle, currentAisleName, storeName,
                   <motion.button
                     key={a.id || a.aisle_number}
                     type="button"
-                    initial={{ opacity: 0, scale: 0.9 }}
+                    initial={prefs.animations ? { opacity: 0, scale: 0.9 } : { opacity: 1, scale: 1 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: Math.min(i * 0.02, 0.3), type: 'spring', damping: 20, stiffness: 300 }}
+                    transition={{ delay: prefs.animations ? Math.min(i * 0.02, 0.3) : 0, type: 'spring', damping: 20, stiffness: 300 }}
                     onClick={() => pick(a.aisle_number, a.aisle_name)}
                     className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105 active:scale-95 ${
                       String(currentAisle) === String(a.aisle_number)
@@ -224,9 +232,9 @@ const QuickAislePicker = ({ itemName, currentAisle, currentAisleName, storeName,
                 <motion.button
                   key={n}
                   type="button"
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  initial={prefs.animations ? { opacity: 0, scale: 0.9 } : { opacity: 1, scale: 1 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: Math.min(i * 0.012, 0.25), type: 'spring', damping: 20, stiffness: 300 }}
+                  transition={{ delay: prefs.animations ? Math.min(i * 0.012, 0.25) : 0, type: 'spring', damping: 20, stiffness: 300 }}
                   onClick={() => pick(n)}
                   className={`py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105 active:scale-95 ${
                     String(currentAisle) === String(n)

@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import { motion, useDragControls } from 'framer-motion';
-import { X, Check, Eraser, Search, GripHorizontal, Scale, Wand2 } from 'lucide-react';
+import { X, Check, Eraser, Search, GripHorizontal, Scale, Wand2, Pencil, Trash2 } from 'lucide-react';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
+import PickerSettingsButton from './PickerSettingsButton';
 import { Portal, useAnchoredPopup } from '../utils/autoPlacement';
+import { usePickerPrefs } from '../utils/pickerPrefs';
+import { useAuth } from '../context/AuthContext';
+import ConfirmModal from '../limbo/modals/ConfirmModal';
 
 const QUICK_UNITS = [
   'each', 'pack', 'box', 'bag', 'bottle', 'can', 'jar', 'dozen',
@@ -31,7 +35,12 @@ const authHeaders = (json = false) => ({
 const QuickUnitPicker = ({ itemName, currentUnit, anchor, onSelect, onClear, onClose }) => {
   const [query, setQuery] = useState('');
   const [custom, setCustom] = useState(currentUnit || '');
-  const [learnedUnits, setLearnedUnits] = useState([]);
+  const [learned, setLearned] = useState([]); // full term rows {id,term,status,created_by}
+  const [confirmDel, setConfirmDel] = useState(null);
+  const [editing, setEditing] = useState(null); // term id being renamed
+  const [editText, setEditText] = useState('');
+  const { user } = useAuth();
+  const { prefs, setPref } = usePickerPrefs('unit');
   const { pos, ref, maxHeight, side, isMobile } = useAnchoredPopup(anchor, { width: 288, height: 420 });
   const dragControls = useDragControls();
 
@@ -41,7 +50,7 @@ const QuickUnitPicker = ({ itemName, currentUnit, anchor, onSelect, onClear, onC
     let cancelled = false;
     fetch('/api/mdl/terms?kind=unit', { headers: authHeaders() })
       .then((r) => (r.ok ? r.json() : []))
-      .then((rows) => { if (!cancelled && Array.isArray(rows)) setLearnedUnits(rows.map((t) => t.term)); })
+      .then((rows) => { if (!cancelled && Array.isArray(rows)) setLearned(rows); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -60,15 +69,38 @@ const QuickUnitPicker = ({ itemName, currentUnit, anchor, onSelect, onClear, onC
     onClose();
   };
 
+  // In-panel manage — own pending terms can be renamed or removed
+  const removeTerm = (t) => {
+    fetch(`/api/mdl/terms/${t.id}`, { method: 'DELETE', headers: authHeaders() })
+      .then(() => setLearned((rows) => rows.filter((r) => r.id !== t.id)))
+      .catch(() => {})
+      .finally(() => setConfirmDel(null));
+  };
+
+  const renameTerm = (t) => {
+    const term = editText.trim();
+    if (!term) return;
+    fetch(`/api/mdl/terms/${t.id}`, {
+      method: 'PUT',
+      headers: authHeaders(true),
+      body: JSON.stringify({ term }),
+    })
+      .then(() => setLearned((rows) => rows.map((r) => (r.id === t.id ? { ...r, term } : r))))
+      .catch(() => {})
+      .finally(() => { setEditing(null); setEditText(''); });
+  };
+
   const submitCustom = () => {
     const u = custom.trim();
     if (u) pick(u);
   };
 
   const q = query.trim().toLowerCase();
+  const learnedUnits = learned.map((t) => t.term);
   const allUnits = [...new Set([...learnedUnits, ...QUICK_UNITS])];
   const list = q ? allUnits.filter((u) => u.toLowerCase().includes(q)) : allUnits;
   const learnedSet = new Set(learnedUnits);
+  const isMine = (t) => t.status === 'pending' && t.created_by === user?.id;
 
   const panelStyle = isMobile
     ? { transformStyle: 'preserve-3d' }
@@ -85,15 +117,15 @@ const QuickUnitPicker = ({ itemName, currentUnit, anchor, onSelect, onClear, onC
       <div className="fixed inset-0 z-[70]" onClick={onClose} />
       <motion.div
         ref={ref}
-        initial={isMobile
+        initial={prefs.animations ? (isMobile
           ? { opacity: 0, y: 60 }
-          : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }}
+          : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }) : false}
         animate={isMobile
           ? { opacity: 1, y: 0 }
           : { opacity: 1, scale: 1, rotateX: 0, y: 0 }}
-        exit={isMobile
+        exit={prefs.animations ? (isMobile
           ? { opacity: 0, y: 60 }
-          : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }}
+          : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }) : { opacity: 0 }}
         transition={{ type: 'spring', damping: 22, stiffness: 320 }}
         drag={!isMobile}
         dragControls={dragControls}
@@ -120,31 +152,36 @@ const QuickUnitPicker = ({ itemName, currentUnit, anchor, onSelect, onClear, onC
             <Scale className="w-3.5 h-3.5 text-teal-500" />
             Unit for “{itemName || 'item'}”
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
-            title="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-0.5">
+            <PickerSettingsButton prefs={prefs} setPref={setPref} />
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Search — autofocus only on non-touch so the OS keyboard stays
             down until the user actually taps the field */}
-        <div className="px-3 pt-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            <input
-              type="text"
-              autoFocus={!isMobile}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search units…"
-              className="w-full pl-7 pr-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-teal-500 focus:outline-none"
-            />
+        {prefs.search && (
+          <div className="px-3 pt-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+              <input
+                type="text"
+                autoFocus={!isMobile}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search units…"
+                className="w-full pl-7 pr-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-teal-500 focus:outline-none"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <AnimatedScrollbar3D
           maxHeight={`${Math.max(120, maxHeight - 220)}px`}
@@ -152,26 +189,72 @@ const QuickUnitPicker = ({ itemName, currentUnit, anchor, onSelect, onClear, onC
           glowColor="primary"
           autoHide={false}
         >
-          {/* Learned units first — MDL suggestions from real usage */}
-          {learnedUnits.length > 0 && !q && (
+          {/* Learned units first — MDL suggestions from real usage.
+              Own pending terms get rename/remove on hover. */}
+          {learned.length > 0 && prefs.suggestions && !q && (
             <div className="px-3 pt-2 pb-1">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1.5 flex items-center gap-1">
                 <Wand2 className="w-3 h-3" /> Learned
               </p>
               <div className="flex flex-wrap gap-1.5">
-                {learnedUnits.map((u) => (
-                  <button
-                    key={u}
-                    type="button"
-                    onClick={() => pick(u)}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105 active:scale-95 ${
-                      currentUnit === u
-                        ? 'bg-teal-600 text-white'
-                        : 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 hover:bg-teal-100'
-                    }`}
-                  >
-                    {u}
-                  </button>
+                {learned.map((t) => (
+                  editing === t.id ? (
+                    <div key={t.id} className="flex items-center gap-1">
+                      <input
+                        autoFocus={!isMobile}
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') renameTerm(t);
+                          if (e.key === 'Escape') { setEditing(null); setEditText(''); }
+                        }}
+                        className="w-24 px-2 py-1 text-xs rounded-lg border border-teal-300 dark:border-teal-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none"
+                      />
+                      <button type="button" onClick={() => renameTerm(t)} className="p-1 text-teal-600 hover:bg-teal-100 dark:hover:bg-teal-900/40 rounded" title="Save">
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button type="button" onClick={() => { setEditing(null); setEditText(''); }} className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Cancel">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div key={t.id} className="group relative">
+                      <button
+                        type="button"
+                        onClick={() => pick(t.term)}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105 active:scale-95 ${
+                          currentUnit === t.term
+                            ? 'bg-teal-600 text-white'
+                            : isMine(t)
+                              ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-dashed border-teal-300 dark:border-teal-700 hover:bg-teal-100'
+                              : 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 hover:bg-teal-100'
+                        }`}
+                        title={isMine(t) ? 'Your custom unit — hover to edit or remove' : t.term}
+                      >
+                        {t.term}
+                      </button>
+                      {isMine(t) && (
+                        <div className="absolute -top-2 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setEditing(t.id); setEditText(t.term); }}
+                            title={`Rename "${t.term}"`}
+                            className="w-5 h-5 p-0.5 rounded-full bg-teal-500 text-white shadow"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setConfirmDel(t); }}
+                            title={`Remove "${t.term}"`}
+                            className="w-5 h-5 p-0.5 rounded-full bg-red-500 text-white shadow"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
                 ))}
               </div>
             </div>
@@ -187,9 +270,9 @@ const QuickUnitPicker = ({ itemName, currentUnit, anchor, onSelect, onClear, onC
                 <motion.button
                   key={u}
                   type="button"
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  initial={prefs.animations ? { opacity: 0, scale: 0.9 } : { opacity: 1, scale: 1 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: Math.min(i * 0.012, 0.25), type: 'spring', damping: 20, stiffness: 300 }}
+                  transition={{ delay: prefs.animations ? Math.min(i * 0.012, 0.25) : 0, type: 'spring', damping: 20, stiffness: 300 }}
                   onClick={() => pick(u)}
                   className={`py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105 active:scale-95 ${
                     currentUnit === u
@@ -242,6 +325,19 @@ const QuickUnitPicker = ({ itemName, currentUnit, anchor, onSelect, onClear, onC
           </div>
         )}
       </motion.div>
+      {confirmDel && (
+        <div className="relative z-[99999]">
+          <ConfirmModal
+            isOpen
+            type="danger"
+            title="Remove unit?"
+            message={`"${confirmDel.term}" will be removed from your custom units.`}
+            confirmText="Remove"
+            onConfirm={() => removeTerm(confirmDel)}
+            onCancel={() => setConfirmDel(null)}
+          />
+        </div>
+      )}
     </Portal>
   );
 };
