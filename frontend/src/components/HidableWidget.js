@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { EyeOff, Eye, GripVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Lock, LockOpen } from 'lucide-react';
+import { EyeOff, Eye, GripVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Lock, Unlock } from 'lucide-react';
 
 /**
  * HidableWidget — wraps a dashboard widget with hide/show controls.
@@ -106,7 +106,7 @@ const HidableWidget = ({ id, label, hidden, onHide, onUnhide, className = '', dr
                 transition={{ type: 'spring', stiffness: 500, damping: 22 }}
                 className="flex"
               >
-                {locked ? <Lock className="w-3.5 h-3.5" /> : <LockOpen className="w-3.5 h-3.5" />}
+                {locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
               </motion.span>
             </motion.button>
           )}
