@@ -10,6 +10,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { canonicalizeCategory } = require('../utils/canonicalCategory');
 const { detectCategoryForName } = require('../utils/categories');
 const mdlQuality = require('../services/mdlQuality');
+const { normName, learnTerm } = require('../services/mdlTerms');
 const fs = require('fs');
 const path = require('path');
 
@@ -642,32 +643,190 @@ router.post('/stores', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Store name is required' });
     }
 
-    // Dedupe on normalized name within the caller's visible set — returns
-    // the existing row instead of creating "walmart"/"Walmart " dupes.
+    // Smart resolve: exact -> learned alias -> strong fuzzy ("wanes" ->
+    // "Waynes"). A hit returns the existing store and records the typed
+    // form as a pending variant for the A/B review pipeline instead of
+    // duplicating. Name+city+state still dedupes afterwards (same name in
+    // a different city is a legit distinct location).
+    const resolved = await resolveStore(req.user.id, storeName);
+    if (resolved && resolved.via !== 'exact') {
+      const canon = resolved.store.name || resolved.store.store_name;
+      if (normName(storeName) !== normName(canon)) {
+        learnTerm('store', storeName, canon, req.user.id); // fire-and-forget
+      }
+      return res.status(200).json(resolved.store);
+    }
     const existing = await db.query(`
       SELECT * FROM store_locations
       WHERE ${STORE_NORM} = lower(btrim($1))
+        AND lower(btrim(COALESCE(city, ''))) = lower(btrim(COALESCE($3, '')))
+        AND lower(btrim(COALESCE(state, ''))) = lower(btrim(COALESCE($4, '')))
         AND (user_id = $2 OR user_id IS NULL OR is_public = true)
       ORDER BY created_at ASC LIMIT 1
-    `, [String(storeName).trim(), req.user.id]);
+    `, [String(storeName).trim(), req.user.id, city, state]);
     if (existing.rows.length) return res.status(200).json(existing.rows[0]);
 
-    const result = await db.query(`
-      INSERT INTO store_locations (
-        name, store_name, chain, chain_name, user_id,
-        state, city, area_code, zip_code, latitude, longitude, is_public
-      ) VALUES ($1, $1, $2, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING *
-    `, [
-      String(storeName).trim(), storeChain || null, req.user.id,
-      state || null, city || null, area_code || null, zip_code || null,
-      latitude || null, longitude || null, is_public === true
-    ]);
-
-    res.status(201).json(result.rows[0]);
+    try {
+      const result = await db.query(`
+        INSERT INTO store_locations (
+          name, store_name, chain, chain_name, user_id,
+          state, city, area_code, zip_code, latitude, longitude, is_public
+        ) VALUES ($1, $1, $2, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *
+      `, [
+        String(storeName).trim(), storeChain || null, req.user.id,
+        state || null, city || null, area_code || null, zip_code || null,
+        latitude || null, longitude || null, is_public === true
+      ]);
+      // Seed the term pool so future spelling variants can map to this name
+      learnTerm('store', String(storeName).trim(), String(storeName).trim(), req.user.id);
+      res.status(201).json(result.rows[0]);
+    } catch (insertErr) {
+      // Lost the check-then-insert race against uq_store_locations_norm —
+      // the row now exists, so just hand it back.
+      if (insertErr.code === '23505') {
+        const dupe = await db.query(
+          `SELECT * FROM store_locations WHERE ${STORE_NORM} = lower(btrim($1))
+             AND lower(btrim(COALESCE(city, ''))) = lower(btrim(COALESCE($2, '')))
+             AND lower(btrim(COALESCE(state, ''))) = lower(btrim(COALESCE($3, '')))
+             AND (user_id = $4 OR user_id IS NULL OR is_public = true)
+           ORDER BY created_at ASC LIMIT 1`,
+          [String(storeName).trim(), city, state, req.user.id]
+        );
+        if (dupe.rows.length) return res.status(200).json(dupe.rows[0]);
+      }
+      throw insertErr;
+    }
   } catch (error) {
     console.error('Error creating store:', error);
     res.status(500).json({ error: 'Failed to create store' });
+  }
+});
+
+/**
+ * GET /api/mdl/stores/suggest?q=
+ * Smart store-name autofill — powers the "custom store" inputs so typed
+ * variants resolve to one canonical name instead of duping.
+ * Ranking:
+ *   preferred — the caller's own saved form (user_store_names; wins always)
+ *   exact     — normalized name match in their visible set
+ *   alias     — learned variant (approved globally or their own pending)
+ *   fuzzy     — trigram "did you mean" (prefix fallback without pg_trgm)
+ * Display name resolves: user preferred -> canonical -> row name.
+ */
+router.get('/stores/suggest', authenticateToken, async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    if (q.length < 2) return res.json([]);
+    const uid = req.user.id;
+    const hits = new Map();
+    const push = (r) => {
+      const prev = hits.get(r.id);
+      if (!prev || r.score > prev.score) hits.set(r.id, r);
+    };
+
+    const pref = await db.query(
+      `SELECT s.id, s.name, usn.preferred_name AS display_name, 'preferred' AS matched_by, 100 AS score
+       FROM user_store_names usn
+       JOIN store_locations s ON s.id = usn.store_location_id
+       WHERE usn.user_id = $1
+         AND (lower(usn.preferred_name) LIKE '%' || lower($2) || '%'
+           OR lower(COALESCE(s.name, s.store_name, '')) LIKE '%' || lower($2) || '%')
+       LIMIT 6`, [uid, q]);
+    pref.rows.forEach(push);
+
+    const exact = await db.query(
+      `SELECT s.id, s.name, NULL AS display_name, 'exact' AS matched_by, 90 AS score
+       FROM store_locations s
+       WHERE lower(btrim(COALESCE(s.name, s.store_name, ''))) = lower(btrim($2))
+         AND (s.user_id = $1 OR s.user_id IS NULL OR s.is_public = true)
+       LIMIT 6`, [uid, q]);
+    exact.rows.forEach(push);
+
+    const alias = await db.query(
+      `SELECT s.id, s.name, t.canonical AS display_name, 'alias' AS matched_by, 80 AS score
+       FROM mdl_custom_terms t
+       JOIN store_locations s
+         ON lower(btrim(COALESCE(s.name, s.store_name, ''))) = lower(btrim(t.canonical))
+       WHERE t.kind = 'store'
+         AND (t.status = 'approved' OR (t.status = 'pending' AND t.created_by = $1))
+         AND lower(btrim(t.term)) = lower(btrim($2))
+         AND (s.user_id = $1 OR s.user_id IS NULL OR s.is_public = true)
+       LIMIT 6`, [uid, q]);
+    alias.rows.forEach(push);
+
+    try {
+      const fz = await db.query(
+        `SELECT s.id, s.name, NULL AS display_name, 'fuzzy' AS matched_by,
+                (55 + similarity(lower(btrim(COALESCE(s.name, s.store_name, ''))), lower(btrim($2))) * 35)::int AS score,
+                true AS did_you_mean
+         FROM store_locations s
+         WHERE (s.user_id = $1 OR s.user_id IS NULL OR s.is_public = true)
+           AND similarity(lower(btrim(COALESCE(s.name, s.store_name, ''))), lower(btrim($2))) > 0.3
+         ORDER BY score DESC LIMIT 6`, [uid, q]);
+      fz.rows.forEach(push);
+    } catch {
+      // pg_trgm unavailable — prefix match as the fuzzy fallback
+      const fb = await db.query(
+        `SELECT s.id, s.name, NULL AS display_name, 'fuzzy' AS matched_by, 55 AS score, false AS did_you_mean
+         FROM store_locations s
+         WHERE lower(btrim(COALESCE(s.name, s.store_name, ''))) LIKE lower(btrim($2)) || '%'
+           AND (s.user_id = $1 OR s.user_id IS NULL OR s.is_public = true)
+         ORDER BY s.created_at ASC LIMIT 6`, [uid, q]);
+      fb.rows.forEach(push);
+    }
+
+    res.json([...hits.values()]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8)
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        display_name: r.display_name || r.name,
+        matched_by: r.matched_by,
+        did_you_mean: !!r.did_you_mean,
+      })));
+  } catch (err) {
+    console.error('Error suggesting stores:', err);
+    res.status(500).json({ error: 'Failed to suggest stores' });
+  }
+});
+
+/**
+ * PUT /api/mdl/stores/:id/name { name }
+ * User-level rename — records the caller's preferred form in
+ * user_store_names so it's never overridden by the canonical name. Rows
+ * they own get renamed directly; shared/global rows only get the private
+ * preference so nobody else's display changes.
+ */
+router.put('/stores/:id/name', authenticateToken, async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const store = await db.query(
+      `SELECT * FROM store_locations WHERE id = $1
+         AND (user_id = $2 OR user_id IS NULL OR is_public = true)`,
+      [req.params.id, req.user.id]
+    );
+    if (!store.rows.length) return res.status(404).json({ error: 'Store not found' });
+
+    if (store.rows[0].user_id === req.user.id) {
+      await db.query(
+        'UPDATE store_locations SET name = $1, store_name = $1 WHERE id = $2',
+        [name, req.params.id]
+      );
+    }
+    await db.query(
+      `INSERT INTO user_store_names (user_id, store_location_id, preferred_name)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, store_location_id)
+       DO UPDATE SET preferred_name = $3, updated_at = NOW()`,
+      [req.user.id, req.params.id, name]
+    );
+    res.json({ ok: true, preferred_name: name });
+  } catch (err) {
+    console.error('Error setting store name:', err);
+    res.status(500).json({ error: 'Failed to set store name' });
   }
 });
 
@@ -1951,7 +2110,7 @@ router.get('/ab/next', authenticateToken, async (req, res) => {
          GROUP BY kind HAVING COUNT(*) >= 2
          ORDER BY COUNT(*) DESC LIMIT 1
        ), cand AS (
-         SELECT t.id, t.term, t.kind FROM mdl_custom_terms t
+         SELECT t.id, t.term, t.kind, t.canonical FROM mdl_custom_terms t
          WHERE t.status = 'pending' AND t.kind = (SELECT kind FROM pool)
        )
        SELECT a.id AS a_id, a.term AS a_term, b.id AS b_id, b.term AS b_term, a.kind
@@ -1960,7 +2119,9 @@ router.get('/ab/next', authenticateToken, async (req, res) => {
          SELECT 1 FROM mdl_ab_votes v
          WHERE v.user_id = $1 AND v.term_a_id = a.id AND v.term_b_id = b.id
        )
-       ORDER BY RANDOM() LIMIT 1`,
+       -- same-canonical pairs first: "waynes" vs "wanes" is a meaningful
+       -- A/B; unrelated terms just get a random pairing
+       ORDER BY (a.canonical IS NOT NULL AND a.canonical = b.canonical) DESC, RANDOM() LIMIT 1`,
       [req.user.id]
     );
     res.json(r.rows[0] || null);
@@ -2086,13 +2247,15 @@ router.delete('/admin/terms/:id', authenticateToken, async (req, res) => {
 // cover new tables automatically.
 const storeRefColumns = async (client = db) => {
   const r = await client.query(`
-    SELECT kcu.table_name, kcu.column_name
+    SELECT DISTINCT kcu.table_name, kcu.column_name
     FROM information_schema.table_constraints tc
     JOIN information_schema.key_column_usage kcu
       ON tc.constraint_name = kcu.constraint_name
      AND tc.table_schema = kcu.table_schema
+     AND tc.table_name = kcu.table_name
     JOIN information_schema.constraint_column_usage ccu
       ON tc.constraint_name = ccu.constraint_name
+     AND ccu.table_schema = tc.table_schema
     WHERE tc.constraint_type = 'FOREIGN KEY'
       AND ccu.table_name = 'store_locations'
       AND ccu.column_name = 'id'`);
@@ -2143,7 +2306,10 @@ router.get('/admin/stores', authenticateToken, async (req, res) => {
         s.city, s.state, s.zip_code, s.is_public, s.user_id, s.created_at,
         u.username AS owner_name,
         (${countSql}) AS ref_count,
-        COUNT(*) OVER (PARTITION BY ${STORE_NORM.replace(/name|store_name/g, (m) => `s.${m}`)}) > 1 AS is_dup
+        COUNT(*) OVER (
+          PARTITION BY ${STORE_NORM.replace(/name|store_name/g, (m) => `s.${m}`)},
+            lower(btrim(COALESCE(s.city, ''))), lower(btrim(COALESCE(s.state, '')))
+        ) > 1 AS is_dup
       FROM store_locations s
       LEFT JOIN users u ON u.id = s.user_id
       ORDER BY ${STORE_NORM.replace(/name|store_name/g, (m) => `s.${m}`)}, s.created_at ASC`);
@@ -2216,29 +2382,45 @@ router.post('/admin/stores/merge', authenticateToken, async (req, res) => {
  */
 router.post('/admin/stores/dedupe', authenticateToken, async (req, res) => {
   const client = await db.pool.connect();
+  let merged = 0;
+  let doneGroups = 0;
   try {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
     const refs = await storeRefColumns(client);
     const countSql = refs.map((c) =>
       `(SELECT COUNT(*) FROM ${c.table_name} r WHERE r.${c.column_name} = s.id)`
     ).join(' + ') || '0';
+    // Ref counts via a CTE join — correlated subqueries inside array_agg's
+    // ORDER BY aren't portable/are easy for the planner to choke on.
     const groups = await client.query(`
+      WITH cnt AS (
+        SELECT s.id, (${countSql}) AS ref_count FROM store_locations s
+      )
       SELECT ${STORE_NORM.replace(/name|store_name/g, (m) => `s.${m}`)} AS norm,
-             array_agg(s.id ORDER BY (${countSql}) DESC, s.created_at ASC) AS ids
+             array_agg(s.id ORDER BY cnt.ref_count DESC, s.created_at ASC) AS ids
       FROM store_locations s
-      GROUP BY 1 HAVING COUNT(*) > 1`);
-    let merged = 0;
-    await client.query('BEGIN');
+      JOIN cnt ON cnt.id = s.id
+      GROUP BY 1,
+             lower(btrim(COALESCE(s.city, ''))),
+             lower(btrim(COALESCE(s.state, '')))
+      HAVING COUNT(*) > 1`);
+    // Commit per group — the merge touches every FK table per dupe, so a
+    // large run can outlive the client's request window. Per-group commits
+    // mean progress persists and a retry picks up where it left off.
     for (const g of groups.rows) {
       const [keep, ...rest] = g.ids;
+      await client.query('BEGIN');
       for (const rid of rest) { await mergeStoreInto(client, keep, rid); merged += 1; }
+      await client.query('COMMIT');
+      doneGroups += 1;
     }
-    await client.query('COMMIT');
-    res.json({ ok: true, groups: groups.rows.length, merged });
+    res.json({ ok: true, groups: doneGroups, merged });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     console.error('Error deduping stores:', err);
-    res.status(500).json({ error: 'Failed to dedupe stores' });
+    res.status(500).json({
+      error: `Failed to dedupe stores${merged ? ` — ${merged} merged before the failure, re-run to continue` : ''}`
+    });
   } finally {
     client.release();
   }

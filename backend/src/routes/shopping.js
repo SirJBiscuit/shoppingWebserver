@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { updateItemPreferences } = require('../services/itemPreferences');
 const { recordItemCheckOff, getPersonalizedSortOrder } = require('../services/sortingLearning');
 const { canonicalizeCategory, resolveCategory } = require('../utils/categories');
+const { learnTerm, resolveStore } = require('../services/mdlTerms');
 
 const router = express.Router();
 
@@ -224,6 +225,15 @@ router.post('/lists', async (req, res) => {
         notes || null
       ]
     );
+
+    // Learn the typed store name — resolve to canonical so "wanes" maps
+    // onto "Waynes". Fire-and-forget: learning never blocks the create,
+    // and the user's typed form is what's stored on the list either way.
+    if (store_name && String(store_name).trim() && String(store_name).trim().toLowerCase() !== 'custom') {
+      resolveStore(req.user.id, store_name)
+        .then((r) => learnTerm('store', store_name, r ? (r.store.name || r.store.store_name) : null, req.user.id))
+        .catch(() => {});
+    }
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -511,6 +521,13 @@ router.put('/lists/:id', async (req, res) => {
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Shopping list not found' });
+    }
+
+    // Learn the typed store name (same fire-and-forget as list create)
+    if (store_name && String(store_name).trim() && String(store_name).trim().toLowerCase() !== 'custom') {
+      resolveStore(req.user.id, store_name)
+        .then((r) => learnTerm('store', store_name, r ? (r.store.name || r.store.store_name) : null, req.user.id))
+        .catch(() => {});
     }
 
     console.log('Update successful:', result.rows[0]);

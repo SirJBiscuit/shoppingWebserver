@@ -6,6 +6,10 @@ import api from '../../services/api';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
 
 const KINDS = ['unit', 'category', 'aisle', 'store', 'item', 'icon'];
+// Same aggressive normalization the backend uses — hides the "→ canonical"
+// marker when the variant only differs by case/punctuation.
+const normName = (s) =>
+  String(s || '').toLowerCase().replace(/['’`]/g, '').replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
 const STATUS_META = {
   pending: { label: 'Pending', cls: 'bg-amber-500/20 text-amber-300' },
   approved: { label: 'Approved', cls: 'bg-emerald-500/20 text-emerald-300' },
@@ -87,11 +91,13 @@ const MdlFloatPanel = ({ onClose }) => {
 
   const dedupeAll = async () => {
     try {
-      const { data } = await api.post('/mdl/admin/stores/dedupe');
+      // Long timeout — the merge touches every FK table per dupe, and
+      // commits are per-group so even a cut-short run keeps its progress.
+      const { data } = await api.post('/mdl/admin/stores/dedupe', {}, { timeout: 120000 });
       setMsg(`Deduped ${data.groups} group${data.groups === 1 ? '' : 's'} — merged ${data.merged} store${data.merged === 1 ? '' : 's'}`);
       load();
-    } catch {
-      setMsg('Dedupe failed');
+    } catch (err) {
+      setMsg(err.response?.data?.error || 'Dedupe timed out — progress is saved, run again to continue');
     }
   };
 
@@ -292,7 +298,14 @@ const MdlFloatPanel = ({ onClose }) => {
               {view === 'terms' && (terms || []).map((t) => (
                 <div key={t.id} className="px-3 py-2 border-b border-slate-800/60 flex items-center gap-2">
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm text-slate-100 font-medium truncate">{t.term}</div>
+                    <div className="text-sm text-slate-100 font-medium truncate">
+                      {t.term}
+                      {t.canonical && normName(t.term) !== normName(t.canonical) && (
+                        <span className="ml-1.5 text-[10px] font-normal text-violet-400" title="Variant of">
+                          → {t.canonical}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[10px] text-slate-500">
                       {t.kind} · used {t.usage_count}× · by {t.created_by_name || 'unknown'}
                       {t.votes_for > 0 && (

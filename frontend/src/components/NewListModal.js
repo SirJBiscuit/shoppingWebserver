@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { ShoppingCart, Store, Tag, Sparkles } from 'lucide-react';
 import MenuPanel from './MenuPanel';
 import { getAvailableStores } from '../data/storeLayouts';
-import { shoppingAPI } from '../services/api';
+import api, { shoppingAPI } from '../services/api';
 
 const NewListModal = ({ isOpen, onClose, onCreateList, existingLists = [] }) => {
   const [listName, setListName] = useState('');
   const [storeName, setStoreName] = useState('');
+  const [customName, setCustomName] = useState(''); // typed custom store name
+  const [storeSug, setStoreSug] = useState([]);     // smart store suggestions
   const [listType, setListType] = useState('general'); // general, weekly, store-specific
   const [notes, setNotes] = useState('');
   const [serverNames, setServerNames] = useState([]); // [{name, uses}]
@@ -33,6 +35,23 @@ const NewListModal = ({ isOpen, onClose, onCreateList, existingLists = [] }) => 
     }
   }, [serverNames, storeName]);
 
+  // Smart store suggestions for the custom-store field — canonical names,
+  // learned variants and "did you mean" fuzzy hits. Debounced so it only
+  // queries once the user pauses typing.
+  useEffect(() => {
+    if (storeName !== 'custom' || customName.trim().length < 2) {
+      setStoreSug([]);
+      return undefined;
+    }
+    let cancelled = false;
+    const t = setTimeout(() => {
+      api.get('/mdl/stores/suggest', { params: { q: customName.trim() } })
+        .then((r) => { if (!cancelled) setStoreSug(Array.isArray(r.data) ? r.data : []); })
+        .catch(() => { if (!cancelled) setStoreSug([]); });
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [customName, storeName]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     
@@ -42,7 +61,7 @@ const NewListModal = ({ isOpen, onClose, onCreateList, existingLists = [] }) => 
 
     onCreateList({
       name: listName.trim(),
-      store_name: storeName.trim() || null,
+      store_name: (storeName === 'custom' ? customName : storeName).trim() || null,
       list_type: listType,
       notes: notes.trim() || null
     });
@@ -50,6 +69,8 @@ const NewListModal = ({ isOpen, onClose, onCreateList, existingLists = [] }) => 
     // Reset form
     setListName('');
     setStoreName('');
+    setCustomName('');
+    setStoreSug([]);
     setListType('general');
     setNotes('');
     onClose();
@@ -185,12 +206,41 @@ const NewListModal = ({ isOpen, onClose, onCreateList, existingLists = [] }) => 
               </select>
               
               {storeName === 'custom' && (
-                <input
-                  type="text"
-                  placeholder="Enter custom store name"
-                  className="input-field mt-2"
-                  onChange={(e) => setStoreName(e.target.value)}
-                />
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    value={customName}
+                    placeholder="Enter custom store name"
+                    className="input-field"
+                    onChange={(e) => setCustomName(e.target.value)}
+                  />
+                  {/* Smart suggestions — canonical names + learned variants +
+                      fuzzy "did you mean" hits for typed spellings */}
+                  {storeSug.length > 0 && (
+                    <div className="mt-1.5 space-y-1 max-h-44 overflow-y-auto scrollbar-3d">
+                      {storeSug.map((s) => (
+                        <button
+                          key={`${s.id}-${s.matched_by}`}
+                          type="button"
+                          onClick={() => { setCustomName(s.display_name); setStoreSug([]); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm bg-gray-50 dark:bg-gray-700/60 hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors"
+                        >
+                          <Store className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                          <span className="flex-1 truncate text-gray-800 dark:text-gray-200">{s.display_name}</span>
+                          {s.did_you_mean && (
+                            <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 shrink-0">did you mean?</span>
+                          )}
+                          {s.matched_by === 'preferred' && (
+                            <span className="text-[10px] font-semibold text-primary-600 dark:text-primary-400 shrink-0">yours</span>
+                          )}
+                          {s.matched_by === 'alias' && (
+                            <span className="text-[10px] font-semibold text-violet-500 dark:text-violet-400 shrink-0">learned</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}

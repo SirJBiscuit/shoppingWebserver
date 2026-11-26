@@ -26,6 +26,7 @@ const WEIGHTS = {
   pin: 8,
   pinFixedBonus: 12,
   pollVote: 2,
+  abVote: 2,
   mdlItem: 3,
   mdlPrice: 4,
   aisleReport: 4,
@@ -42,7 +43,7 @@ const TIERS = [
 const tierFor = (score) => TIERS.find((t) => score >= t.min) || TIERS[TIERS.length - 1];
 
 const zeroCounts = () => ({
-  feedback: 0, bugs: 0, pins: 0, pinsFixed: 0, pollVotes: 0,
+  feedback: 0, bugs: 0, pins: 0, pinsFixed: 0, pollVotes: 0, abVotes: 0,
   mdlItems: 0, mdlPrices: 0, aisleReports: 0, recipes: 0,
 });
 
@@ -52,6 +53,7 @@ const scoreFromCounts = (c, bonus = 0) =>
   c.pins * WEIGHTS.pin +
   c.pinsFixed * WEIGHTS.pinFixedBonus +
   c.pollVotes * WEIGHTS.pollVote +
+  c.abVotes * WEIGHTS.abVote +
   c.mdlItems * WEIGHTS.mdlItem +
   c.mdlPrices * WEIGHTS.mdlPrice +
   c.aisleReports * WEIGHTS.aisleReport +
@@ -73,12 +75,13 @@ const countContributions = async (userIds = null) => {
 
   const safe = (sql) => db.query(sql, params).catch(() => ({ rows: [] }));
 
-  const [feedback, pins, votes, items, prices, aisles, recipes, testers] = await Promise.all([
+  const [feedback, pins, votes, abVotes, items, prices, aisles, recipes, testers] = await Promise.all([
     safe(`SELECT user_id, COUNT(*)::int total, COUNT(*) FILTER (WHERE type='bug')::int bugs
           FROM beta_feedback ${filter} GROUP BY user_id`),
     safe(`SELECT user_id, COUNT(*)::int total, COUNT(*) FILTER (WHERE status='fixed')::int fixed
           FROM beta_pins ${filter} GROUP BY user_id`),
     safe(`SELECT user_id, COUNT(*)::int total FROM beta_feature_poll_votes ${filter} GROUP BY user_id`),
+    safe(`SELECT user_id, COUNT(*)::int total FROM mdl_ab_votes ${filter} GROUP BY user_id`),
     safe(`SELECT user_id, COUNT(DISTINCT item_name_id)::int items
           FROM mdl_user_item_history ${filter} GROUP BY user_id`),
     safe(`SELECT user_id, COUNT(*) FILTER (WHERE price IS NOT NULL AND price > 0)::int priced
@@ -91,6 +94,7 @@ const countContributions = async (userIds = null) => {
   map = merge(map, feedback.rows, (c, r) => { c.feedback = r.total; c.bugs = r.bugs; });
   map = merge(map, pins.rows, (c, r) => { c.pins = r.total; c.pinsFixed = r.fixed; });
   map = merge(map, votes.rows, (c, r) => { c.pollVotes = r.total; });
+  map = merge(map, abVotes.rows, (c, r) => { c.abVotes = r.total; });
   map = merge(map, items.rows, (c, r) => { c.mdlItems = r.items; });
   map = merge(map, prices.rows, (c, r) => { c.mdlPrices = r.priced; });
   map = merge(map, aisles.rows, (c, r) => { c.aisleReports = r.total; });
@@ -116,6 +120,7 @@ const countContributions = async (userIds = null) => {
         'Pins': counts.pins * WEIGHTS.pin,
         'Pins fixed': counts.pinsFixed * WEIGHTS.pinFixedBonus,
         'Poll votes': counts.pollVotes * WEIGHTS.pollVote,
+        'MDL training votes': counts.abVotes * WEIGHTS.abVote,
         'Items taught': counts.mdlItems * WEIGHTS.mdlItem,
         'Prices logged': counts.mdlPrices * WEIGHTS.mdlPrice,
         'Aisle reports': counts.aisleReports * WEIGHTS.aisleReport,

@@ -27,7 +27,12 @@ const useWidgetOrder = () => {
   });
   const loaded = useRef(false);
 
-  // Hydrate from the server on mount
+  // Hydrate from the server on mount. Server writes are debounced, so a
+  // remount can arrive BEFORE the last save landed — trusting the server
+  // unconditionally used to revert the user's most recent drag (the
+  // "widgets forgot their place" bug). Every persisted map now carries
+  // _meta.savedAt; hydrate picks the newer side and pushes it back when
+  // local wins, so an unflushed local change survives.
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -35,9 +40,21 @@ const useWidgetOrder = () => {
         const raw = await getPreference(PREF_KEY);
         if (!alive) return;
         const parsed = raw ? JSON.parse(raw) : {};
-        const map = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-        setOrderMap(map);
-        localStorage.setItem(PREF_KEY, JSON.stringify(map));
+        const server = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+        let local = {};
+        try {
+          const l = JSON.parse(localStorage.getItem(PREF_KEY) || '{}');
+          local = l && typeof l === 'object' && !Array.isArray(l) ? l : {};
+        } catch { /* ignore */ }
+        const serverT = server._meta?.savedAt || 0;
+        const localT = local._meta?.savedAt || 0;
+        const winner = serverT >= localT ? server : local;
+        setOrderMap(winner);
+        localStorage.setItem(PREF_KEY, JSON.stringify(winner));
+        // Local was newer — the server missed a save; flush it back.
+        if (localT > serverT) {
+          savePreference(PREF_KEY, JSON.stringify(local)).catch(() => {});
+        }
       } catch {
         // keep local mirror
       } finally {
@@ -49,13 +66,15 @@ const useWidgetOrder = () => {
 
   const saveTimer = useRef(null);
   const persist = useCallback((map) => {
-    localStorage.setItem(PREF_KEY, JSON.stringify(map));
+    const stamped = { ...map, _meta: { savedAt: Date.now() } };
+    localStorage.setItem(PREF_KEY, JSON.stringify(stamped));
     // Reorder.Group fires onReorder on every position change while a drag
     // is in flight — debounce the network save so one drag = one write.
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      savePreference(PREF_KEY, JSON.stringify(map)).catch(() => {});
+      savePreference(PREF_KEY, JSON.stringify(stamped)).catch(() => {});
     }, 800);
+    return stamped;
   }, []);
 
   // Merge a saved order with the defaults — saved ids first (in saved

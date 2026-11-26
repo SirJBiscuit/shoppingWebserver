@@ -38,13 +38,18 @@ router.post('/upload', authenticateToken, upload.single('image'), async (req, re
 
     // Beta tester daily icon quota — 5/day until they've earned enough
     // contribution credit (10 approved MDL terms) to upload freely.
+    // A failing quota check must never block an upload.
     if (isIcon) {
-      const quota = await iconQuota(req.user.id);
-      if (!quota.unlimited && quota.used >= quota.limit) {
-        return res.status(429).json({
-          error: `Daily icon limit reached (${quota.limit}/day for beta testers). It lifts once ${quota.threshold} of your MDL suggestions are approved.`,
-          quota,
-        });
+      try {
+        const quota = await iconQuota(req.user.id);
+        if (!quota.unlimited && quota.used >= quota.limit) {
+          return res.status(429).json({
+            error: `Daily icon limit reached (${quota.limit}/day for beta testers). It lifts once ${quota.threshold} of your MDL suggestions are approved.`,
+            quota,
+          });
+        }
+      } catch (qErr) {
+        console.warn('Icon quota check failed (allowing upload):', qErr.message);
       }
     }
 
@@ -68,12 +73,23 @@ router.post('/upload', authenticateToken, upload.single('image'), async (req, re
     const thumbnailUrl = await nextcloud.uploadImage(thumbnailBuffer, thumbnailFilename, folder || image_type);
 
     // Save to database — shared icons enter the pending pool for admin
-    // review; local icons stay private (existing behavior).
-    const result = await db.query(`
-      INSERT INTO images (user_id, image_url, thumbnail_url, image_type, related_id, file_size, mime_type, shared_status, shared_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING *
-    `, [req.user.id, imageUrl, thumbnailUrl, image_type, related_id, imageBuffer.length, isIcon ? 'image/png' : req.file.mimetype, share && isIcon ? 'pending' : 'local', share && isIcon ? new Date() : null]);
+    // review; local icons stay private (existing behavior). Falls back to
+    // the pre-share column set if migration 122 hasn't landed yet.
+    let result;
+    try {
+      result = await db.query(`
+        INSERT INTO images (user_id, image_url, thumbnail_url, image_type, related_id, file_size, mime_type, shared_status, shared_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING *
+      `, [req.user.id, imageUrl, thumbnailUrl, image_type, related_id, imageBuffer.length, isIcon ? 'image/png' : req.file.mimetype, share && isIcon ? 'pending' : 'local', share && isIcon ? new Date() : null]);
+    } catch (insErr) {
+      if (insErr.code !== '42703') throw insErr;
+      result = await db.query(`
+        INSERT INTO images (user_id, image_url, thumbnail_url, image_type, related_id, file_size, mime_type)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING *
+      `, [req.user.id, imageUrl, thumbnailUrl, image_type, related_id, imageBuffer.length, isIcon ? 'image/png' : req.file.mimetype]);
+    }
 
     // Attach to MDL entities when tagged (non-fatal — upload still succeeds)
     try {
@@ -95,7 +111,7 @@ router.post('/upload', authenticateToken, upload.single('image'), async (req, re
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Image upload error:', error);
-    res.status(500).json({ error: 'Failed to upload image' });
+    res.status(500).json({ error: 'Failed to upload image', detail: error.message });
   }
 });
 

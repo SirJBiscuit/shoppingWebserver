@@ -853,3 +853,12 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - AVE toolbar converted to the chip scheme (rounded-full gradient chips).
 - BetaOnboarding: 6-step tester tour (pins, viewer tabs, Help MDL, limits) auto-fires once per tester after the general tour, replayable via "?" in the Beta Viewer header.
 - BetaTesterManagementCFS rebuilt: compact tester list (avatar + activity dot + quality bar) beside a detail sidebar — gradient header, quality/BTCS, clickable contribution stats, grouped labeled control list (Communicate / Account / Danger zone). Details modal + radial menu removed.
+
+## Smart store-name learning + dupe prevention + upload/persist fixes (latest)
+- Store-name learning: migration 124 adds unique partial indexes (public stores globally, private per-user) on normalized name+city+state so dupes can't be created; both insert paths (mdl POST /stores, stores POST /) dedupe + catch 23505 race. Dedupe-all commits per group (progress survives timeouts) and groups by name+city+state; storeRefColumns join constrained by table_name.
+- mdlTerms service (migration 125): mdl_custom_terms.canonical + user_store_names (per-user preferred form, never overridden) + trigram indexes. resolveStore = exact -> alias -> fuzzy; every store-typing path (list create/update, custom store create) learns the term. GET /api/mdl/stores/suggest (fuzzy incl. user's preferred form), PUT /api/mdl/stores/preferred-name (user rename = new preferred form). /ab/next prefers same-canonical pairs ("waynes" vs "wanes").
+- NewListModal: separate customName state (fixes input unmounting mid-keystroke) + suggest dropdown wired to /stores/suggest.
+- A/B votes count toward BTCS (weight 2, same as poll votes).
+- Fix /api/images/upload 500: iconQuota failure no longer blocks uploads (try/catch), INSERT falls back when shared_status column absent (migration 122), real error.message surfaced.
+- Fix widget positions not persisting: saves are debounced 800ms and hydrate blindly overwrote the newer local mirror — unflushed drags reverted on remount. Persisted map now carries _meta.savedAt; hydrate picks the newer side and pushes local back to server when local wins.
+- HidableWidget lock chip moved to hang half-off the right edge + dimmed when locked (no longer covers content).

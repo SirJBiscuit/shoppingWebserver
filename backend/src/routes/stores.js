@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../database/db');
 const { authenticateToken } = require('../middleware/auth');
+const { normName, learnTerm, resolveStore } = require('../services/mdlTerms');
 
 const router = express.Router();
 
@@ -29,13 +30,58 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    const result = await db.query(
-      `INSERT INTO store_locations (name, store_name, chain, chain_name, area_code, city, state, zip_code, user_id, created_by)
-       VALUES ($1, $1, $2, $2, $3, $4, $5, $6, $7, $7)
-       RETURNING *`,
-      [name, chain, area_code, city, state, zip_code, req.user.id]
-    );
-    res.json(result.rows[0]);
+    // Smart resolve: exact -> learned alias -> strong fuzzy. A hit
+    // returns the existing store and records the typed form as a pending
+    // variant for the A/B review pipeline instead of duplicating.
+    const resolved = await resolveStore(req.user.id, name);
+    if (resolved && resolved.via !== 'exact') {
+      const canon = resolved.store.name || resolved.store.store_name;
+      if (normName(name) !== normName(canon)) {
+        learnTerm('store', name, canon, req.user.id); // fire-and-forget
+      }
+      return res.status(200).json(resolved.store);
+    }
+    // Dedupe on normalized name+city+state within the caller's visible
+    // set — returns the existing row instead of creating
+    // "walmart"/"Walmart " dupes (mirrors POST /api/mdl/stores and the
+    // uq_store_locations_norm unique index).
+    const existing = await db.query(`
+      SELECT * FROM store_locations
+      WHERE lower(btrim(COALESCE(name, store_name, ''))) = lower(btrim($1))
+        AND lower(btrim(COALESCE(city, ''))) = lower(btrim(COALESCE($2, '')))
+        AND lower(btrim(COALESCE(state, ''))) = lower(btrim(COALESCE($3, '')))
+        AND (user_id = $4 OR user_id IS NULL OR is_public = true)
+      ORDER BY created_at ASC LIMIT 1
+    `, [String(name).trim(), city, state, req.user.id]);
+    if (existing.rows.length) return res.status(200).json(existing.rows[0]);
+
+    try {
+      const result = await db.query(
+        `INSERT INTO store_locations (name, store_name, chain, chain_name, area_code, city, state, zip_code, user_id, created_by)
+         VALUES ($1, $1, $2, $2, $3, $4, $5, $6, $7, $7)
+         RETURNING *`,
+        [name, chain, area_code, city, state, zip_code, req.user.id]
+      );
+      // Seed the term pool so future spelling variants can map to this name
+      learnTerm('store', name, name, req.user.id);
+      res.json(result.rows[0]);
+    } catch (insertErr) {
+      // Lost the check-then-insert race against uq_store_locations_norm —
+      // the row now exists, so just hand it back.
+      if (insertErr.code === '23505') {
+        const dupe = await db.query(
+          `SELECT * FROM store_locations
+           WHERE lower(btrim(COALESCE(name, store_name, ''))) = lower(btrim($1))
+             AND lower(btrim(COALESCE(city, ''))) = lower(btrim(COALESCE($2, '')))
+             AND lower(btrim(COALESCE(state, ''))) = lower(btrim(COALESCE($3, '')))
+             AND (user_id = $4 OR user_id IS NULL OR is_public = true)
+           ORDER BY created_at ASC LIMIT 1`,
+          [String(name).trim(), city, state, req.user.id]
+        );
+        if (dupe.rows.length) return res.status(200).json(dupe.rows[0]);
+      }
+      throw insertErr;
+    }
   } catch (error) {
     console.error('Error creating store:', error);
     res.status(500).json({ error: 'Failed to create store' });
