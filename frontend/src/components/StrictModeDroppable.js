@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Droppable } from 'react-beautiful-dnd';
+import { Droppable } from '@hello-pangea/dnd';
 
 /**
  * StrictModeDroppable — react-beautiful-dnd's <Droppable> registers its

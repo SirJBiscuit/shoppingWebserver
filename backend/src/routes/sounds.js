@@ -26,7 +26,11 @@ const PREF_COLUMNS = [
   'error', 'warning', 'delete', 'add', 'scan', 'voice',
 ];
 
-const uploadDir = path.join(__dirname, '../../storage/sounds');
+// Must match the /storage static mount (server.js) and storage.js's
+// ../../storage — from src/routes that's one more level up. Writing to
+// /app/storage puts uploads in container-local FS where they 404 and
+// vanish on rebuild.
+const uploadDir = path.join(__dirname, '../../../storage/sounds');
 
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {

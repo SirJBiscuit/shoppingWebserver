@@ -43,12 +43,19 @@ services:
       STRIPE_PRICE_MONTHLY: ${STRIPE_PRICE_MONTHLY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
       FRONTEND_URL: ${FRONTEND_URL}
+      # save points live on the ./backups host mount (persistent across rebuilds)
+      BETA_BACKUP_DIR: /backups/beta
+      MDL_BACKUP_DIR: /backups/mdl
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       # rw required: auto-updater writes .update-requested for update-server.sh
       - /opt/cloudmc-shop:/opt/cloudmc-shop
       # persist /storage/{category} uploads across rebuilds
       - shop_storage:/storage
+      # persist save points (beta/mdl backups) — backend's default
+      # ../../backups resolves to container-local /app/backups which is
+      # wiped on every rebuild, making saved snapshots disappear
+      - ./backups:/backups
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

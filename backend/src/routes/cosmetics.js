@@ -13,10 +13,13 @@ const {
 } = require('../utils/xpSystem');
 const db = require('../database/db');
 
-// Configure multer for icon uploads
+// Configure multer for icon uploads. Icons live under /storage/icons —
+// the shop_storage volume mounted at /storage — so uploads survive
+// rebuilds. (Previously ../public/icons → /app/src/public/icons, which
+// is container-local and wiped on every update-server.sh rebuild.)
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../public/icons');
+    const uploadDir = path.join(__dirname, '../../../storage/icons');
     try {
       await fs.mkdir(uploadDir, { recursive: true });
       cb(null, uploadDir);
@@ -179,7 +182,7 @@ router.post('/icons/admin/bulk-upload', authenticateToken, isAdmin, upload.array
           parsed.variant,
           parsed.category,
           parsed.filename,
-          `/icons/${parsed.filename}`,
+          `/storage/icons/${parsed.filename}`,
           parsed.qualityTier,
           parsed.minLevel,
           parsed.animated,

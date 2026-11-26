@@ -6,7 +6,7 @@ import {
   AlertCircle, CheckCircle, X, ArrowLeft, Archive, FlaskConical, Home,
   StickyNote, Users, ArchiveRestore
 } from 'lucide-react';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useFeatureFlags } from '../../context/FeatureFlagContext';

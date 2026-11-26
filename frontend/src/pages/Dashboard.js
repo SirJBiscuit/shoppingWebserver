@@ -6,7 +6,7 @@ import { useCartAnimation } from '../contexts/CartAnimationContext';
 import { useOptimization } from '../contexts/OptimizationContext';
 import { useEditor } from '../contexts/EditorContext';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
-import { DragDropContext, Draggable } from 'react-beautiful-dnd';
+import { DragDropContext, Draggable } from '@hello-pangea/dnd';
 import {
   ShoppingCart, LogOut, Plus, Search, Trash2, Check, CheckCircle, Edit2, X,
   AlertCircle, TrendingUp, Package, DollarSign, ChefHat, Settings, 
@@ -136,7 +136,7 @@ const DraggableWidget = ({ id, index, label, hidden, onHide, onUnhide, onMove, m
     <div
       ref={drag.innerRef}
       {...drag.draggableProps}
-      className={snapshot.isDragging ? 'z-30 rotate-[0.7deg] scale-[0.99] drop-shadow-2xl' : ''}
+      className={snapshot.isDragging ? 'z-[9990] rotate-[0.7deg] scale-[0.99] drop-shadow-2xl' : ''}
     >
       <HidableWidget
         id={id}

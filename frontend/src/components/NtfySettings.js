@@ -143,13 +143,13 @@ const NtfySettings = () => {
   const load = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/api/ntfy/settings`, { headers: authHeaders() });
-      if (res.ok) {
+      if (res.ok && res.headers.get('content-type')?.includes('json')) {
         const d = await res.json();
         setUserCfg({ topic: d.topic || '', enabled: d.enabled === true, types: d.types || {}, typeLabels: USER_TYPE_LABELS });
       }
       if (user?.isAdmin || user?.is_admin) {
         const ares = await fetch(`${API_URL}/api/ntfy/admin/settings`, { headers: authHeaders() });
-        if (ares.ok) {
+        if (ares.ok && ares.headers.get('content-type')?.includes('json')) {
           const ad = await ares.json();
           setAdminCfg({ topic: ad.topic || '', enabled: ad.enabled === true, types: ad.types || {}, typeLabels: ADMIN_TYPE_LABELS });
         }
@@ -170,7 +170,9 @@ const NtfySettings = () => {
         headers: authHeaders(),
         body: JSON.stringify({ topic: cfg.topic, enabled: cfg.enabled, types: strip(cfg.types) }),
       });
-      const d = await res.json();
+      const d = res.headers.get('content-type')?.includes('json')
+        ? await res.json()
+        : { error: `Server returned ${res.status} — the backend may be restarting, try again in a moment` };
       if (!res.ok) throw new Error(d.error || 'Save failed');
       setMsg({ ok: true, text: 'Saved.' });
     } catch (err) {
@@ -185,7 +187,9 @@ const NtfySettings = () => {
     setMsg(null);
     try {
       const res = await fetch(`${API_URL}${path}`, { method: 'POST', headers: authHeaders() });
-      const d = await res.json();
+      const d = res.headers.get('content-type')?.includes('json')
+        ? await res.json()
+        : { error: `Server returned ${res.status} — the backend may be restarting, try again in a moment` };
       if (!res.ok) throw new Error(d.error || 'Test failed');
       setMsg({ ok: true, text: 'Test sent — check your phone!' });
     } catch (err) {
