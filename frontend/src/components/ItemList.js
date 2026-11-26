@@ -1047,40 +1047,40 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                         <button
                           type="button"
                           onClick={openAislePicker}
-                          className="inline-flex items-center px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-semibold cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800/40 active:scale-95 transition-all"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-b from-blue-100 to-blue-200/80 dark:from-blue-900/40 dark:to-blue-900/25 text-blue-700 dark:text-blue-300 rounded-full text-xs font-semibold cursor-pointer border border-blue-200 dark:border-blue-800 shadow-[0_1px_0_rgb(191_219_254/0.9)] dark:shadow-[0_1px_0_rgb(30_58_138/0.6)] hover:-translate-y-px hover:shadow-[0_2px_0_rgb(191_219_254/0.9)] active:translate-y-px active:shadow-none transition-all"
                           title={`Aisle ${dbAisle}${item.aisle_name ? ` (${item.aisle_name})` : ''} — tap to change`}
                         >
-                          <MapPin className="w-3 h-3 mr-1" />
+                          <MapPin className="w-3 h-3" />
                           Aisle {dbAisle}
+                          {item.aisle_name && (
+                            <span className="max-w-[8rem] truncate font-normal text-blue-600/80 dark:text-blue-300/80">· {item.aisle_name}</span>
+                          )}
                         </button>
                       ) : aisle ? (
                         <button
                           type="button"
                           onClick={openAislePicker}
-                          className="inline-flex items-center px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-500 dark:text-blue-400 rounded-full text-xs font-medium cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/40 active:scale-95 transition-all ring-1 ring-blue-200 dark:ring-blue-800"
-                          title={`Estimated aisle ${aisle.number} from store layout — tap to confirm or change`}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50/70 dark:bg-blue-900/20 text-blue-500 dark:text-blue-400 rounded-full text-xs font-medium cursor-pointer border border-dashed border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/40 active:scale-95 transition-all"
+                          title={`Estimated aisle ${aisle.number}${aisle.name ? ` (${aisle.name})` : ''} from store layout — tap to confirm or change`}
                         >
-                          <MapPin className="w-3 h-3 mr-1" />
+                          <MapPin className="w-3 h-3" />
                           Aisle {aisle.number}?
+                          {aisle.name && (
+                            <span className="max-w-[8rem] truncate text-blue-400 dark:text-blue-500">· {aisle.name}</span>
+                          )}
                         </button>
                       ) : (
                         <button
                           type="button"
                           onClick={openAislePicker}
-                          className="inline-flex items-center px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-95 transition-all"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-gray-500 dark:text-gray-400 rounded-full text-xs font-medium border border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-300 hover:text-blue-600 dark:hover:border-blue-700 dark:hover:text-blue-400 active:scale-95 transition-all"
                           title="Set the aisle for this item"
                         >
-                          <MapPin className="w-3 h-3 mr-1" />
+                          <MapPin className="w-3 h-3" />
                           + Aisle
                         </button>
                       )}
                     </div>
-                    {/* Show aisle name if available */}
-                    {(item.aisle_name || aisle?.name) && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                        {item.aisle_name || aisle.name}
-                      </p>
-                    )}
                     {/* Show notes if present */}
                     {item.notes && (
                       <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border-l-2 border-yellow-400 dark:border-yellow-600 rounded">

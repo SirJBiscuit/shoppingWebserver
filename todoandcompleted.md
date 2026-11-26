@@ -862,3 +862,8 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Fix /api/images/upload 500: iconQuota failure no longer blocks uploads (try/catch), INSERT falls back when shared_status column absent (migration 122), real error.message surfaced.
 - Fix widget positions not persisting: saves are debounced 800ms and hydrate blindly overwrote the newer local mirror — unflushed drags reverted on remount. Persisted map now carries _meta.savedAt; hydrate picks the newer side and pushes local back to server when local wins.
 - HidableWidget lock chip moved to hang half-off the right edge + dimmed when locked (no longer covers content).
+
+## Aisle picker UX polish (latest)
+- QuickAislePicker: store-aisle chips are now 3D destination chips — number badge + name inside a rounded-full gradient chip (check mark when selected, category list in tooltip). Suggestion + Set buttons follow the same gradient-chip press.
+- Number grid: 3D tiles with hover-lift/press; tiles matching a configured store aisle stay blue-tinted; when the store has configured aisles the raw grid collapses behind an "Any aisle number" disclosure (configured destinations are the right default).
+- ItemList trigger chips: set state carries the aisle name inline (truncated) instead of a second line; estimated and unset states use dashed outlines (unconfirmed/empty-slot signal, matching the unit? convention).
