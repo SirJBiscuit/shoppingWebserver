@@ -5,15 +5,16 @@ import { ModalPortal } from '../../utils/autoPlacement';
  * ConfirmModal - Custom confirmation dialog
  * Replaces window.confirm() for professional UI
  */
-const ConfirmModal = ({ 
-  isOpen, 
-  title, 
-  message, 
-  confirmText = 'Confirm', 
+const ConfirmModal = ({
+  isOpen,
+  title,
+  message,
+  confirmText = 'Confirm',
   cancelText = 'Cancel',
-  onConfirm, 
+  onConfirm,
   onCancel,
-  type = 'danger' // 'danger', 'warning', 'info'
+  type = 'danger', // 'danger', 'warning', 'info'
+  backdropClassName = 'z-50 p-4' // raise when mounted inside a floating panel (e.g. z-[95] over the BTCS panel's z-80)
 }) => {
   if (!isOpen) return null;
 
@@ -42,7 +43,7 @@ const ConfirmModal = ({
 
   return (
     <ModalPortal onClose={onCancel} sheet={false}
-      backdropClassName="z-50 p-4"
+      backdropClassName={backdropClassName}
       panelClassName="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">

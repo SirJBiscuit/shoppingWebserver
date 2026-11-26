@@ -115,7 +115,7 @@ const BtcsFloatPanel = ({ onClose }) => {
                 className="h-full p-3"
               >
                 {view === 'scores' ? (
-                  <BtcsPanel onClose={onClose} />
+                  <BtcsPanel onClose={onClose} compact />
                 ) : (
                   <BetaTesterManagementCFS compact />
                 )}

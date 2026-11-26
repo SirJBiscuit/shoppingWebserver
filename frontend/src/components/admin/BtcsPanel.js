@@ -186,7 +186,7 @@ const TesterContextMenu = ({ x, y, tester, onClose, onOpen, onDone }) => {
   );
 };
 
-const BtcsPanel = ({ onClose }) => {
+const BtcsPanel = ({ onClose, compact = false }) => {
   const [testers, setTesters] = useState([]);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -729,17 +729,19 @@ const BtcsPanel = ({ onClose }) => {
       )}
 
       <AnimatePresence>
-        {selected && <BtcsModal tester={selected} onClose={() => { setSelected(null); load(); }} />}
+        {selected && <BtcsModal tester={selected} onClose={() => { setSelected(null); load(); }} compact={compact} />}
       </AnimatePresence>
 
       {confirm && (
         <ConfirmModal
+          isOpen
           title={confirm.title}
           message={confirm.message}
           type={confirm.danger ? 'danger' : 'warning'}
           confirmText="Do it"
           onConfirm={async () => { const fn = confirm.onConfirm; setConfirm(null); await fn(); }}
           onCancel={() => setConfirm(null)}
+          backdropClassName={compact ? 'z-[95] p-4' : undefined}
         />
       )}
     </div>
