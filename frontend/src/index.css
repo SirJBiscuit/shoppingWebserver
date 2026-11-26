@@ -394,3 +394,33 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ---- Widget drag & drop affordances ---------------------------------
+   RBD injects an empty placeholder div (data-rbd-placeholder-context-id)
+   where the dragged widget will land. It's invisible by default — give
+   it a dashed ghost outline so the drop target is obvious. */
+[data-rbd-placeholder-context-id] {
+  border: 2px dashed rgb(99 102 241 / 0.55);
+  border-radius: 0.75rem;
+  background: rgb(99 102 241 / 0.07);
+  box-shadow: inset 0 0 12px rgb(99 102 241 / 0.12);
+}
+
+.dark [data-rbd-placeholder-context-id] {
+  border-color: rgb(129 140 248 / 0.6);
+  background: rgb(129 140 248 / 0.10);
+}
+
+/* The column being dragged over gets a soft ring so cross-column drops
+   read clearly. */
+.widget-dropzone-active {
+  outline: 2px dashed rgb(99 102 241 / 0.45);
+  outline-offset: 4px;
+  border-radius: 0.75rem;
+  background: rgb(99 102 241 / 0.04);
+}
+
+.dark .widget-dropzone-active {
+  outline-color: rgb(129 140 248 / 0.5);
+  background: rgb(129 140 248 / 0.06);
+}

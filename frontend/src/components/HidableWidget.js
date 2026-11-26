@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { EyeOff, Eye, GripVertical } from 'lucide-react';
+import { EyeOff, Eye, GripVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 /**
  * HidableWidget — wraps a dashboard widget with hide/show controls.
@@ -20,8 +20,12 @@ import { EyeOff, Eye, GripVertical } from 'lucide-react';
  *   dragHandleProps — optional react-beautiful-dnd dragHandleProps from a
  *                  parent <Draggable>; renders a grip handle (top-left)
  *                  wired as the drag handle.
+ *   onMove    — optional (direction) => void; renders a quick-move arrow
+ *                  pad (click-to-move alternative to dragging).
+ *   moves     — {up,down,left,right} booleans; unavailable directions
+ *                  render disabled.
  */
-const HidableWidget = ({ id, label, hidden, onHide, onUnhide, className = '', dragHandleProps = null, children }) => (
+const HidableWidget = ({ id, label, hidden, onHide, onUnhide, className = '', dragHandleProps = null, onMove = null, moves = null, children }) => (
   <div className={`relative group/hw ${className}`} data-hidable-widget={id}>
     <AnimatePresence mode="wait" initial={false}>
       {hidden ? (
@@ -68,6 +72,30 @@ const HidableWidget = ({ id, label, hidden, onHide, onUnhide, className = '', dr
             >
               <GripVertical className="w-3.5 h-3.5" />
             </button>
+          )}
+          {/* quick-move arrows — same reveal as the other corner
+              affordances; a click-to-move alternative to dragging */}
+          {onMove && (
+            <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-20 flex gap-0.5 opacity-0 max-md:opacity-60 group-hover/hw:opacity-100 focus-within:opacity-100 transition-opacity">
+              {[
+                { dir: 'left', Icon: ChevronLeft },
+                { dir: 'up', Icon: ChevronUp },
+                { dir: 'down', Icon: ChevronDown },
+                { dir: 'right', Icon: ChevronRight },
+              ].map(({ dir, Icon }) => (
+                <button
+                  key={dir}
+                  type="button"
+                  onClick={() => onMove(dir)}
+                  disabled={moves && !moves[dir]}
+                  title={`Move ${label} ${dir}`}
+                  aria-label={`Move ${label} ${dir}`}
+                  className="w-5 h-5 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-sm flex items-center justify-center text-gray-400 hover:text-primary-600 dark:hover:text-primary-300 hover:border-primary-400 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                >
+                  <Icon className="w-3 h-3" />
+                </button>
+              ))}
+            </div>
           )}
           {children}
         </motion.div>

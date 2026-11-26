@@ -1,12 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Copy, Edit2, Undo, X, Plus, Minus, Eye, FileText, AlertCircle, Store, HelpCircle, DollarSign, ArrowLeft, MoreHorizontal } from 'lucide-react';
+import { MapPin, ArrowRight, Check, SkipForward, EyeOff, Edit2, Undo, X, Plus, Minus, Eye, FileText, AlertCircle, Store, HelpCircle, DollarSign, ArrowLeft, MoreHorizontal } from 'lucide-react';
 import WidgetChip from './WidgetChip';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatQuantityPlain } from '../utils/formatQuantity';
 import { playSound } from '../utils/soundEffects';
 import FormattedNote from './FormattedNote';
 import CustomNumberPad from './CustomNumberPad';
-import CustomKeypad from './CustomKeypad';
 import CustomRadialMenu from './CustomRadialMenu';
 import { useEditor } from '../contexts/EditorContext';
 import { EditableContainer } from './editor/EditorOverlay';
@@ -14,6 +13,7 @@ import { Portal, Popup } from '../utils/autoPlacement';
 import ItemIcon from './ItemIcon';
 import QuickCategoryPicker from './QuickCategoryPicker';
 import QuickIconPicker from './QuickIconPicker';
+import QuickAislePicker from './QuickAislePicker';
 
 const NextItemSuggestion = (props) => {
   const { isEditorActive, selectWidget, selectedWidget, widgetProperties } = useEditor();
@@ -89,14 +89,13 @@ const NextItemSuggestionContent = ({
   const [helpPos, setHelpPos] = useState(null);    // help tooltip anchor {x,y}
   const [ctxMenu, setCtxMenu] = useState(null);    // right-click menu {x,y}
   const [iconPick, setIconPick] = useState(null);  // {cx, top, bottom} anchor for QuickIconPicker
+  const [aislePick, setAislePick] = useState(null); // {cx, top, bottom} anchor for QuickAislePicker
   const [isChecked, setIsChecked] = useState(nextItem?.is_checked || false);
   const [quickPrice, setQuickPrice] = useState(nextItem?.price ? nextItem.price.toString() : '');
   const [showPriceInput, setShowPriceInput] = useState(false);
   const [priceSetTime, setPriceSetTime] = useState(null);
   const [predictedAisle, setPredictedAisle] = useState(null);
   const [aisleConfidence, setAisleConfidence] = useState(null);
-  const [showAisleReport, setShowAisleReport] = useState(false);
-  const [customAisle, setCustomAisle] = useState('');
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [deviceType, setDeviceType] = useState('tablet'); // Default to tablet for safety
   const checkboxRef = useRef(null);
@@ -263,15 +262,18 @@ const NextItemSuggestionContent = ({
     setShowGuideOptOut(false);
   };
 
-  // Report aisle location to MDL system
-  const reportAisle = async (aisleNumber) => {
+  // Report aisle location to MDL system — accepts the configured aisle
+  // chips' string numbers ("A1") as well as plain ints.
+  const reportAisle = async (aisleNumber, aisleName) => {
     try {
       const token = localStorage.getItem('token');
       const storeId = encodeURIComponent(storeName || 'unknown');
-      const aisleNum = parseInt(aisleNumber);
+      const clearing = aisleNumber == null;
+      const raw = clearing ? '' : String(aisleNumber).trim();
+      const aisleNum = /^\d+$/.test(raw) ? parseInt(raw, 10) : (clearing ? null : raw);
       
-      // Report to MDL system for learning
-      const mdlResponse = await fetch('/api/mdl/aisle/report', {
+      // Report to MDL system for learning — skipped when clearing
+      const mdlResponse = clearing ? { ok: true } : await fetch('/api/mdl/aisle/report', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -281,7 +283,7 @@ const NextItemSuggestionContent = ({
           itemName: nextItem.item_name,
           aisleNumber: aisleNum,
           storeId: storeId,
-          wasCorrect: predictedAisle ? (aisleNum === parseInt(predictedAisle)) : null,
+          wasCorrect: predictedAisle ? (String(aisleNum) === String(predictedAisle)) : null,
           categoryId: nextItem.category
         })
       });
@@ -298,19 +300,21 @@ const NextItemSuggestionContent = ({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          aisle_number: aisleNum
+          aisle_number: aisleNum,
+          ...(aisleName ? { aisle_name: aisleName } : {})
         })
       });
       
       if (response.ok) {
         // Update local state
         nextItem.aisle = aisleNum;
+        if (aisleName) nextItem.aisle_name = aisleName;
         
         // Show success message with feedback
         playSound('success');
         
         // Show different messages based on prediction accuracy
-        if (predictedAisle && aisleNum === parseInt(predictedAisle)) {
+        if (predictedAisle && String(aisleNum) === String(predictedAisle)) {
           // User confirmed our prediction
           console.log(`✅ Prediction confirmed! Aisle ${aisleNum} was correct`);
         } else if (predictedAisle) {
@@ -320,10 +324,6 @@ const NextItemSuggestionContent = ({
           // First time reporting this item
           console.log(`📍 Aisle ${aisleNum} saved for ${nextItem.item_name}`);
         }
-        
-        // Close the reporting UI
-        setShowAisleReport(false);
-        setCustomAisle('');
         
         // Update displayed aisle
         setPredictedAisle(null); // Clear prediction since we now have confirmed aisle
@@ -726,13 +726,22 @@ const NextItemSuggestionContent = ({
                 </span>
               </motion.button>
 
-              {/* Aisle chip - next to Mark Found */}
+              {/* Aisle chip — state-aware: shows the confirmed aisle,
+                  the MDL guess, or the plain report action. Opens the
+                  quick picker (configured aisles + prediction + custom). */}
               {storeName && (
                 <WidgetChip
                   icon={MapPin}
-                  label="Aisle"
-                  color="purple"
-                  onClick={() => setShowAisleReport(true)}
+                  label={nextItem.aisle
+                    ? `Aisle ${nextItem.aisle}`
+                    : predictedAisle
+                      ? `Guess: ${predictedAisle}`
+                      : 'Aisle'}
+                  color={nextItem.aisle ? 'blue' : predictedAisle ? 'yellow' : 'purple'}
+                  onClick={(e) => {
+                    const r = e.currentTarget.getBoundingClientRect();
+                    setAislePick({ cx: r.left + r.width / 2, top: r.top, bottom: r.bottom });
+                  }}
                   title="Report which aisle you found this in"
                   className="!px-4 !py-2.5 !text-sm sm:!text-base min-h-[44px]"
                 />
@@ -774,7 +783,7 @@ const NextItemSuggestionContent = ({
                 <div className="flex items-center gap-2 bg-green-500 px-4 py-2 rounded-xl shadow-md">
                   <DollarSign className="w-5 h-5 text-white" />
                   <div className="flex flex-col">
-                    <span className="text-xs text-green-100 leading-none">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-white/95 leading-none drop-shadow-sm">
                       Default Price
                     </span>
                     <span className={`text-lg font-bold text-white leading-tight`}>
@@ -813,30 +822,6 @@ const NextItemSuggestionContent = ({
               )}
             </div>
             
-            {/* Aisle Reporting Keypad - Using CustomKeypad component */}
-            {showAisleReport && storeName && (
-              <CustomKeypad
-                title="Which aisle did you find this in?"
-                buttons={[...Array(20)].map((_, i) => ({
-                  label: (i + 1).toString(),
-                  value: (i + 1).toString()
-                }))}
-                gridCols={{ mobile: 4, tablet: 5, desktop: 10 }}
-                placeholder="Other aisle number..."
-                inputType="number"
-                inputMode="numeric"
-                maxLength={3}
-                highlightValue={predictedAisle?.toString()}
-                highlightHint={predictedAisle ? `We predicted: Aisle ${predictedAisle}` : null}
-                onSave={(aisleNumber) => {
-                  reportAisle(aisleNumber);
-                  setShowAisleReport(false);
-                }}
-                onCancel={() => setShowAisleReport(false)}
-                device={deviceType}
-              />
-            )}
-
             {/* Note Display */}
             {nextItem.notes && (
               <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 rounded">
@@ -1353,6 +1338,23 @@ const NextItemSuggestionContent = ({
             anchor={catAnchor}
             onSelect={(cat) => onCategoryChange?.(nextItem, cat)}
             onClose={() => setShowCategoryPicker(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Anchored quick-aisle picker — configured store aisles as named
+          chips, MDL prediction, custom number */}
+      <AnimatePresence>
+        {aislePick && (
+          <QuickAislePicker
+            itemName={nextItem.item_name}
+            currentAisle={nextItem.aisle}
+            currentAisleName={nextItem.aisle_name}
+            storeName={storeName}
+            anchor={aislePick}
+            onSelect={(num, name) => reportAisle(num, name)}
+            onClear={() => reportAisle(null, null)}
+            onClose={() => setAislePick(null)}
           />
         )}
       </AnimatePresence>

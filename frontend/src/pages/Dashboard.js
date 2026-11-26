@@ -122,14 +122,16 @@ const WIDGET_LABELS = {
 
 // DraggableWidget — one RBD <Draggable> per widget. The drag is
 // handle-only via the grip in HidableWidget's top-left corner, so
-// buttons/inputs inside widgets keep working.
-const DraggableWidget = ({ id, index, label, hidden, onHide, onUnhide, children }) => (
+// buttons/inputs inside widgets keep working. While dragging, the
+// widget lifts (tilt + shadow); the arrow pad beside the grip offers
+// click-to-move as a drag alternative (moves = which directions apply).
+const DraggableWidget = ({ id, index, label, hidden, onHide, onUnhide, onMove, moves, children }) => (
   <Draggable draggableId={id} index={index}>
     {(drag, snapshot) => (
       <div
         ref={drag.innerRef}
         {...drag.draggableProps}
-        className={`${snapshot.isDragging ? 'z-30' : ''}`}
+        className={snapshot.isDragging ? 'z-30 rotate-[0.7deg] scale-[0.99] drop-shadow-2xl' : ''}
       >
         <HidableWidget
           id={id}
@@ -138,6 +140,8 @@ const DraggableWidget = ({ id, index, label, hidden, onHide, onUnhide, children 
           onHide={onHide}
           onUnhide={onUnhide}
           dragHandleProps={drag.dragHandleProps}
+          onMove={onMove}
+          moves={moves}
         >
           {children}
         </HidableWidget>
@@ -1865,6 +1869,48 @@ const Dashboard = () => {
     if (dstIds !== srcIds) reorderWidgets(destination.droppableId, dstIds);
   };
 
+  // Quick-move arrows — click-to-move alternative to dragging.
+  // up/down reorder within the widget's column; left/right hop columns
+  // (sidebar lives right of main on wide screens).
+  const moveWidget = (wid, dir) => {
+    const inSidebar = sidebarWidgets.includes(wid);
+    const zone = inSidebar ? 'dashboard-sidebar' : 'dashboard-main';
+    const ids = inSidebar ? [...sidebarWidgets] : [...mainWidgets];
+    const i = ids.indexOf(wid);
+    if (i < 0) return;
+
+    if (dir === 'up' || dir === 'down') {
+      const j = dir === 'up' ? i - 1 : i + 1;
+      if (j < 0 || j >= ids.length) return;
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+      reorderWidgets(zone, ids);
+      return;
+    }
+
+    // Column hop — 'left' = toward main, 'right' = toward sidebar.
+    const toSidebar = dir === 'right';
+    if (toSidebar === inSidebar) return; // already at that edge
+    const dstZone = toSidebar ? 'dashboard-sidebar' : 'dashboard-main';
+    const dstIds = toSidebar ? [...sidebarWidgets] : [...mainWidgets];
+    ids.splice(i, 1);
+    dstIds.splice(Math.min(i, dstIds.length), 0, wid);
+    reorderWidgets(zone, ids);
+    reorderWidgets(dstZone, dstIds);
+  };
+
+  // Which arrows a widget's move pad should enable.
+  const movesFor = (wid) => {
+    const inSidebar = sidebarWidgets.includes(wid);
+    const ids = inSidebar ? sidebarWidgets : mainWidgets;
+    const i = ids.indexOf(wid);
+    return {
+      up: i > 0,
+      down: i > -1 && i < ids.length - 1,
+      left: inSidebar,
+      right: !inSidebar,
+    };
+  };
+
   // renderWidget — one case per widget id; returns the block's JSX
   // without its HidableWidget wrapper (DraggableWidget supplies it).
   const renderWidget = (wid) => {
@@ -2914,16 +2960,6 @@ const Dashboard = () => {
                               )}
                             </AnimatePresence>
                           </div>
-                          {/* Aisle chip — straight to the aisle configurator */}
-                          {activeList.store_name && (
-                            <WidgetChip
-                              icon={MapPin}
-                              label="Aisles"
-                              color="purple"
-                              onClick={() => setShowAisleConfig(true)}
-                              title="Configure store aisle layout"
-                            />
-                          )}
                         </div>
                       </div>
                     </div>
@@ -2944,8 +2980,12 @@ const Dashboard = () => {
               {/* Widget zone — everything below the header is a draggable
                   widget; order + zone persist per user (dashboard-main). */}
               <StrictModeDroppable droppableId="dashboard-main" type="widget">
-                {(mainProv) => (
-                  <div ref={mainProv.innerRef} {...mainProv.droppableProps}>
+                {(mainProv, mainSnap) => (
+                  <div
+                    ref={mainProv.innerRef}
+                    {...mainProv.droppableProps}
+                    className={mainSnap.isDraggingOver ? 'widget-dropzone-active' : ''}
+                  >
                     {mainWidgets.map((wid, index) => (
                       <DraggableWidget
                         key={wid}
@@ -2955,6 +2995,8 @@ const Dashboard = () => {
                         hidden={isHidden(wid)}
                         onHide={() => hide(wid)}
                         onUnhide={() => unhide(wid)}
+                        onMove={(dir) => moveWidget(wid, dir)}
+                        moves={movesFor(wid)}
                       >
                         {renderWidget(wid)}
                       </DraggableWidget>
@@ -2970,8 +3012,12 @@ const Dashboard = () => {
           {/* Sidebar widget zone — drag any widget between here and the
               main column (dashboard-sidebar). */}
           <StrictModeDroppable droppableId="dashboard-sidebar" type="widget">
-            {(sideProv) => (
-              <div ref={sideProv.innerRef} {...sideProv.droppableProps} className="space-y-6">
+            {(sideProv, sideSnap) => (
+              <div
+                ref={sideProv.innerRef}
+                {...sideProv.droppableProps}
+                className={`space-y-6 ${sideSnap.isDraggingOver ? 'widget-dropzone-active' : ''}`}
+              >
                 {sidebarWidgets.map((wid, index) => (
                   <DraggableWidget
                     key={wid}
@@ -2981,6 +3027,8 @@ const Dashboard = () => {
                     hidden={isHidden(wid)}
                     onHide={() => hide(wid)}
                     onUnhide={() => unhide(wid)}
+                    onMove={(dir) => moveWidget(wid, dir)}
+                    moves={movesFor(wid)}
                   >
                     {renderWidget(wid)}
                   </DraggableWidget>

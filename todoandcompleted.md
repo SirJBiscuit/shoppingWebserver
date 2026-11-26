@@ -805,3 +805,10 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - QuickAislePicker: resolves the store via /api/mdl/stores/search then fetches /api/stores/:id/aisles — configured aisles render as named chips ("3 · Frozen") above the 1-24 number grid.
 - New QuickUnitPicker: anchored popup / mobile bottom sheet mirroring QuickCategoryPicker — 24 common units grid + custom-unit input + clear.
 - ItemList: quantity stepper unit is now a tappable chip (QuantityStepper gained onUnitClick); non-stepper fallback unit text is tappable too; mobile bottom sheet gained a "Unit: X" row. All paths open QuickUnitPicker; applyUnit/clearUnit go through Dashboard's new handleUnitChange -> PATCH unit (applies to grouped duplicates, then reloads).
+
+## Widget drag affordances + aisle picker in Looking-for-Next (latest)
+- Drag ghost: index.css now styles RBD's injected placeholder (data-rbd-placeholder-context-id) with a dashed ghost outline + tint, and each droppable column gets a `.widget-dropzone-active` ring while a drag hovers it (isDraggingOver). The dragged widget itself tilts + lifts (rotate/scale/drop-shadow).
+- Quick-move arrows: HidableWidget gained onMove/moves — a 4-arrow pad (↑↓←→) appears top-center on hover (faint on touch). Dashboard's moveWidget swaps within a column for ↑↓ and hops zones for ←→ (sidebar is right of main); unavailable directions render disabled. Same persisted reorderWidgets path as dragging.
+- Removed the redundant "Aisles" chip beside the store chip — the store dropdown's "Configure aisles" row already covers it.
+- Looking-for-Next aisle button → state-aware WidgetChip ("Aisle N" blue when confirmed, "Guess: N" amber on MDL prediction, plain purple otherwise) opening QuickAislePicker (configured store aisles + prediction + custom) — replaces the old CustomKeypad 1-20 grid. reportAisle accepts string aisle numbers ("A1") + aisle_name, supports clearing, and skips the MDL report on clear.
+- Default Price label is brighter (white, bold, uppercase, drop-shadow) — was a low-contrast green-100 on green-500.
