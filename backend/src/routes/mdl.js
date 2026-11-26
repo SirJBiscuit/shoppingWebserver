@@ -576,17 +576,24 @@ router.post('/aisle/report', authenticateToken, async (req, res) => {
   }
 });
 
-// Get store locations (for My Stores feature)
+// Normalized-store key — trimmed lowercase display name. Duplicates
+// historically piled up because creates were unconditional inserts and
+// casing/whitespace variants didn't match.
+const STORE_NORM = `lower(btrim(COALESCE(name, store_name, '')))`;
+
+// Get store locations (for My Stores feature) — deduped by normalized
+// name so the picker count is accurate even before the admin merges.
 router.get('/stores', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT id, COALESCE(name, store_name) AS name,
+      SELECT DISTINCT ON (${STORE_NORM})
+        id, COALESCE(name, store_name) AS name,
         COALESCE(chain, chain_name, store_chain) AS chain,
         city, state, zip_code, area_code, latitude, longitude,
         is_public, user_id, created_at
       FROM store_locations
       WHERE user_id = $1 OR user_id IS NULL OR is_public = true
-      ORDER BY COALESCE(name, store_name) ASC
+      ORDER BY ${STORE_NORM}, created_at ASC
     `, [req.user.id]);
 
     res.json(result.rows);
@@ -634,6 +641,16 @@ router.post('/stores', authenticateToken, async (req, res) => {
     if (!storeName || !String(storeName).trim()) {
       return res.status(400).json({ error: 'Store name is required' });
     }
+
+    // Dedupe on normalized name within the caller's visible set — returns
+    // the existing row instead of creating "walmart"/"Walmart " dupes.
+    const existing = await db.query(`
+      SELECT * FROM store_locations
+      WHERE ${STORE_NORM} = lower(btrim($1))
+        AND (user_id = $2 OR user_id IS NULL OR is_public = true)
+      ORDER BY created_at ASC LIMIT 1
+    `, [String(storeName).trim(), req.user.id]);
+    if (existing.rows.length) return res.status(200).json(existing.rows[0]);
 
     const result = await db.query(`
       INSERT INTO store_locations (
@@ -1927,6 +1944,189 @@ router.delete('/admin/terms/:id', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Error forgetting term:', err);
     res.status(500).json({ error: 'Failed to forget term' });
+  }
+});
+
+/* ============================================================================
+   Admin store locations — view, edit, merge & dedupe store_locations.
+   Duplicates accumulated because creates were unconditional inserts.
+   ========================================================================= */
+
+// Every FK that points at store_locations.id — discovered live so merges
+// cover new tables automatically.
+const storeRefColumns = async (client = db) => {
+  const r = await client.query(`
+    SELECT kcu.table_name, kcu.column_name
+    FROM information_schema.table_constraints tc
+    JOIN information_schema.key_column_usage kcu
+      ON tc.constraint_name = kcu.constraint_name
+     AND tc.table_schema = kcu.table_schema
+    JOIN information_schema.constraint_column_usage ccu
+      ON tc.constraint_name = ccu.constraint_name
+    WHERE tc.constraint_type = 'FOREIGN KEY'
+      AND ccu.table_name = 'store_locations'
+      AND ccu.column_name = 'id'`);
+  return r.rows.filter((c) => /^[a-z_][a-z0-9_]*$/.test(c.table_name) && /^[a-z_][a-z0-9_]*$/.test(c.column_name));
+};
+
+// Re-point every referencing row from `fromId` to `keepId`, then delete
+// the removed store row. Runs inside a transaction; a savepoint per
+// table keeps unique-collision refs (e.g. a user favorited both dupes)
+// from aborting the merge — the colliding dup rows are dropped instead.
+const mergeStoreInto = async (client, keepId, removeId) => {
+  const refs = await storeRefColumns(client);
+  for (const { table_name, column_name } of refs) {
+    await client.query('SAVEPOINT mdl_store_merge');
+    try {
+      await client.query(
+        `UPDATE ${table_name} SET ${column_name} = $1 WHERE ${column_name} = $2`,
+        [keepId, removeId]
+      );
+      await client.query('RELEASE SAVEPOINT mdl_store_merge');
+    } catch {
+      await client.query('ROLLBACK TO SAVEPOINT mdl_store_merge');
+      await client.query(
+        `DELETE FROM ${table_name} WHERE ${column_name} = $1`,
+        [removeId]
+      );
+      await client.query('RELEASE SAVEPOINT mdl_store_merge');
+    }
+  }
+  await client.query('DELETE FROM store_locations WHERE id = $1', [removeId]);
+};
+
+/**
+ * GET /api/mdl/admin/stores
+ * Every store row + duplicate flag (shares a normalized name with another
+ * row) + reference counts so admins can see the damage before merging.
+ */
+router.get('/admin/stores', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const refs = await storeRefColumns();
+    const countSql = refs.map((c) =>
+      `(SELECT COUNT(*) FROM ${c.table_name} r WHERE r.${c.column_name} = s.id)`
+    ).join(' + ') || '0';
+    const result = await db.query(`
+      SELECT s.id, COALESCE(s.name, s.store_name) AS name,
+        COALESCE(s.chain, s.chain_name, s.store_chain) AS chain,
+        s.city, s.state, s.zip_code, s.is_public, s.user_id, s.created_at,
+        u.username AS owner_name,
+        (${countSql}) AS ref_count,
+        COUNT(*) OVER (PARTITION BY ${STORE_NORM.replace(/name|store_name/g, (m) => `s.${m}`)}) > 1 AS is_dup
+      FROM store_locations s
+      LEFT JOIN users u ON u.id = s.user_id
+      ORDER BY ${STORE_NORM.replace(/name|store_name/g, (m) => `s.${m}`)}, s.created_at ASC`);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error listing admin stores:', err);
+    res.status(500).json({ error: 'Failed to list stores' });
+  }
+});
+
+/**
+ * PUT /api/mdl/admin/stores/:id — fix name/chain/city/etc. on a row.
+ */
+router.put('/admin/stores/:id', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const { name, chain, city, state, zip_code, is_public } = req.body;
+    const result = await db.query(
+      `UPDATE store_locations SET
+         name = COALESCE($2, name), store_name = COALESCE($2, store_name),
+         chain = $3, chain_name = $3,
+         city = $4, state = $5, zip_code = $6,
+         is_public = COALESCE($7, is_public)
+       WHERE id = $1 RETURNING *`,
+      [req.params.id,
+       name == null ? null : String(name).trim(),
+       chain ?? null, city ?? null, state ?? null, zip_code ?? null,
+       typeof is_public === 'boolean' ? is_public : null]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Store not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating store:', err);
+    res.status(500).json({ error: 'Failed to update store' });
+  }
+});
+
+/**
+ * POST /api/mdl/admin/stores/merge
+ * { keep_id, remove_ids: [..] } — re-points every FK reference to keep_id
+ * then deletes the removed rows.
+ */
+router.post('/admin/stores/merge', authenticateToken, async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const keepId = parseInt(req.body.keep_id, 10);
+    const removeIds = (Array.isArray(req.body.remove_ids) ? req.body.remove_ids : [])
+      .map((i) => parseInt(i, 10)).filter((i) => Number.isInteger(i) && i !== keepId);
+    if (!Number.isInteger(keepId) || !removeIds.length) {
+      return res.status(400).json({ error: 'keep_id and remove_ids required' });
+    }
+    await client.query('BEGIN');
+    for (const rid of removeIds) await mergeStoreInto(client, keepId, rid);
+    await client.query('COMMIT');
+    res.json({ ok: true, merged: removeIds.length });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error merging stores:', err);
+    res.status(500).json({ error: 'Failed to merge stores' });
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * POST /api/mdl/admin/stores/dedupe
+ * Auto-merge every normalized-name duplicate group — keeps the oldest row
+ * per group (or the most-referenced one if refs exist).
+ */
+router.post('/admin/stores/dedupe', authenticateToken, async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const refs = await storeRefColumns(client);
+    const countSql = refs.map((c) =>
+      `(SELECT COUNT(*) FROM ${c.table_name} r WHERE r.${c.column_name} = s.id)`
+    ).join(' + ') || '0';
+    const groups = await client.query(`
+      SELECT ${STORE_NORM.replace(/name|store_name/g, (m) => `s.${m}`)} AS norm,
+             array_agg(s.id ORDER BY (${countSql}) DESC, s.created_at ASC) AS ids
+      FROM store_locations s
+      GROUP BY 1 HAVING COUNT(*) > 1`);
+    let merged = 0;
+    await client.query('BEGIN');
+    for (const g of groups.rows) {
+      const [keep, ...rest] = g.ids;
+      for (const rid of rest) { await mergeStoreInto(client, keep, rid); merged += 1; }
+    }
+    await client.query('COMMIT');
+    res.json({ ok: true, groups: groups.rows.length, merged });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error deduping stores:', err);
+    res.status(500).json({ error: 'Failed to dedupe stores' });
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * DELETE /api/mdl/admin/stores/:id — hard delete a store row (references
+ * with ON DELETE SET NULL/CASCADE follow their constraints).
+ */
+router.delete('/admin/stores/:id', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const result = await db.query('DELETE FROM store_locations WHERE id = $1 RETURNING id', [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Store not found' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Error deleting store:', err);
+    res.status(500).json({ error: 'Failed to delete store' });
   }
 });
 

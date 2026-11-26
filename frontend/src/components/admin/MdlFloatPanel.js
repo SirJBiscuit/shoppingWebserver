@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Brain, X, Minus, Check, Ban, Trash2, RefreshCw } from 'lucide-react';
+import { Brain, X, Minus, Check, Ban, Trash2, RefreshCw, Store, GitMerge, Pencil, Sparkles } from 'lucide-react';
 import { Portal } from '../../utils/autoPlacement';
 import api from '../../services/api';
 import ConfirmModal from '../../limbo/modals/ConfirmModal';
@@ -22,14 +22,26 @@ const STATUS_META = {
 const MdlFloatPanel = ({ onClose }) => {
   const [pos, setPos] = useState(null);
   const [minimized, setMinimized] = useState(false);
+  const [view, setView] = useState('terms'); // terms | stores
   const [status, setStatus] = useState('pending');
   const [kind, setKind] = useState('');
   const [terms, setTerms] = useState(null);
-  const [forgetId, setForgetId] = useState(null);
+  const [stores, setStores] = useState(null);
+  const [editStore, setEditStore] = useState(null);
+  const [forgetId, setForgetId] = useState(null); // {type:'term'|'store', id}
   const [msg, setMsg] = useState(null);
   const drag = useRef(null);
 
   const load = useCallback(async () => {
+    if (view === 'stores') {
+      try {
+        const { data } = await api.get('/mdl/admin/stores');
+        setStores(Array.isArray(data) ? data : []);
+      } catch {
+        setStores([]);
+      }
+      return;
+    }
     try {
       const { data } = await api.get('/mdl/admin/terms', {
         params: { status, ...(kind ? { kind } : {}) },
@@ -38,9 +50,51 @@ const MdlFloatPanel = ({ onClose }) => {
     } catch {
       setTerms([]);
     }
-  }, [status, kind]);
+  }, [status, kind, view]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Group stores by normalized name — dup groups get a Merge button
+  const dupGroups = (stores || []).reduce((m, s) => {
+    const k = (s.name || '').trim().toLowerCase();
+    if (!m[k]) m[k] = [];
+    m[k].push(s);
+    return m;
+  }, {});
+  const mergeGroups = Object.values(dupGroups).filter((g) => g.length > 1);
+
+  const mergeStore = async (group) => {
+    // Keep the most-referenced row (admin can edit first if needed)
+    const sorted = [...group].sort((a, b) => (b.ref_count || 0) - (a.ref_count || 0));
+    try {
+      await api.post('/mdl/admin/stores/merge', { keep_id: sorted[0].id, remove_ids: sorted.slice(1).map((s) => s.id) });
+      setMsg(`Merged ${sorted.length - 1} duplicate${sorted.length > 2 ? 's' : ''} into "${sorted[0].name}"`);
+      load();
+    } catch {
+      setMsg('Merge failed');
+    }
+  };
+
+  const dedupeAll = async () => {
+    try {
+      const { data } = await api.post('/mdl/admin/stores/dedupe');
+      setMsg(`Deduped ${data.groups} group${data.groups === 1 ? '' : 's'} — merged ${data.merged} store${data.merged === 1 ? '' : 's'}`);
+      load();
+    } catch {
+      setMsg('Dedupe failed');
+    }
+  };
+
+  const saveStore = async () => {
+    if (!editStore) return;
+    try {
+      await api.put(`/mdl/admin/stores/${editStore.id}`, editStore);
+      setEditStore(null);
+      load();
+    } catch {
+      setMsg('Save failed');
+    }
+  };
 
   const act = async (id, next) => {
     try {
@@ -51,9 +105,13 @@ const MdlFloatPanel = ({ onClose }) => {
     }
   };
 
-  const forget = async (id) => {
+  const forget = async () => {
+    if (!forgetId) return;
+    const url = forgetId.type === 'store'
+      ? `/mdl/admin/stores/${forgetId.id}`
+      : `/mdl/admin/terms/${forgetId.id}`;
     try {
-      await api.delete(`/mdl/admin/terms/${id}`);
+      await api.delete(url);
       setForgetId(null);
       load();
     } catch {
@@ -113,7 +171,18 @@ const MdlFloatPanel = ({ onClose }) => {
 
         {!minimized && (
           <div className="flex-1 min-h-0 flex flex-col">
-            {/* Filters — status tabs + kind chips */}
+            {/* View switch — learned terms vs store locations */}
+            <div className="flex gap-1 px-3 pt-2 shrink-0">
+              {[['terms', 'Terms', Brain], ['stores', 'Stores', Store]].map(([v, lbl, Ic]) => (
+                <button key={v} type="button" onClick={() => setView(v)}
+                  className={`flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg font-medium ${view === v ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>
+                  <Ic className="w-3 h-3" />{lbl}
+                </button>
+              ))}
+            </div>
+
+            {/* Filters — status tabs + kind chips (terms view only) */}
+            {view === 'terms' && (
             <div className="px-3 pt-2 pb-1.5 border-b border-slate-800 bg-slate-900/60 shrink-0">
               <div className="flex gap-1">
                 {Object.entries(STATUS_META).map(([k, m]) => (
@@ -136,11 +205,66 @@ const MdlFloatPanel = ({ onClose }) => {
                 ))}
               </div>
             </div>
+            )}
+
+            {view === 'stores' && (
+              <div className="flex items-center gap-2 px-3 pt-2 pb-1.5 border-b border-slate-800 shrink-0">
+                <button type="button" onClick={dedupeAll}
+                  className="flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/40 font-medium">
+                  <Sparkles className="w-3.5 h-3.5" /> Dedupe all
+                </button>
+                <span className="text-[10px] text-slate-500">
+                  {stores ? `${stores.length} stores · ${mergeGroups.length} dup group${mergeGroups.length === 1 ? '' : 's'}` : 'Loading…'}
+                </span>
+              </div>
+            )}
 
             {msg && <p className="text-[11px] text-red-400 px-3 pt-2 shrink-0">{msg}</p>}
 
             <div className="flex-1 min-h-0 overflow-y-auto scrollbar-3d">
-              {(terms || []).map((t) => (
+              {view === 'stores' && (
+                <>
+                  {(stores || []).map((s) => (
+                    <div key={s.id} className="px-3 py-2 border-b border-slate-800/60 flex items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm text-slate-100 font-medium truncate">
+                          {s.name}
+                          {s.is_dup && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-300">dup</span>}
+                        </div>
+                        <div className="text-[10px] text-slate-500 truncate">
+                          {[s.chain, s.city, s.state].filter(Boolean).join(' · ') || 'no location'}
+                          {' · '}{s.ref_count || 0} refs · {s.is_public ? 'public' : (s.owner_name ? `@${s.owner_name}` : 'shared')}
+                        </div>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <button type="button" onClick={() => setEditStore({ ...s })} title="Edit store"
+                          className="p-1.5 rounded-lg bg-slate-700/60 text-slate-300 hover:bg-slate-600">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" onClick={() => setForgetId({ type: 'store', id: s.id })} title="Delete store"
+                          className="p-1.5 rounded-lg bg-red-600/20 text-red-300 hover:bg-red-600/40">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {mergeGroups.map((g) => (
+                    <div key={g[0].id} className="px-3 py-2 border-b border-slate-800/60 bg-amber-500/5 flex items-center gap-2">
+                      <GitMerge className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span className="flex-1 text-[11px] text-amber-200 truncate">
+                        {g.length}× “{g[0].name}” — merge into the most-referenced row
+                      </span>
+                      <button type="button" onClick={() => mergeStore(g)}
+                        className="text-[11px] px-2 py-1 rounded-lg bg-amber-600/30 text-amber-200 hover:bg-amber-600/50 font-medium shrink-0">
+                        Merge
+                      </button>
+                    </div>
+                  ))}
+                  {stores && !stores.length && <p className="text-sm text-slate-500 text-center py-10">No stores yet</p>}
+                  {stores === null && <p className="text-sm text-slate-500 text-center py-10">Loading…</p>}
+                </>
+              )}
+              {view === 'terms' && (terms || []).map((t) => (
                 <div key={t.id} className="px-3 py-2 border-b border-slate-800/60 flex items-center gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="text-sm text-slate-100 font-medium truncate">{t.term}</div>
@@ -165,31 +289,62 @@ const MdlFloatPanel = ({ onClose }) => {
                         <Ban className="w-3.5 h-3.5" />
                       </button>
                     )}
-                    <button type="button" onClick={() => setForgetId(t.id)} title="Forget — delete permanently"
+                    <button type="button" onClick={() => setForgetId({ type: 'term', id: t.id })} title="Forget — delete permanently"
                       className="p-1.5 rounded-lg bg-red-600/20 text-red-300 hover:bg-red-600/40">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
               ))}
-              {terms && !terms.length && (
+              {view === 'terms' && terms && !terms.length && (
                 <p className="text-sm text-slate-500 text-center py-10">No {status} terms{kind ? ` (${kind})` : ''}</p>
               )}
-              {terms === null && <p className="text-sm text-slate-500 text-center py-10">Loading…</p>}
+              {view === 'terms' && terms === null && <p className="text-sm text-slate-500 text-center py-10">Loading…</p>}
             </div>
           </div>
         )}
       </motion.div>
+
+      {editStore && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/70 p-4">
+          <div className="w-full max-w-xs bg-slate-900 border border-slate-700 rounded-xl p-4 space-y-2">
+            <p className="text-xs font-bold text-slate-200 uppercase tracking-wider">Edit store #{editStore.id}</p>
+            {[['name', 'Name'], ['chain', 'Chain'], ['city', 'City'], ['state', 'State'], ['zip_code', 'Zip']].map(([f, lbl]) => (
+              <label key={f} className="block">
+                <span className="text-[10px] text-slate-500">{lbl}</span>
+                <input
+                  value={editStore[f] || ''}
+                  onChange={(e) => setEditStore((s) => ({ ...s, [f]: e.target.value }))}
+                  className="w-full mt-0.5 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-violet-500"
+                />
+              </label>
+            ))}
+            <label className="flex items-center gap-2 text-xs text-slate-300">
+              <input type="checkbox" checked={!!editStore.is_public}
+                onChange={(e) => setEditStore((s) => ({ ...s, is_public: e.target.checked }))} />
+              Public store
+            </label>
+            <div className="flex gap-1.5 pt-1">
+              <button type="button" onClick={saveStore}
+                className="flex-1 text-[11px] px-2 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium">Save</button>
+              <button type="button" onClick={() => setEditStore(null)}
+                className="flex-1 text-[11px] px-2 py-1.5 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {forgetId && (
         <div className="fixed inset-0 z-[99999]">
           <ConfirmModal
             isOpen
             type="danger"
-            title="Forget this term?"
-            message="The term will be deleted permanently — it stops appearing in every user's autofill and can't be re-learned automatically."
-            confirmText="Forget"
-            onConfirm={() => forget(forgetId)}
+            title={forgetId.type === 'store' ? 'Delete this store?' : 'Forget this term?'}
+            message={forgetId.type === 'store'
+              ? 'The store row will be deleted — references follow their foreign-key rules (cascade or null).'
+              : 'The term will be deleted permanently — it stops appearing in every user\'s autofill and can\'t be re-learned automatically.'}
+            confirmText={forgetId.type === 'store' ? 'Delete store' : 'Forget'}
+            onConfirm={forget}
             onCancel={() => setForgetId(null)}
           />
         </div>
