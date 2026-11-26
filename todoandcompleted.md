@@ -830,3 +830,26 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Same ephemeral-FS bug fixed elsewhere: sounds.js uploadDir was /app/storage (one .. short of the mounted /storage volume); cosmetics.js icon uploads were /app/src/public/icons — now /storage/icons with file_path /storage/icons/* (migration 120 rewrites old /icons/* rows so they resolve through the nginx /storage proxy).
 - Swapped react-beautiful-dnd -> @hello-pangea/dnd (maintained fork): fixes the drag-clone scroll-offset drift + edge auto-scroll during window scroll. Placeholder CSS covers both data-rfd-* and data-rbd-* attrs; clone z-index raised above fixed chrome.
 - NtfySettings: content-type guard before res.json() on load/save/test — HTML error pages (502/maintenance) show "backend may be restarting" instead of the raw <!DOCTYPE parse error.
+
+## Widget locks + admin chat tab + category icon picker (latest)
+- Per-widget lock: HidableWidget gains a 3D padlock chip (spin + press animation) — locked widgets disable the drag grip + move arrows; locks persist per user in the same mdl_user_preferences widget pref as order/zones (_locks map).
+- Admin Viewer gained a Chat tab (BetaChatroom mounted inline — same as the tester popover's Chat tab).
+- QuickCategoryPicker: emoji text field replaced by a real QuickIconPicker popup (custom uploads included); created categories auto-teach MDL via /api/mdl/terms (kind:'category'); grid tiles render image icons alongside emoji. categories.icon widened (migration 120 ALTER) so image paths fit.
+- QuickAislePicker: custom aisle names also teach MDL (kind:'aisle').
+
+## MDL admin panel + store dedupe/merge (latest)
+- New MdlFloatPanel on the admin rail (Brain icon): pending/approved/rejected custom terms with approve/reject/forget, and a Stores view.
+- Store dedupe: GET /api/stores returns deduped list; POST /api/stores dedupes on normalized name (case/whitespace) instead of blind-inserting; admin routes GET /api/stores/admin/stores, PATCH, POST /:id/merge/:targetId (live FK discovery repoints store_locations references), POST /api/stores/admin/dedupe.
+- User-owned categories: migration 121 adds categories.user_id (NULL = global, name stays globally UNIQUE). GET returns globals + own; POST stamps user_id; DELETE /api/categories/:id for owner-or-admin. Picker shows × remove on owned tiles + a remembered "suggest to MDL" opt-in checkbox.
+- List name prediction: GET /api/shopping/lists/name-suggestions?store= ranks names by frequency per user+store; NewListModal autofills/recommends from server suggestions.
+- Custom term management: PUT/DELETE /api/mdl/terms/:id for own pending terms (admins keep admin routes); QuickUnitPicker/QuickAislePicker show edit/remove on own pending terms.
+
+## Icon donations + limits viewer + A/B trainer (latest)
+- iconQuota service: 5 item_icon uploads/day for beta testers until 10 approved MDL terms; non-beta/admin unlimited. images.shared_status column (local/pending/approved).
+- QuickIconPicker: Local vs Global upload buttons, remembered donate opt-in ask strip, pending/approved status badges; MdlFloatPanel gained an Icons review view.
+- GET /api/beta/my-limits aggregates pins, icons and BTCS score; BetaPinLayer tester popover gained a Limits tab (tier/pins/icons/score breakdown).
+- A/B trainer: migration 123 mdl_term_votes; GET /api/mdl/ab/next (random pending pair) + POST /api/mdl/ab/vote; tester popover "Help MDL" tab is an animated suggestion-box card; admin terms view shows vote tallies ordered by votes.
+- Per-picker settings: pickerPrefs (localStorage) + PickerSettingsButton gear popover (search/suggestions/animations toggles) wired into QuickUnitPicker, QuickCategoryPicker, QuickAislePicker, QuickIconPicker.
+- AVE toolbar converted to the chip scheme (rounded-full gradient chips).
+- BetaOnboarding: 6-step tester tour (pins, viewer tabs, Help MDL, limits) auto-fires once per tester after the general tour, replayable via "?" in the Beta Viewer header.
+- BetaTesterManagementCFS rebuilt: compact tester list (avatar + activity dot + quality bar) beside a detail sidebar — gradient header, quality/BTCS, clickable contribution stats, grouped labeled control list (Communicate / Account / Danger zone). Details modal + radial menu removed.
