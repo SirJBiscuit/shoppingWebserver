@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Edit3,
@@ -76,72 +76,75 @@ const EditorToolbar = () => {
             <div className="flex items-center gap-2">
               {/* Undo */}
               <button
+                type="button"
                 onClick={() => aveManager.undo()}
                 disabled={!canUndo}
-                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/15 text-white hover:bg-white/25 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 title="Undo (Ctrl+Z)"
               >
-                <Undo className="w-5 h-5 text-white" />
+                <Undo className="w-3.5 h-3.5" /> Undo
               </button>
               
               {/* Redo */}
               <button
+                type="button"
                 onClick={() => aveManager.redo()}
                 disabled={!canRedo}
-                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/15 text-white hover:bg-white/25 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 title="Redo (Ctrl+Y)"
               >
-                <Redo className="w-5 h-5 text-white" />
+                <Redo className="w-3.5 h-3.5" /> Redo
               </button>
               
               <div className="w-px h-6 bg-white/20" />
               
               {/* Save */}
               <button
+                type="button"
                 onClick={saveLayout}
                 disabled={isSaving}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-md hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 title="Save (Ctrl+S)"
               >
-                <Save className="w-4 h-4 text-white" />
-                <span className="text-sm font-medium text-white">
-                  {isSaving ? 'Saving...' : 'Save'}
-                </span>
+                <Save className="w-3.5 h-3.5" />
+                {isSaving ? 'Saving…' : 'Save'}
               </button>
               
               <div className="w-px h-6 bg-white/20" />
               
               {/* Grid toggle */}
               <button
+                type="button"
                 onClick={() => setShowGrid(!showGrid)}
-                className={`p-2 rounded-lg transition-colors ${
-                  showGrid 
-                    ? 'bg-white/30 text-white' 
-                    : 'bg-white/10 hover:bg-white/20 text-white/70'
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all hover:scale-105 active:scale-95 ${
+                  showGrid
+                    ? 'bg-gradient-to-r from-violet-500 to-indigo-500 text-white shadow-md ring-1 ring-white/40'
+                    : 'bg-white/15 text-white/80 hover:bg-white/25'
                 }`}
                 title="Toggle Grid"
               >
-                <Grid className="w-5 h-5" />
+                <Grid className="w-3.5 h-3.5" /> Grid
               </button>
               
               {/* Snap to grid toggle */}
               <button
+                type="button"
                 onClick={() => setSnapToGrid(!snapToGrid)}
-                className={`p-2 rounded-lg transition-colors ${
-                  snapToGrid 
-                    ? 'bg-white/30 text-white' 
-                    : 'bg-white/10 hover:bg-white/20 text-white/70'
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all hover:scale-105 active:scale-95 ${
+                  snapToGrid
+                    ? 'bg-gradient-to-r from-violet-500 to-indigo-500 text-white shadow-md ring-1 ring-white/40'
+                    : 'bg-white/15 text-white/80 hover:bg-white/25'
                 }`}
                 title="Snap to Grid"
               >
-                <Maximize2 className="w-5 h-5" />
+                <Maximize2 className="w-3.5 h-3.5" /> Snap
               </button>
               
               {/* Performance mode */}
               <select
                 value={performanceMode}
                 onChange={(e) => setPerformanceMode(e.target.value)}
-                className="px-3 py-2 rounded-lg bg-white/10 text-white text-sm border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
+                className="px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-semibold border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/40 cursor-pointer hover:bg-white/25 transition-colors"
                 style={{ colorScheme: 'dark' }}
                 title="Performance Mode"
               >
@@ -155,20 +158,22 @@ const EditorToolbar = () => {
               
               {/* Help */}
               <button
+                type="button"
                 onClick={() => setShowHelp(true)}
-                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/15 text-white hover:bg-white/25 hover:scale-105 active:scale-95 transition-all"
                 title="Help (Press ?)"
               >
-                <HelpCircle className="w-5 h-5 text-white" />
+                <HelpCircle className="w-3.5 h-3.5" /> Help
               </button>
               
               {/* Settings */}
               <button
+                type="button"
                 onClick={() => setShowSettings(!showSettings)}
-                className={`p-2 rounded-lg transition-colors ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all hover:scale-105 active:scale-95 ${
                   showSettings
-                    ? 'bg-white/30 text-white'
-                    : 'bg-white/10 hover:bg-white/20 text-white'
+                    ? 'bg-gradient-to-r from-violet-500 to-indigo-500 text-white shadow-md ring-1 ring-white/40'
+                    : 'bg-white/15 text-white hover:bg-white/25'
                 }`}
                 title="Settings"
               >
@@ -178,14 +183,13 @@ const EditorToolbar = () => {
             
             {/* Right: Exit button */}
             <button
+              type="button"
               onClick={toggleEditor}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-md hover:scale-105 active:scale-95 transition-all"
               title="Exit Editor (Ctrl+E)"
             >
-              <X className="w-4 h-4 text-white" />
-              <span className="text-sm font-medium text-white">
-                Exit Editor
-              </span>
+              <X className="w-3.5 h-3.5" />
+              Exit Editor
             </button>
           </div>
         </div>
