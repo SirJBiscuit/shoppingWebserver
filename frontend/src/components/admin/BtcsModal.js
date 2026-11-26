@@ -6,7 +6,7 @@ import { Portal } from '../../utils/autoPlacement';
 
 // BTCS — score breakdown, tier progress, per-tester pin limit / bonus /
 // feature overrides. Shared by the tester cards and the BTCS panel.
-const BtcsModal = ({ tester, onClose }) => {
+const BtcsModal = ({ tester, onClose, compact = false }) => {
   const [btcs, setBtcs] = useState(null);
   const [features, setFeatures] = useState(null);
   const [pinLimit, setPinLimit] = useState('');
@@ -66,7 +66,7 @@ const BtcsModal = ({ tester, onClose }) => {
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm" onClick={onClose}>
+      <div className={`fixed inset-0 ${compact ? 'z-[95]' : 'z-50'} flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm`} onClick={onClose}>
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
           className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-6"

@@ -14,7 +14,10 @@ import { Portal } from '../../utils/autoPlacement';
 import BetaChat from '../beta/BetaChat';
 import BtcsModal from './BtcsModal';
 
-const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChange }) => {
+const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChange, compact = false }) => {
+  // compact=true → mounted inside the BTCS float panel (z-[80]): page
+  // chrome (header/stat cards) drops and modals must layer above z-80.
+  const modalZ = compact ? 'z-[95]' : 'z-50';
   const { notification, hideNotification, confirm, confirmDelete } = useNotification();
   const [testers, setTesters] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -359,8 +362,11 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
   const avgQuality = Math.round(testers.reduce((sum, t) => sum + calculateDataQuality(t), 0) / testers.length);
 
   return (
-    <div className="space-y-6 p-6 bg-gray-50 dark:bg-gray-900 rounded-2xl">
-      {/* Header */}
+    <div className={compact
+      ? 'h-full overflow-y-auto space-y-3 p-1 bg-gray-50 dark:bg-gray-900'
+      : 'space-y-6 p-6 bg-gray-50 dark:bg-gray-900 rounded-2xl'}>
+      {/* Header — dropped in compact mode (the float panel has its own title bar) */}
+      {!compact && (
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
@@ -372,8 +378,10 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
           </p>
         </div>
       </div>
+      )}
 
-      {/* Stats */}
+      {/* Stats — hidden in compact mode */}
+      {!compact && (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg">
           <div className="flex items-center justify-between">
@@ -415,9 +423,10 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
           </div>
         </div>
       </div>
+      )}
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg">
+      <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg ${compact ? 'p-2.5' : 'p-4'}`}>
         <div className="flex flex-wrap gap-4">
           {/* Search */}
           <div className="flex-1 min-w-[200px]">
@@ -514,14 +523,14 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       {/* BTCS score breakdown + per-tester settings */}
       <AnimatePresence>
         {btcsTester && (
-          <BtcsModal tester={btcsTester} onClose={() => setBtcsTester(null)} />
+          <BtcsModal tester={btcsTester} onClose={() => setBtcsTester(null)} compact={compact} />
         )}
       </AnimatePresence>
 
       {/* Extend Access Modal */}
       <Portal><AnimatePresence>
         {showExtendModal && selectedTester && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm">
+          <div className={`fixed inset-0 ${modalZ} flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm`}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -631,7 +640,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       {/* Edit Tester Modal */}
       <Portal><AnimatePresence>
         {showEditModal && selectedTester && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm">
+          <div className={`fixed inset-0 ${modalZ} flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm`}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -710,7 +719,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       {/* Instant chat modal — direct thread with this tester */}
       <Portal><AnimatePresence>
         {chatTester && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm" onClick={() => setChatTester(null)}>
+          <div className={`fixed inset-0 ${modalZ} flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm`} onClick={() => setChatTester(null)}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -736,7 +745,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       {/* Thank You Modal */}
       <Portal><AnimatePresence>
         {showThankYouModal && selectedTester && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm">
+          <div className={`fixed inset-0 ${modalZ} flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm`}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -809,7 +818,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       {/* Reset / Set Password Modal */}
       <Portal><AnimatePresence>
         {showPwModal && selectedTester && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm">
+          <div className={`fixed inset-0 ${modalZ} flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm`}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -899,7 +908,7 @@ const BetaTesterManagementCFS = ({ config = {}, isEditing = false, onConfigChang
       {/* Activity Feed Modal — opened by clicking items/feedback stats */}
       <Portal><AnimatePresence>
         {showActivityModal && selectedTester && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm">
+          <div className={`fixed inset-0 ${modalZ} flex items-center justify-center p-4 bg-black/10 backdrop-blur-sm`}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}

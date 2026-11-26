@@ -867,3 +867,7 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - QuickAislePicker: store-aisle chips are now 3D destination chips — number badge + name inside a rounded-full gradient chip (check mark when selected, category list in tooltip). Suggestion + Set buttons follow the same gradient-chip press.
 - Number grid: 3D tiles with hover-lift/press; tiles matching a configured store aisle stay blue-tinted; when the store has configured aisles the raw grid collapses behind an "Any aisle number" disclosure (configured destinations are the right default).
 - ItemList trigger chips: set state carries the aisle name inline (truncated) instead of a second line; estimated and unset states use dashed outlines (unconfirmed/empty-slot signal, matching the unit? convention).
+
+## BTCS float panel slide views (latest)
+- BtcsFloatPanel title bar now carries a sliding segmented switcher (spring pill): Scores (existing BTCS leaderboard) and Testers (compact beta tester management). Views slide horizontally on switch.
+- BetaTesterManagementCFS gained a `compact` prop: page header + stat cards drop, filters slim, root scrolls inside the float panel; modals layer at z-[95] above the panel's z-80 (BtcsModal takes the same prop).
