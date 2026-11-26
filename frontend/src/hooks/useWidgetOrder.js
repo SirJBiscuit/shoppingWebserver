@@ -86,7 +86,21 @@ const useWidgetOrder = () => {
     });
   }, [persist]);
 
-  return { orderedIds, reorder, resetOrder };
+  // Widget locks live in the same pref under _locks: { widgetId: true }.
+  // orderedIds skips it automatically — it's an object, not an array.
+  const isLocked = useCallback((id) => orderMap._locks?.[id] === true, [orderMap]);
+
+  const toggleLock = useCallback((id) => {
+    setOrderMap((prev) => {
+      const locks = { ...(prev._locks || {}) };
+      if (locks[id]) delete locks[id]; else locks[id] = true;
+      const next = { ...prev, _locks: locks };
+      persist(next);
+      return next;
+    });
+  }, [persist]);
+
+  return { orderedIds, reorder, resetOrder, isLocked, toggleLock };
 };
 
 export default useWidgetOrder;

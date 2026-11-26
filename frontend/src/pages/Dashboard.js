@@ -131,7 +131,7 @@ const WIDGET_LABELS = {
 // element — producing a drag offset and killing edge auto-scroll.
 // Rendering the drag copy inside a Portal at document.body escapes
 // every transformed ancestor, so the clone tracks the cursor exactly.
-const DraggableWidget = ({ id, index, label, hidden, onHide, onUnhide, onMove, moves, children }) => {
+const DraggableWidget = ({ id, index, label, hidden, onHide, onUnhide, onMove, moves, locked, onToggleLock, children }) => {
   const shell = (drag, snapshot) => (
     <div
       ref={drag.innerRef}
@@ -147,6 +147,8 @@ const DraggableWidget = ({ id, index, label, hidden, onHide, onUnhide, onMove, m
         dragHandleProps={drag.dragHandleProps}
         onMove={onMove}
         moves={moves}
+        locked={locked}
+        onToggleLock={onToggleLock}
       >
         {children}
       </HidableWidget>
@@ -157,6 +159,7 @@ const DraggableWidget = ({ id, index, label, hidden, onHide, onUnhide, onMove, m
     <Draggable
       draggableId={id}
       index={index}
+      isDragDisabled={locked}
       renderClone={(drag, snapshot) => <Portal>{shell(drag, snapshot)}</Portal>}
     >
       {shell}
@@ -173,7 +176,7 @@ const Dashboard = () => {
   const { isEditorActive, toggleEditor, selectWidget, selectedWidget, widgetProperties } = useEditor();
   const { hasFeature } = useFeatureFlags();
   const { isHidden, hide, unhide } = useHiddenWidgets();
-  const { orderedIds: widgetOrder, reorder: reorderWidgets } = useWidgetOrder();
+  const { orderedIds: widgetOrder, reorder: reorderWidgets, isLocked: widgetLocked, toggleLock: toggleWidgetLock } = useWidgetOrder();
   const sidebarOrder = widgetOrder('dashboard-sidebar', DEFAULT_SIDEBAR_WIDGETS);
   const mainOrder = widgetOrder('dashboard-main', DEFAULT_MAIN_WIDGETS);
   const addItemsChips = widgetOrder('additems-chips', [
@@ -1887,6 +1890,7 @@ const Dashboard = () => {
   // up/down reorder within the widget's column; left/right hop columns
   // (sidebar lives right of main on wide screens).
   const moveWidget = (wid, dir) => {
+    if (widgetLocked(wid)) return; // locked widgets don't move
     const inSidebar = sidebarWidgets.includes(wid);
     const zone = inSidebar ? 'dashboard-sidebar' : 'dashboard-main';
     const ids = inSidebar ? [...sidebarWidgets] : [...mainWidgets];
@@ -3011,6 +3015,8 @@ const Dashboard = () => {
                         onUnhide={() => unhide(wid)}
                         onMove={(dir) => moveWidget(wid, dir)}
                         moves={movesFor(wid)}
+                        locked={widgetLocked(wid)}
+                        onToggleLock={() => toggleWidgetLock(wid)}
                       >
                         {renderWidget(wid)}
                       </DraggableWidget>
@@ -3043,6 +3049,8 @@ const Dashboard = () => {
                     onUnhide={() => unhide(wid)}
                     onMove={(dir) => moveWidget(wid, dir)}
                     moves={movesFor(wid)}
+                    locked={widgetLocked(wid)}
+                    onToggleLock={() => toggleWidgetLock(wid)}
                   >
                     {renderWidget(wid)}
                   </DraggableWidget>

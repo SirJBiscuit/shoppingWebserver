@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { EyeOff, Eye, GripVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { EyeOff, Eye, GripVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Lock, LockOpen } from 'lucide-react';
 
 /**
  * HidableWidget — wraps a dashboard widget with hide/show controls.
@@ -24,8 +24,12 @@ import { EyeOff, Eye, GripVertical, ChevronUp, ChevronDown, ChevronLeft, Chevron
  *                  pad (click-to-move alternative to dragging).
  *   moves     — {up,down,left,right} booleans; unavailable directions
  *                  render disabled.
+ *   locked    — bool; when true the drag grip and arrow pad are disabled
+ *                  and a 3D padlock chip stays visible (persists via the
+ *                  caller — useWidgetOrder's _locks map).
+ *   onToggleLock — () => void; renders the lock toggle chip.
  */
-const HidableWidget = ({ id, label, hidden, onHide, onUnhide, className = '', dragHandleProps = null, onMove = null, moves = null, children }) => (
+const HidableWidget = ({ id, label, hidden, onHide, onUnhide, className = '', dragHandleProps = null, onMove = null, moves = null, locked = false, onToggleLock = null, children }) => (
   <div className={`relative group/hw ${className}`} data-hidable-widget={id}>
     <AnimatePresence mode="wait" initial={false}>
       {hidden ? (
@@ -61,21 +65,54 @@ const HidableWidget = ({ id, label, hidden, onHide, onUnhide, className = '', dr
             <EyeOff className="w-3.5 h-3.5" />
           </button>
           {/* drag affordance — same reveal as hide, opposite corner.
-              dragHandleProps carries RBD's listeners/refs for the drag. */}
+              dragHandleProps carries RBD's listeners/refs for the drag.
+              Locked widgets show a dimmed non-draggable grip. */}
           {dragHandleProps && (
             <button
               type="button"
-              title={`Drag to move ${label}`}
-              aria-label={`Drag to move ${label}`}
-              className="absolute -top-2 -left-2 z-20 w-6 h-6 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-sm flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:border-gray-400 opacity-0 max-md:opacity-60 group-hover/hw:opacity-100 focus:opacity-100 transition-opacity cursor-grab active:cursor-grabbing touch-none"
-              {...dragHandleProps}
+              title={locked ? `${label} is locked — unlock to move` : `Drag to move ${label}`}
+              aria-label={locked ? `${label} is locked` : `Drag to move ${label}`}
+              className={`absolute -top-2 -left-2 z-20 w-6 h-6 rounded-full bg-white dark:bg-gray-800 border shadow-sm flex items-center justify-center transition-opacity touch-none ${
+                locked
+                  ? 'border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600 opacity-0 max-md:opacity-40 group-hover/hw:opacity-70 cursor-not-allowed'
+                  : 'border-gray-200 dark:border-gray-600 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:border-gray-400 opacity-0 max-md:opacity-60 group-hover/hw:opacity-100 focus:opacity-100 cursor-grab active:cursor-grabbing'
+              }`}
+              {...(locked ? {} : dragHandleProps)}
             >
               <GripVertical className="w-3.5 h-3.5" />
             </button>
           )}
+          {/* lock toggle — 3D chip with a padlock that "clicks" shut.
+              Stays fully visible while locked so it can be unlocked;
+              fades in with the other affordances when unlocked. */}
+          {onToggleLock && (
+            <motion.button
+              type="button"
+              onClick={onToggleLock}
+              title={locked ? `Unlock ${label}` : `Lock ${label} in place`}
+              aria-label={locked ? `Unlock ${label}` : `Lock ${label}`}
+              aria-pressed={locked}
+              whileTap={{ scale: 0.82 }}
+              className={`absolute -top-2 left-5 z-20 w-6 h-6 rounded-full border flex items-center justify-center transition-opacity ${
+                locked
+                  ? 'bg-gradient-to-b from-amber-400 to-amber-600 border-amber-700 text-white shadow-[0_2px_0_#92400e,inset_0_1px_0_rgb(255_255_255/0.35)] opacity-100'
+                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-400 hover:text-amber-600 hover:border-amber-400 shadow-sm opacity-0 max-md:opacity-60 group-hover/hw:opacity-100 focus:opacity-100'
+              }`}
+            >
+              <motion.span
+                key={locked ? 'locked' : 'unlocked'}
+                initial={{ rotateY: 90, scale: 0.6 }}
+                animate={{ rotateY: 0, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+                className="flex"
+              >
+                {locked ? <Lock className="w-3.5 h-3.5" /> : <LockOpen className="w-3.5 h-3.5" />}
+              </motion.span>
+            </motion.button>
+          )}
           {/* quick-move arrows — same reveal as the other corner
               affordances; a click-to-move alternative to dragging */}
-          {onMove && (
+          {onMove && !locked && (
             <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-20 flex gap-0.5 opacity-0 max-md:opacity-60 group-hover/hw:opacity-100 focus-within:opacity-100 transition-opacity">
               {[
                 { dir: 'left', Icon: ChevronLeft },
