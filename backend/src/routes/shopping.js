@@ -136,6 +136,30 @@ router.post('/lists/:id/restore', async (req, res) => {
   }
 });
 
+// Ranked name suggestions — the user's most-used list names for a given
+// store (or overall when no store is given). Powers autofill when a
+// store is picked so repeat trips name themselves.
+router.get('/lists/name-suggestions', async (req, res) => {
+  try {
+    const store = String(req.query.store || '').trim().toLowerCase();
+    const result = await db.query(
+      `SELECT name, COUNT(*)::int AS uses, MAX(created_at) AS last_used
+       FROM shopping_lists
+       WHERE user_id = $1
+         AND name IS NOT NULL AND name <> ''
+         AND ($2 = '' OR LOWER(COALESCE(store_name, '')) = $2)
+       GROUP BY name
+       ORDER BY uses DESC, last_used DESC
+       LIMIT 6`,
+      [req.user.id, store]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Name suggestions error:', error);
+    res.status(500).json({ error: 'Failed to fetch name suggestions' });
+  }
+});
+
 router.get('/lists/:id', async (req, res) => {
   try {
     const listResult = await db.query(

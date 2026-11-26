@@ -1,15 +1,37 @@
-import React, { useState, useMemo } from 'react';
-import { ShoppingCart, Store, Tag } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ShoppingCart, Store, Tag, Sparkles } from 'lucide-react';
 import MenuPanel from './MenuPanel';
 import { getAvailableStores } from '../data/storeLayouts';
+import { shoppingAPI } from '../services/api';
 
 const NewListModal = ({ isOpen, onClose, onCreateList, existingLists = [] }) => {
   const [listName, setListName] = useState('');
   const [storeName, setStoreName] = useState('');
   const [listType, setListType] = useState('general'); // general, weekly, store-specific
   const [notes, setNotes] = useState('');
-  
+  const [serverNames, setServerNames] = useState([]); // [{name, uses}]
+  const nameTouched = useRef(false);
+
   const availableStores = getAvailableStores();
+
+  // Server-ranked suggestions: the names this user uses most at the
+  // selected store, by frequency. Re-fetches when the store changes.
+  useEffect(() => {
+    const store = storeName && storeName !== 'custom' ? storeName : '';
+    let cancelled = false;
+    shoppingAPI.getNameSuggestions(store)
+      .then((r) => { if (!cancelled) setServerNames(Array.isArray(r.data) ? r.data : []); })
+      .catch(() => { if (!cancelled) setServerNames([]); });
+    return () => { cancelled = true; };
+  }, [storeName]);
+
+  // Autofill: once a store is picked and the user hasn't typed, drop the
+  // top predicted name in — they can still overwrite or pick a chip.
+  useEffect(() => {
+    if (!nameTouched.current && serverNames.length && storeName && storeName !== 'custom') {
+      setListName(serverNames[0].name);
+    }
+  }, [serverNames, storeName]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -33,20 +55,8 @@ const NewListModal = ({ isOpen, onClose, onCreateList, existingLists = [] }) => 
     onClose();
   };
 
-  // Per-store name memory — reuse names previous lists at this store used
-  const storeNames = useMemo(() => {
-    if (!storeName || storeName === 'custom') return [];
-    const sn = storeName.toLowerCase();
-    const seen = new Set();
-    return existingLists
-      .filter((l) => (l.store_name || '').toLowerCase() === sn && l.name)
-      .map((l) => l.name)
-      .filter((n) => !seen.has(n.toLowerCase()) && seen.add(n.toLowerCase()))
-      .slice(0, 3);
-  }, [existingLists, storeName]);
-
   const suggestedNames = [
-    ...storeNames,
+    ...serverNames.map((s) => s.name),
     `Shopping List ${existingLists.length + 1}`,
     'Weekly Groceries',
     'Quick Trip',
@@ -73,25 +83,37 @@ const NewListModal = ({ isOpen, onClose, onCreateList, existingLists = [] }) => 
             <input
               type="text"
               value={listName}
-              onChange={(e) => setListName(e.target.value)}
+              onChange={(e) => { nameTouched.current = true; setListName(e.target.value); }}
               className="input-field"
               placeholder="e.g., Weekly Groceries"
               autoFocus
               required
             />
-            
-            {/* Quick suggestions */}
+
+            {/* Predicted names — learned from your past lists at this store */}
             <div className="flex flex-wrap gap-2 mt-2">
-              {suggestedNames.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => setListName(name)}
-                  className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                >
-                  {name}
-                </button>
-              ))}
+              {suggestedNames.map((name) => {
+                const learned = serverNames.find((s) => s.name === name);
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => { nameTouched.current = true; setListName(name); }}
+                    title={learned ? `Used ${learned.uses}× at ${storeName}` : 'Suggested name'}
+                    className={`text-xs px-2 py-1 rounded transition-colors inline-flex items-center gap-1 ${
+                      learned
+                        ? 'bg-primary-50 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 ring-1 ring-primary-300 dark:ring-primary-700 hover:bg-primary-100 dark:hover:bg-primary-900/60'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {learned && <Sparkles className="w-3 h-3" />}
+                    {name}
+                    {learned && learned.uses > 1 && (
+                      <span className="text-[10px] opacity-70">×{learned.uses}</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

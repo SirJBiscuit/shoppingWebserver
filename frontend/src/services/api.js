@@ -131,6 +131,7 @@ export const quickLoginAPI = {
 
 export const shoppingAPI = {
   getLists: () => api.get('/shopping/lists'),
+  getNameSuggestions: (store) => api.get('/shopping/lists/name-suggestions', { params: { store: store || '' } }),
   getList: (id) => api.get(`/shopping/lists/${id}`),
   createList: (data) => api.post('/shopping/lists', data),
   updateList: (id, data) => api.put(`/shopping/lists/${id}`, data),
