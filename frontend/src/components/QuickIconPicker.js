@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, ImagePlus, Loader2, Check, AlertCircle, RotateCw } from 'lucide-react';
+import { motion, AnimatePresence, useDragControls } from 'framer-motion';
+import { X, ImagePlus, Loader2, Check, AlertCircle, RotateCw, GripHorizontal } from 'lucide-react';
 import { ICON_DATA } from './IconPicker';
 import { Portal, useAnchoredPopup } from '../utils/autoPlacement';
 import { isImageIcon, normalizeIconFile, uploadIcon, fetchCustomIcons } from '../utils/iconUpload';
@@ -81,6 +81,7 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex 
   // Shared auto-placement: below the clicked icon when it fits, above when
   // there's more room, height-capped on short screens; bottom sheet on mobile.
   const { pos, ref: anchorRef, maxHeight, isMobile } = useAnchoredPopup(anchor, { width: 288, height: 380 });
+  const dragControls = useDragControls();
 
   // Chrome (header+search+suggestions+upload row) ≈ 200px — cap the icon grid
   const gridMax = `${Math.max(96, maxHeight - 200)}px`;
@@ -104,6 +105,10 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex 
         animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, scale: 1, y: 0 }}
         exit={isMobile ? { opacity: 0, y: 60 } : { opacity: 0, scale: 0.9, y: 8 }}
         transition={{ type: 'spring', damping: 24, stiffness: 320 }}
+        drag={!isMobile}
+        dragControls={dragControls}
+        dragListener={false}
+        dragMomentum={false}
         className={`fixed bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden ${
           isMobile
             ? 'inset-x-0 bottom-0 rounded-t-2xl max-h-[72vh] border-b-0'
@@ -116,18 +121,30 @@ const QuickIconPicker = ({ item, anchor, currentIcon, onSelect, onClose, zIndex 
         )}
         {/* header */}
         <div className="flex items-center justify-between px-3 pt-2.5 pb-2 border-b border-gray-100 dark:border-gray-700">
-          <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 truncate">
+          <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 truncate flex items-center gap-1.5">
+            {!isMobile && (
+              <GripHorizontal
+                className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+                onPointerDown={(e) => dragControls.start(e)}
+              />
+            )}
             Icon for “{item?.item_name || item?.name || 'item'}”
           </span>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded" title="Close">
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+            title="Close"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* search */}
+        {/* search — autofocus only on non-touch so the OS keyboard stays
+            down until the user taps the field */}
         <div className="px-3 pt-2">
           <input
-            autoFocus
+            autoFocus={!isMobile}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search icons…"

@@ -817,3 +817,10 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - renderClone on every widget Draggable: the dragged copy now renders in a document.body Portal — framer-motion's CSS transforms on ancestors were breaking position:fixed, which caused the cursor offset AND killed edge auto-scroll while dragging. The clone now tracks the cursor 1:1 and RBD's built-in edge auto-scroll works again.
 - In-place original keeps the dashed ghost placeholder (styled via data-rbd-placeholder-context-id) + .widget-dropzone-active ring on the hovered column.
 - Unset units now read "unit?" with dashed/italic styling (stepper chip + non-stepper fallback) instead of plain "unit".
+
+## Quick picker harmonization + aisle config redesign + MDL terms (latest)
+- QuickAislePicker rebuilt: search bar (filters configured aisles by number/name/category), AnimatedScrollbar3D, desktop drag grip, red X close, string aisle numbers ("A1"), smart autofocus.
+- QuickUnitPicker rebuilt to match: search, AnimatedScrollbar3D, Learned-units section (mdl_custom_terms), drag grip, red X, smart autofocus; custom units POST to /api/mdl/terms.
+- QuickCategoryPicker + QuickIconPicker: desktop drag grip, red X close, autoFocus={!isMobile} so the OS keyboard stays down until the user taps a field.
+- AisleConfigModal redesigned: focused editor — aisle pill rail across the top (with + Aisle), one aisle's config fills the whole panel (pager, # + name, category chips, select + free-text custom category), compact modern chrome matching the pickers. Still bulk-PUT saves.
+- Migration 119: mdl_custom_terms (kind/term/status/usage_count, pending→approved lifecycle). Routes: POST /api/mdl/terms (learn/upsert), GET /api/mdl/terms (autofill: approved + own pending), admin GET /admin/terms, POST /admin/terms/:id/status, DELETE /admin/terms/:id (forget).

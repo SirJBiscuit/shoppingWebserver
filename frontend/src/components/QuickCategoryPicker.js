@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Plus, X, Wand2 } from 'lucide-react';
+import { motion, useDragControls } from 'framer-motion';
+import { Plus, X, Wand2, GripHorizontal } from 'lucide-react';
 import AnimatedScrollbar3D from './3DAnimatedScrollbar';
 import { Portal, useAnchoredPopup } from '../utils/autoPlacement';
 import { mergeDbCategories } from '../utils/categories';
@@ -67,6 +67,7 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
   // when it fits, above when there's more room, height-capped on short
   // screens. On mobile it's a bottom sheet — always reachable.
   const { pos, ref, maxHeight, side, isMobile } = useAnchoredPopup(anchor, { width: 288, height: 340 });
+  const dragControls = useDragControls();
 
   const pick = (name) => {
     onSelect(name);
@@ -101,6 +102,10 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
           ? { opacity: 0, y: 60 }
           : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }}
         transition={{ type: 'spring', damping: 22, stiffness: 320 }}
+        drag={!isMobile}
+        dragControls={dragControls}
+        dragListener={false}
+        dragMomentum={false}
         style={panelStyle}
         className={`fixed z-[71] bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden ${
           isMobile
@@ -112,10 +117,21 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
           <div className="mx-auto mt-2 mb-1 h-1.5 w-10 rounded-full bg-gray-300 dark:bg-gray-600" />
         )}
         <div className="flex items-center justify-between px-3 pt-2.5 pb-2 border-b border-gray-100 dark:border-gray-700">
-          <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 truncate">
+          <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 truncate flex items-center gap-1.5">
+            {!isMobile && (
+              <GripHorizontal
+                className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+                onPointerDown={(e) => dragControls.start(e)}
+              />
+            )}
             Category for “{itemName || 'item'}”
           </span>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded">
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+            title="Close"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -133,7 +149,7 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
 
         <div className="px-3 pt-2">
           <input
-            autoFocus
+            autoFocus={!isMobile}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search categories…"
@@ -185,7 +201,7 @@ const QuickCategoryPicker = ({ itemName, currentCategory, anchor, onSelect, onCl
                 title="Emoji icon"
               />
               <input
-                autoFocus
+                autoFocus={!isMobile}
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreate()}

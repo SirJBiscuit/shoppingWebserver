@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { X, Wand2, MapPin, Eraser, Check } from 'lucide-react';
+import { motion, useDragControls } from 'framer-motion';
+import { X, Wand2, MapPin, Eraser, Check, Search, GripHorizontal } from 'lucide-react';
+import AnimatedScrollbar3D from './3DAnimatedScrollbar';
 import { Portal, useAnchoredPopup } from '../utils/autoPlacement';
 import { getAislePrediction } from '../api/mdl';
 
@@ -12,16 +13,19 @@ const QUICK_AISLES = Array.from({ length: 24 }, (_, i) => i + 1);
  * anchored near the clicked chip, spring-in, click-outside to close.
  * On mobile it's a bottom sheet.
  *
- * Shows the MDL learned prediction as a one-tap suggestion, a quick-pick
- * grid of common aisle numbers, a custom number entry and an optional
- * aisle-name field. onSelect(number, name) applies; onClear() removes it.
+ * Shows the store's configured aisles as searchable named chips, the MDL
+ * learned prediction as a one-tap suggestion, a quick-pick number grid,
+ * and a custom number+name entry. onSelect(number, name) applies;
+ * onClear() removes it. Desktop: draggable by the header grip.
  */
 const QuickAislePicker = ({ itemName, currentAisle, currentAisleName, storeName, anchor, onSelect, onClear, onClose }) => {
   const [prediction, setPrediction] = useState(null);
+  const [query, setQuery] = useState('');
   const [num, setNum] = useState(currentAisle != null ? String(currentAisle) : '');
   const [name, setName] = useState(currentAisleName || '');
   const [storeAisles, setStoreAisles] = useState([]);
-  const { pos, ref, maxHeight, side, isMobile } = useAnchoredPopup(anchor, { width: 288, height: 420 });
+  const { pos, ref, maxHeight, side, isMobile } = useAnchoredPopup(anchor, { width: 288, height: 460 });
+  const dragControls = useDragControls();
 
   // MDL learned aisle for this item at this store — best-effort
   useEffect(() => {
@@ -62,9 +66,20 @@ const QuickAislePicker = ({ itemName, currentAisle, currentAisleName, storeName,
   };
 
   const submitCustom = () => {
-    const n = parseInt(num, 10);
-    if (!Number.isNaN(n) && n > 0) pick(n);
+    const raw = num.trim();
+    if (!raw) return;
+    const n = /^\d+$/.test(raw) ? parseInt(raw, 10) : raw;
+    pick(n, name);
   };
+
+  const q = query.trim().toLowerCase();
+  const filteredAisles = q
+    ? storeAisles.filter((a) =>
+        String(a.aisle_number).toLowerCase().includes(q) ||
+        (a.aisle_name || '').toLowerCase().includes(q) ||
+        (Array.isArray(a.categories) && a.categories.some((c) => c.toLowerCase().includes(q)))
+      )
+    : storeAisles;
 
   const panelStyle = isMobile
     ? { transformStyle: 'preserve-3d' }
@@ -91,6 +106,10 @@ const QuickAislePicker = ({ itemName, currentAisle, currentAisleName, storeName,
           ? { opacity: 0, y: 60 }
           : { opacity: 0, scale: 0.85, rotateX: -25, y: 8 }}
         transition={{ type: 'spring', damping: 22, stiffness: 320 }}
+        drag={!isMobile}
+        dragControls={dragControls}
+        dragListener={false}
+        dragMomentum={false}
         style={panelStyle}
         className={`fixed z-[71] bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden ${
           isMobile
@@ -103,10 +122,21 @@ const QuickAislePicker = ({ itemName, currentAisle, currentAisleName, storeName,
         )}
         <div className="flex items-center justify-between px-3 pt-2.5 pb-2 border-b border-gray-100 dark:border-gray-700">
           <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 truncate flex items-center gap-1.5">
+            {!isMobile && (
+              <GripHorizontal
+                className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+                onPointerDown={(e) => dragControls.start(e)}
+              />
+            )}
             <MapPin className="w-3.5 h-3.5 text-blue-500" />
             Aisle for “{itemName || 'item'}”{storeName ? ` · ${storeName}` : ''}
           </span>
-          <button type="button" onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded">
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+            title="Close"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -124,58 +154,87 @@ const QuickAislePicker = ({ itemName, currentAisle, currentAisleName, storeName,
           </button>
         )}
 
-        {/* Store's configured aisles — named destinations from Configure
-            Aisles take priority over the raw number grid */}
-        {storeAisles.length > 0 && (
-          <div className="px-3 pt-2 pb-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1.5">Store aisles</p>
-            <div className="flex flex-wrap gap-1.5">
-              {storeAisles.map((a) => (
-                <button
-                  key={a.id || a.aisle_number}
+        {/* Search — filters configured aisles by number, name or category */}
+        <div className="px-3 pt-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search aisles…"
+              className="w-full pl-7 pr-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <AnimatedScrollbar3D
+          maxHeight={`${Math.max(120, maxHeight - (storeAisles.length ? 250 : 230))}px`}
+          thumbColor="bg-gradient-to-b from-blue-400 to-blue-600"
+          glowColor="primary"
+          autoHide={false}
+        >
+          {/* Store's configured aisles — named destinations from Configure
+              Aisles take priority over the raw number grid */}
+          {filteredAisles.length > 0 && (
+            <div className="px-3 pt-2 pb-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1.5">Store aisles</p>
+              <div className="flex flex-wrap gap-1.5">
+                {filteredAisles.map((a, i) => (
+                  <motion.button
+                    key={a.id || a.aisle_number}
+                    type="button"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: Math.min(i * 0.02, 0.3), type: 'spring', damping: 20, stiffness: 300 }}
+                    onClick={() => pick(a.aisle_number, a.aisle_name)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105 active:scale-95 ${
+                      String(currentAisle) === String(a.aisle_number)
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100'
+                    }`}
+                    title={a.aisle_name || `Aisle ${a.aisle_number}`}
+                  >
+                    {a.aisle_number}{a.aisle_name ? ` · ${a.aisle_name}` : ''}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          )}
+          {q && filteredAisles.length === 0 && storeAisles.length > 0 && (
+            <p className="px-3 pt-2 text-xs text-gray-400">No aisles match “{query}”</p>
+          )}
+
+          {/* Quick-pick grid */}
+          <div className="px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1.5">By number</p>
+            <div className="grid grid-cols-6 gap-1.5">
+              {QUICK_AISLES.map((n, i) => (
+                <motion.button
+                  key={n}
                   type="button"
-                  onClick={() => pick(a.aisle_number, a.aisle_name)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105 active:scale-95 ${
-                    String(currentAisle) === String(a.aisle_number)
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100'
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: Math.min(i * 0.012, 0.25), type: 'spring', damping: 20, stiffness: 300 }}
+                  onClick={() => pick(n)}
+                  className={`py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105 active:scale-95 ${
+                    String(currentAisle) === String(n)
+                      ? 'bg-blue-600 text-white ring-1 ring-blue-600'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/40'
                   }`}
-                  title={a.aisle_name || `Aisle ${a.aisle_number}`}
                 >
-                  {a.aisle_number}{a.aisle_name ? ` · ${a.aisle_name}` : ''}
-                </button>
+                  {n}
+                </motion.button>
               ))}
             </div>
           </div>
-        )}
-
-        {/* Quick-pick grid */}
-        <div className="px-3 py-2 grid grid-cols-6 gap-1.5">
-          {QUICK_AISLES.map((n, i) => (
-            <motion.button
-              key={n}
-              type="button"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: Math.min(i * 0.012, 0.25), type: 'spring', damping: 20, stiffness: 300 }}
-              onClick={() => pick(n)}
-              className={`py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105 active:scale-95 ${
-                currentAisle === n
-                  ? 'bg-blue-600 text-white ring-1 ring-blue-600'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/40'
-              }`}
-            >
-              {n}
-            </motion.button>
-          ))}
-        </div>
+        </AnimatedScrollbar3D>
 
         {/* Custom aisle number + optional name */}
         <div className="px-3 pb-2 flex items-center gap-1.5">
           <input
-            type="number"
-            min="1"
-            autoFocus
+            type="text"
+            autoFocus={!isMobile}
             value={num}
             onChange={(e) => setNum(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && submitCustom()}

@@ -1806,4 +1806,128 @@ router.get('/categorize/pending/list', authenticateToken, async (req, res) => {
   }
 });
 
+/* =========================================================================
+   Custom terms — learned vocabulary (units, item names, store names, …).
+   Users teach terms as they use them; they pool as 'pending' (visible to
+   the author only) until an admin approves → then they go global in quick
+   pickers/autofill. Admin approve/reject/forget lives in the same routes.
+   ========================================================================= */
+
+/**
+ * POST /api/mdl/terms
+ * { kind, term } — teach MDL a custom term. New terms enter 'pending';
+ * repeats only bump usage_count. Never trusts client-supplied status.
+ */
+router.post('/terms', authenticateToken, async (req, res) => {
+  try {
+    const kind = String(req.body.kind || '').trim().toLowerCase();
+    const term = String(req.body.term || '').trim();
+    if (!kind || !term || term.length > 120) {
+      return res.status(400).json({ error: 'kind and term (≤120 chars) required' });
+    }
+    const result = await db.query(
+      `INSERT INTO mdl_custom_terms (kind, term, status, created_by, usage_count, last_seen_at)
+       VALUES ($1, $2, 'pending', $3, 1, NOW())
+       ON CONFLICT (kind, term) DO UPDATE SET
+         usage_count = mdl_custom_terms.usage_count + 1,
+         last_seen_at = NOW()
+       RETURNING id, kind, term, status, usage_count`,
+      [kind, term, req.user.id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error learning term:', err);
+    res.status(500).json({ error: 'Failed to learn term' });
+  }
+});
+
+/**
+ * GET /api/mdl/terms?kind=unit
+ * Autofill source: approved terms for everyone, plus the caller's own
+ * pending terms (so a user keeps seeing their custom units).
+ */
+router.get('/terms', authenticateToken, async (req, res) => {
+  try {
+    const kind = String(req.query.kind || '').trim().toLowerCase();
+    const params = [req.user.id];
+    let sql = `SELECT id, kind, term, status, usage_count
+               FROM mdl_custom_terms
+               WHERE (status = 'approved' OR (status = 'pending' AND created_by = $1))`;
+    if (kind) { params.push(kind); sql += ' AND kind = $2'; }
+    sql += ' ORDER BY usage_count DESC, term ASC LIMIT 200';
+    const result = await db.query(sql, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching terms:', err);
+    res.status(500).json({ error: 'Failed to fetch terms' });
+  }
+});
+
+/**
+ * GET /api/mdl/admin/terms?kind=&status=
+ * Full review list for the MDL admin panel.
+ */
+router.get('/admin/terms', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const { kind, status = 'pending' } = req.query;
+    const params = [];
+    let sql = `SELECT t.*, u.username AS created_by_name, a.username AS approved_by_name
+               FROM mdl_custom_terms t
+               LEFT JOIN users u ON u.id = t.created_by
+               LEFT JOIN users a ON a.id = t.approved_by
+               WHERE 1=1`;
+    if (status) { params.push(status); sql += ` AND t.status = $${params.length}`; }
+    if (kind) { params.push(kind); sql += ` AND t.kind = $${params.length}`; }
+    sql += ' ORDER BY t.usage_count DESC, t.last_seen_at DESC LIMIT 300';
+    const result = await db.query(sql, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching admin terms:', err);
+    res.status(500).json({ error: 'Failed to fetch terms' });
+  }
+});
+
+/**
+ * POST /api/mdl/admin/terms/:id/status
+ * { status: 'approved' | 'rejected' | 'pending' } — approve sends the term
+ * global; reject hides it; pending returns it to the queue.
+ */
+router.post('/admin/terms/:id/status', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const status = String(req.body.status || '').trim();
+    if (!['approved', 'rejected', 'pending'].includes(status)) {
+      return res.status(400).json({ error: 'status must be approved | rejected | pending' });
+    }
+    const result = await db.query(
+      `UPDATE mdl_custom_terms
+       SET status = $2, approved_by = $3, approved_at = NOW()
+       WHERE id = $1 RETURNING id`,
+      [req.params.id, status, req.user.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Term not found' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Error updating term status:', err);
+    res.status(500).json({ error: 'Failed to update term' });
+  }
+});
+
+/**
+ * DELETE /api/mdl/admin/terms/:id
+ * "Forget" — hard-deletes the term so autofill never suggests it again.
+ */
+router.delete('/admin/terms/:id', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    const result = await db.query('DELETE FROM mdl_custom_terms WHERE id = $1 RETURNING id', [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Term not found' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Error forgetting term:', err);
+    res.status(500).json({ error: 'Failed to forget term' });
+  }
+});
+
 module.exports = router;
