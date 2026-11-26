@@ -83,8 +83,9 @@ const HidableWidget = ({ id, label, hidden, onHide, onUnhide, className = '', dr
             </button>
           )}
           {/* lock toggle — 3D chip with a padlock that "clicks" shut.
-              Stays fully visible while locked so it can be unlocked;
-              fades in with the other affordances when unlocked. */}
+              Hangs half-off the right edge (below the hide button) so it
+              never covers widget content; dimmed but visible while locked
+              so it can still be unlocked, hover-reveal when unlocked. */}
           {onToggleLock && (
             <motion.button
               type="button"
@@ -93,9 +94,9 @@ const HidableWidget = ({ id, label, hidden, onHide, onUnhide, className = '', dr
               aria-label={locked ? `Unlock ${label}` : `Lock ${label}`}
               aria-pressed={locked}
               whileTap={{ scale: 0.82 }}
-              className={`absolute -top-2 left-5 z-20 w-6 h-6 rounded-full border flex items-center justify-center transition-opacity ${
+              className={`absolute -right-2.5 top-6 z-20 w-5 h-5 rounded-full border flex items-center justify-center transition-opacity ${
                 locked
-                  ? 'bg-gradient-to-b from-amber-400 to-amber-600 border-amber-700 text-white shadow-[0_2px_0_#92400e,inset_0_1px_0_rgb(255_255_255/0.35)] opacity-100'
+                  ? 'bg-gradient-to-b from-amber-400 to-amber-600 border-amber-700 text-white shadow-[0_2px_0_#92400e,inset_0_1px_0_rgb(255_255_255/0.35)] opacity-60 hover:opacity-100'
                   : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-400 hover:text-amber-600 hover:border-amber-400 shadow-sm opacity-0 max-md:opacity-60 group-hover/hw:opacity-100 focus:opacity-100'
               }`}
             >
@@ -106,7 +107,7 @@ const HidableWidget = ({ id, label, hidden, onHide, onUnhide, className = '', dr
                 transition={{ type: 'spring', stiffness: 500, damping: 22 }}
                 className="flex"
               >
-                {locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                {locked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
               </motion.span>
             </motion.button>
           )}
