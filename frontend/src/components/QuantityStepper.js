@@ -20,7 +20,7 @@ import { useRipple } from '../utils/interactable';
  *   itemName  - optional; enables quantity learning
  *   size      - 'sm' (inline rows, touch-friendly on mobile) | 'lg' (menus)
  */
-const QuantityStepper = ({ value = 1, unit = '', onAdjust, itemName, size = 'sm', className = '' }) => {
+const QuantityStepper = ({ value = 1, unit = '', onAdjust, itemName, size = 'sm', className = '', onUnitClick }) => {
   const dirRef = useRef(1);
   const ripple = useRipple();
   const qty = parseFloat(value) || 1;
@@ -75,7 +75,19 @@ const QuantityStepper = ({ value = 1, unit = '', onAdjust, itemName, size = 'sm'
       >
         +
       </motion.button>
-      {unit && <span>{unit}</span>}
+      {onUnitClick ? (
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.85 }}
+          onClick={onUnitClick}
+          title="Tap to change unit"
+          className="px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-xs font-semibold hover:bg-primary-100 dark:hover:bg-primary-900/40 hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
+        >
+          {unit || 'unit'}
+        </motion.button>
+      ) : (
+        unit && <span>{unit}</span>
+      )}
     </span>
   );
 };

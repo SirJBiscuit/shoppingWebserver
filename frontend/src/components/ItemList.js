@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye, MoreVertical, Tag, Heart, X, List, LayoutGrid } from 'lucide-react';
+import { Check, Trash2, Edit2, Smile, Sparkles, MapPin, Copy, FileText, Eye, MoreVertical, Tag, Heart, X, List, LayoutGrid, Scale } from 'lucide-react';
 import { motion } from 'framer-motion';
 import CustomEditPanel from './CustomEditPanel';
 import CustomContextMenu from './CustomContextMenu';
@@ -20,6 +20,7 @@ import ItemIcon from './ItemIcon';
 import QuickIconPicker from './QuickIconPicker';
 import QuickCategoryPicker from './QuickCategoryPicker';
 import QuickAislePicker from './QuickAislePicker';
+import QuickUnitPicker from './QuickUnitPicker';
 import QuantityStepper from './QuantityStepper';
 
 const ItemList = (props) => {
@@ -83,6 +84,7 @@ const ItemListContent = (props) => {
     onQuantityChange,
     onPriceUpdate,
     onAisleChange,
+    onUnitChange,
     onToggleCategories,
     ghostItems = [],
     onGhostAdd,
@@ -348,6 +350,7 @@ const ItemListContent = (props) => {
               onQuantityChange={onQuantityChange}
               onPriceUpdate={onPriceUpdate}
               onAisleChange={onAisleChange}
+              onUnitChange={onUnitChange}
               priceCompare={priceCompare}
               showButtonLabels={showButtonLabels}
               showCheckboxes={showCheckboxes}
@@ -407,6 +410,7 @@ const ItemListContent = (props) => {
                   onQuantityChange={onQuantityChange}
                   onPriceUpdate={onPriceUpdate}
                   onAisleChange={onAisleChange}
+                  onUnitChange={onUnitChange}
                   priceCompare={priceCompare}
                   showButtonLabels={showButtonLabels}
                   showCheckboxes={showCheckboxes}
@@ -588,8 +592,9 @@ const StorePriceBadge = ({ itemName, currentPrice, priceCompare }) => {
   );
 };
 
-const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit, onQuantityChange, priceCompare, showButtonLabels, favorites, onOpenFavorites, onOpenEdit, onQuickIcon, onPriceUpdate, onAisleChange }) => {
+const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation, isNextItem, setEditingItem, setShowEditModal, storeName, setNoteItem, setNoteText, onLookForThis, onEdit, onQuantityChange, priceCompare, showButtonLabels, favorites, onOpenFavorites, onOpenEdit, onQuickIcon, onPriceUpdate, onAisleChange, onUnitChange }) => {
   const [catAnchor, setCatAnchor] = useState(null); // anchor for animated category popup
+  const [unitAnchor, setUnitAnchor] = useState(null); // anchor for the quick unit popup
 
   const openCategoryPicker = (e) => {
     e.stopPropagation();
@@ -738,6 +743,22 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
       item.aisle = null;
       item.aisle_name = null;
     }
+  };
+
+  const openUnitPicker = (e) => {
+    e.stopPropagation();
+    const r = e.currentTarget?.getBoundingClientRect?.();
+    setUnitAnchor(r ? { cx: r.left + r.width / 2, top: r.top, bottom: r.bottom } : null);
+  };
+
+  const applyUnit = async (unit) => {
+    if (onUnitChange) await onUnitChange(item, unit);
+    else item.unit = unit;
+  };
+
+  const clearUnit = async () => {
+    if (onUnitChange) await onUnitChange(item, '');
+    else item.unit = '';
   };
   
   const handleSuggestionAction = async (action) => {
@@ -964,10 +985,21 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                           unit={item.unit}
                           itemName={item.item_name}
                           onAdjust={adjustQuantity}
+                          onUnitClick={onUnitChange ? openUnitPicker : undefined}
                         />
                       ) : (
                         <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {formatQuantityPlain(itemQty)} {item.unit}
+                          {formatQuantityPlain(itemQty)}{' '}
+                          {onUnitChange ? (
+                            <button
+                              type="button"
+                              onClick={openUnitPicker}
+                              title="Tap to change unit"
+                              className="px-1 rounded hover:bg-primary-100 dark:hover:bg-primary-900/40 hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
+                            >
+                              {item.unit || 'unit'}
+                            </button>
+                          ) : item.unit}
                         </span>
                       )}
                       {item.totalPrice > 0 && (
@@ -1155,6 +1187,7 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                               onAdjust={adjustQuantity}
                               size="lg"
                               className="w-full justify-between text-gray-800 dark:text-gray-200 font-semibold"
+                              onUnitClick={onUnitChange ? openUnitPicker : undefined}
                             />
                           </div>
                         )}
@@ -1195,6 +1228,15 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
                         >
                           <span className="w-5 h-5 flex items-center justify-center text-amber-500 text-base leading-none">{getCategoryIcon(category)}</span> Category
                         </button>
+                        {onUnitChange && (
+                          <button
+                            type="button"
+                            onClick={(e) => { setShowMobileMenu(false); openUnitPicker(e); }}
+                            className="w-full flex items-center gap-3 px-4 py-3.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-700"
+                          >
+                            <Scale className="w-5 h-5 text-cyan-500" /> Unit{item.unit ? `: ${item.unit}` : ''}
+                          </button>
+                        )}
                         {onLookForThis && !item.is_checked && (
                           <button
                             type="button"
@@ -1249,6 +1291,17 @@ const ItemCard = ({ item, onToggleCheck, onDelete, onCopyMove, triggerAnimation,
           onSelect={applyAisle}
           onClear={clearAisle}
           onClose={() => setAisleAnchor(null)}
+        />
+      )}
+
+      {unitAnchor !== null && (
+        <QuickUnitPicker
+          itemName={item.item_name}
+          currentUnit={item.unit}
+          anchor={unitAnchor}
+          onSelect={applyUnit}
+          onClear={clearUnit}
+          onClose={() => setUnitAnchor(null)}
         />
       )}
 

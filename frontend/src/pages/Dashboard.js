@@ -1071,6 +1071,22 @@ const Dashboard = () => {
     }
   };
 
+  // Unit change from the QuickUnitPicker — same group semantics as
+  // aisle changes: apply to every duplicate row, then reload.
+  const handleUnitChange = async (item, unit) => {
+    const ids = item.ids || [item.id];
+    try {
+      await Promise.all(ids.map(id =>
+        shoppingAPI.updateItem(activeList.id, id, { unit })
+      ));
+      await loadListItems(activeList.id);
+      success(unit ? `Unit set to ${unit}` : 'Unit cleared');
+    } catch (err) {
+      console.error('Error updating unit:', err);
+      error('Failed to update unit');
+    }
+  };
+
   // Quick quantity change - Optimistic update for instant feedback
   const handleQuantityChange = async (item, delta) => {
     let updatedQuantity;
@@ -2397,6 +2413,7 @@ const Dashboard = () => {
                 onQuantityChange={handleQuantityChange}
                 onPriceUpdate={handlePriceUpdate}
                 onAisleChange={handleAisleChange}
+                onUnitChange={handleUnitChange}
                 onEdit={async (updatedItem) => {
                   try {
                     console.log('Updating item:', updatedItem);
@@ -3376,6 +3393,7 @@ const Dashboard = () => {
         isOpen={showAisleConfig}
         onClose={() => setShowAisleConfig(false)}
         storeName={activeList?.store_name}
+        userCategories={categories}
         onSave={async (aisles) => {
           console.log('Saving aisles:', aisles);
           setShowAisleConfig(false);
@@ -3531,6 +3549,7 @@ const Dashboard = () => {
             onQuantityChange={handleQuantityChange}
             onPriceUpdate={handlePriceUpdate}
             onAisleChange={handleAisleChange}
+            onUnitChange={handleUnitChange}
             onEdit={async (updatedItem) => {
               try {
                 const updateData = {

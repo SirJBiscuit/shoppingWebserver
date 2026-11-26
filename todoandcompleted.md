@@ -798,3 +798,10 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Widget zones: react-beautiful-dnd DragDropContext + two droppables (dashboard-main, dashboard-sidebar) — every block below the header is a widget (live stats, add items, recipes, looking-for-next, suggestions, search, item list, trip actions + sidebar stack); any widget drags between columns; order/zone saved per user via useWidgetOrder (mdl_user_preferences)
 - HidableWidget: grip handle now driven by RBD dragHandleProps
 - StrictModeDroppable: new util so react-beautiful-dnd works under React 18 StrictMode dev double-mount
+
+## Aisle config fix + unit picker (latest)
+- Backend: new bulk `PUT /api/stores/:storeId/aisles` — one transaction that wipes + re-inserts the store's layout (removed aisles actually delete; old per-aisle POST upserts could never remove and collided on empty aisle_number). Categories also sync into mdl_category_aisles.
+- AisleConfigModal: saveAisles now calls the bulk PUT (silent save loss fixed); category picker merges the user's real categories (userCategories prop) with the common list + a free-text "Custom…" input so custom categories work; scroll body uses the 3D scrollbar utility.
+- QuickAislePicker: resolves the store via /api/mdl/stores/search then fetches /api/stores/:id/aisles — configured aisles render as named chips ("3 · Frozen") above the 1-24 number grid.
+- New QuickUnitPicker: anchored popup / mobile bottom sheet mirroring QuickCategoryPicker — 24 common units grid + custom-unit input + clear.
+- ItemList: quantity stepper unit is now a tappable chip (QuantityStepper gained onUnitClick); non-stepper fallback unit text is tappable too; mobile bottom sheet gained a "Unit: X" row. All paths open QuickUnitPicker; applyUnit/clearUnit go through Dashboard's new handleUnitChange -> PATCH unit (applies to grouped duplicates, then reloads).

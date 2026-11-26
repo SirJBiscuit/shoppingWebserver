@@ -8,11 +8,12 @@ const authHeaders = (json = false) => ({
   ...(json ? { 'Content-Type': 'application/json' } : {}),
 });
 
-const AisleConfigModal = ({ isOpen, onClose, storeName, storeId: storeIdProp, onSave }) => {
+const AisleConfigModal = ({ isOpen, onClose, storeName, storeId: storeIdProp, onSave, userCategories = [] }) => {
   const { success, error } = useToast();
   const [aisles, setAisles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [storeId, setStoreId] = useState(storeIdProp || null);
+  const [customCat, setCustomCat] = useState({}); // per-aisle free-text category input
 
   useEffect(() => {
     if (isOpen) {
@@ -131,20 +132,21 @@ const AisleConfigModal = ({ isOpen, onClose, storeName, storeId: storeIdProp, on
     }
     setLoading(true);
     try {
-      // Save each aisle
-      for (const aisle of aisles) {
-        const res = await fetch(`/api/stores/${storeId}/aisles`, {
-          method: 'POST',
-          headers: authHeaders(true),
-          body: JSON.stringify({
-            aisle_number: aisle.aisle_number,
-            aisle_name: aisle.aisle_name,
-            categories: aisle.categories || [],
-            display_order: aisle.display_order,
-          }),
-        });
-        if (!res.ok) throw new Error(`Aisle ${aisle.aisle_number} failed to save`);
-      }
+      // One atomic replace — removed aisles actually delete, and a failure
+      // can't leave a half-saved layout. Rows without a number are skipped.
+      const res = await fetch(`/api/stores/${storeId}/aisles`, {
+        method: 'PUT',
+        headers: authHeaders(true),
+        body: JSON.stringify({
+          aisles: aisles.map((a, i) => ({
+            aisle_number: a.aisle_number,
+            aisle_name: a.aisle_name,
+            categories: a.categories || [],
+            display_order: i,
+          })),
+        }),
+      });
+      if (!res.ok) throw new Error('Bulk save failed');
       success('Aisle configuration saved!');
       if (onSave) await onSave(aisles);
       onClose();
@@ -158,6 +160,8 @@ const AisleConfigModal = ({ isOpen, onClose, storeName, storeId: storeIdProp, on
 
   if (!isOpen) return null;
 
+  // Category options: the user's own categories first (that's what items
+  // actually carry), then common store categories — deduped.
   const commonCategories = [
     'Produce', 'Bakery', 'Deli', 'Meat', 'Seafood', 'Dairy', 'Eggs',
     'Frozen', 'Breakfast', 'Cereal', 'Canned', 'Soup', 'Pantry',
@@ -166,11 +170,15 @@ const AisleConfigModal = ({ isOpen, onClose, storeName, storeId: storeIdProp, on
     'Coffee', 'Tea', 'Paper', 'Cleaning', 'Household', 'Kitchen',
     'Laundry', 'Personal Care', 'Health', 'Baby', 'Pet',
   ];
+  const categoryOptions = [...new Set([
+    ...userCategories.map((c) => (typeof c === 'string' ? c : c?.name)).filter(Boolean),
+    ...commonCategories,
+  ])];
 
   return (
     <Portal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 flex items-center justify-between">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto scrollbar-3d">
+        <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
               Configure Aisles
@@ -248,22 +256,53 @@ const AisleConfigModal = ({ isOpen, onClose, storeName, storeId: storeIdProp, on
                     </span>
                   ))}
                 </div>
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      addCategory(index, e.target.value);
-                      e.target.value = '';
-                    }
-                  }}
-                  className="input-field text-sm"
-                >
-                  <option value="">+ Add category...</option>
-                  {commonCategories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        addCategory(index, e.target.value);
+                        e.target.value = '';
+                      }
+                    }}
+                    className="input-field text-sm flex-1"
+                  >
+                    <option value="">+ Add category...</option>
+                    {categoryOptions.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                  {/* Custom category — any name the preset list doesn't cover */}
+                  <div className="flex gap-1">
+                    <input
+                      type="text"
+                      value={customCat[index] || ''}
+                      onChange={(e) => setCustomCat({ ...customCat, [index]: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && customCat[index]?.trim()) {
+                          addCategory(index, customCat[index]);
+                          setCustomCat({ ...customCat, [index]: '' });
+                        }
+                      }}
+                      placeholder="Custom…"
+                      className="input-field text-sm w-28"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (customCat[index]?.trim()) {
+                          addCategory(index, customCat[index]);
+                          setCustomCat({ ...customCat, [index]: '' });
+                        }
+                      }}
+                      className="px-2 rounded-lg bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-300 hover:bg-primary-200 transition-colors"
+                      title="Add custom category"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           ))}

@@ -394,6 +394,67 @@ router.post('/:storeId/aisles', async (req, res) => {
   }
 });
 
+// Bulk-replace a store's aisle configuration — one call, one transaction.
+// The per-aisle POST upserts but can never delete, so the config panel
+// uses this: removed aisles actually go away, and a partial failure
+// doesn't leave a half-saved layout.
+router.put('/:storeId/aisles', async (req, res) => {
+  const { storeId } = req.params;
+  const { aisles } = req.body;
+
+  if (!Array.isArray(aisles)) {
+    return res.status(400).json({ error: 'aisles must be an array' });
+  }
+
+  const client = await db.pool.connect();
+  const q = (text, params) => client.query(text, params);
+
+  try {
+    await client.query('BEGIN');
+
+    // Wipe the store's aisles + their category mappings
+    await q(
+      `DELETE FROM aisle_categories WHERE store_aisle_id IN
+         (SELECT id FROM store_aisles WHERE store_location_id = $1)`,
+      [storeId]
+    );
+    await q('DELETE FROM store_aisles WHERE store_location_id = $1', [storeId]);
+
+    let saved = 0;
+    for (const aisle of aisles) {
+      const num = (aisle.aisle_number || '').toString().trim();
+      if (!num) continue; // numberless rows are UI drafts — never persisted
+      const aisleResult = await q(
+        `INSERT INTO store_aisles (store_location_id, aisle_number, aisle_name, display_order)
+         VALUES ($1, $2, $3, $4) RETURNING id`,
+        [storeId, num, aisle.aisle_name || null, aisle.display_order || 0]
+      );
+      const aisleId = aisleResult.rows[0].id;
+      const cats = Array.isArray(aisle.categories) ? aisle.categories.filter(Boolean) : [];
+      for (const cat of cats) {
+        await q('INSERT INTO aisle_categories (store_aisle_id, category_name) VALUES ($1, $2)', [aisleId, cat]);
+        await q(
+          `INSERT INTO mdl_category_aisles (category, store_id, aisle_number, item_count, last_updated)
+           VALUES ($1, $2, $3, 1, NOW())
+           ON CONFLICT (category, store_id, aisle_number)
+           DO UPDATE SET last_updated = NOW()`,
+          [cat, storeId, num]
+        ).catch(() => {});
+      }
+      saved++;
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, saved });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error bulk-saving aisles:', error);
+    res.status(500).json({ error: 'Failed to save aisle configuration' });
+  } finally {
+    client.release();
+  }
+});
+
 // Get aisle for a specific category at a store
 router.get('/:storeId/category/:categoryName/aisle', async (req, res) => {
   const { storeId, categoryName } = req.params;

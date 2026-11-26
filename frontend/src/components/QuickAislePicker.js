@@ -20,6 +20,7 @@ const QuickAislePicker = ({ itemName, currentAisle, currentAisleName, storeName,
   const [prediction, setPrediction] = useState(null);
   const [num, setNum] = useState(currentAisle != null ? String(currentAisle) : '');
   const [name, setName] = useState(currentAisleName || '');
+  const [storeAisles, setStoreAisles] = useState([]);
   const { pos, ref, maxHeight, side, isMobile } = useAnchoredPopup(anchor, { width: 288, height: 420 });
 
   // MDL learned aisle for this item at this store — best-effort
@@ -32,6 +33,28 @@ const QuickAislePicker = ({ itemName, currentAisle, currentAisleName, storeName,
     }
     return () => { cancelled = true; };
   }, [itemName, storeName]);
+
+  // The store's configured aisle layout (name → number) from Configure
+  // Aisles — these are the real destinations, not just numbers 1-24.
+  useEffect(() => {
+    let cancelled = false;
+    if (!storeName) { setStoreAisles([]); return undefined; }
+    (async () => {
+      try {
+        const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+        const search = await fetch(`/api/mdl/stores/search?name=${encodeURIComponent(storeName)}`, { headers });
+        if (!search.ok) return;
+        const rows = await search.json();
+        const store = rows.find((s) => (s.name || '').toLowerCase() === storeName.toLowerCase()) || rows[0];
+        if (!store) return;
+        const res = await fetch(`/api/stores/${store.id}/aisles`, { headers });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && Array.isArray(data)) setStoreAisles(data);
+      } catch { /* no configured aisles — number grid still works */ }
+    })();
+    return () => { cancelled = true; };
+  }, [storeName]);
 
   const pick = (n, aisleName) => {
     onSelect(n, (aisleName ?? name).trim() || null);
@@ -99,6 +122,31 @@ const QuickAislePicker = ({ itemName, currentAisle, currentAisleName, storeName,
             <Wand2 className="w-3.5 h-3.5" />
             Suggested: Aisle {prediction.aisle}
           </button>
+        )}
+
+        {/* Store's configured aisles — named destinations from Configure
+            Aisles take priority over the raw number grid */}
+        {storeAisles.length > 0 && (
+          <div className="px-3 pt-2 pb-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1.5">Store aisles</p>
+            <div className="flex flex-wrap gap-1.5">
+              {storeAisles.map((a) => (
+                <button
+                  key={a.id || a.aisle_number}
+                  type="button"
+                  onClick={() => pick(a.aisle_number, a.aisle_name)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105 active:scale-95 ${
+                    String(currentAisle) === String(a.aisle_number)
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100'
+                  }`}
+                  title={a.aisle_name || `Aisle ${a.aisle_number}`}
+                >
+                  {a.aisle_number}{a.aisle_name ? ` · ${a.aisle_name}` : ''}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Quick-pick grid */}
