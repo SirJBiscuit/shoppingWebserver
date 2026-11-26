@@ -871,3 +871,6 @@ release note. No Devin/Windsurf attribution in commits, ever.
 ## BTCS float panel slide views (latest)
 - BtcsFloatPanel title bar now carries a sliding segmented switcher (spring pill): Scores (existing BTCS leaderboard) and Testers (compact beta tester management). Views slide horizontally on switch.
 - BetaTesterManagementCFS gained a `compact` prop: page header + stat cards drop, filters slim, root scrolls inside the float panel; modals layer at z-[95] above the panel's z-80 (BtcsModal takes the same prop).
+
+## BTCS float panel modal layering fix (latest)
+- Tester stats modal + confirm dialogs rendered at z-50 under the panel's z-80 — BtcsPanel/ConfirmModal thread compact/backdropClassName to sit at z-[95]. Also fixed dead confirms: BtcsPanel never passed isOpen to ConfirmModal, so confirm-gated actions silently did nothing.
