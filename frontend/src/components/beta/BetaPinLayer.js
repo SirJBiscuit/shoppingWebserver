@@ -549,6 +549,8 @@ const BetaPinLayer = () => {
     const d = stepDef?.drive || {};
     if (d.pollsOpen !== undefined) setPollsOpen(d.pollsOpen);
     if (d.tab) setTesterTab(d.tab);
+    if (d.panelOpen !== undefined) setPanelOpen(d.panelOpen);
+    if (d.adminTab) setTab(d.adminTab);
     if (d.showPins !== undefined) setShowPins(d.showPins);
     if (d.stackHidden !== undefined) setStackHidden(d.stackHidden);
   }, []);
@@ -648,6 +650,7 @@ const BetaPinLayer = () => {
   // New pin opened → card snaps back next to the pin marker.
   useEffect(() => { setDetailDrag({ dx: 0, dy: 0 }); }, [detail?.id]);
 
+  const isMobile = useIsMobile();
   // Corner-stack API: publish the beta controls' occupied height (viewport
   // bottom → stack top) so the Apps/Active List column floats above it.
   // Hiding the stack (stackHidden) publishes 0 and the column drops down.
@@ -662,13 +665,14 @@ const BetaPinLayer = () => {
   useCornerStack('restoretab', restoreRef,
     canUse && stackHidden && !dropMode && !moving);
   useCornerStack('adminrail', railRef,
-    isAdmin && canUse && !dropMode && !moving, [stackHidden]);
+    // display:none below md — measuring it would publish a bogus height
+    // (rect.top = 0 → whole viewport) and shove the app column sideways.
+    isAdmin && canUse && !dropMode && !moving && !isMobile, [stackHidden]);
   // Each stack reads only what's BELOW it — never include your own name or
   // the measurement feeds back and ratchets you up the screen.
   const betaOnly = useCornerOffset(['beta']);
   const railBelow = useCornerOffset(['beta', 'restoretab']);
   const panelShift = usePanelShift();
-  const isMobile = useIsMobile();
   // Shared side — the whole corner assembly (apps stack, beta stack, admin
   // sidebar) moves between left/right together.
   const floatSide = useFloatSide('right');
@@ -2746,8 +2750,8 @@ const BetaPinLayer = () => {
         <div
           ref={stackRef}
           data-beta-tour="stack"
-          className={`bp-floating fixed bottom-5 ${floatSide === 'left' ? 'left-4 lg:left-[304px] items-start' : 'right-4 items-end'} z-[45] flex flex-col gap-3 transition-transform duration-300`}
-          style={{ transform: `translateX(${-panelShift}px)` }}
+          className={`bp-floating fixed ${floatSide === 'left' ? 'left-4 lg:left-[304px] items-start' : 'right-4 items-end'} z-[45] flex flex-col gap-3 transition-transform duration-300`}
+          style={{ bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', transform: `translateX(${-panelShift}px)` }}
         >
           {!isAdmin && (
             <div className="flex flex-col w-12 items-center gap-1">
@@ -2768,6 +2772,7 @@ const BetaPinLayer = () => {
           {isAdmin && (
             <div className="flex flex-col w-12 items-center gap-1">
               <button
+                data-beta-tour="admin-viewer"
                 onClick={() => setPanelOpen((o) => !o)}
                 className={`w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition relative ${panelOpen ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
                 title="Admin Viewer — pins, messages & polls"
@@ -2839,11 +2844,12 @@ const BetaPinLayer = () => {
           ref={restoreRef}
           data-beta-tour="stack-restore"
           onClick={() => setStackHidden(false)}
-          className={`fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-lg border-l-0' : 'right-0 rounded-l-lg border-r-0'} z-[46] bg-slate-900/90 border border-red-500/50 px-2 py-4 text-red-400 hover:text-red-300 shadow-xl transition-transform duration-300 touch-manipulation`}
+          className={`fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-lg border-l-0' : 'right-0 rounded-l-lg border-r-0'} z-[46] bg-slate-900/90 border border-red-500/50 px-2.5 py-5 text-red-400 hover:text-red-300 shadow-xl transition-transform duration-300 touch-manipulation flex flex-col items-center gap-1`}
           title="Show beta controls"
-          style={{ bottom: betaOnly + 4, transform: `translateX(${-panelShift}px)` }}
+          style={{ bottom: `calc(${betaOnly + 4}px + env(safe-area-inset-bottom, 0px))`, transform: `translateX(${-panelShift}px)` }}
         >
           <PanelRightOpen className="w-4 h-4" />
+          <span className="text-[9px] font-bold tracking-widest" style={{ writingMode: 'vertical-rl' }}>BETA</span>
         </button>
       )}
 
@@ -3019,7 +3025,7 @@ const BetaPinLayer = () => {
 
       {/* Admin beta viewer panel */}
       {isAdmin && panelOpen && (
-        <div className="fixed top-0 right-0 bottom-0 z-[70] w-96 max-w-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
+        <div data-beta-tour="admin-panel" className="fixed top-0 right-0 bottom-0 z-[70] w-96 max-w-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-800">
             <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400 shrink-0">Admin Viewer</span>
             <ScrollStrip
@@ -3030,6 +3036,7 @@ const BetaPinLayer = () => {
               {[['pins', 'Pins'], ['messages', 'Submissions'], ['polls', 'Polls'], ['ideas', 'Ideas'], ['history', 'History'], ['chat', 'Chat']].map(([t, label]) => (
                 <button
                   key={t}
+                  data-beta-tour={`admin-tab-${t}`}
                   onClick={() => setTab(t)}
                   className={`text-sm px-3 py-1.5 rounded-lg ${tab === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
                 >
@@ -3037,6 +3044,9 @@ const BetaPinLayer = () => {
                 </button>
               ))}
             </ScrollStrip>
+            <button type="button" onClick={() => setGuideOpen(true)} className="text-slate-500 hover:text-slate-300 shrink-0" title="Beta guide — replay the features tour">
+              <HelpCircle className="w-5 h-5" />
+            </button>
             <button onClick={() => setPanelOpen(false)} className="text-slate-500 hover:text-slate-300 shrink-0"><X className="w-5 h-5" /></button>
           </div>
 
@@ -3865,7 +3875,7 @@ const BetaPinLayer = () => {
 
       {/* Beta tester guided tour — auto-fires once, replayable via the "?"
           button in the Beta Viewer header */}
-      <BetaOnboarding open={guideOpen} onClose={closeGuide} onDrive={driveTour} />
+      <BetaOnboarding open={guideOpen} onClose={closeGuide} onDrive={driveTour} variant={isAdmin ? 'admin' : 'tester'} />
     </>
     </Portal>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Sparkles, MapPin, EyeOff, BarChart3, Vote, Send, Pin, MessagesSquare, Brain, Gauge, PanelRightClose, PartyPopper } from 'lucide-react';
+import { Sparkles, MapPin, EyeOff, BarChart3, Vote, Send, Pin, MessagesSquare, Brain, Gauge, PanelRightClose, PartyPopper, ShieldCheck, Inbox, Lightbulb, History } from 'lucide-react';
 import SpotlightTour from '../SpotlightTour';
 
 // One-time guided tour for beta testers — spotlight walkthrough of the pin
@@ -162,7 +162,158 @@ const STEPS = [
   },
 ];
 
-const BetaOnboarding = ({ open, onClose, onDrive }) => {
+// Admin variant — same machinery, spotlighting the Admin Viewer + rail
+// tools instead of the tester popover tabs.
+const ADMIN_STEPS = [
+  {
+    icon: ShieldCheck,
+    title: 'Beta Controls (Admin)',
+    description: 'Your tester-management toolkit',
+    tint: 'from-violet-500 to-fuchsia-600',
+    focusElement: '[data-beta-tour="stack"]',
+    drive: { panelOpen: false },
+    instructions: [
+      'This floating stack is the beta toolkit — it follows you on every page',
+      'On desktop a slim admin rail also rides the screen edge (inspect, ghosts, BTCS, MDL)',
+      'The red handle at the bottom collapses the stack to a slim edge tab',
+    ],
+  },
+  {
+    icon: BarChart3,
+    title: 'The Admin Viewer',
+    description: 'Everything testers send you',
+    tint: 'from-blue-500 to-indigo-600',
+    focusElement: '[data-beta-tour="admin-viewer"]',
+    drive: { panelOpen: false },
+    instructions: [
+      'Opens the Admin Viewer — pins, submissions, polls, ideas, history and chat',
+      'The badge shows how many open pins need attention',
+      'Next — the tour opens it for you',
+    ],
+  },
+  {
+    icon: Pin,
+    title: 'Pins',
+    description: 'Every tester report',
+    tint: 'from-rose-500 to-red-600',
+    focusElement: '[data-beta-tour="admin-tab-pins"]',
+    drive: { panelOpen: true, adminTab: 'pins' },
+    instructions: [
+      'Every pin testers dropped, across all pages — search, filter and sort them',
+      'Set status (open / in progress / fixed / hidden) or move pins to history',
+      'Export generates a priority-ordered bug list for planning',
+    ],
+  },
+  {
+    icon: Inbox,
+    title: 'Submissions',
+    description: 'Tester messages',
+    tint: 'from-cyan-500 to-sky-600',
+    focusElement: '[data-beta-tour="admin-tab-messages"]',
+    drive: { panelOpen: true, adminTab: 'messages' },
+    instructions: [
+      'Feedback testers sent through the beta widget lands here',
+      'Reply and mark items handled — testers watch status in their viewer',
+    ],
+  },
+  {
+    icon: Vote,
+    title: 'Polls',
+    description: 'Push choices to testers',
+    tint: 'from-blue-500 to-indigo-600',
+    focusElement: '[data-beta-tour="admin-tab-polls"]',
+    drive: { panelOpen: true, adminTab: 'polls' },
+    instructions: [
+      'Create a poll with options — it appears in every tester\'s Beta Viewer',
+      'Votes earn testers BTCS points automatically',
+    ],
+  },
+  {
+    icon: Lightbulb,
+    title: 'Ideas',
+    description: 'The priority queue',
+    tint: 'from-amber-500 to-orange-600',
+    focusElement: '[data-beta-tour="admin-tab-ideas"]',
+    drive: { panelOpen: true, adminTab: 'ideas' },
+    instructions: [
+      'Feature ideas ranked by priority — drag the queue or right-click to re-rank',
+      'Export ideas to a priority-ordered file for roadmap planning',
+    ],
+  },
+  {
+    icon: History,
+    title: 'History',
+    description: 'Nothing is lost',
+    tint: 'from-zinc-500 to-slate-600',
+    focusElement: '[data-beta-tour="admin-tab-history"]',
+    drive: { panelOpen: true, adminTab: 'history' },
+    instructions: [
+      'Removed and fixed pins live here — restorable anytime',
+      'Ghost pins on the rail show where deleted pins used to sit',
+    ],
+  },
+  {
+    icon: MessagesSquare,
+    title: 'Chat',
+    description: 'One channel with testers',
+    tint: 'from-indigo-500 to-purple-600',
+    focusElement: '[data-beta-tour="admin-tab-chat"]',
+    drive: { panelOpen: true, adminTab: 'chat' },
+    instructions: [
+      'The beta chatroom — admins and testers share one channel',
+      'Quick questions, screenshots and callouts all in one place',
+    ],
+  },
+  {
+    icon: MapPin,
+    title: 'Drop a Pin',
+    description: 'Report right on the page',
+    tint: 'from-red-500 to-rose-600',
+    focusElement: '[data-beta-tour="pin-add"]',
+    drive: { panelOpen: false },
+    instructions: [
+      'The big red + enters pin-drop mode — then click anywhere on the page',
+      'Pin a bug, note or idea — click a real element to anchor the pin to it',
+    ],
+  },
+  {
+    icon: EyeOff,
+    title: 'Show / Hide Pins',
+    description: 'Toggle every pin',
+    tint: 'from-zinc-500 to-slate-600',
+    focusElement: '[data-beta-tour="toggle-pins"]',
+    instructions: [
+      'The eye button toggles every pin on the page',
+      'Hiding pins never deletes them — they just stop rendering',
+    ],
+  },
+  {
+    icon: PanelRightClose,
+    title: 'Collapse the Stack',
+    description: 'Get it out of the way',
+    tint: 'from-red-500 to-rose-600',
+    focusElement: '[data-beta-tour="stack-restore"]',
+    drive: { stackHidden: true },
+    instructions: [
+      'The red handle folds the stack to this slim edge tab',
+      'Click the tab to bring the buttons back — it remembers your choice',
+    ],
+  },
+  {
+    icon: PartyPopper,
+    title: 'You\'re Set!',
+    description: 'Happy administering',
+    tint: 'from-violet-500 to-fuchsia-600',
+    focusElement: '[data-beta-tour="stack"]',
+    drive: { stackHidden: false, panelOpen: false },
+    instructions: [
+      'Replay this tour anytime from the ? button in the Admin Viewer header',
+      'Tester activity feeds BTCS — polls, pins and votes all count',
+    ],
+  },
+];
+
+const BetaOnboarding = ({ open, onClose, onDrive, variant = 'tester' }) => {
   const [step, setStep] = useState(0);
 
   // Restart from step 0 every time the guide is opened (initial or replay).
@@ -173,7 +324,7 @@ const BetaOnboarding = ({ open, onClose, onDrive }) => {
 
   return (
     <SpotlightTour
-      steps={STEPS}
+      steps={variant === 'admin' ? ADMIN_STEPS : STEPS}
       step={step}
       onStepChange={setStep}
       onFinish={close}
