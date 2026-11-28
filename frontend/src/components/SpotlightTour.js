@@ -349,10 +349,11 @@ const SpotlightTour = ({
               <button
                 type="button"
                 onClick={onSkip}
-                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex-shrink-0"
+                className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-500 flex-shrink-0 transition-colors"
                 aria-label="Skip tutorial"
+                title="Close tutorial"
               >
-                <X className="w-4 h-4 text-gray-400" />
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-300" />
               </button>
             </div>
             <ul className="space-y-2 overflow-y-auto" style={{ maxHeight: boxPos ? Math.max(boxPos.maxHeight - 170, 110) : 260 }}>
@@ -420,6 +421,17 @@ const SpotlightTour = ({
           {autoPlayable ? 'Next to continue · ▶ auto tour · ESC to skip' : 'Next to continue · ESC to skip'}
         </span>
       </div>
+
+      {/* Always-visible close — sits above the shield so it stays tappable
+          no matter where the anchored box lands. */}
+      <button
+        type="button"
+        onClick={onSkip}
+        className="fixed top-3 right-3 z-[10003] flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/55 hover:bg-red-600/80 text-white text-sm font-semibold backdrop-blur-sm transition-colors"
+        aria-label="Close tutorial"
+      >
+        <X className="w-4 h-4" /> Skip
+      </button>
     </Portal>
   );
 };

@@ -2636,6 +2636,19 @@ const Dashboard = () => {
             <div className="flex items-center space-x-2 sm:space-x-4" data-tutorial="top-toolbar">
               {/* Help Button */}
               <HelpButton userId={user?.id || user?.username} />
+
+              {/* Beta features tour — admins + beta testers; BetaPinLayer
+                  listens for beta:openGuide and replays the spotlight tour */}
+              {(user?.isAdmin || user?.is_admin || user?.isBetaTester || user?.is_beta_tester) && (
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('beta:openGuide'))}
+                  className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-all duration-200 shadow-md hover:shadow-lg"
+                  title="Beta features tour"
+                >
+                  <FlaskConical className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline font-medium text-sm">Beta</span>
+                </button>
+              )}
               
               {/* Cache Refresh Button — gated: admins can hide from beta testers */}
               {hasFeature('clear_cache') && (

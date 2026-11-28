@@ -886,3 +886,7 @@ release note. No Devin/Windsurf attribution in commits, ever.
 - Admin gets the beta features tour too: ? button added to the Admin Viewer header; BetaOnboarding gained a variant prop with ADMIN_STEPS spotlighting the admin FAB, every Admin Viewer tab (pins/submissions/polls/ideas/history/chat), pin-add, show/hide and stack collapse — driveTour extended with panelOpen/adminTab actions. data-beta-tour hooks added on the admin FAB, admin panel and tab buttons.
 - Mobile fix: the admin rail's useCornerStack stayed active while the rail is display:none below md — rect.top=0 published the whole viewport as its height, corrupting the corner-offset math on mobile. The publish is now gated by !isMobile.
 - Restore tab (collapsed beta stack) is no longer an invisible sliver: taller target, vertical "BETA" label, and both the stack and tab sit above env(safe-area-inset-bottom) so the iOS gesture bar can't cover them.
+
+## Toolbar beta-tour button + tutorial close affordances (latest)
+- Dashboard top toolbar gains a red "Beta" button (FlaskConical) beside Help — visible to admins + beta testers; dispatches beta:openGuide which BetaPinLayer listens for (same bus as beta:openBtcs/openViewer/toggleInspect) and replays the spotlight tour in the right variant.
+- SpotlightTour close affordances: the in-box X is bigger/high-contrast (bg tile, red hover), and a fixed "✕ Skip" pill at top-right of the screen sits above the click shield so there's always a visible way out. Onboarding chooser card also gets an X.

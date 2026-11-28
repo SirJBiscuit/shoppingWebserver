@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Zap, BookOpen } from 'lucide-react';
+import { X, Zap, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Portal } from '../utils/autoPlacement';
 import api from '../services/api';
@@ -278,6 +278,14 @@ const Onboarding = ({ userId, forceOpen, onClose }) => {
             role="dialog"
             aria-label="Choose a tutorial"
           >
+            <button
+              type="button"
+              onClick={handleSkip}
+              className="absolute top-3 right-3 p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-500 transition-colors"
+              aria-label="Close tutorial"
+            >
+              <X className="w-4 h-4 text-gray-500 dark:text-gray-300" />
+            </button>
             <div className="text-center mb-3">
               <div className="text-3xl mb-1">🎓</div>
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">Listzy Tour</h2>

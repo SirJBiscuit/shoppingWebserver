@@ -1052,15 +1052,18 @@ const BetaPinLayer = () => {
     const openBtcs = () => setBtcsPanelOpen(true);
     const openViewer = () => setPanelOpen(true);
     const toggleInspect = () => setInspectMode((v) => !v);
+    const openGuide = () => setGuideOpen(true);
     window.addEventListener('beta:dropPinAt', onDropAt);
     window.addEventListener('beta:openBtcs', openBtcs);
     window.addEventListener('beta:openViewer', openViewer);
     window.addEventListener('beta:toggleInspect', toggleInspect);
+    window.addEventListener('beta:openGuide', openGuide);
     return () => {
       window.removeEventListener('beta:dropPinAt', onDropAt);
       window.removeEventListener('beta:openBtcs', openBtcs);
       window.removeEventListener('beta:openViewer', openViewer);
       window.removeEventListener('beta:toggleInspect', toggleInspect);
+      window.removeEventListener('beta:openGuide', openGuide);
     };
   }, []);
 
