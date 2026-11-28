@@ -20,8 +20,8 @@ const STEPS = [
     drive: { pollsOpen: false },
     instructions: [
       'You get early features — and tools to shape them',
-      'This floating stack is your beta toolkit — it follows you on every page',
-      'The red handle at the bottom collapses it to a slim edge tab',
+      'This tour and the red Beta replay button live only on the home page — the pin stack itself follows you everywhere',
+      'The Beta Viewer inside the stack bundles polls, submissions, your pins and the chat',
     ],
   },
   {
@@ -32,8 +32,8 @@ const STEPS = [
     focusElement: '[data-beta-tour="viewer"]',
     drive: { pollsOpen: false },
     instructions: [
-      'This button opens the Beta Viewer — polls, your submissions, pins and chat',
-      'A blue dot means an open poll is waiting for your vote',
+      'This button opens the Beta Viewer — polls, submissions, your pins and chat',
+      'The number badge shows your message threads — plus any open polls waiting on your vote',
       'Next — the tour opens it for you',
     ],
   },
@@ -120,7 +120,8 @@ const STEPS = [
     drive: { pollsOpen: false },
     instructions: [
       'The big red + enters pin-drop mode — then click anywhere on the page',
-      'Pin a bug, note or idea — click a real element to anchor the pin to it',
+      'Pin a bug, note or question — click a real element to anchor the pin to it',
+      'Drop pins freely — problems you hit, spots you\'d do differently, places where something\'s missing',
       'The "Private" checkbox makes a pin visible to admins only',
       'The badge shows how many pins you have left today',
     ],
@@ -156,8 +157,9 @@ const STEPS = [
     focusElement: '[data-beta-tour="stack"]',
     drive: { stackHidden: false, pollsOpen: false },
     instructions: [
-      'Replay this tour anytime from the ? button in the Beta Viewer header',
-      'Drop pins, vote in polls, train the MDL — it all feeds your score',
+      'Replay this tour from the red Beta button on the home page toolbar — or the ? in the Beta Viewer',
+      'Make as many useful pins as you can — problems to fix, things you\'d do differently, ideas in the exact spot they belong',
+      'Polls, pins and A/B picks all feed your BTCS score',
     ],
   },
 ];
@@ -214,6 +216,7 @@ const ADMIN_STEPS = [
     instructions: [
       'Feedback testers sent through the beta widget lands here',
       'Reply and mark items handled — testers watch status in their viewer',
+      'The test-submission box at the top posts as a tester so you can try the whole flow',
     ],
   },
   {

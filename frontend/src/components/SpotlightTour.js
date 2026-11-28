@@ -160,9 +160,30 @@ const SpotlightTour = ({
   const anchor = targetRect
     ? { cx: targetRect.left + targetRect.width / 2, top: targetRect.top, bottom: targetRect.top + targetRect.height }
     : null;
-  const boxPos = anchor
+  let boxPos = anchor
     ? anchoredPopupPos(anchor, { width: BOX_W, height: 440, margin: 10, gap: 12 })
     : null;
+
+  // Never cover the target: when neither side has room (tall targets like
+  // the side viewer panels), clamping would smear the box across the
+  // element — slide the box beside it instead.
+  if (boxPos && targetRect) {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const gap = 12, margin = 10, minRoom = 170;
+    const roomBelow = vh - margin - (targetRect.top + targetRect.height) - gap;
+    const roomAbove = targetRect.top - gap - margin;
+    if (roomBelow < minRoom && roomAbove < minRoom) {
+      const roomLeft = targetRect.left - gap - margin;
+      const roomRight = vw - margin - (targetRect.left + targetRect.width) - gap;
+      const desired = targetRect.top + targetRect.height / 2 - 220;
+      const top = Math.round(Math.max(margin, Math.min(desired, Math.max(margin, vh - 440 - margin))));
+      if (roomLeft >= BOX_W) {
+        boxPos = { left: targetRect.left - gap - BOX_W, top, maxHeight: vh - 2 * margin, side: 'left' };
+      } else if (roomRight >= BOX_W) {
+        boxPos = { left: targetRect.left + targetRect.width + gap, top, maxHeight: vh - 2 * margin, side: 'right' };
+      }
+    }
+  }
   // Positioning lives on a static wrapper — framer-motion owns the inner
   // box's transform, so centering via translate classes would be clobbered.
   const outerStyle = boxPos
@@ -356,7 +377,7 @@ const SpotlightTour = ({
                 <X className="w-5 h-5 text-gray-500 dark:text-gray-300" />
               </button>
             </div>
-            <ul className="space-y-2 overflow-y-auto" style={{ maxHeight: boxPos ? Math.max(boxPos.maxHeight - 170, 110) : 260 }}>
+            <ul className="space-y-2 overflow-auto scrollbar-3d" style={{ maxHeight: boxPos ? Math.max(boxPos.maxHeight - 170, 110) : 260 }}>
               {stepDef.instructions.map((line, i) => (
                 <motion.li
                   key={i}

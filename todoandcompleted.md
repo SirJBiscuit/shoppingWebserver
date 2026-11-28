@@ -890,3 +890,9 @@ release note. No Devin/Windsurf attribution in commits, ever.
 ## Toolbar beta-tour button + tutorial close affordances (latest)
 - Dashboard top toolbar gains a red "Beta" button (FlaskConical) beside Help — visible to admins + beta testers; dispatches beta:openGuide which BetaPinLayer listens for (same bus as beta:openBtcs/openViewer/toggleInspect) and replays the spotlight tour in the right variant.
 - SpotlightTour close affordances: the in-box X is bigger/high-contrast (bg tile, red hover), and a fixed "✕ Skip" pill at top-right of the screen sits above the click shield so there's always a visible way out. Onboarding chooser card also gets an X.
+
+## Tour occlusion fix, scrollbar, badge count, admin test submissions (latest)
+- SpotlightTour never covers its target: when a focused element leaves no room above/below (full-height side panels like the Beta/Admin Viewer), the box now slides to the element's side instead of clamping over it. Instructions list uses the app's scrollbar-3d class (both axes).
+- Tester tour copy: notes the tour + Beta replay button live only on the home page; pin step says bug/note/question (no "idea") and encourages dropping pins freely on problems, spots they'd change, and places where something's missing; closer pushes useful pins + home toolbar Beta button.
+- Beta Viewer FAB badge is now a number — the tester's message threads plus open polls still awaiting their vote; myFeedback loads on mount so the badge shows without opening the viewer.
+- Admin Viewer Submissions tab gains a test-submission box — admin posts through the real /beta/feedback endpoint (type/title/description) to exercise the submissions pipeline end-to-end; admin tour step mentions it.

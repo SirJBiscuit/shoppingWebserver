@@ -389,6 +389,19 @@ const BetaPinLayer = () => {
   const [abPair, setAbPair] = useState(null); // {a_id,a_term,b_id,b_term,kind} | 'empty'
   const [abPicked, setAbPicked] = useState(null); // 'a' | 'b' — animates the pick
   const [myFeedback, setMyFeedback] = useState([]);
+  // Admin test-submission box — posts through the real tester endpoint so
+  // admins can exercise the submissions pipeline end-to-end.
+  const [testSubOpen, setTestSubOpen] = useState(false);
+  const [testSub, setTestSub] = useState({ type: 'bug', title: '', description: '' });
+  const sendTestSubmission = async () => {
+    if (!testSub.title.trim() || !testSub.description.trim()) return;
+    try {
+      await api.post('/beta/feedback', testSub);
+      setTestSub({ type: 'bug', title: '', description: '' });
+      setTestSubOpen(false);
+      loadFeedback();
+    } catch { /* silent */ }
+  };
   const [myPins, setMyPins] = useState(null); // own pins across all pages
   const [pinQuota, setPinQuota] = useState(null); // {used, limit} from GET /pins
   const [fbForm, setFbForm] = useState({ type: 'idea', title: '', description: '' });
@@ -500,7 +513,7 @@ const BetaPinLayer = () => {
     if (isAdmin && panelOpen && tab === 'history') { loadTrashedIdeas(); loadIdeas(); }
   }, [isAdmin, panelOpen, tab, loadIdeas, loadTrashedIdeas]);
 
-  useEffect(() => { if (canUse) { loadPagePins(); loadPolls(); } }, [canUse, loadPagePins, loadPolls]);
+  useEffect(() => { if (canUse) { loadPagePins(); loadPolls(); loadMyFeedback(); } }, [canUse, loadPagePins, loadPolls, loadMyFeedback]);
   useEffect(() => { if (pollsOpen) { loadPolls(); loadMyFeedback(); } }, [pollsOpen, loadPolls, loadMyFeedback]);
   useEffect(() => { if (pollsOpen && testerTab === 'pins') loadMyPins(); }, [pollsOpen, testerTab, loadMyPins]);
   useEffect(() => {
@@ -2765,9 +2778,17 @@ const BetaPinLayer = () => {
                 title="Beta Viewer — polls & messages"
               >
                 <BarChart3 className="w-5 h-5" />
-                {polls.some((p) => p.status === 'open' && !p.my_vote && p.my_option === null) && (
-                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-slate-900" />
-                )}
+                {(() => {
+                  // Number badge — your message threads plus open polls
+                  // still waiting on your vote.
+                  const n = myFeedback.length
+                    + polls.filter((p) => p.status === 'open' && !p.my_vote && p.my_option === null).length;
+                  return n > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center border-2 border-slate-900">
+                      {n}
+                    </span>
+                  );
+                })()}
               </button>
               <FabLabel>Beta</FabLabel>
             </div>
@@ -3557,6 +3578,57 @@ const BetaPinLayer = () => {
 
           {tab === 'messages' && (
             <div className="flex-1 overflow-y-auto scrollbar-3d">
+              {/* Test submission box — admin posts through the real tester
+                  endpoint to exercise the submissions pipeline end-to-end. */}
+              <div className="px-3 pt-2 pb-1.5 border-b border-slate-800">
+                {!testSubOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => setTestSubOpen(true)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-dashed border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-500 transition-colors"
+                  >
+                    + Send a test submission (posts as a tester)
+                  </button>
+                ) : (
+                  <div className="space-y-1.5 pb-1">
+                    <div className="flex gap-1.5">
+                      <select
+                        value={testSub.type}
+                        onChange={(e) => setTestSub((s) => ({ ...s, type: e.target.value }))}
+                        className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
+                      >
+                        {['bug', 'feature', 'idea', 'general'].map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <input
+                        value={testSub.title}
+                        onChange={(e) => setTestSub((s) => ({ ...s, title: e.target.value }))}
+                        placeholder="Title…"
+                        className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <textarea
+                      value={testSub.description}
+                      onChange={(e) => setTestSub((s) => ({ ...s, description: e.target.value }))}
+                      placeholder="Description — what happened, where, what you expected…"
+                      rows={3}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-blue-500 resize-y"
+                    />
+                    <div className="flex gap-1.5 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setTestSubOpen(false)}
+                        className="text-xs px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200"
+                      >Cancel</button>
+                      <button
+                        type="button"
+                        onClick={sendTestSubmission}
+                        disabled={!testSub.title.trim() || !testSub.description.trim()}
+                        className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50"
+                      >Send</button>
+                    </div>
+                  </div>
+                )}
+              </div>
               {feedback.map((f) => (
                 <div key={f.id} className="border-b border-slate-800/60">
                   <button className="w-full text-left px-3 py-2.5 hover:bg-slate-800/40" onClick={() => openReplies(f)}>
