@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Package, CheckCircle, XCircle, AlertTriangle, ArrowRight, Trash2, Info } from 'lucide-react';
+import { Package, CheckCircle, XCircle, AlertTriangle, ArrowRight, Trash2, Info, X, Home } from 'lucide-react';
 import stagingAPI from '../services/stagingAPI';
 import inventoryAPI from '../services/inventoryAPI';
 import StagingItemCard from '../components/staging/StagingItemCard';
@@ -21,6 +22,12 @@ const StagingArea = () => {
   const [viewMode, setViewMode] = useState('grouped'); // 'grouped' or 'comparison'
   const [pantryItems, setPantryItems] = useState([]);
   const [confirmState, setConfirmState] = useState(null); // {title, message, onConfirm, type, confirmText}
+  const location = useLocation();
+  const navigate = useNavigate();
+  // Trip handoff from Dashboard's "complete list" — drives the guided
+  // stepper banner until it's dismissed.
+  const trip = location.state?.trip || null;
+  const dismissTrip = () => navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
 
   useEffect(() => {
     loadStagingItems();
@@ -148,7 +155,52 @@ const StagingArea = () => {
       
       {/* Main Content */}
       <div className="flex-1 p-4">
+        {/* Guided trip banner — replaces the how-to while a just-completed
+            trip is being unpacked. Stepper: shopped → put away → inventory. */}
+        {trip && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-7xl mx-auto mb-6"
+          >
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg relative">
+              <button
+                type="button"
+                onClick={dismissTrip}
+                className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors"
+                aria-label="Dismiss trip guide"
+              >
+                <X size={20} />
+              </button>
+              <h2 className="text-2xl font-bold mb-1">Trip complete — {trip.listName ? `"${trip.listName}"` : 'your list'}</h2>
+              <p className="text-sm opacity-90 mb-4">
+                {trip.checkedCount ?? 0} of {trip.itemCount ?? 0} items checked off
+                {typeof trip.totalCost === 'number' ? ` · $${trip.totalCost.toFixed(2)} spent` : ''}
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                {[
+                  { label: 'Shopped', state: 'done' },
+                  { label: total > 0 ? `${total} left to put away` : 'All put away', state: total > 0 ? 'current' : 'done' },
+                  { label: 'Home Inventory', state: total > 0 ? 'pending' : 'done' },
+                ].map((s, i, arr) => (
+                  <React.Fragment key={s.label}>
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${
+                      s.state === 'done' ? 'bg-white/20 text-white'
+                      : s.state === 'current' ? 'bg-white text-emerald-700 shadow-md'
+                      : 'bg-black/20 text-white/60'}`}>
+                      {s.state === 'done' && <CheckCircle size={15} />}
+                      {s.label}
+                    </span>
+                    {i < arr.length - 1 && <ArrowRight size={16} className="text-white/70" />}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Instructions Banner */}
+        {!trip && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -181,6 +233,7 @@ const StagingArea = () => {
             </div>
           </div>
         </motion.div>
+        )}
 
         {/* Header */}
         <div className="max-w-7xl mx-auto mb-6">
@@ -218,14 +271,35 @@ const StagingArea = () => {
               transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2 }}
               className="text-6xl mb-4 inline-block"
             >
-              🛒
+              {trip ? '🎉' : '🛒'}
             </motion.div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Nothing Here Yet
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              Complete a shopping trip to move items here for organized put-away
-            </p>
+            {trip ? (
+              <>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  All Put Away!
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  Everything from {trip.listName ? `"${trip.listName}"` : 'your trip'} is in your Home Inventory
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/pantry')}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors shadow-md"
+                >
+                  <Home size={20} />
+                  View Home Inventory
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  Nothing Here Yet
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Complete a shopping trip to move items here for organized put-away
+                </p>
+              </>
+            )}
           </motion.div>
         </div>
       ) : (

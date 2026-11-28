@@ -273,6 +273,7 @@ const Dashboard = () => {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpData, setLevelUpData] = useState(null);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [tripSummary, setTripSummary] = useState(null); // finished-list snapshot for the celebration steps
   const [showRecovery, setShowRecovery] = useState(false);
   const [completedLists, setCompletedLists] = useState([]);
   // List mode (flat) is the default; category mode groups like before.
@@ -1686,18 +1687,26 @@ const Dashboard = () => {
     if (!activeList) return;
 
     try {
+      // Capture the finished list before createNewList swaps it out — the
+      // celebration card + the trip handoff to /staging both read these.
+      const finishedName = activeList.name;
+      const finishedItems = items.length;
+      const finishedChecked = checkedCount;
+      const finishedCost = totalCost;
+      setTripSummary({ listName: finishedName, itemCount: finishedItems, checkedCount: finishedChecked, totalCost: finishedCost });
+
       // Success - no sound needed
-      
+
       // Show celebration animation
       setShowCelebration(true);
-      
+
       // Complete the shopping trip
       await shoppingAPI.completeList(activeList.id);
-      
-      // Move checked items to staging area
+
+      // Move checked items to staging area — put-away there writes them
+      // into Home Inventory, so adding them here too would double every row.
       try {
         await stagingAPI.moveFromShoppingList(activeList.id);
-        console.log('Items moved to staging area');
       } catch (stagingError) {
         console.error('Error moving to staging:', stagingError);
         // Don't fail the whole operation if staging fails
@@ -1736,76 +1745,33 @@ const Dashboard = () => {
         console.error('Error awarding XP:', xpError);
       }
       
-      // Auto-categorize items to pantry/fridge/freezer
-      for (const item of items) {
-        const storageLocation = getStorageLocation(item.category || item.category_name);
-        
-        try {
-          // New Home Inventory system — same endpoint the inventory page uses,
-          // so locations/categories land in the real model instead of the
-          // old kitchen-pantry shape.
-          await inventoryAPI.addItem({
-            item_name: item.item_name,
-            quantity: item.quantity,
-            unit: item.unit,
-            storage_location: storageLocation,
-            category: item.category || item.category_name,
-            manual_expiry_date: getDefaultExpiryDate(storageLocation)
-          });
-        } catch (pantryError) {
-          console.error('Error adding to inventory:', pantryError);
-        }
-      }
-      
       await createNewList();
       await loadInventory();
       await loadSuggestions();
-      
-      // Quick celebration, then take the user to Unpack with the items
+
+      // Celebration card walks through what happens next, then lands on
+      // Unpack carrying the trip summary for the guided put-away banner.
       setTimeout(() => {
         setShowCelebration(false);
-        navigate('/staging');
-      }, 1800);
+        navigate('/staging', {
+          state: {
+            trip: {
+              listName: finishedName,
+              itemCount: finishedItems,
+              checkedCount: finishedChecked,
+              totalCost: finishedCost,
+              completedAt: Date.now(),
+            },
+          },
+        });
+        setTripSummary(null);
+      }, 2800);
     } catch (error) {
       console.error('Error completing list:', error);
       setShowCelebration(false);
     }
   };
   
-  // Helper function to determine storage location based on (canonical) category
-  const getStorageLocation = (category) => {
-    const fridgeCategories = ['Dairy & Eggs', 'Meat & Seafood', 'Produce'];
-    const freezerCategories = ['Frozen'];
-    
-    if (!category) return 'pantry';
-    
-    if (freezerCategories.some(cat => category.toLowerCase().includes(cat.toLowerCase()))) {
-      return 'freezer';
-    }
-    if (fridgeCategories.some(cat => category.toLowerCase().includes(cat.toLowerCase()))) {
-      return 'fridge';
-    }
-    return 'pantry';
-  };
-  
-  // Helper function to get default expiry date based on storage
-  const getDefaultExpiryDate = (storageLocation) => {
-    const now = new Date();
-    switch(storageLocation) {
-      case 'fridge':
-        now.setDate(now.getDate() + 7); // 1 week
-        break;
-      case 'freezer':
-        now.setMonth(now.getMonth() + 3); // 3 months
-        break;
-      case 'pantry':
-      default:
-        now.setMonth(now.getMonth() + 6); // 6 months
-        break;
-    }
-    return now.toISOString().split('T')[0];
-  };
-
   const totalCost = items.reduce((sum, item) => sum + ((item?.price || 0) * (item?.quantity || 0)), 0);
   const checkedCount = items.filter(item => item?.is_checked).length;
 
@@ -3170,8 +3136,29 @@ const Dashboard = () => {
                 🎉
               </motion.div>
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">Shopping Complete!</h2>
-              <p className="text-lg text-green-600 dark:text-green-400 font-semibold">+{Math.floor(totalCost * 10)} XP</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Heading to Unpack…</p>
+              <p className="text-lg text-green-600 dark:text-green-400 font-semibold">+{Math.floor((tripSummary?.totalCost ?? totalCost) * 10)} XP</p>
+
+              {/* What's next — the trip pipeline as steps so the user knows
+                  exactly where their items are going. */}
+              <div className="mt-4 space-y-1.5 text-left">
+                {[
+                  { icon: '✅', text: `"${tripSummary?.listName || 'List'}" completed`, done: true },
+                  { icon: '📦', text: `${tripSummary?.checkedCount ?? checkedCount} items moved to Unpack`, done: true },
+                  { icon: '🏠', text: 'Put them away → Home Inventory', done: false },
+                ].map((s) => (
+                  <motion.div
+                    key={s.text}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className={`flex items-center gap-2 text-sm font-medium ${s.done ? 'text-gray-700 dark:text-gray-300' : 'text-primary-600 dark:text-primary-400'}`}
+                  >
+                    <span>{s.icon}</span>
+                    <span>{s.text}</span>
+                  </motion.div>
+                ))}
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">Heading to Unpack…</p>
             </motion.div>
           </div></Portal>
         )}

@@ -874,3 +874,10 @@ release note. No Devin/Windsurf attribution in commits, ever.
 
 ## BTCS float panel modal layering fix (latest)
 - Tester stats modal + confirm dialogs rendered at z-50 under the panel's z-80 — BtcsPanel/ConfirmModal thread compact/backdropClassName to sit at z-[95]. Also fixed dead confirms: BtcsPanel never passed isOpen to ConfirmModal, so confirm-gated actions silently did nothing.
+
+## Spotlight tour extraction + beta tour + guided unpack flow (latest)
+- SpotlightTour.js: shared spotlight machinery extracted from Onboarding — ring + halo, anchored floating box, connector line, animated demo cursor, stray-click shield, autoplay, ESC; onDrive(stepDef) hook fires before the target measures so hosts can mount panels; measure retry loop (10 x 160ms) waits for driven mounts.
+- Onboarding.js slimmed to steps data + chooser + skip card delegating to SpotlightTour; readability pass applied to the shared component (responsive box up to 560px, text-lg/text-base body, bigger ring'd Next button, fixed invalid w-4.5).
+- BetaOnboarding rewritten as a SpotlightTour consumer: 12 steps drive the real UI — opens the Beta Viewer, flips each tab (votes/messages/pins/chat/train/limits), collapses the stack to the slim edge tab then restores it. BetaPinLayer gained data-beta-tour hooks on the stack, viewer FAB, pin-add, show/hide, collapse + restore, viewer panel and each tab button, plus a driveTour callback that maps step drive payloads to setPollsOpen/setTesterTab/setShowPins/setStackHidden.
+- Guided trip-complete flow: Dashboard completeList no longer double-writes inventory (staging put-away already inserts — the auto-add loop duped every row); celebration card now shows the trip pipeline as steps (list completed -> items in Unpack -> put away -> Home Inventory) and navigates to /staging with trip state.
+- StagingArea: green guided stepper banner replaces the how-to while a trip is active (Shopped -> N left to put away -> Home Inventory, dismissable); when the last item is put away the empty state flips to "All Put Away!" with a View Home Inventory button.

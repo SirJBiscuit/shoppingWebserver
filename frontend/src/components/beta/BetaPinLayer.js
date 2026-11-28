@@ -543,6 +543,16 @@ const BetaPinLayer = () => {
     setGuideOpen(false);
   };
 
+  // Spotlight drive — the beta tour asks us to open the viewer / switch tabs
+  // before its step measures the target, so the ring lands on the real UI.
+  const driveTour = useCallback((stepDef) => {
+    const d = stepDef?.drive || {};
+    if (d.pollsOpen !== undefined) setPollsOpen(d.pollsOpen);
+    if (d.tab) setTesterTab(d.tab);
+    if (d.showPins !== undefined) setShowPins(d.showPins);
+    if (d.stackHidden !== undefined) setStackHidden(d.stackHidden);
+  }, []);
+
   const pickAb = (side) => {
     if (!abPair || abPair === 'empty' || abPicked) return;
     setAbPicked(side);
@@ -2346,7 +2356,7 @@ const BetaPinLayer = () => {
 
       {/* Tester beta viewer — polls, submissions, own pins & the chatroom */}
       {pollsOpen && !isAdmin && (
-        <div className="fixed top-0 right-0 bottom-0 z-[70] w-96 max-w-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
+        <div data-beta-tour="viewer-panel" className="fixed top-0 right-0 bottom-0 z-[70] w-96 max-w-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-800">
             <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400 shrink-0">Beta Viewer</span>
             <ScrollStrip
@@ -2357,6 +2367,7 @@ const BetaPinLayer = () => {
               {[['votes', 'Polls'], ['messages', 'Submissions'], ['pins', 'My Pins'], ['chat', 'Chat'], ['train', 'Help MDL'], ['limits', 'Limits']].map(([t, label]) => (
                 <button
                   key={t}
+                  data-beta-tour={`tab-${t}`}
                   onClick={() => setTesterTab(t)}
                   className={`text-sm px-3 py-1.5 rounded-lg ${testerTab === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
                 >
@@ -2734,12 +2745,14 @@ const BetaPinLayer = () => {
       {!dropMode && !moving && !stackHidden && (
         <div
           ref={stackRef}
+          data-beta-tour="stack"
           className={`bp-floating fixed bottom-5 ${floatSide === 'left' ? 'left-4 lg:left-[304px] items-start' : 'right-4 items-end'} z-[45] flex flex-col gap-3 transition-transform duration-300`}
           style={{ transform: `translateX(${-panelShift}px)` }}
         >
           {!isAdmin && (
             <div className="flex flex-col w-12 items-center gap-1">
               <button
+                data-beta-tour="viewer"
                 onClick={() => setPollsOpen((o) => !o)}
                 className={`w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition relative ${pollsOpen ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
                 title="Beta Viewer — polls & messages"
@@ -2771,6 +2784,7 @@ const BetaPinLayer = () => {
           )}
           <div className="flex flex-col w-12 items-center gap-1">
             <button
+              data-beta-tour="toggle-pins"
               onClick={() => setShowPins((v) => !v)}
               className={`w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition ${showPins ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'}`}
               title={showPins ? 'Hide pins' : 'Show pins'}
@@ -2781,6 +2795,7 @@ const BetaPinLayer = () => {
           </div>
           <div className="flex flex-col w-12 items-center gap-1">
             <button
+              data-beta-tour="pin-add"
               onClick={() => setDropMode(true)}
               disabled={pinQuota && pinQuota.used >= pinQuota.limit}
               className="w-12 h-12 rounded-full shadow-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition relative disabled:opacity-50"
@@ -2805,6 +2820,7 @@ const BetaPinLayer = () => {
           <div className="flex flex-col w-12 items-center gap-1">
             <button
               type="button"
+              data-beta-tour="stack-hide"
               onClick={() => setStackHidden(true)}
               className="w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition bg-red-500/80 text-white hover:bg-red-500 touch-manipulation"
               title="Hide beta controls — slim tab stays on the edge"
@@ -2821,6 +2837,7 @@ const BetaPinLayer = () => {
       {canUse && stackHidden && !dropMode && !moving && (
         <button
           ref={restoreRef}
+          data-beta-tour="stack-restore"
           onClick={() => setStackHidden(false)}
           className={`fixed ${floatSide === 'left' ? 'left-0 lg:left-72 rounded-r-lg border-l-0' : 'right-0 rounded-l-lg border-r-0'} z-[46] bg-slate-900/90 border border-red-500/50 px-2 py-4 text-red-400 hover:text-red-300 shadow-xl transition-transform duration-300 touch-manipulation`}
           title="Show beta controls"
@@ -3848,7 +3865,7 @@ const BetaPinLayer = () => {
 
       {/* Beta tester guided tour — auto-fires once, replayable via the "?"
           button in the Beta Viewer header */}
-      <BetaOnboarding open={guideOpen} onClose={closeGuide} />
+      <BetaOnboarding open={guideOpen} onClose={closeGuide} onDrive={driveTour} />
     </>
     </Portal>
   );

@@ -1,171 +1,185 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight, MapPin, BarChart3, Brain, Gauge, Sparkles, EyeOff } from 'lucide-react';
-import { Portal } from '../../utils/autoPlacement';
+import { useState, useEffect } from 'react';
+import { Sparkles, MapPin, EyeOff, BarChart3, Vote, Send, Pin, MessagesSquare, Brain, Gauge, PanelRightClose, PartyPopper } from 'lucide-react';
+import SpotlightTour from '../SpotlightTour';
 
-// One-time guided tour for beta testers — explains the pin system, the Beta
-// Viewer tabs, the MDL trainer and the resource limits. Fires automatically
-// once per user (localStorage flag lives in BetaPinLayer) and is replayable
-// from the "?" button in the Beta Viewer header.
+// One-time guided tour for beta testers — spotlight walkthrough of the pin
+// system, the Beta Viewer tabs, the MDL trainer and the resource limits.
+// Fires automatically once per user (localStorage flag lives in
+// BetaPinLayer) and is replayable from the "?" button in the Beta Viewer.
+//
+// Each step's `drive` payload is interpreted by BetaPinLayer — the tour
+// opens the real viewer, flips real tabs, and even collapses/restores the
+// stack, so the ring always lands on the live control.
 const STEPS = [
   {
-    Icon: Sparkles,
+    icon: Sparkles,
     title: 'Welcome, Beta Tester!',
+    description: 'Your beta toolkit',
     tint: 'from-violet-500 to-fuchsia-600',
-    bullets: [
+    focusElement: '[data-beta-tour="stack"]',
+    drive: { pollsOpen: false },
+    instructions: [
       'You get early features — and tools to shape them',
-      'The red button stack (bottom corner) is your beta toolkit',
-      'The slim edge tab collapses/restores it anytime',
+      'This floating stack is your beta toolkit — it follows you on every page',
+      'The red handle at the bottom collapses it to a slim edge tab',
     ],
   },
   {
-    Icon: MapPin,
-    title: 'Drop Pins',
+    icon: BarChart3,
+    title: 'The Beta Viewer',
+    description: 'Your tester hub',
+    tint: 'from-blue-500 to-indigo-600',
+    focusElement: '[data-beta-tour="viewer"]',
+    drive: { pollsOpen: false },
+    instructions: [
+      'This button opens the Beta Viewer — polls, your submissions, pins and chat',
+      'A blue dot means an open poll is waiting for your vote',
+      'Next — the tour opens it for you',
+    ],
+  },
+  {
+    icon: Vote,
+    title: 'Polls',
+    description: 'Vote on what gets built',
+    tint: 'from-blue-500 to-indigo-600',
+    focusElement: '[data-beta-tour="tab-votes"]',
+    drive: { pollsOpen: true, tab: 'votes' },
+    instructions: [
+      'Admins push polls here — vote on features being considered',
+      'Voting earns BTCS contribution points automatically',
+    ],
+  },
+  {
+    icon: Send,
+    title: 'Submissions',
+    description: 'Track your feedback',
+    tint: 'from-cyan-500 to-sky-600',
+    focusElement: '[data-beta-tour="tab-messages"]',
+    drive: { pollsOpen: true, tab: 'messages' },
+    instructions: [
+      'Every message you send through the beta widget lands here',
+      'Watch its status — admins reply and mark items handled',
+    ],
+  },
+  {
+    icon: Pin,
+    title: 'My Pins',
+    description: 'Everything you dropped',
+    tint: 'from-rose-500 to-red-600',
+    focusElement: '[data-beta-tour="tab-pins"]',
+    drive: { pollsOpen: true, tab: 'pins' },
+    instructions: [
+      'Every pin you dropped, across all pages, lives here',
+      'Remove one and it moves to history — nothing is lost',
+    ],
+  },
+  {
+    icon: MessagesSquare,
+    title: 'Chat',
+    description: 'Talk to testers + admins',
+    tint: 'from-indigo-500 to-purple-600',
+    focusElement: '[data-beta-tour="tab-chat"]',
+    drive: { pollsOpen: true, tab: 'chat' },
+    instructions: [
+      'The beta chatroom — testers and admins share one channel',
+      'Quick questions, screenshots and callouts all welcome',
+    ],
+  },
+  {
+    icon: Brain,
+    title: 'Help MDL',
+    description: 'Train the app\'s vocabulary',
+    tint: 'from-emerald-500 to-teal-600',
+    focusElement: '[data-beta-tour="tab-train"]',
+    drive: { pollsOpen: true, tab: 'train' },
+    instructions: [
+      'Pick A or B on suggestions the app is learning — names, units, categories',
+      'Your votes feed the admin review queue — you are the filter for bad data',
+      'A/B votes count toward your BTCS score, same as polls',
+    ],
+  },
+  {
+    icon: Gauge,
+    title: 'Limits & Score',
+    description: 'What you can spend',
+    tint: 'from-amber-500 to-orange-600',
+    focusElement: '[data-beta-tour="tab-limits"]',
+    drive: { pollsOpen: true, tab: 'limits' },
+    instructions: [
+      'Everything you can spend lives here: pins per day, icon uploads, your score',
+      'Icons start at 5/day — share them globally to earn more headroom',
+      'Terms you create can be donated to the MDL — approvals raise your score',
+    ],
+  },
+  {
+    icon: MapPin,
+    title: 'Drop a Pin',
+    description: 'Report right on the page',
     tint: 'from-red-500 to-rose-600',
-    bullets: [
+    focusElement: '[data-beta-tour="pin-add"]',
+    drive: { pollsOpen: false },
+    instructions: [
       'The big red + enters pin-drop mode — then click anywhere on the page',
       'Pin a bug, note or idea — click a real element to anchor the pin to it',
       'The "Private" checkbox makes a pin visible to admins only',
-      'The number badge on the + button shows pins you have left today',
+      'The badge shows how many pins you have left today',
     ],
   },
   {
-    Icon: EyeOff,
+    icon: EyeOff,
     title: 'Show / Hide Pins',
+    description: 'Toggle every pin',
     tint: 'from-zinc-500 to-slate-600',
-    bullets: [
+    focusElement: '[data-beta-tour="toggle-pins"]',
+    instructions: [
       'The eye button toggles every pin on the page',
       'Hiding pins never deletes them — they just stop rendering',
     ],
   },
   {
-    Icon: BarChart3,
-    title: 'The Beta Viewer',
-    tint: 'from-blue-500 to-indigo-600',
-    bullets: [
-      'Polls — vote on features the admins are considering',
-      'Submissions — track feedback you sent through the beta widget',
-      'My Pins — every pin you dropped, across all pages',
-      'Chat — the beta chatroom for testers + admins',
+    icon: PanelRightClose,
+    title: 'Collapse the Stack',
+    description: 'Get it out of the way',
+    tint: 'from-red-500 to-rose-600',
+    focusElement: '[data-beta-tour="stack-restore"]',
+    drive: { stackHidden: true },
+    instructions: [
+      'The red handle folds the stack to this slim edge tab',
+      'Click the tab to bring the buttons back — it remembers your choice',
     ],
   },
   {
-    Icon: Brain,
-    title: 'Help MDL (Train tab)',
-    tint: 'from-emerald-500 to-teal-600',
-    bullets: [
-      'Pick A or B on suggestions the app is learning — names, units, categories',
-      'Your votes bubble up to the admin review queue — you are the filter for bad data',
-      'Terms the crowd likes get approved faster',
-    ],
-  },
-  {
-    Icon: Gauge,
-    title: 'Limits & Score',
-    tint: 'from-amber-500 to-orange-600',
-    bullets: [
-      'The Limits tab shows everything you can spend: pins per day, icon uploads, your contribution score',
-      'Icons start at 5/day — share them globally (admin-approved) to earn more headroom',
-      'Categories, units and icons you create can be donated to the MDL — approved terms raise your score',
+    icon: PartyPopper,
+    title: 'You\'re Set!',
+    description: 'Happy testing',
+    tint: 'from-violet-500 to-fuchsia-600',
+    focusElement: '[data-beta-tour="stack"]',
+    drive: { stackHidden: false, pollsOpen: false },
+    instructions: [
+      'Replay this tour anytime from the ? button in the Beta Viewer header',
+      'Drop pins, vote in polls, train the MDL — it all feeds your score',
     ],
   },
 ];
 
-const BetaOnboarding = ({ open, onClose }) => {
+const BetaOnboarding = ({ open, onClose, onDrive }) => {
   const [step, setStep] = useState(0);
-  const s = STEPS[step];
-  const last = step === STEPS.length - 1;
 
+  // Restart from step 0 every time the guide is opened (initial or replay).
+  useEffect(() => { if (open) setStep(0); }, [open]);
+
+  if (!open) return null;
   const close = () => { setStep(0); onClose(); };
 
   return (
-    <Portal>
-      <AnimatePresence>
-        {open && (
-          <div className="fixed inset-0 z-[85] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={close}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.92, y: 10 }}
-              transition={{ type: 'spring', damping: 24, stiffness: 300 }}
-              className="relative w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden"
-            >
-              <div className={`h-1.5 bg-gradient-to-r ${s.tint}`} />
-              <div className="p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${s.tint} flex items-center justify-center shadow-lg shrink-0`}>
-                      <s.Icon className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-white font-bold">{s.title}</h3>
-                      <p className="text-[11px] text-slate-400">Step {step + 1} of {STEPS.length}</p>
-                    </div>
-                  </div>
-                  <button type="button" onClick={close} className="text-slate-500 hover:text-slate-300 shrink-0" title="Close guide">
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <AnimatePresence mode="wait">
-                  <motion.ul
-                    key={step}
-                    initial={{ opacity: 0, x: 24 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -24 }}
-                    transition={{ duration: 0.18 }}
-                    className="mt-4 space-y-2 min-h-[120px]"
-                  >
-                    {s.bullets.map((b) => (
-                      <li key={b} className="flex items-start gap-2 text-sm text-slate-300">
-                        <span className={`mt-1.5 w-1.5 h-1.5 rounded-full bg-gradient-to-r ${s.tint} shrink-0`} />
-                        {b}
-                      </li>
-                    ))}
-                  </motion.ul>
-                </AnimatePresence>
-
-                <div className="flex items-center justify-between mt-4">
-                  <div className="flex gap-1.5">
-                    {STEPS.map((st, i) => (
-                      <button
-                        key={st.title}
-                        type="button"
-                        onClick={() => setStep(i)}
-                        className={`h-1.5 rounded-full transition-all ${i === step ? 'w-6 bg-white' : i < step ? 'w-1.5 bg-white/50' : 'w-1.5 bg-white/20'}`}
-                      />
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    {step > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setStep((v) => v - 1)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/10 text-slate-200 hover:bg-white/20 transition-all"
-                      >
-                        <ChevronLeft className="w-3.5 h-3.5" /> Back
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={last ? close : () => setStep((v) => v + 1)}
-                      className="inline-flex items-center gap-1 px-4 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:scale-105 active:scale-95 transition-all"
-                    >
-                      {last ? 'Got it!' : <>Next <ChevronRight className="w-3.5 h-3.5" /></>}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </Portal>
+    <SpotlightTour
+      steps={STEPS}
+      step={step}
+      onStepChange={setStep}
+      onFinish={close}
+      onSkip={close}
+      onDrive={onDrive}
+    />
   );
 };
 
